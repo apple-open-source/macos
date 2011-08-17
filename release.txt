@@ -1,4 +1,4 @@
-# Mac OS X 10.7
+# Mac OS X 10.7.1
 AppleFileSystemDriver	14
 AppleRAID	4.0.6
 AppleUSBCDCDriver	4115.4.1
@@ -144,7 +144,6 @@ graphviz	1009
 grep	28
 groff	35
 gssd	53
-headerdoc	8.8.38
 hfs	191
 hunspell	7
 iodbc	42
@@ -208,7 +207,7 @@ llvmCore	2358.3
 lsof	48
 lukemftp	13
 lukemftpd	47
-mDNSResponder	320.5
+mDNSResponder	320.5.1
 mail_cmds	25
 mailman	138
 man	14
@@ -280,7 +279,7 @@ vim	47
 webdavfs	321
 xar	45
 xelf	1
-xnu	1699.22.73
+xnu	1699.22.81
 zip	11.1
 zlib	37.2
 zsh	55
