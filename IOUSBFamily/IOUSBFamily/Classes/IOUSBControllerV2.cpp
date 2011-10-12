@@ -1260,7 +1260,11 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 				USBTrace( kUSBTController, kTPControllerReturnIsochDoneQueue, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber,  4);
 			}
 			else if (!_activeIsochTransfers && (_expansionData->_isochMaxBusStall != 0))
+            {
 				requireMaxBusStall(0);										// remove maximum stall restraint on the PCI bus
+                if (metaCast("AppleUSBUHCI"))
+                    requireMaxInterruptDelay(0);
+            }
 			
 			// if the accumulated status is aborted, then we need to keep that status until we are done
 			// otherwise the status will be in the endpoint when we get to the callback case and will

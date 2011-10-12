@@ -1177,7 +1177,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                 }
             } else if (o->isText() || (o->isRenderInline() && !endOfInline)) {
                 if (!o->isText())
-                    toRenderInline(o)->updateAlwaysCreateLineBoxes();
+                    toRenderInline(o)->updateAlwaysCreateLineBoxes(layoutState.isFullLayout());
                 if (layoutState.isFullLayout() || o->selfNeedsLayout())
                     dirtyLineBoxesForRenderer(o, layoutState.isFullLayout());
                 o->setNeedsLayout(false);
@@ -1787,7 +1787,7 @@ void TrailingObjects::updateMidpointsForTrailingBoxes(LineMidpointState& lineMid
     if (lineMidpointState.numMidpoints % 2) {
         // Find the trailing space object's midpoint.
         int trailingSpaceMidpoint = lineMidpointState.numMidpoints - 1;
-        for ( ; trailingSpaceMidpoint >= 0 && lineMidpointState.midpoints[trailingSpaceMidpoint].m_obj != m_whitespace; --trailingSpaceMidpoint) { }
+        for ( ; trailingSpaceMidpoint > 0 && lineMidpointState.midpoints[trailingSpaceMidpoint].m_obj != m_whitespace; --trailingSpaceMidpoint) { }
         ASSERT(trailingSpaceMidpoint >= 0);
         if (collapseFirstSpace == CollapseFirstSpace)
             lineMidpointState.midpoints[trailingSpaceMidpoint].m_pos--;
@@ -2080,9 +2080,11 @@ InlineIterator RenderBlock::LineBreaker::nextLineBreak(InlineBidiResolver& resol
 
                 currentCharacterIsWS = currentCharacterIsSpace || (breakNBSP && c == noBreakSpace);
 
+                bool midWordBreakIsBeforeSurrogatePair = false;
                 if ((breakAll || breakWords) && !midWordBreak) {
                     wrapW += charWidth;
-                    charWidth = textWidth(t, current.m_pos, 1, f, width.committedWidth() + wrapW, isFixedPitch, collapseWhiteSpace);
+                    midWordBreakIsBeforeSurrogatePair = U16_IS_LEAD(c) && current.m_pos + 1 < t->textLength() && U16_IS_TRAIL(t->characters()[current.m_pos + 1]);
+                    charWidth = textWidth(t, current.m_pos, midWordBreakIsBeforeSurrogatePair ? 2 : 1, f, width.committedWidth() + wrapW, isFixedPitch, collapseWhiteSpace);
                     midWordBreak = width.committedWidth() + wrapW + charWidth > width.availableWidth();
                 }
 
@@ -2199,6 +2201,8 @@ InlineIterator RenderBlock::LineBreaker::nextLineBreak(InlineBidiResolver& resol
                         // adding the end width forces a break.
                         lBreak.moveTo(current.m_obj, current.m_pos, current.m_nextBreakablePosition);
                         midWordBreak &= (breakWords || breakAll);
+                        if (midWordBreakIsBeforeSurrogatePair)
+                            current.fastIncrementInTextNode();
                     }
 
                     if (betweenWords) {

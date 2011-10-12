@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/sx/ssl.c	2011-02-23 08:24:34.000000000 -0800
-+++ ./jabberd2/sx/ssl.c	2011-02-24 17:30:46.000000000 -0800
+--- /tmp/jabberd-2.2.14/sx/ssl.c	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/sx/ssl.c	2011-06-22 20:13:00.000000000 -0700
 @@ -176,6 +176,8 @@ static int _sx_ssl_process(sx_t s, sx_pl
              if(s->plugin_data[p->index] != NULL) {
                  if( ((_sx_ssl_conn_t)s->plugin_data[p->index])->pemfile != NULL )

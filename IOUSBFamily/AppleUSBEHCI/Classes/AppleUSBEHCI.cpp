@@ -113,7 +113,14 @@ ErrorExit:
 void 		
 AppleUSBEHCI::stop( IOService * provider )
 {
-	USBLog(5, "AppleUSBEHCI[%p]::stop - isInactive(%s) - USBCMD(%p) USBSTS(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
+	if (_controllerAvailable)
+	{
+		USBLog(5, "AppleUSBEHCI[%p]::stop - isInactive(%s) - USBCMD(%p) USBSTS(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
+	}
+	else
+	{
+		USBLog(5, "AppleUSBEHCI[%p]::stop - isInactive(%s) - Unavailable Registers", this, isInactive() ? "true" : "false");
+	}
 	super::stop(provider);
 }
 
@@ -121,7 +128,26 @@ AppleUSBEHCI::stop( IOService * provider )
 bool		
 AppleUSBEHCI::willTerminate(IOService * provider, IOOptionBits options)
 {
-	USBLog(5, "AppleUSBEHCI[%p]::willTerminate - isInactive(%s) - USBCMD(%p) USBSTS(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
+	UInt32	sts;
+	
+	if (_controllerAvailable)
+	{
+		sts = USBToHostLong(_pEHCIRegisters->USBSTS);
+		if (sts == kEHCIInvalidRegisterValue)
+		{
+			USBLog(2, "AppleUSBEHCI[%p]::willTerminate - controller no longer available", this);
+			_controllerAvailable = false;
+		}
+	}
+	if (_controllerAvailable)
+	{
+		USBLog(5, "AppleUSBEHCI[%p]::willTerminate - isInactive(%s) - USBCMD(%p) USBSTS(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
+	}
+	else
+	{
+		USBLog(5, "AppleUSBEHCI[%p]::willTerminate - isInactive(%s) - Unavailable Registers", this, isInactive() ? "true" : "false");
+	}
+
 	return super::willTerminate(provider, options);
 }
 
@@ -130,9 +156,26 @@ AppleUSBEHCI::willTerminate(IOService * provider, IOOptionBits options)
 bool		
 AppleUSBEHCI::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
 {
-	USBLog(5, "AppleUSBEHCI[%p]::didTerminate - isInactive(%s) - USBCMD(%p) USBSTS(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
+	if (_controllerAvailable)
+	{
+		USBLog(5, "AppleUSBEHCI[%p]::didTerminate - isInactive(%s) - USBCMD(%p) USBSTS(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
+	}
+	else
+	{
+		USBLog(5, "AppleUSBEHCI[%p]::didTerminate - isInactive(%s) - Unavailable Registers", this, isInactive() ? "true" : "false");
+	}
 	return super::didTerminate(provider, options, defer);
 }
+
+
+
+bool
+AppleUSBEHCI::finalize(IOOptionBits options)
+{
+    USBLog(3, "AppleUSBEHCI[%p]::finalize - controlBulkTransactionsOut(%d) activeIsochTransfers(%d) activeInterruptTransfers(%d)", this, (int)_controlBulkTransactionsOut, (int)_activeIsochTransfers, (int)_activeInterruptTransfers);
+    return super::finalize(options);
+}
+
 
 
 void
@@ -161,6 +204,7 @@ void AppleUSBEHCI::showRegisters(UInt32 level, const char *s)
 	if (_pEHCIRegisters->USBCMD == kEHCIInvalidRegisterValue)
 	{
 		USBLog(level,"AppleUSBEHCI[%p]::showRegisters - called from %s - registers are not available", this, s);
+		_controllerAvailable = false;
 		return;
 	}
 	
@@ -244,6 +288,10 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 			   (uint32_t)_deviceBase->getVirtualAddress(),
 			   (uint32_t)_deviceBase->getPhysicalAddress());
 		
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+		// log the BAR in the debug case, so we can use Reggie when the system is in 64 bit mode
+		setProperty("BAR", _deviceBase->getPhysicalAddress(), 32);
+#endif
         SetVendorInfo();
 		
         // Set up a filter interrupt source (this process both primary (thru filter function) and secondary (thru action function)
@@ -274,6 +322,26 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
          */
         _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
 		setProperty("Errata", _errataBits, 32);
+		
+		// I could do this with an errata bit, but since it is something which will only get done at UIMInitialize time, and
+		// since this is the only host controller I know of with this problem, I will not waste an errata bit for this at this
+		// time. I will save those for things which span multiple controllers. I will also hard code the config space address
+		if ((_vendorID == 0x12d8) && (_deviceID == 0x400f))
+		{
+			// This is a Pericom PI7C9X440SL - it may be in D3 for a number of reasons
+			// config space address 0x84 is the Power Management Data Register
+			UInt16		pwrMgmtDataReg = _device->configRead16(0x84);
+
+			if (pwrMgmtDataReg & 0x3)
+			{
+				USBError(1,"The USB EHCI driver found a controller at the wrong PCI Power State (0x%x) - fixing that issue.", (int)pwrMgmtDataReg);
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+				// make a note of what the value used to be - in case this is happening at non-logging time
+				setProperty("Initial PMDR", pwrMgmtDataReg, 16);
+#endif
+			}
+			_device->configWrite16(0x84, 0);
+		}
     
         USBLog(7, "AppleUSBEHCI[%p]::UIMInitialize - errata bits=%p",  this,  (void*)_errataBits);
 		
@@ -359,17 +427,14 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 		USBCmd &= ~kEHCICMDIntThresholdMask;
 		USBCmd |= 1 << kEHCICMDIntThresholdOffset;						// Interrupt every micro frame as needed (4745296)
 
-		if (_errataBits & kErrataDisableAsynchronousParkMode)
-		{
 			// get rid of the count as well as the enable bit
-			USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
+			//USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
 			
 			// this would allow a different count if we stayed enabled
 			// USBCmd |= (2 << kEHCICMDAsyncParkModeCountMaskPhase);
 			
 			// this line will eliminate park mode completely
-			USBCmd &= ~kEHCICMDAsyncParkModeEnable;
-		}
+			//USBCmd &= ~kEHCICMDAsyncParkModeEnable;
 		
 		_myBusState = kUSBBusStateRunning;
 		_pEHCIRegisters->USBCMD = USBToHostLong(USBCmd);
@@ -1450,6 +1515,12 @@ AppleUSBEHCI::DisableAsyncSchedule(bool waitForOFF)
 {
     int		i;
     IOReturn	stat = kIOReturnSuccess;
+	
+	if (isInactive() || !_controllerAvailable)
+	{
+		USBLog(2, "AppleUSBEHCI[%p]::DisableAsyncSchedule: I am inActive - nothing to do",  this);
+		return kIOReturnSuccess;
+	}
 	
     if (_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDAsyncEnable))
     {

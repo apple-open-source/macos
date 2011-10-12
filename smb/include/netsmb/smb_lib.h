@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -106,6 +106,7 @@ struct smb_ctx {
 	uint64_t		ct_vc_wxmax;				
 	int				forceNewSession;
 	int				inCallback;
+	int				serverIsDomainController;
 	CFDictionaryRef mechDict;
 	struct smb_prefs prefs;
 };

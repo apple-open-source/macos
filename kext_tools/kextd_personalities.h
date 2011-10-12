@@ -38,4 +38,4 @@
  */
 OSReturn sendSystemKextPersonalitiesToKernel(CFArrayRef kexts, Boolean resetFlag);
 
-#endif
+#endif /* __KEXTD_PERSONALITIES__ */

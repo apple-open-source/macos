@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/s2s/in.c	2011-02-23 08:24:34.000000000 -0800
-+++ ./jabberd2/s2s/in.c	2011-02-24 16:40:33.000000000 -0800
+--- /tmp/jabberd-2.2.14/s2s/in.c	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/s2s/in.c	2011-06-22 20:13:00.000000000 -0700
 @@ -163,6 +163,8 @@ static int _in_sx_callback(sx_t s, sx_ev
      sx_error_t *sxe;
      nad_t nad;

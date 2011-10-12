@@ -353,7 +353,7 @@ ExitStatus checkAccess(void)
         goto finish;
     }
     
-#endif
+#endif /* !TARGET_OS_EMBEDDED */
 
 finish:
     
@@ -361,7 +361,7 @@ finish:
     if (kextd_port != MACH_PORT_NULL) {
         mach_port_deallocate(mach_task_self(), kextd_port);
     }
-#endif
+#endif /* !TARGET_OS_EMBEDDED */
 
     return result;
 }

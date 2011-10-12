@@ -8,11 +8,10 @@
 	<string>org.dovecot.dovecotd</string>
 	<key>OnDemand</key>
 	<false/>
-	<key>Program</key>
-	<string>/usr/sbin/dovecotd</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>dovecotd</string>
+		<string>/usr/libexec/dovecot/mail_preflight</string>
+		<string>/usr/sbin/dovecotd</string>
 		<string>-F</string>
 	</array>
 	<key>ServiceIPC</key>

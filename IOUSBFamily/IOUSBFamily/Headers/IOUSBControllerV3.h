@@ -110,6 +110,8 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 			IOPMDriverAssertionID	_externalUSBDeviceAssertionID;		// power manager assertion that we have an external USB device
 			SInt32					_externalDeviceCount;				// the count of external devices in this controller - changed through the WL gate
 			UInt32					_inCheckPowerModeSleeping;			// The CheckPowerModeGated
+			bool					_onThunderbolt;						// T if this controller is on a Thunderbolt bus
+			uint32_t				_thunderboltModelID;				// the model ID of the thunderbolt device in which this controller resides
 		};
 		V3ExpansionData *_v3ExpansionData;
 

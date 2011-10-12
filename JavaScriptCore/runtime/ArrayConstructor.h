@@ -29,7 +29,12 @@ namespace JSC {
 
     class ArrayConstructor : public InternalFunction {
     public:
-        ArrayConstructor(ExecState*, JSGlobalObject*, Structure*, ArrayPrototype*);
+        typedef InternalFunction Base;
+
+        static ArrayConstructor* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, ArrayPrototype* arrPrototype)
+        {
+            return new (allocateCell<ArrayConstructor>(*exec->heap())) ArrayConstructor(exec, globalObject, structure, arrPrototype);
+        }
 
         static const ClassInfo s_info;
 
@@ -42,6 +47,7 @@ namespace JSC {
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | InternalFunction::StructureFlags;
 
     private:
+        ArrayConstructor(ExecState*, JSGlobalObject*, Structure*, ArrayPrototype*);
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 

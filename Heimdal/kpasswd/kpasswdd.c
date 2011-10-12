@@ -366,7 +366,7 @@ change(krb5_auth_context auth_context,
     tmp = pwd_data->data;
     tmp[pwd_data->length - 1] = '\0';
 
-    ret = kadm5_s_chpass_principal_cond (kadm5_handle, principal, tmp);
+    ret = kadm5_s_chpass_principal_cond (kadm5_handle, principal, tmp, NULL);
     krb5_free_data (context, pwd_data);
     pwd_data = NULL;
     if (ret) {
@@ -526,9 +526,10 @@ out:
 
 static krb5_error_code
 process(int s,
-	krb5_address *this_addr,
-	struct sockaddr *sa,
-	int sa_size,
+	struct sockaddr *server,
+	int server_size,
+	struct sockaddr *client,
+	int client_size,
 	u_char *msg,
 	int len,
 	heim_idata *out_data)
@@ -539,8 +540,29 @@ process(int s,
     uint16_t version;
     krb5_realm *realms;
     krb5_data clear_data;
+    krb5_address client_addr, server_addr;
 
     krb5_data_zero(&clear_data);
+    memset(&client_addr, 0, sizeof(client_addr));
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    ret = krb5_sockaddr2address(context, client, &client_addr);
+    if (ret) {
+	krb5_warn(context, ret, "krb5_sockaddr2address");
+	goto out;
+    }
+    ret = krb5_sockaddr2address(context, server, &server_addr);
+    if (ret) {
+	krb5_warn(context, ret, "krb5_sockaddr2address");
+	goto out;
+    }
+
+    {
+	char cstr[200];
+	size_t ss;
+	krb5_print_address(&client_addr, cstr, sizeof(cstr), &ss);
+	krb5_warnx(context, "request from client: %s", cstr);
+    }
 
     ret = krb5_get_default_realms(context, &realms);
     if (ret) {
@@ -558,21 +580,12 @@ process(int s,
 			   KRB5_AUTH_CONTEXT_DO_SEQUENCE);
 
     if (verify(&auth_context, realms, global_keytab, &ticket,
-	       &version, s, sa, sa_size, msg, len, &clear_data) == 0)
+	       &version, s, client, client_size, msg, len, &clear_data) == 0)
     {
-	krb5_address other_addr;
-
-	ret = krb5_sockaddr2address (context, sa, &other_addr);
-	if (ret) {
-	    krb5_warn(context, ret, "krb5_sockaddr2address");
-	    goto out;
-	}
-
 	ret = krb5_auth_con_setaddrs(context,
 				     auth_context,
-				     this_addr,
-				     &other_addr);
-	krb5_free_address(context, &other_addr);
+				     &server_addr,
+				     &client_addr);
 	if (ret) {
 	    krb5_warn(context, ret, "krb5_sockaddr2address");
 	    goto out;
@@ -585,6 +598,8 @@ process(int s,
     }
 
 out:
+    krb5_free_address(context, &client_addr);
+    krb5_free_address(context, &server_addr);
     if (clear_data.data)
 	memset(clear_data.data, 0, clear_data.length);
     krb5_data_free(&clear_data);
@@ -596,13 +611,21 @@ out:
 
 struct data {
     rk_socket_t s;
-    krb5_address addr;
     struct sockaddr *sa;
     struct sockaddr_storage __ss;
     krb5_socklen_t sa_size;
     heim_sipc service;
+    struct data *next;
 };
 
+/*
+ * Linked list to not leak memory
+ */
+static struct data *head_data = NULL;
+
+/*
+ *
+ */
 
 static void
 passwd_service(void *ctx, const heim_idata *req,
@@ -613,18 +636,20 @@ passwd_service(void *ctx, const heim_idata *req,
     struct data *data = ctx;
     heim_idata out_data;
     krb5_error_code ret;
-    struct sockaddr *sa;
-    krb5_socklen_t sa_size;
+    struct sockaddr *client, *server;
+    krb5_socklen_t client_size, server_size;
     
-    sa = heim_ipc_cred_get_address(cred, &sa_size);
-    if (sa == NULL)
-	abort();
+    client = heim_ipc_cred_get_client_address(cred, &client_size);
+    heim_assert(client != NULL, "no address from client");
     
+    server = heim_ipc_cred_get_server_address(cred, &server_size);
+    heim_assert(server != NULL, "no address from server");
+
     krb5_data_zero(&out_data);
 
     ret = process(data->s,
-		  &data->addr,
-		  sa, sa_size,
+		  server, server_size,
+		  client, client_size,
 		  req->data, req->length, &out_data);
 
     complete(cctx, ret, &out_data);
@@ -649,17 +674,10 @@ listen_on(krb5_context context, krb5_address *addr, int type, int port)
     data->sa_size = sizeof(data->__ss);
 
     krb5_addr2sockaddr(context, addr, data->sa, &data->sa_size, port);
-	
-    ret = krb5_copy_address(context, addr, &data->addr);
-    if (ret) {
-	free(data);
-	return;
-    }
 
     data->s = socket(data->sa->sa_family, type, 0);
     if (data->s < 0) {
 	krb5_warn(context, errno, "socket");
-	krb5_free_address(context, &data->addr);
 	free(data);
 	return;
     }
@@ -676,7 +694,6 @@ listen_on(krb5_context context, krb5_address *addr, int type, int port)
 	    strlcpy(str, "unknown address", sizeof(str));
 	krb5_warn (context, save_errno, "bind(%s/%d)", str, ntohs(port));
 	rk_closesocket(data->s);
-	krb5_free_address(context, &data->addr);
 	free(data);
 	return;
     }
@@ -688,7 +705,6 @@ listen_on(krb5_context context, krb5_address *addr, int type, int port)
 	    
 	    krb5_print_address(addr, a_str, sizeof(a_str), &len);
 	    krb5_warn(context, errno, "listen %s/%d", a_str, ntohs(port));
-	    krb5_free_address(context, &data->addr);
 	    rk_closesocket(data->s);
 	    free(data);
 	    return;
@@ -705,6 +721,9 @@ listen_on(krb5_context context, krb5_address *addr, int type, int port)
 	if (ret)
 	    errx(1, "heim_sipc_service_dgram: %d", ret);
     }
+
+    data->next = head_data;
+    head_data = data;
 }
 
 static int

@@ -100,43 +100,7 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-12-19</string>
-		<key>OpenSourceLicense</key>
-		<string>2011-02-04</string>
-		<key>OpenSourceLicenseFile</key>
-		<string>libpng.txt</string>
-		<key>OpenSourceProject</key>
-		<string>libpng</string>
-		<key>OpenSourceSHA1</key>
-		<string>750361f1cd693da53ef66624d5a8a6a431c40cd5</string>
-		<key>OpenSourceURL</key>
-		<string>http://downloads.sourceforge.net/libpng/libpng-1.5.1.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>1.5.1</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.libpng.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2010-12-19</string>
-		<key>OpenSourceLicense</key>
-		<string>2010-06-07</string>
-		<key>OpenSourceLicenseFile</key>
-		<string>libpng.txt</string>
-		<key>OpenSourceProject</key>
-		<string>libpng</string>
-		<key>OpenSourceSHA1</key>
-		<string>58005bee4a3452f2a3406b07910912f1266cde59</string>
-		<key>OpenSourceURL</key>
-		<string>http://downloads.sourceforge.net/libpng/libpng-1.4.5.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>1.4.5</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.libpng.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2010-06-27</string>
+		<string>2011-07-10</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD with credit clause</string>
 		<key>OpenSourceLicenseFile</key>
@@ -144,11 +108,47 @@
 		<key>OpenSourceProject</key>
 		<string>libpng</string>
 		<key>OpenSourceSHA1</key>
-		<string>07bd9d67c6e6076416a951451e1b05c2660e9d0d</string>
+		<string>d05d06e2da369faa470d14c7541e11d4e28a87a5</string>
 		<key>OpenSourceURL</key>
-		<string>http://downloads.sourceforge.net/libpng/libpng-1.2.44.tar.bz2</string>
+		<string>http://downloads.sourceforge.net/libpng/libpng-1.5.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.2.44</string>
+		<string>1.5.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.libpng.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2011-07-10</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD with credit clause</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>libpng.txt</string>
+		<key>OpenSourceProject</key>
+		<string>libpng</string>
+		<key>OpenSourceSHA1</key>
+		<string>b4159fcdd3291a89b2b80cb332280136ed6f0bd7</string>
+		<key>OpenSourceURL</key>
+		<string>http://downloads.sourceforge.net/libpng/libpng-1.4.8.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.4.8</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.libpng.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2011-07-10</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD with credit clause</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>libpng.txt</string>
+		<key>OpenSourceProject</key>
+		<string>libpng</string>
+		<key>OpenSourceSHA1</key>
+		<string>236013d220c9eda3d8838f5b20b9ab0bb85ae603</string>
+		<key>OpenSourceURL</key>
+		<string>http://downloads.sourceforge.net/libpng/libpng-1.2.46.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.2.46</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.libpng.org</string>
 	</dict>

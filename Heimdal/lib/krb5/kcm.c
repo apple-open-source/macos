@@ -1184,10 +1184,10 @@ kcm_get_uuid(krb5_context context, krb5_ccache id, krb5_uuid uuid)
     if (ret)
 	return ret;
     
-    sret = krb5_storage_read(response, uuid, sizeof(uuid));
+    sret = krb5_storage_read(response, uuid, sizeof(krb5_uuid));
     krb5_storage_free(request);
     krb5_storage_free(response);
-    if (sret != sizeof(uuid))
+    if (sret != sizeof(krb5_uuid))
 	return KRB5_CC_IO;
     
     return 0;
@@ -1206,8 +1206,8 @@ resolve_by_uuid_oid(krb5_context context, const krb5_cc_ops *ops, krb5_ccache id
     if (ret)
 	return ret;
     
-    sret = krb5_storage_write(request, uuid, sizeof(uuid));
-    if (sret != sizeof(uuid)) {
+    sret = krb5_storage_write(request, uuid, sizeof(krb5_uuid));
+    if (sret != sizeof(krb5_uuid)) {
 	krb5_storage_free(request);
 	krb5_clear_error_message(context);
 	return ENOMEM;

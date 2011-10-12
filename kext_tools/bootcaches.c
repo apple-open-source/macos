@@ -292,7 +292,6 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
             caches->nrps += (acount - 1);
         } 
 
-
         // EncryptedRoot has 5 subkeys 
         erDict=(CFDictionaryRef)CFDictionaryGetValue(dict,kBCEncryptedRootKey);
         if (erDict) {
@@ -440,7 +439,6 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
 
             // kernelcaches have a kernel path key, which we set up by hand
             if (isKernelcache) {
-
                 str = (CFStringRef)CFDictionaryGetValue(mkDict, kBCKernelPathKey);
                 if (!str || CFGetTypeID(str) != CFStringGetTypeID()) goto finish;
 
@@ -448,7 +446,6 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
                     sizeof(caches->kernel))) {
                     goto finish;
                 }
-
             }
  
             // Archs are fetched from the cacheinfo dictionary when needed
@@ -507,34 +504,32 @@ createCacheDirs(struct bootCaches *caches)
     }
 
     // create CoreStorage cache directories if appropriate
-    if (caches->csfde_uuid) {
-        if (caches->erpropcache) {
-            errmsg = "error creating encrypted root property cache dir";
-            pathcpy(cachedir, caches->root);
-            pathcat(cachedir, dirname(caches->erpropcache->rpath));
-            if ((errnum = stat(cachedir, &sb))) {
-                if (errno == ENOENT) {
-                    // s..mkdir ensures cachedir is on the same volume
-                    errnum=sdeepmkdir(caches->cachefd,cachedir,kCacheDirMode);
-                    if (errnum)         goto finish;
-                } else {
-                    goto finish;
-                }
+    if (caches->erpropcache) {
+        errmsg = "error creating encrypted root property cache dir";
+        pathcpy(cachedir, caches->root);
+        pathcat(cachedir, dirname(caches->erpropcache->rpath));
+        if ((errnum = stat(cachedir, &sb))) {
+            if (errno == ENOENT) {
+                // s..mkdir ensures cachedir is on the same volume
+                errnum=sdeepmkdir(caches->cachefd,cachedir,kCacheDirMode);
+                if (errnum)         goto finish;
+            } else {
+                goto finish;
             }
         }
+    }
 
-        if (caches->efiloccache) {
-            errmsg = "error creating localized resources cache dir";
-            pathcpy(cachedir, caches->root);
-            pathcat(cachedir, caches->efiloccache->rpath);
-            if ((errnum = stat(cachedir, &sb))) {
-                if (errno == ENOENT) {
-                    // s..mkdir ensures cachedir is on the same volume
-                    errnum=sdeepmkdir(caches->cachefd,cachedir,kCacheDirMode);
-                    if (errnum)         goto finish;
-                } else {
-                    goto finish;
-                }
+    if (caches->efiloccache) {
+        errmsg = "error creating localized resources cache dir";
+        pathcpy(cachedir, caches->root);
+        pathcat(cachedir, caches->efiloccache->rpath);
+        if ((errnum = stat(cachedir, &sb))) {
+            if (errno == ENOENT) {
+                // s..mkdir ensures cachedir is on the same volume
+                errnum=sdeepmkdir(caches->cachefd,cachedir,kCacheDirMode);
+                if (errnum)         goto finish;
+            } else {
+                goto finish;
             }
         }
     }
@@ -638,11 +633,18 @@ readCaches_internal(CFURLRef volURL, DADiskRef dadisk)
     // check the owner and mode (fstat() to insure it's the same file)
     // w/Leopard, root can see all the way to the disk; 99 -> truly unknown
     // note: 'sudo cp mach_kernel /Volumes/disrespected/' should -> error
+    if (fstatfs(caches->cachefd, &rootsfs)) {
+        goto finish;
+    }
     if (fstat(caches->cachefd, &sb)) {
         goto finish;
     }
     // stash the timestamps for later reference (detect bc.plist changes)
     caches->bcTime = sb.st_mtimespec;      // stash so we can detect changes
+    if (rootsfs.f_flags & MNT_QUARANTINE) {
+        errmsg = kBootCachesPath " quarantined";
+        goto finish;
+    }
     if (sb.st_uid != 0) {
         errmsg = kBootCachesPath " not owned by root; no rebuilds";
         goto finish;
@@ -677,8 +679,6 @@ readCaches_internal(CFURLRef volURL, DADiskRef dadisk)
 
     // root proactively creates caches directories if missing
     // don't bother if owners are ignored (6206867)
-    if (statfs(caches->root, &rootsfs) != 0)
-        goto finish;
     if (geteuid() == 0 && (rootsfs.f_flags & MNT_IGNORE_OWNERSHIP) == 0 &&
             (rootsfs.f_flags & MNT_RDONLY) == 0) {
         errmsg = NULL;      // logs its own errors
@@ -1063,8 +1063,7 @@ int rebuild_kext_boot_cache_file(
     int             mkextVersion            = 0;
 
     // bootcaches.plist might not request mkext/kernelcache rebuilds
-    if (!caches->kext_boot_cache_file
-    ) {
+    if (!caches->kext_boot_cache_file) {
        goto finish;
     }
 
@@ -1095,7 +1094,6 @@ int rebuild_kext_boot_cache_file(
     } while (0);
 
     if (!mkDict || CFGetTypeID(mkDict) != CFDictionaryGetTypeID())  goto finish;
-
         archArray = CFDictionaryGetValue(mkDict, kBCArchsKey);
     if (archArray) {
         narchs = CFArrayGetCount(archArray);
@@ -1572,8 +1570,6 @@ rebuild_csfde_cache(struct bootCaches *caches)
     if (szerofile(caches->cachefd, erpath))
         OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
                   "WARNING: could not zero %s", erpath);
-    // XXX need to replace this with a function that can only write to
-    // the volume which vended bootcaches.plist (9486291/9486292).
     if (!CSFDEInitPropertyCache(ectx, caches->root, wipeKeyUUID))
         goto finish;
 
@@ -1636,18 +1632,20 @@ get_locres_info(struct bootCaches *caches, char locRsrcDir[PATH_MAX],
     }
     newestTime = sb.st_mtime;
     
-    // build prefs file path
+    // prefs file path & timestamp (if it exists)
     pathcpy(prefPath, caches->root);
     pathcat(prefPath, caches->locPref);
-    // get prefs file timestamp
-    if (stat(prefPath, prefsb)) {
-       OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
-                 "%s: %s", prefPath, strerror(errno));
-       rval = errno;
-       goto finish;
-    }
-    if (prefsb->st_mtime > newestTime) {
-        newestTime = prefsb->st_mtime;
+    if (stat(prefPath, prefsb) == 0) {
+        if (prefsb->st_mtime > newestTime) {
+            newestTime = prefsb->st_mtime;
+        }
+    } else {
+        if (errno != ENOENT) {
+            OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
+                      "%s: %s", prefPath, strerror(errno));
+            rval = errno;
+            goto finish;
+        }
     }
     
     // the cache directory must be one second newer than the 
@@ -1768,7 +1766,8 @@ finish:
 
 // ahh, ye olde SysLang.h :)
 // #define GLOBALPREFSFILE "/Library/Preferences/.GlobalPreferences.plist"
-#define APPLELANGSKEY CFSTR("AppleLanguages")     // key in .GlobalPreferences
+#define LANGSKEY    CFSTR("AppleLanguages")   // key in .GlobalPreferences
+#define ENGLISHKEY  CFSTR("en")
 static int
 _writeEFILoginResources(struct bootCaches *caches,
                         char prefPath[PATH_MAX], struct stat *prefsb,
@@ -1777,7 +1776,7 @@ _writeEFILoginResources(struct bootCaches *caches,
     int result;         // all paths set an explicit result
     int gpfd = -1;
     CFDictionaryRef gprefs = NULL;
-    CFArrayRef locsList;            // ptr ->dict, no release
+    CFMutableArrayRef locsList = NULL;      // retained & released
     CFStringRef volStr = NULL;
     CFArrayRef blobList = NULL;
 
@@ -1790,15 +1789,19 @@ _writeEFILoginResources(struct bootCaches *caches,
         goto finish;
     }
 
-    // get AppleLanguages out of .GlobalPreferences
-    if (-1 == (gpfd = sopen(caches->cachefd, prefPath, O_RDONLY, 0))) {
-        result = errno;
-        goto finish;
-    }
-    if (!(gprefs = copy_dict_from_fd(gpfd, prefsb)) ||
-            !(locsList = CFDictionaryGetValue(gprefs, APPLELANGSKEY))) {
-        result = EFTYPE;
-        goto finish;
+    // attempt to get AppleLanguages out of .GlobalPreferences
+    if ((gpfd = sopen(caches->cachefd, prefPath, O_RDONLY, 0)) >= 0 &&
+        (gprefs = copy_dict_from_fd(gpfd, prefsb)) &&
+        (locsList=(CFMutableArrayRef)CFDictionaryGetValue(gprefs,LANGSKEY)) &&
+        CFGetTypeID(locsList) == CFArrayGetTypeID()) {
+            CFRetain(locsList);
+    } else {
+        // create a new array containing the default "en" (locsList !retained)
+        CFRange range = { 0, 1 };
+        locsList = CFArrayCreateMutable(nil, 1, &kCFTypeArrayCallBacks);
+        if (!locsList)      goto finish;
+        CFArrayAppendValue(locsList, ENGLISHKEY);
+        if (!CFArrayContainsValue(locsList, range, ENGLISHKEY)) goto finish;
     }
 
     // generate all resources
@@ -1821,6 +1824,7 @@ _writeEFILoginResources(struct bootCaches *caches,
 finish:
     if (blobList)       CFRelease(blobList);
     if (volStr)         CFRelease(volStr);
+    if (locsList)       CFRelease(locsList);
     if (gprefs)         CFRelease(gprefs);
     if (gpfd != -1)     close(gpfd);
 
@@ -2068,8 +2072,6 @@ static void removeTrailingSlashes(char * path)
 
     return;
 }
-
-
 
 /******************************************************************************
  * updateMount() remounts the volume with the requested flags!

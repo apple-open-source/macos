@@ -642,3 +642,5 @@ krb5_homedir_access
 krb5_verify_opt_set_prompter
 krb5_ret_uuid
 krb5_store_uuid
+_krb5_plugin_run_f
+_krb5_load_plugins

@@ -574,14 +574,12 @@ checkRebuildAllCaches(struct bootCaches *caches, int oodLogSpec)
             OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
                       "Error %d rebuilding %s.", result,
                       caches->kext_boot_cache_file->rpath);
-                goto finish;
+            goto finish;
         }
     } else {
         OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogArchiveFlag,
                   "Primary kext cache does not need update.");
     }
-
-
 
     // Check/rebuild the CSFDE property cache which goes into the Apple_Boot.
     // It's less critical for booting, but more critical for security.

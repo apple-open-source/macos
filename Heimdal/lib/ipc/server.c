@@ -36,6 +36,7 @@
 #include "hi_locl.h"
 #include "heimbase.h"
 #include <assert.h>
+#include <syslog.h>
 
 struct heim_sipc {
     int (*release)(heim_sipc ctx);
@@ -89,6 +90,7 @@ init_globals(void)
 
 	workq = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 	eventq = dispatch_queue_create("heim-ipc.event-queue", NULL);
+	dispatch_suspend(eventq);
 	dispatch_signals = heim_array_create();
     });
 }
@@ -476,6 +478,7 @@ heim_sipc_launchd_mach_init(const char *service,
 
 struct client {
     int fd;
+    void (*handle_read)(struct client *);
     heim_ipc_callback callback;
     void *userctx;
     int flags;
@@ -489,8 +492,6 @@ struct client {
 #define CLOSE_ON_REPLY	32
 
 #define DGRAM_SOCKET	64
-#define HAVE_PKTINFO4	128
-#define HAVE_PKTINFO6	256
 
 #define INHERIT_MASK	0xffff0000
 #define INCLUDE_ERROR_CODE (1 << 16)
@@ -504,11 +505,9 @@ struct client {
     dispatch_source_t in;
     dispatch_source_t out;
 #endif
-    struct sockaddr_storage sa;
-    krb5_socklen_t sock_len;
 
-    struct sockaddr_storage localsa;
-    krb5_socklen_t localsa_len;
+    heim_icred streamcred;
+    uint16_t dgramport;
 };
 
 #ifndef HAVE_GCD
@@ -516,7 +515,9 @@ static unsigned num_clients = 0;
 static struct client **clients = NULL;
 #endif
 
-static void handle_read(struct client *);
+static void handle_listen(struct client *);
+static void handle_stream(struct client *);
+static void handle_dgram(struct client *);
 static void handle_write(struct client *);
 static int maybe_close(struct client *);
 
@@ -528,14 +529,24 @@ add_new_socket(int fd,
 {
     struct client *c;
     int fileflags;
+    int ret;
 
     c = calloc(1, sizeof(*c));
     if (c == NULL)
 	return NULL;
 	
-    if (flags & (LISTEN_SOCKET|DGRAM_SOCKET)) {
+    c->flags = flags;
+    c->callback = callback;
+    c->userctx = userctx;
+
+    if (flags & LISTEN_SOCKET) {
+	c->handle_read = handle_listen;
+	c->fd = fd;
+    } else if (flags & DGRAM_SOCKET) {
+    	c->handle_read = handle_dgram;
 	c->fd = fd;
     } else {
+	c->handle_read = handle_stream;
 	c->fd = accept(fd, NULL, NULL);
 	if (c->fd < 0) {
 	    free(c);
@@ -543,19 +554,24 @@ add_new_socket(int fd,
 	}
     }
 
-    c->flags = flags;
-    c->callback = callback;
-    c->userctx = userctx;
-
     fileflags = fcntl(c->fd, F_GETFL, 0);
     fcntl(c->fd, F_SETFL, fileflags | O_NONBLOCK);
 
-    /* if its a dgram socket, allocate maximum size upfront */
     if (c->flags & DGRAM_SOCKET) {
+	struct sockaddr_storage ss;
+	krb5_socklen_t sssize;
 	int on = 1;
-	c->len = MAX_PACKET_SIZE;
-	c->inmsg = emalloc(c->len);
+
+	/* if its a dgram socket, don't allocate anything */
+	c->len = 0;
+	c->inmsg = NULL;
 	c->ptr = 0;
+
+	sssize = sizeof(ss);
+	ret = getsockname(c->fd, (struct sockaddr *)&ss, &sssize);
+	if (ret == 0)
+	    c->dgramport = socket_get_port((struct sockaddr *)&ss);
+
 
 #ifdef IPV6_RECVPKTINFO
 	setsockopt(c->fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on));
@@ -563,8 +579,27 @@ add_new_socket(int fd,
 #ifdef IP_RECVPKTINFO
 	setsockopt(c->fd, IPPROTO_IP, IP_RECVPKTINFO, &on, sizeof(on));
 #endif
-    }
+    } else if ((flags & LISTEN_SOCKET) == 0) {
+	struct sockaddr_storage server, client;
+	krb5_socklen_t server_size = sizeof(server),
+	    client_size = sizeof(client);
 
+	ret = getpeername(c->fd, (struct sockaddr *)&client, &client_size);
+	if (ret == 0)
+	    ret = getsockname(c->fd, (struct sockaddr *)&server, &server_size);
+
+	if (ret) {
+	    free(c);
+	    close(fd);
+	    return NULL;
+	}
+
+	ret = _heim_ipc_create_network_cred((struct sockaddr *)&client, client_size,
+					    (struct sockaddr *)&server, server_size,
+					    &c->streamcred);
+	if (ret)
+	    abort();
+    }
 
 #ifdef HAVE_GCD
     init_globals();
@@ -575,7 +610,7 @@ add_new_socket(int fd,
 				    c->fd, 0, eventq);
     
     dispatch_source_set_event_handler(c->in, ^{ 
-	    handle_read(c);
+	    c->handle_read(c);
 	    if ((c->flags & (WAITING_WRITE|WRITE_RUN)) == WAITING_WRITE) {
 		c->flags |= WRITE_RUN;
 		dispatch_resume(c->out);
@@ -628,6 +663,10 @@ maybe_close(struct client *c)
     close(c->fd); /* ref count fd close */
     free(c->inmsg);
     free(c);
+
+    if (c->streamcred)
+	heim_ipc_free_cred(c->streamcred);
+
     return 1;
 }
 
@@ -652,7 +691,7 @@ output_data(struct client *c, const void *data, size_t len)
 }
 
 static void
-socket_complete(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
+stream_complete(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
 {
     struct socket_call *sc = (struct socket_call *)ctx;
     struct client *c = sc->c;
@@ -695,12 +734,125 @@ socket_complete(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
 
     free(sc->in.data);
     sc->c = NULL; /* so we can catch double complete */
+
+    heim_assert(sc->cred == NULL, "cred on handle for stream ?");
+    free(sc);
+
+    maybe_close(c);
+}
+
+static void
+dgram_complete(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
+{
+    struct socket_call *sc = (struct socket_call *)ctx;
+    struct client *c = sc->c;
+    struct msghdr hdr;
+    struct iovec iov[2], *iovp = &iov[0];
+    uint32_t u32rv;
+    struct cmsghdr *cm;
+    void *cmsg;
+    size_t cmsglen = 0;
+    krb5_socklen_t namelen;
+    struct sockaddr *client, *server;
+    int ret;
+
+    sc->c = NULL; /* so we can catch double complete */
+
+    /* double complete ? */
+    heim_assert(c != NULL, "dgram request packet already completed");
+    heim_assert(sc->cred != NULL, "no cred on dgram transaction");
+
+
+#ifdef IPV6_RECVPKTINFO
+    cmsglen += CMSG_SPACE(sizeof(struct in6_pktinfo));
+#endif
+#ifdef IP_RECVPKTINFO
+    cmsglen += CMSG_SPACE(sizeof(struct in_pktinfo));
+#endif
+    cmsg = calloc(1, cmsglen);
+    heim_assert(cmsg != NULL, "out of memory");
+
+    iovp = &iov[0];
+
+    if (c->flags & INCLUDE_ERROR_CODE) {
+	u32rv = htonl(returnvalue);
+	iovp->iov_base = &u32rv;
+	iovp->iov_len = sizeof(u32rv);
+	iovp++;
+    }
+    
+    iovp->iov_base = reply->data;
+    iovp->iov_len = reply->length;
+    iovp++;
+
+    client = heim_ipc_cred_get_client_address(sc->cred, &namelen);
+
+    hdr.msg_name = (void *)client;
+    hdr.msg_namelen = namelen;
+
+    hdr.msg_iov = iov;
+    hdr.msg_iovlen = iovp - iov;
+    hdr.msg_control = cmsg;
+    hdr.msg_controllen = cmsglen;
+
+    server = heim_ipc_cred_get_server_address(sc->cred, &namelen);
+
+    switch (server->sa_family) {
+    case AF_INET6: {
+#ifdef IPV6_RECVPKTINFO
+	struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)server;
+	struct in6_pktinfo *pi6;
+
+	cm = CMSG_FIRSTHDR(&hdr);
+	cm->cmsg_level = IPPROTO_IPV6;
+	cm->cmsg_type = IPV6_PKTINFO;
+	cm->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+	pi6 = (struct in6_pktinfo *)CMSG_DATA(cm);
+	
+	memcpy(&pi6->ipi6_addr, &sin6->sin6_addr, sizeof(pi6->ipi6_addr));
+	pi6->ipi6_ifindex = 0;
+	
+	hdr.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
+#endif
+	break;
+    }
+    case AF_INET: {
+#ifdef IP_RECVPKTINFO
+	struct sockaddr_in *sin = (struct sockaddr_in *)server;
+	struct in_pktinfo *pi4;
+
+	cm = CMSG_FIRSTHDR(&hdr);
+	cm->cmsg_level = IPPROTO_IP;
+	cm->cmsg_type = IP_PKTINFO;
+	cm->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+	pi4 = (struct in_pktinfo *)CMSG_DATA(cm);
+
+	pi4->ipi_ifindex = 0;
+	pi4->ipi_spec_dst = sin->sin_addr;
+
+	hdr.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
+#endif
+	break;
+    }
+    default:
+	hdr.msg_control = NULL;
+	hdr.msg_controllen = 0;
+	break;
+    }
+
+    ret = sendmsg(c->fd, &hdr, 0);
+    free(cmsg);
+
+    c->calls--;
+
+    free(sc->in.data);
     heim_ipc_free_cred(sc->cred);
     sc->cred = NULL;
     free(sc);
 
     maybe_close(c);
 }
+
 
 /* remove HTTP %-quoting from buf */
 static int
@@ -784,7 +936,7 @@ handle_http_tcp(struct client *c, heim_icred cred)
     cs->c = c;
     cs->in.data = data;
     cs->in.length = len;
-    cs->cred = cred;
+    cs->cred = NULL;
     c->ptr = 0;
 
     {
@@ -802,64 +954,140 @@ handle_http_tcp(struct client *c, heim_icred cred)
     return cs;
 }
 
-static void
-capture_localaddr(struct client *c, struct msghdr *hdr)
+static struct sockaddr *
+capture_localaddr(struct msghdr *hdr, uint16_t port, struct sockaddr *sa, krb5_socklen_t *sslen)
 {
     struct cmsghdr *cm;
-
-    c->flags &= ~(HAVE_PKTINFO4|HAVE_PKTINFO6);
 
     for (cm = (struct cmsghdr *)CMSG_FIRSTHDR(hdr); cm;
 	 cm = (struct cmsghdr *)CMSG_NXTHDR(hdr, cm)) {
 #ifdef IPV6_RECVPKTINFO
 	if (cm->cmsg_level == IPPROTO_IPV6 && cm->cmsg_type == IPV6_PKTINFO &&
 	    cm->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo))) {
+	    struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)sa;
 	    struct in6_pktinfo *pi6;
 
 	    pi6 = (struct in6_pktinfo *)(CMSG_DATA(cm));
 
-	    memcpy(((struct sockaddr *)&c->localsa)->sa_data, &pi6->ipi6_addr,
-		   sizeof(pi6->ipi6_addr));
-	    c->localsa.ss_family = AF_INET6;
-	    c->localsa.ss_len = sizeof(struct sockaddr_in6);
-	    c->localsa_len = sizeof(struct sockaddr_in6);
-	    c->flags |= HAVE_PKTINFO6;
-	    return;
+	    sin6->sin6_family = AF_INET6;
+	    memcpy(&sin6->sin6_addr, &pi6->ipi6_addr, sizeof(pi6->ipi6_addr));
+	    sin6->sin6_port = port;
+
+	    *sslen = sizeof(struct sockaddr_in6);
+
+	    return sa;
 	}
 #endif
 #ifdef IP_RECVPKTINFO
 	if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_PKTINFO &&
 	    cm->cmsg_len == CMSG_LEN(sizeof(struct in_pktinfo))) {
+	    struct sockaddr_in *sin = (struct sockaddr_in *)sa;
 	    struct in_pktinfo *pi4;
+
 	    pi4 = (struct in_pktinfo *)(CMSG_DATA(cm));
 
-	    memcpy(((struct sockaddr *)&c->localsa)->sa_data, &pi4->ipi_addr,
-		   sizeof(pi4->ipi_addr));
-	    c->localsa.ss_family = AF_INET;
-	    c->localsa.ss_len = sizeof(struct sockaddr_in);
-	    c->localsa_len = sizeof(struct sockaddr_in);
-	    c->flags |= HAVE_PKTINFO4;
-	    return;
+	    sin->sin_family = AF_INET;
+	    sin->sin_addr = pi4->ipi_addr;
+	    sin->sin_port = port;
+
+	    *sslen = sizeof(struct sockaddr_in);
+
+	    return sa;
 	}
 #endif
     }
+    return NULL;
 }
 
 static void
-handle_read(struct client *c)
+handle_dgram(struct client *c)
 {
-    heim_icred cred = NULL;
-    ssize_t len;
-    uint32_t dlen;
-    int ret;
+    krb5_socklen_t server_size = 0;
+    struct sockaddr_storage clientss, serverss;
+    struct sockaddr *server = NULL;
+    struct socket_call *cs;
+    struct msghdr hdr;
+    size_t cmsglen = 0;
+    void *cmsg;
+    heim_idata data;
+    struct iovec iov[1];
+    int len, ret;
+    heim_icred cred;
 
-    if (c->flags & LISTEN_SOCKET) {
-	(void)add_new_socket(c->fd,
-			     WAITING_READ | (c->flags & INHERIT_MASK),
-			     c->callback,
-			     c->userctx);
+    heim_assert(c->inmsg == NULL, "dgram have data buffer in struct client");
+
+    memset(&clientss, 0, sizeof(clientss));
+    memset(&serverss, 0, sizeof(serverss));
+
+#ifdef IPV6_RECVPKTINFO
+    cmsglen += CMSG_SPACE(sizeof(struct in6_pktinfo));
+#endif
+#ifdef IP_RECVPKTINFO
+    cmsglen += CMSG_SPACE(sizeof(struct in_pktinfo));
+#endif
+    cmsg = malloc(cmsglen);
+
+    data.data = emalloc(MAX_PACKET_SIZE);
+    data.length = MAX_PACKET_SIZE;
+
+    iov[0].iov_base = data.data;
+    iov[0].iov_len = data.length;
+
+    hdr.msg_name = (void *)&clientss;
+    hdr.msg_namelen = sizeof(clientss);
+    hdr.msg_iov = iov;
+    hdr.msg_iovlen = 1;
+    hdr.msg_control = cmsg;
+    hdr.msg_controllen = cmsglen;
+
+    len = recvmsg(c->fd, &hdr, 0);
+    if (len <= 0) {
+	free(data.data);
+	free(cmsg);
 	return;
     }
+
+    heim_assert(len <= MAX_PACKET_SIZE, "packet too large!");
+
+    data.length = len;
+    
+    server = capture_localaddr(&hdr, c->dgramport, (struct sockaddr *)&serverss, &server_size);
+
+    free(cmsg);
+
+    ret = _heim_ipc_create_network_cred(hdr.msg_name, hdr.msg_namelen,
+					server, server_size, &cred);
+    if (ret)
+	abort();
+
+    cs = emalloc(sizeof(*cs));
+    cs->c = c;
+    cs->in = data;
+    cs->cred = cred;
+	
+    c->calls++;
+    c->callback(c->userctx, &cs->in,
+		cs->cred, dgram_complete,
+		(heim_sipc_call)cs);
+    return;
+}
+
+static void
+handle_listen(struct client *c)
+{
+    (void)add_new_socket(c->fd,
+			 WAITING_READ | (c->flags & INHERIT_MASK),
+			 c->callback,
+			 c->userctx);
+}
+
+static void
+handle_stream(struct client *c)
+{
+    uint32_t dlen;
+    ssize_t len;
+
+    heim_assert(c->len >= c->ptr, "ptr past end of buffer");
 
     if (c->len - c->ptr < 1024) {
 	c->inmsg = erealloc(c->inmsg,
@@ -867,30 +1095,8 @@ handle_read(struct client *c)
 	c->len += 1024;
     }
     
-    struct msghdr hdr;
-    struct iovec iov[1];
-
-    size_t cmsglen = 0;
-#ifdef IPV6_RECVPKTINFO
-    cmsglen += CMSG_SPACE(sizeof(struct in6_pktinfo));
-#endif
-#ifdef IP_RECVPKTINFO
-    cmsglen += CMSG_SPACE(sizeof(struct in_pktinfo));
-#endif
-    void *cmsg = malloc(cmsglen);
-
-    iov[0].iov_base = c->inmsg + c->ptr;
-    iov[0].iov_len = c->len - c->ptr;
-    hdr.msg_name = (void *)&c->sa;
-    hdr.msg_namelen = sizeof(c->sa);
-    hdr.msg_iov = iov;
-    hdr.msg_iovlen = 1;
-    hdr.msg_control = cmsg;
-    hdr.msg_controllen = cmsglen;
-
-    len = recvmsg(c->fd, &hdr, 0);
-    if (len < 0 || ((c->flags & DGRAM_SOCKET) == 0 && len == 0)) {
-	free(cmsg);
+    len = read(c->fd, c->inmsg + c->ptr, c->len - c->ptr);
+    if (len <= 0) {
 	c->flags |= WAITING_CLOSE;
 	c->flags &= ~WAITING_READ;
 	return;
@@ -899,37 +1105,6 @@ handle_read(struct client *c)
     if (c->ptr > c->len)
 	abort();
     
-    c->sock_len = hdr.msg_namelen;
-
-    if (c->flags & DGRAM_SOCKET)
-	capture_localaddr(c, &hdr);
-
-    free(cmsg);
-
-    /* handle dgram sockets */
-    if (c->flags & DGRAM_SOCKET) {
-	struct socket_call *cs;
-
-	ret = _heim_ipc_create_network_cred(hdr.msg_name, hdr.msg_namelen, &cred);
-	if (ret)
-	    abort();
-
-	cs = emalloc(sizeof(*cs));
-	cs->c = c;
-	cs->in.data = emalloc(c->ptr);
-	memcpy(cs->in.data, c->inmsg, c->ptr);
-	cs->in.length = c->ptr;
-	cs->cred = cred;
-	
-	c->ptr = 0;
-	
-	c->calls++;
-	c->callback(c->userctx, &cs->in,
-		    cred, socket_complete,
-		    (heim_sipc_call)cs);
-	return;
-    }
-
     while (c->ptr >= sizeof(dlen)) {
 	struct socket_call *cs;
 	
@@ -938,23 +1113,13 @@ handle_read(struct client *c)
 	    if (strncmp((char *)c->inmsg + c->ptr - 4, "\r\n\r\n", 4) != 0)
 		break;
 
-	    c->sock_len = sizeof(c->sa);
-	    ret = getpeername(c->fd, (struct sockaddr *)&c->sa, &c->sock_len);
-	    if (ret)
-		abort();
-
-	    ret = _heim_ipc_create_network_cred((struct sockaddr *)&c->sa, c->sock_len, &cred);
-	    if (ret)
-		abort();
-
 	    /* remove the trailing \r\n\r\n so the string is NUL terminated */
 	    c->inmsg[c->ptr - 4] = '\0';
 
 	    c->flags |= CLOSE_ON_REPLY;
 
-	    cs = handle_http_tcp(c, cred);
+	    cs = handle_http_tcp(c, c->streamcred);
 	    if (cs == NULL) {
-		heim_ipc_free_cred(cred);
 		c->flags |= WAITING_CLOSE;
 		c->flags &= ~WAITING_READ;
 		break;
@@ -972,21 +1137,12 @@ handle_read(struct client *c)
 		break;
 	    }
 	
-	    c->sock_len = sizeof(c->sa);
-	    ret = getpeername(c->fd, (struct sockaddr *)&c->sa, &c->sock_len);
-	    if (ret)
-		abort();
-
-	    ret = _heim_ipc_create_network_cred((struct sockaddr *)&c->sa, c->sock_len, &cred);
-	    if (ret)
-		abort();
-
 	    cs = emalloc(sizeof(*cs));
 	    cs->c = c;
+	    cs->cred = NULL;
 	    cs->in.data = emalloc(dlen);
 	    memcpy(cs->in.data, c->inmsg + sizeof(dlen), dlen);
 	    cs->in.length = dlen;
-	    cs->cred = cred;
 	
 	    c->ptr -= sizeof(dlen) + dlen;
 	    memmove(c->inmsg,
@@ -996,7 +1152,7 @@ handle_read(struct client *c)
 	
 	c->calls++;
 	c->callback(c->userctx, &cs->in,
-		    cred, socket_complete,
+		    c->streamcred, stream_complete,
 		    (heim_sipc_call)cs);
     }
 }
@@ -1006,90 +1162,12 @@ handle_write(struct client *c)
 {
     ssize_t len;
 
-    if (c->olen == 0)
-	abort();
+    heim_assert(c->olen != 0, "output buffer is zero on write");
 
-    if (c->flags & DGRAM_SOCKET) {
-	struct msghdr hdr;
-	struct iovec iov[1];
-	struct cmsghdr *cm;
-	void *cmsg;
-	size_t cmsglen = 0;
-
-#ifdef IPV6_RECVPKTINFO
-	cmsglen += CMSG_SPACE(sizeof(struct in6_pktinfo));
-#endif
-#ifdef IP_RECVPKTINFO
-	cmsglen += CMSG_SPACE(sizeof(struct in_pktinfo));
-#endif
-	cmsg = calloc(1, cmsglen);
-	if (cmsg == NULL)
-	    abort();
-
-	iov[0].iov_base = c->outmsg;
-	iov[0].iov_len = c->olen;
-
-	hdr.msg_name = (void *)&c->sa;
-	hdr.msg_namelen = c->sock_len;
-	hdr.msg_iov = iov;
-	hdr.msg_iovlen = 1;
-	hdr.msg_control = cmsg;
-	hdr.msg_controllen = cmsglen;
-
-	if (c->flags & HAVE_PKTINFO6) {
-#ifdef IPV6_RECVPKTINFO
-	    struct in6_pktinfo *pi6;
-
-	    cm = CMSG_FIRSTHDR(&hdr);
-	    cm->cmsg_level = IPPROTO_IPV6;
-	    cm->cmsg_type = IPV6_PKTINFO;
-	    cm->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
-	    pi6 = (struct in6_pktinfo *)CMSG_DATA(cm);
-
-	    memcpy(&pi6->ipi6_addr, ((struct sockaddr *)&c->localsa)->sa_data,
-		   sizeof(pi6->ipi6_addr));
-	    pi6->ipi6_ifindex = 0;
-
-	    hdr.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
-#endif
-	}else if (c->flags & HAVE_PKTINFO4) {
-#ifdef IP_RECVPKTINFO
-	    struct in_pktinfo *pi4;
-
-	    cm = CMSG_FIRSTHDR(&hdr);
-	    cm->cmsg_level = IPPROTO_IP;
-	    cm->cmsg_type = IP_PKTINFO;
-	    cm->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
-	    pi4 = (struct in_pktinfo *)CMSG_DATA(cm);
-
-	    memcpy(&pi4->ipi_spec_dst, ((struct sockaddr *)&c->localsa)->sa_data,
-		   sizeof(pi4->ipi_spec_dst));
-	    pi4->ipi_ifindex = 0;
-
-	    hdr.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
-#endif
-	}
-
-	len = sendmsg(c->fd, &hdr, 0);
-	if (cmsg)
-	    free(cmsg);
-    } else {
-	len = sendto(c->fd, c->outmsg, c->olen, 0, NULL, 0);
-    }
+    len = sendto(c->fd, c->outmsg, c->olen, 0, NULL, 0);
     if (len < 0) {
-	/* don't close DGRAM sockets on write failure since we don't
-	   know that the failure came from, maybe we lost the address
-	   and PKTINFO is all upset now, let the read path handle
-	   failure for real */
-	if ((c->flags & DGRAM_SOCKET) == 0) {
-	    c->flags |= WAITING_CLOSE;
-	    c->flags &= ~(WAITING_WRITE);
-	} else {
-	    c->olen = 0;
-	    c->flags &= ~(WAITING_WRITE);
-	    free(c->outmsg);
-	    c->outmsg = NULL;
-	}
+	c->flags |= WAITING_CLOSE;
+	c->flags &= ~(WAITING_WRITE);
     } else if (c->olen != len) {
 	memmove(&c->outmsg[0], &c->outmsg[len], c->olen - len);
 	c->olen -= len;
@@ -1142,7 +1220,7 @@ process_loop(void)
 	    }
 
 	    if (fds[n].revents & POLLIN)
-		handle_read(clients[n]);
+		c->handle_read(clients[n]);
 	    if (fds[n].revents & POLLOUT)
 		handle_write(clients[n]);
 	}
@@ -1338,10 +1416,21 @@ heim_sipc_free_context(heim_sipc ctx)
     (ctx->release)(ctx);
 }
 
+/**
+ * Start processing events for the heimdal event loop
+ */
+
 void
 heim_ipc_main(void)
 {
 #ifdef HAVE_GCD
+    init_globals();
+
+    /**
+     * We only start to process events after we run heim_ipc_main() to
+     * make sure we are propperly chrooted()/sandboxed.
+     */
+    dispatch_resume(eventq);
     dispatch_main();
 #else
     process_loop();

@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/util/log.c	2011-02-23 08:24:36.000000000 -0800
-+++ ./jabberd2/util/log.c	2011-02-24 16:25:21.000000000 -0800
+--- /tmp/jabberd-2.2.14/util/log.c	2011-05-31 15:11:38.000000000 -0700
++++ ./jabberd2/util/log.c	2011-06-22 20:13:00.000000000 -0700
 @@ -47,6 +47,7 @@ static log_facility_t _log_facilities[] 
      { "local5", LOG_LOCAL5 },
      { "local6", LOG_LOCAL6 },

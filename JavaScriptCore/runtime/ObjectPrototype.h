@@ -27,7 +27,12 @@ namespace JSC {
 
     class ObjectPrototype : public JSNonFinalObject {
     public:
-        ObjectPrototype(ExecState*, JSGlobalObject*, Structure*);
+        typedef JSNonFinalObject Base;
+
+        static ObjectPrototype* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
+        {
+            return new (allocateCell<ObjectPrototype>(*exec->heap())) ObjectPrototype(exec, globalObject, structure);
+        }
 
         static const ClassInfo s_info;
 
@@ -41,6 +46,7 @@ namespace JSC {
         static const unsigned AnonymousSlotCount = JSNonFinalObject::AnonymousSlotCount + 1;
 
     private:
+        ObjectPrototype(ExecState*, JSGlobalObject*, Structure*);
         virtual void put(ExecState*, const Identifier&, JSValue, PutPropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);

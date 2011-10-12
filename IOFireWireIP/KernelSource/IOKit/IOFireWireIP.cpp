@@ -196,6 +196,32 @@ bool IOFireWireIP::start(IOService *provider)
 			return false;
 		}
 		transmitQueue->retain();
+        
+		// Publish interface name if in J59
+		OSBoolean * tunnelled = OSDynamicCast( OSBoolean, getProperty("IOPCITunnelled", gIOServicePlane, kIORegistryIterateParents | kIORegistryIterateRecursively) );
+		if ( (tunnelled != NULL) )
+		{			
+			if ( (tunnelled->isTrue()) )
+			{
+				OSData * tbtVendorID = (OSData *)getProperty("Tunnel Endpoint Device Vendor ID", gIOServicePlane, kIORegistryIterateParents | kIORegistryIterateRecursively);
+				OSData * tbtModelID = (OSData *)getProperty("Tunnel Endpoint Device Model ID", gIOServicePlane, kIORegistryIterateParents | kIORegistryIterateRecursively);
+				
+				if ( tbtVendorID && tbtModelID )
+				{
+					uint32_t j59VendorID = 0x00000001;
+					uint32_t j59ModelID = 0x00008002;
+					uint32_t * tbtVendorIDPtr = (uint32_t *)(tbtVendorID->getBytesNoCopy(0, 4));
+					uint32_t * tbtModelIDPtr = (uint32_t *)(tbtModelID->getBytesNoCopy(0, 4));
+					
+					//IOLog( "IOFireWireIP: VID: 0x%x MID: 0x%x\n", *tbtVendorIDPtr, *tbtModelIDPtr );
+					
+					if ( j59VendorID == *tbtVendorIDPtr && j59ModelID == *tbtModelIDPtr )
+					{
+						setProperty("Product Name", "Display FireWire");
+					}
+				}
+			}
+		}
 
 		networkInterface->registerService();
 

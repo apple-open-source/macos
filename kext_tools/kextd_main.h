@@ -126,4 +126,4 @@ void rescanExtensions(void);
 
 void usage(UsageLevel usageLevel);
 
-#endif
+#endif /* _KEXTD_MAIN_H */

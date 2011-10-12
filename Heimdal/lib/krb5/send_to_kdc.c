@@ -1223,8 +1223,15 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 	});
 
     if (heim_array_get_length(ctx->hosts) == 0) {
-	_krb5_debugx(context, 5, "no more hosts to send/recv packets to/from");
-	*action = KRB5_SENDTO_FAILED;
+	if (ctx->stateflags & KRBHST_COMPLETED) {
+	    _krb5_debugx(context, 5, "no more hosts to send/recv packets to/from "
+			 "trying to pulling more hosts");
+	    *action = KRB5_SENDTO_FAILED;
+	} else {
+	    _krb5_debugx(context, 5, "no more hosts to send/recv packets to/from "
+			 "and no more hosts -> failure");
+	    *action = KRB5_SENDTO_TIMEOUT;
+	}
 	return 0;
     }
 
@@ -1294,6 +1301,8 @@ krb5_sendto_context(krb5_context context,
     int numreset = 0;
 
     krb5_data_zero(receive);
+    
+    HEIM_WARN_BLOCKING("krb5_sendto_context", warn_once);
 
     if (ctx == NULL) {
 	ret = krb5_sendto_ctx_alloc(context, &ctx);
@@ -1353,12 +1362,12 @@ krb5_sendto_context(krb5_context context,
 	     */
 
 	    ret = krb5_krbhst_next(context, handle, &hi);
+	    action = KRB5_SENDTO_CONTINUE;
 	    if (ret == 0) {
-		if (submit_request(context, ctx, hi) == 0)
-		    action = KRB5_SENDTO_CONTINUE;
+		if (submit_request(context, ctx, hi) != 0)
+		    action = KRB5_SENDTO_TIMEOUT;
 	    } else {
 		ctx->stateflags |= KRBHST_COMPLETED;
-		action = KRB5_SENDTO_CONTINUE;
 	    }
 
 	    break;

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -628,10 +628,16 @@ EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert)
 #else /* TARGET_OS_EMBEDDED */
 
 static void
-dictSetValue(CFMutableDictionaryRef dict, CFStringRef key, CFTypeRef val)
+dictSetValue(CFMutableDictionaryRef dict, CFStringRef key, CFTypeRef val,
+	     Boolean use_last)
 {
-    if (isA_CFArray(val) != NULL && CFArrayGetCount(val) > 0) {
-	val = CFArrayGetValueAtIndex(val, 0);
+    if (isA_CFArray(val) != NULL) {
+	int		count;
+
+	count = CFArrayGetCount(val);
+	if (count > 0) {
+	    val = CFArrayGetValueAtIndex(val, use_last ? (count - 1) : 0);
+	}
     }
     if (isA_CFString(val) != NULL) {
 	CFDictionarySetValue(dict, key, val);
@@ -672,7 +678,8 @@ EAPSecCertificateCopyAttributesDictionary(const SecCertificateRef cert)
     if (entry != NULL) {
 	value = CFDictionaryGetValue(entry, kSecPropertyKeyValue);
 	if (value != NULL) {
-	    dictSetValue(dict, kEAPSecCertificateAttributeCommonName, value);
+	    dictSetValue(dict, kEAPSecCertificateAttributeCommonName,
+			 value, TRUE);
 	}
     }
     
@@ -686,9 +693,9 @@ EAPSecCertificateCopyAttributesDictionary(const SecCertificateRef cert)
 	int		count = CFArrayGetCount(value);
 
 	for (i = 0; i < count; i++) {
-	    CFStringRef	label;
+	    CFStringRef		label;
 	    CFDictionaryRef	subj_alt = CFArrayGetValueAtIndex(value, i);
-	    CFTypeRef	this_val;
+	    CFTypeRef		this_val;
 	    
 	    label = CFDictionaryGetValue(subj_alt, kSecPropertyKeyLabel);
 	    this_val = CFDictionaryGetValue(subj_alt, kSecPropertyKeyValue);
@@ -697,9 +704,9 @@ EAPSecCertificateCopyAttributesDictionary(const SecCertificateRef cert)
 	    }
 	    /* NT Principal Name */
 	    if (CFEqual(label, kSecOIDMS_NTPrincipalName)) {
-		CFDictionaryAddValue(dict,
-				     kEAPSecCertificateAttributeNTPrincipalName,
-				     this_val);
+		dictSetValue(dict, 
+			     kEAPSecCertificateAttributeNTPrincipalName,
+			     this_val, FALSE);
 	    }
 	}
     }
@@ -707,7 +714,7 @@ EAPSecCertificateCopyAttributesDictionary(const SecCertificateRef cert)
     SecCertificateCopyEmailAddresses(cert, &email_addresses);
     if (email_addresses != NULL) {
 	dictSetValue(dict, kEAPSecCertificateAttributeRFC822Name,
-		     email_addresses);
+		     email_addresses, FALSE);
 	CFRelease(email_addresses);
     }
     CFRelease(cert_values);
@@ -720,8 +727,8 @@ EAPSecCertificateCopyUserNameString(SecCertificateRef cert)
 {
     CFStringRef			attrs[] = {
 	kEAPSecCertificateAttributeNTPrincipalName,
-	kEAPSecCertificateAttributeRFC822Name,
 	kEAPSecCertificateAttributeCommonName,
+	kEAPSecCertificateAttributeRFC822Name,
 	NULL
     };
     CFDictionaryRef		dict = NULL;
@@ -748,6 +755,12 @@ EAPSecCertificateCopyUserNameString(SecCertificateRef cert)
 
 
 #ifdef TEST_EAPSecCertificateCopyAttributesDictionary
+static void
+dump_as_xml(CFPropertyListRef p);
+
+static void
+dump_cert(SecCertificateRef cert);
+
 #if TARGET_OS_EMBEDDED
 static CFArrayRef
 copyAllCerts(void)
@@ -803,6 +816,8 @@ copyAllCerts(void)
     }
     array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     do {
+	UInt32		this_len;
+
 	status = SecKeychainSearchCopyNext(search, &item);
 	if (status != noErr) {
 	    break;
@@ -812,11 +827,12 @@ copyAllCerts(void)
 	status = SecKeychainItemCopyContent(item, 
 					    NULL, /* item class */
 					    &attr_list, 
-					    &data.Length, (void * *)(&data.Data));
+					    &this_len, (void * *)(&data.Data));
 	if (status != noErr) {
 	    fprintf(stderr, "SecKeychainItemCopyContent failed, %d", (int)status);
 	    break;
 	}
+	data.Length = this_len;
 	status = SecCertificateCreateFromData(&data, 
 					      CSSM_CERT_X_509v3, 
 					      CSSM_CERT_ENCODING_BER, &cert);
@@ -858,16 +874,10 @@ showAllCerts(void)
     }
     count = CFArrayGetCount(certs);
     for (i = 0; i < count; i++) {
-	CFDictionaryRef		dict;
 	SecCertificateRef	cert;
 
 	cert = (SecCertificateRef)CFArrayGetValueAtIndex(certs, i);
-	dict = EAPSecCertificateCopyAttributesDictionary(cert);
-	if (dict != NULL) {
-	    (void)CFShow(dict);
-	    printf("\n");
-	    CFRelease(dict);
-	}
+	dump_cert(cert);
     }
     CFRelease(certs);
     return;
@@ -885,7 +895,9 @@ main(int argc, const char * argv[])
 }
 #endif /* TEST_EAPSecCertificateCopyAttributesDictionary */
 
-#ifdef TEST_EAPSecIdentity
+#if TEST_EAPSecIdentity || TEST_EAPSecCertificateCopyAttributesDictionary
+#include <SystemConfiguration/SCPrivate.h>
+
 static void
 dump_as_xml(CFPropertyListRef p)
 {
@@ -923,8 +935,17 @@ dump_cert(SecCertificateRef cert)
 	}
     }
 #endif /* TARGET_OS_EMBEDDED */
-}
+    {
+	CFStringRef	username;
 
+	username = EAPSecCertificateCopyUserNameString(cert);
+	SCPrint(TRUE, stdout, CFSTR("Username = '%@'\n"), username);
+	my_CFRelease(&username);
+    }
+}
+#endif /* TEST_EAPSecIdentity || TEST_EAPSecCertificateCopyAttributesDictionary */
+
+#ifdef TEST_EAPSecIdentity
 static void
 show_all_identities(void)
 {

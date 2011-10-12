@@ -93,6 +93,8 @@ unwrap_des
   p += 2;
   p += 16;
 
+  memset (&zero, 0, sizeof(zero));
+
   len = p - (u_char *)input_message_buffer->value;
 
   if(cstate) {
@@ -128,7 +130,6 @@ unwrap_des
   CCDigestFinal(md5, hash);
   CCDigestDestroy(md5);
 
-  memset (&zero, 0, sizeof(zero));
   memcpy (&deskey, key->keyvalue.data, sizeof(deskey));
 #ifndef __APPLE_PRIVATE__
   DES_set_key_unchecked (&deskey, &schedule);

@@ -47,4 +47,4 @@ extern uid_t                  gClientUID;  // set & cleared by kextd_demux()
 extern dispatch_source_t      _gKextutilLock;
 extern Boolean                gKernelRequestsPending;
 
-#endif
+#endif /* _KEXTD_GLOBALS_H */

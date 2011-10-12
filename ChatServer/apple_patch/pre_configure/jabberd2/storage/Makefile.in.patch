@@ -1,14 +1,14 @@
---- /tmp/jabberd-2.2.13/storage/Makefile.in	2011-02-23 08:24:51.000000000 -0800
-+++ ./jabberd2/storage/Makefile.in	2011-02-24 16:25:21.000000000 -0800
-@@ -44,6 +44,7 @@ host_triplet = @host@
- @STORAGE_PGSQL_TRUE@am__append_8 = authreg_pgsql.la storage_pgsql.la
- @STORAGE_PIPE_TRUE@am__append_9 = authreg_pipe.la
- @STORAGE_SQLITE_TRUE@am__append_10 = authreg_sqlite.la storage_sqlite.la
-+@STORAGE_APPLE_TRUE@am__append_11 = authreg_apple_od.la
+--- /tmp/jabberd-2.2.14/storage/Makefile.in	2011-05-31 15:11:49.000000000 -0700
++++ ./jabberd2/storage/Makefile.in	2011-06-23 17:01:05.000000000 -0700
+@@ -45,6 +45,7 @@ host_triplet = @host@
+ @STORAGE_PGSQL_TRUE@am__append_9 = authreg_pgsql.la storage_pgsql.la
+ @STORAGE_PIPE_TRUE@am__append_10 = authreg_pipe.la
+ @STORAGE_SQLITE_TRUE@am__append_11 = authreg_sqlite.la storage_sqlite.la
++@STORAGE_APPLE_TRUE@am__append_12 = authreg_apple_od.la
  subdir = storage
  DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
  ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-@@ -177,6 +178,16 @@ authreg_sqlite_la_LINK = $(LIBTOOL) --ta
+@@ -179,6 +180,16 @@ authreg_sqlite_la_LINK = $(LIBTOOL) --ta
  	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
  	$(authreg_sqlite_la_LDFLAGS) $(LDFLAGS) -o $@
  @STORAGE_SQLITE_TRUE@am_authreg_sqlite_la_rpath = -rpath $(pkglibdir)
@@ -25,7 +25,7 @@
  @STORAGE_DB_TRUE@storage_db_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
  @STORAGE_DB_TRUE@	$(am__DEPENDENCIES_1) ../util/libutil.la
  am__storage_db_la_SOURCES_DIST = storage_db.c
-@@ -261,7 +272,7 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLF
+@@ -263,7 +274,7 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLF
  	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
  	$(LDFLAGS) -o $@
  SOURCES = $(authreg_anon_la_SOURCES) $(authreg_db_la_SOURCES) \
@@ -34,7 +34,7 @@
  	$(authreg_mysql_la_SOURCES) $(authreg_oracle_la_SOURCES) \
  	$(authreg_pam_la_SOURCES) $(authreg_pgsql_la_SOURCES) \
  	$(authreg_pipe_la_SOURCES) $(authreg_sqlite_la_SOURCES) \
-@@ -285,7 +296,8 @@ DIST_SOURCES = $(am__authreg_anon_la_SOU
+@@ -287,7 +298,8 @@ DIST_SOURCES = $(am__authreg_anon_la_SOU
  	$(am__storage_mysql_la_SOURCES_DIST) \
  	$(am__storage_oracle_la_SOURCES_DIST) \
  	$(am__storage_pgsql_la_SOURCES_DIST) \
@@ -44,16 +44,16 @@
  ETAGS = etags
  CTAGS = ctags
  DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-@@ -422,7 +434,7 @@ MODULE_LIBADD = -lexpat -L$(top_srcdir)/
+@@ -424,7 +436,7 @@ MODULE_LIBADD = -lexpat -L$(top_srcdir)/
  pkglib_LTLIBRARIES = $(am__append_1) $(am__append_2) $(am__append_3) \
- 	$(am__append_4) $(am__append_5) $(am__append_6) \
- 	$(am__append_7) $(am__append_8) $(am__append_9) \
--	$(am__append_10)
-+	$(am__append_10) $(am__append_11)
+ 	$(am__append_4) $(am__append_5) $(am__append_7) \
+ 	$(am__append_8) $(am__append_9) $(am__append_10) \
+-	$(am__append_11)
++	$(am__append_11) $(am__append_12)
  @STORAGE_ANON_TRUE@authreg_anon_la_SOURCES = authreg_anon.c
  @STORAGE_ANON_TRUE@authreg_anon_la_LDFLAGS = $(MODULE_LDFLAGS)
  @STORAGE_ANON_TRUE@authreg_anon_la_LIBADD = $(MODULE_LIBADD)
-@@ -480,6 +492,8 @@ pkglib_LTLIBRARIES = $(am__append_1) $(a
+@@ -483,6 +495,8 @@ pkglib_LTLIBRARIES = $(am__append_1) $(a
  @STORAGE_SQLITE_TRUE@storage_sqlite_la_SOURCES = storage_sqlite.c
  @STORAGE_SQLITE_TRUE@storage_sqlite_la_LDFLAGS = $(MODULE_LDFLAGS)
  @STORAGE_SQLITE_TRUE@storage_sqlite_la_LIBADD = $(MODULE_LIBADD) $(SQLITE_LIBS)
@@ -62,7 +62,7 @@
  all: all-am
  
  .SUFFIXES:
-@@ -565,6 +579,8 @@ authreg_pipe.la: $(authreg_pipe_la_OBJEC
+@@ -568,6 +582,8 @@ authreg_pipe.la: $(authreg_pipe_la_OBJEC
  	$(authreg_pipe_la_LINK) $(am_authreg_pipe_la_rpath) $(authreg_pipe_la_OBJECTS) $(authreg_pipe_la_LIBADD) $(LIBS)
  authreg_sqlite.la: $(authreg_sqlite_la_OBJECTS) $(authreg_sqlite_la_DEPENDENCIES) 
  	$(authreg_sqlite_la_LINK) $(am_authreg_sqlite_la_rpath) $(authreg_sqlite_la_OBJECTS) $(authreg_sqlite_la_LIBADD) $(LIBS)
@@ -71,7 +71,7 @@
  storage_db.la: $(storage_db_la_OBJECTS) $(storage_db_la_DEPENDENCIES) 
  	$(storage_db_la_LINK) $(am_storage_db_la_rpath) $(storage_db_la_OBJECTS) $(storage_db_la_LIBADD) $(LIBS)
  storage_fs.la: $(storage_fs_la_OBJECTS) $(storage_fs_la_DEPENDENCIES) 
-@@ -596,6 +612,7 @@ distclean-compile:
+@@ -599,6 +615,7 @@ distclean-compile:
  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/authreg_pgsql_la-authreg_pgsql.Plo@am__quote@
  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/authreg_pipe.Plo@am__quote@
  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/authreg_sqlite.Plo@am__quote@

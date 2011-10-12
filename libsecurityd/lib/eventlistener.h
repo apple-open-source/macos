@@ -46,10 +46,12 @@ public:
 	EventListener(NotificationDomain domain, NotificationMask eventMask);
 	virtual ~EventListener();
 
-	virtual void consume(NotificationDomain domain, NotificationEvent event, const CssmData& data) = 0;
+	virtual void consume(NotificationDomain domain, NotificationEvent event, const CssmData& data);
 	
 	NotificationDomain GetDomain () {return mDomain;}
 	NotificationMask GetMask () {return mMask;}
+    
+    static void FinishedInitialization(EventListener* eventListener);
 };
 
 

@@ -995,6 +995,63 @@ class YarrGenerator : private MacroAssembler {
         m_backtrackingState.fallthrough();
     }
 
+    void generateDotStarEnclosure(size_t opIndex)
+    {
+        YarrOp& op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        const RegisterID character = regT0;
+        const RegisterID matchPos = regT1;
+
+        JumpList foundBeginningNewLine;
+        JumpList saveStartIndex;
+        JumpList foundEndingNewLine;
+
+        if (m_pattern.m_body->m_hasFixedSize) {
+            move(index, matchPos);
+            sub32(Imm32(m_checked), matchPos);
+        } else
+            load32(Address(output), matchPos);
+
+        saveStartIndex.append(branchTest32(Zero, matchPos));
+        Label findBOLLoop(this);
+        sub32(TrustedImm32(1), matchPos);
+        load16(BaseIndex(input, matchPos, TimesTwo, 0), character);
+        matchCharacterClass(character, foundBeginningNewLine, m_pattern.newlineCharacterClass());
+        branchTest32(NonZero, matchPos).linkTo(findBOLLoop, this);
+        saveStartIndex.append(jump());
+
+        foundBeginningNewLine.link(this);
+        add32(TrustedImm32(1), matchPos); // Advance past newline
+        saveStartIndex.link(this);
+
+        if (!m_pattern.m_multiline && term->anchors.bolAnchor)
+            op.m_jumps.append(branchTest32(NonZero, matchPos));
+
+        store32(matchPos, Address(output));
+
+        move(index, matchPos);
+
+        Label findEOLLoop(this);        
+        foundEndingNewLine.append(branch32(Equal, matchPos, length));
+        load16(BaseIndex(input, matchPos, TimesTwo, 0), character);
+        matchCharacterClass(character, foundEndingNewLine, m_pattern.newlineCharacterClass());
+        add32(TrustedImm32(1), matchPos);
+        jump(findEOLLoop);
+
+        foundEndingNewLine.link(this);
+
+        if (!m_pattern.m_multiline && term->anchors.eolAnchor)
+            op.m_jumps.append(branch32(NotEqual, matchPos, length));
+
+        move(matchPos, index);
+    }
+
+    void backtrackDotStarEnclosure(size_t opIndex)
+    {
+        backtrackTermDefault(opIndex);
+    }
+    
     // Code generation/backtracking for simple terms
     // (pattern characters, character classes, and assertions).
     // These methods farm out work to the set of functions above.
@@ -1059,6 +1116,9 @@ class YarrGenerator : private MacroAssembler {
         case PatternTerm::TypeBackReference:
             m_shouldFallBack = true;
             break;
+        case PatternTerm::TypeDotStarEnclosure:
+            generateDotStarEnclosure(opIndex);
+            break;
         }
     }
     void backtrackTerm(size_t opIndex)
@@ -1119,6 +1179,11 @@ class YarrGenerator : private MacroAssembler {
         case PatternTerm::TypeParenthesesSubpattern:
         case PatternTerm::TypeParentheticalAssertion:
             ASSERT_NOT_REACHED();
+
+        case PatternTerm::TypeDotStarEnclosure:
+            backtrackDotStarEnclosure(opIndex);
+            break;
+
         case PatternTerm::TypeBackReference:
             m_shouldFallBack = true;
             break;
@@ -1208,11 +1273,11 @@ class YarrGenerator : private MacroAssembler {
                     // PRIOR alteranative, and we will only check input availability if we
                     // need to progress it forwards.
                     op.m_reentry = label();
-                    if (int delta = alternative->m_minimumSize - priorAlternative->m_minimumSize) {
-                        add32(Imm32(delta), index);
-                        if (delta > 0)
-                            op.m_jumps.append(jumpIfNoAvailableInput());
-                    }
+                    if (alternative->m_minimumSize > priorAlternative->m_minimumSize) {
+                        add32(Imm32(alternative->m_minimumSize - priorAlternative->m_minimumSize), index);
+                        op.m_jumps.append(jumpIfNoAvailableInput());
+                    } else if (priorAlternative->m_minimumSize > alternative->m_minimumSize)
+                        sub32(Imm32(priorAlternative->m_minimumSize - alternative->m_minimumSize), index);
                 } else if (op.m_nextOp == notFound) {
                     // This is the reentry point for the End of 'once through' alternatives,
                     // jumped to when the las alternative fails to match.
@@ -1571,19 +1636,13 @@ class YarrGenerator : private MacroAssembler {
                 if (onceThrough)
                     m_backtrackingState.linkTo(endOp.m_reentry, this);
                 else {
-                    // Okay, we're going to need to loop. Calculate the delta between where the input
-                    // position was, and where we want it to be allowing for the fact that we need to
-                    // increment by 1. E.g. for the regexp /a|x/ we need to increment the position by
-                    // 1 between loop iterations, but for /abcd|xyz/ we need to increment by two when
-                    // looping from the last alternative to the first, for /a|xyz/ we need to decrement
-                    // by 1, and for /a|xy/ we don't need to move the input position at all.
-                    int deltaLastAlternativeToFirstAlternativePlusOne = (beginOp->m_alternative->m_minimumSize - alternative->m_minimumSize) + 1;
-
                     // If we don't need to move the input poistion, and the pattern has a fixed size
                     // (in which case we omit the store of the start index until the pattern has matched)
                     // then we can just link the backtrack out of the last alternative straight to the
                     // head of the first alternative.
-                    if (!deltaLastAlternativeToFirstAlternativePlusOne && m_pattern.m_body->m_hasFixedSize)
+                    if (m_pattern.m_body->m_hasFixedSize
+                        && (alternative->m_minimumSize > beginOp->m_alternative->m_minimumSize)
+                        && (alternative->m_minimumSize - beginOp->m_alternative->m_minimumSize == 1))
                         m_backtrackingState.linkTo(beginOp->m_reentry, this);
                     else {
                         // We need to generate a trampoline of code to execute before looping back
@@ -1604,19 +1663,26 @@ class YarrGenerator : private MacroAssembler {
                             }
                         }
 
-                        if (deltaLastAlternativeToFirstAlternativePlusOne)
-                            add32(Imm32(deltaLastAlternativeToFirstAlternativePlusOne), index);
-
-                        // Loop. Since this code is only reached when we backtrack out of the last
-                        // alternative (and NOT linked to from the input check upon entry to the
-                        // last alternative) we know that there must be at least enough input as
-                        // required by the last alternative. As such, we only need to check if the
-                        // first will require more to run - if the same or less is required we can
-                        // unconditionally jump.
-                        if (deltaLastAlternativeToFirstAlternativePlusOne > 0)
-                            checkInput().linkTo(beginOp->m_reentry, this);
-                        else
+                        // Generate code to loop. Check whether the last alternative is longer than the
+                        // first (e.g. /a|xy/ or /a|xyz/).
+                        if (alternative->m_minimumSize > beginOp->m_alternative->m_minimumSize) {
+                            // We want to loop, and increment input position. If the delta is 1, it is
+                            // already correctly incremented, if more than one then decrement as appropriate.
+                            unsigned delta = alternative->m_minimumSize - beginOp->m_alternative->m_minimumSize;
+                            ASSERT(delta);
+                            if (delta != 1)
+                                sub32(Imm32(delta - 1), index);
                             jump(beginOp->m_reentry);
+                        } else {
+                            // If the first alternative has minimum size 0xFFFFFFFFu, then there cannot
+                            // be sufficent input available to handle this, so just fall through.
+                            unsigned delta = beginOp->m_alternative->m_minimumSize - alternative->m_minimumSize;
+                            if (delta != 0xFFFFFFFFu) {
+                                // We need to check input because we are incrementing the input.
+                                add32(Imm32(delta + 1), index);
+                                checkInput().linkTo(beginOp->m_reentry, this);
+                            }
+                        }
                     }
                 }
 
@@ -1640,21 +1706,20 @@ class YarrGenerator : private MacroAssembler {
                 while (nextOp->m_op != OpBodyAlternativeEnd) {
                     prevOp->m_jumps.link(this);
 
-                    int delta = nextOp->m_alternative->m_minimumSize - prevOp->m_alternative->m_minimumSize;
-                    if (delta)
-                        add32(Imm32(delta), index);
-
                     // We only get here if an input check fails, it is only worth checking again
                     // if the next alternative has a minimum size less than the last.
-                    if (delta < 0) {
+                    if (prevOp->m_alternative->m_minimumSize > nextOp->m_alternative->m_minimumSize) {
                         // FIXME: if we added an extra label to YarrOp, we could avoid needing to
                         // subtract delta back out, and reduce this code. Should performance test
                         // the benefit of this.
-                        Jump fail = jumpIfNoAvailableInput();
+                        unsigned delta = prevOp->m_alternative->m_minimumSize - nextOp->m_alternative->m_minimumSize;
                         sub32(Imm32(delta), index);
+                        Jump fail = jumpIfNoAvailableInput();
+                        add32(Imm32(delta), index);
                         jump(nextOp->m_reentry);
                         fail.link(this);
-                    }
+                    } else if (prevOp->m_alternative->m_minimumSize < nextOp->m_alternative->m_minimumSize)
+                        add32(Imm32(nextOp->m_alternative->m_minimumSize - prevOp->m_alternative->m_minimumSize), index);
                     prevOp = nextOp;
                     nextOp = &m_ops[nextOp->m_nextOp];
                 }
@@ -1688,9 +1753,18 @@ class YarrGenerator : private MacroAssembler {
                 // one, and check. Also add in the minimum disjunction size before checking - there
                 // is no point in looping if we're just going to fail all the input checks around
                 // the next iteration.
-                int deltaLastAlternativeToBodyMinimumPlusOne = (m_pattern.m_body->m_minimumSize + 1) - alternative->m_minimumSize;
-                if (deltaLastAlternativeToBodyMinimumPlusOne)
-                    add32(Imm32(deltaLastAlternativeToBodyMinimumPlusOne), index);
+                ASSERT(alternative->m_minimumSize >= m_pattern.m_body->m_minimumSize);
+                if (alternative->m_minimumSize == m_pattern.m_body->m_minimumSize) {
+                    // If the last alternative had the same minimum size as the disjunction,
+                    // just simply increment input pos by 1, no adjustment based on minimum size.
+                    add32(Imm32(1), index);
+                } else {
+                    // If the minumum for the last alternative was one greater than than that
+                    // for the disjunction, we're already progressed by 1, nothing to do!
+                    unsigned delta = (alternative->m_minimumSize - m_pattern.m_body->m_minimumSize) - 1;
+                    if (delta)
+                        sub32(Imm32(delta), index);
+                }
                 Jump matchFailed = jumpIfNoAvailableInput();
 
                 if (needsToUpdateMatchStart) {
@@ -1706,11 +1780,13 @@ class YarrGenerator : private MacroAssembler {
                 // Calculate how much more input the first alternative requires than the minimum
                 // for the body as a whole. If no more is needed then we dont need an additional
                 // input check here - jump straight back up to the start of the first alternative.
-                int deltaBodyMinimumToFirstAlternative = beginOp->m_alternative->m_minimumSize - m_pattern.m_body->m_minimumSize;
-                if (!deltaBodyMinimumToFirstAlternative)
+                if (beginOp->m_alternative->m_minimumSize == m_pattern.m_body->m_minimumSize)
                     jump(beginOp->m_reentry);
                 else {
-                    add32(Imm32(deltaBodyMinimumToFirstAlternative), index);
+                    if (beginOp->m_alternative->m_minimumSize > m_pattern.m_body->m_minimumSize)
+                        add32(Imm32(beginOp->m_alternative->m_minimumSize - m_pattern.m_body->m_minimumSize), index);
+                    else
+                        sub32(Imm32(m_pattern.m_body->m_minimumSize - beginOp->m_alternative->m_minimumSize), index);
                     checkInput().linkTo(beginOp->m_reentry, this);
                     jump(firstInputCheckFailed);
                 }
@@ -2353,7 +2429,7 @@ public:
         backtrack();
 
         // Link & finalize the code.
-        LinkBuffer linkBuffer(this, globalData->regexAllocator);
+        LinkBuffer linkBuffer(*globalData, this, globalData->regexAllocator);
         m_backtrackingState.linkDataLabels(linkBuffer);
         jitObject.set(linkBuffer.finalizeCode());
         jitObject.setFallBack(m_shouldFallBack);

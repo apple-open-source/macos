@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2011 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/el.xml
@@ -225,7 +225,7 @@ el{
         }
         CLF{
             "CLF" /** ===  */,
-            "Unidades de Fomento Χιλής",
+            "Ουνιδάδες ντε φομέντο Χιλής",
         }
         CLP{
             "CL$",
@@ -238,10 +238,6 @@ el{
         COP{
             "CO$",
             "Πέσο Κολομβίας",
-        }
-        COU{
-            "COU" /** ===  */,
-            "unidad de valor real",
         }
         CRC{
             "₡",
@@ -993,7 +989,7 @@ el{
         }
         XAF{
             "FCFA",
-            "Φράγκο BEAC CFA",
+            "Φράγκο Κεντρικής Αφρικής",
         }
         XAU{
             "XAU",
@@ -1037,7 +1033,7 @@ el{
         }
         XOF{
             "CFA",
-            "Φράγκο BCEAO CFA",
+            "Φράγκο Δυτικής Αφρικής",
         }
         XPF{
             "CFPF",
@@ -1644,17 +1640,9 @@ el{
             one{"ταλόνας Λιθουανίας"}
             other{"ταλόνας Λιθουανίας"}
         }
-        LUC{
-            one{"LUC"}
-            other{"LUC"}
-        }
         LUF{
             one{"φράγκο Λουξεμβούργου"}
             other{"φράγκα Λουξεμβούργου"}
-        }
-        LUL{
-            one{"LUL"}
-            other{"LUL"}
         }
         LVL{
             one{"λατς Λετονίας"}
@@ -2070,11 +2058,7 @@ el{
         }
         XAF{
             one{"φράγκο BEAC CFA"}
-            other{"φράγκα BEAC CFA"}
-        }
-        XAU{
-            one{"XAU"}
-            other{"XAU"}
+            other{"Φράγκα Κεντρικής Αφρικής"}
         }
         XBA{
             one{"ευρωπαϊκή σύνθετη μονάδα"}

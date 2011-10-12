@@ -1341,6 +1341,8 @@ IOConnectCallMethod(
     mach_vm_size_t		 ool_input_size  = 0;
     mach_vm_address_t		 ool_output      = 0;
     mach_vm_size_t		 ool_output_size = 0;
+    io_buf_ptr_t                 var_output      = NULL;
+    mach_msg_type_number_t       var_output_size = 0;
 
     if (inputStructCnt <= sizeof(io_struct_inband_t)) {
 	inb_input      = (void *) inputStruct;
@@ -1359,7 +1361,24 @@ IOConnectCallMethod(
     if (outputStructCntP) {
 	size_t size = *outputStructCntP;
 
-	if (size <= sizeof(io_struct_inband_t)) {
+	if (size == (size_t) kIOConnectMethodVarOutputSize) {
+
+	    rtn = io_connect_method_var_output(
+	    			    connection,         selector,
+				    (uint64_t *) input, inputCnt,
+				    inb_input,          inb_input_size,
+				    ool_input,          ool_input_size,
+				    inb_output,         &inb_output_size,
+				    output,             outputCnt,
+				    &var_output,	&var_output_size);
+
+	    *(void **)outputStruct = var_output;
+	    *outputStructCntP      = var_output_size;
+
+	    return (rtn);
+
+	}
+	else if (size <= sizeof(io_struct_inband_t)) {
 	    inb_output      = outputStruct;
 	    inb_output_size = (mach_msg_type_number_t) size;
 	}

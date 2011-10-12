@@ -40,9 +40,17 @@ namespace JSC {
     class Register;
     
     class JSActivation : public JSVariableObject {
-        typedef JSVariableObject Base;
-    public:
+    private:
         JSActivation(CallFrame*, FunctionExecutable*);
+    
+    public:
+        typedef JSVariableObject Base;
+
+        static JSActivation* create(JSGlobalData& globalData, CallFrame* callFrame, FunctionExecutable* funcExec)
+        {
+            return new (allocateCell<JSActivation>(globalData.heap)) JSActivation(callFrame, funcExec);
+        }
+
         virtual ~JSActivation();
 
         virtual void visitChildren(SlotVisitor&);
@@ -69,7 +77,7 @@ namespace JSC {
         static Structure* createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); }
 
     protected:
-        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | NeedsThisConversion | OverridesVisitChildren | OverridesGetPropertyNames | JSVariableObject::StructureFlags;
+        static const unsigned StructureFlags = IsEnvironmentRecord | OverridesGetOwnPropertySlot | OverridesVisitChildren | OverridesGetPropertyNames | JSVariableObject::StructureFlags;
 
     private:
         bool symbolTableGet(const Identifier&, PropertySlot&);

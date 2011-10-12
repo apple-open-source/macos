@@ -10,7 +10,7 @@
    IMAP: Max. length of a single parameter
    POP3: Max. length of a command line (spec says 512 would be enough)
 */
-#define LOGIN_MAX_INBUF_SIZE 1024
+#define LOGIN_MAX_INBUF_SIZE 2048				/* APPLE */
 /* max. size of output buffer. if it gets full, the client is disconnected.
    SASL authentication gives the largest output. */
 #define LOGIN_MAX_OUTBUF_SIZE 4096

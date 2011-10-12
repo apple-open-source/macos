@@ -99,3 +99,14 @@ _kadm5_client_recv(kadm5_client_context *context, krb5_data *reply)
     return ret;
 }
 
+krb5_error_code
+_kadm5_store_enctypes(krb5_storage *sp, krb5_enctype *enctypes)
+{
+    while (enctypes && *enctypes) {
+	krb5_store_int32(sp, (int32_t)*enctypes);
+	enctypes++;
+    }
+    krb5_store_int32(sp, (int32_t)ENCTYPE_NULL);
+
+    return 0;
+}

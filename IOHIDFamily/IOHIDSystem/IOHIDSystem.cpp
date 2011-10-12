@@ -1,15 +1,15 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * Copyright (c) 1999-2011 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -55,7 +55,7 @@
 #include "IOHIDEventServiceQueue.h"
 #include "IOLLEvent.h"
 
-#include <IOKit/hidsystem/ev_private.h>	/* Per-machine configuration info */ 
+#include <IOKit/hidsystem/ev_private.h>	/* Per-machine configuration info */
 #include "IOHIDUserClient.h"
 #include "AppleHIDUsageTables.h"
 #include "IOHIDKeyboard.h"
@@ -131,14 +131,14 @@ static inline void TickToAbsoluteTime( unsigned tick, AbsoluteTime * ts )
 }
 
 static UInt8 ScalePressure(unsigned pressure)
-{    
-    return ((pressure * (unsigned long long)EV_MAXPRESSURE) / (unsigned)(65535LL));                
+{
+    return ((pressure * (unsigned long long)EV_MAXPRESSURE) / (unsigned)(65535LL));
 }
 
 #define EV_NS_TO_TICK(ns)	AbsoluteTimeToTick(ns)
 #define EV_TICK_TO_NS(tick,ns)	TickToAbsoluteTime(tick,ns)
 
-/* COMMAND GATE COMPATIBILITY TYPE DEFS */ 
+/* COMMAND GATE COMPATIBILITY TYPE DEFS */
 typedef struct _IOHIDCmdGateActionArgs {
     void*  	arg0;
     void*	arg1;
@@ -162,13 +162,13 @@ static bool             gUseKeyswitch = true;
 static IONotifier * 	gSwitchNotification = 0;
 
 // IONotificationHandler
-static bool keySwitchNotificationHandler(void *target __unused, void *refCon __unused, IOService *service, IONotifier * /* ignored */) 
+static bool keySwitchNotificationHandler(void *target __unused, void *refCon __unused, IOService *service, IONotifier * /* ignored */)
 {
-    
+
     gKeySwitchLocked = (service->getProperty("Keyswitch") == kOSBooleanTrue);
-        
+
     return true;
-} 
+}
 
 /* END HID SYSTEM EVENT LOCK OUT SUPPORT */
 
@@ -182,7 +182,7 @@ static inline UInt32 ShouldConsumeHIDEvent(AbsoluteTime ts, AbsoluteTime deadlin
 {
     if (checkKeySwitch && gKeySwitchLocked && gUseKeyswitch)
         return kHIDConsumeCauseKeyLock;
-        
+
     if ( AbsoluteTime_to_scalar(&ts) == 0 )
         clock_get_uptime(&ts);
 
@@ -190,7 +190,7 @@ static inline UInt32 ShouldConsumeHIDEvent(AbsoluteTime ts, AbsoluteTime deadlin
     {
          return kHIDConsumeCauseDeadline;
     }
-        
+
     return kHIDConsumeCauseNone;
 }
 
@@ -211,12 +211,12 @@ static inline UInt32 ShouldConsumeHIDEvent(AbsoluteTime ts, AbsoluteTime deadlin
         hw_buttons = ev_buttons & ~7; /* Keep everything but bottom 3 bits. */  \
         hw_buttons |= (ev_buttons & 3) << 1;  /* Map bits 01 to 12 */           \
         hw_buttons |= (ev_buttons & 4) >> 2;  /* Map bit 2 back to bit 0 */
-        
+
 #define CONVERT_EV_TO_HW_DELTA(ev_buttons,hw_delta)                             \
         hw_delta = ev_buttons & ~7;                                             \
         hw_delta |= (ev_buttons & 3) << 1; /* Map bits 01 to 12 */              \
         hw_delta |= (ev_buttons & 4) >> 2; /* Map bit 2 back to bit 0 */
-        
+
 #define CONVERT_HW_TO_WV_BUTTONS(hw_buttons,ev_buttons)                         \
         ev_buttons = hw_buttons & ~7; /* Keep everything but bottom 3 bits. */  \
         ev_buttons |= (hw_buttons & 6) >> 1;  /* Map bits 12 to 01 */           \
@@ -304,7 +304,7 @@ static void CalculateEventCountsForAllServices(OSArray *events)
     {
         int count = events->getCount();
         int i;
-        
+
         for ( i=0; i<count; i++ )
         {
             OSData *data;
@@ -326,11 +326,11 @@ static SInt32 GetCachedMouseButtonStates(OSArray *events)
     SInt32                      buttonState = 0;
     UInt32                      count       = 0;
     UInt32                      i           = 0;
-    
+
     if ( events )
     {
         count = events->getCount();
-        
+
         for ( i=0; i<count; i++ )
         {
             if ( (data = (OSData *)events->getObject(i)) &&
@@ -340,8 +340,8 @@ static SInt32 GetCachedMouseButtonStates(OSArray *events)
             }
         }
     }
-    
-    return buttonState;    
+
+    return buttonState;
 }
 
 //************************************************************
@@ -351,11 +351,11 @@ static void ClearCachedMouseButtonStates(OSArray *events)
     OSData *                    data        = 0;
     UInt32                      count       = 0;
     UInt32                      i           = 0;
-    
+
     if ( events )
     {
         count = events->getCount();
-        
+
         for ( i=0; i<count; i++ )
         {
             if ( (data = (OSData *)events->getObject(i)) &&
@@ -375,23 +375,23 @@ static CachedMouseEventStruct * GetCachedMouseEventForService(OSArray *events, O
     OSData *                    data        = 0;
     UInt32                      count       = 0;
     UInt32                      i           = 0;
-    
+
     if ( events )
     {
         count = events->getCount();
-        
+
         for ( i=0; i<count; i++ )
         {
             if ( (data = (OSData *)events->getObject(i)) &&
                  (mouseEvent = (CachedMouseEventStruct *)data->getBytesNoCopy()) &&
                  (mouseEvent->service == service) )
             {
-                if ( index ) *index = i; 
+                if ( index ) *index = i;
                 return mouseEvent;
             }
         }
     }
-    
+
     return NULL;
 }
 
@@ -400,7 +400,7 @@ static void AppendNewCachedMouseEventForService(OSArray *events, OSObject *servi
 {
     CachedMouseEventStruct  temp;
     OSData *                data;
-    
+
     bzero(&temp, sizeof(CachedMouseEventStruct));
     temp.service = service;
 
@@ -414,7 +414,7 @@ static void AppendNewCachedMouseEventForService(OSArray *events, OSObject *servi
 static void RemoveCachedMouseEventForService(OSArray *events, OSObject *service)
 {
     UInt32  index;
-    
+
     if ( events && GetCachedMouseEventForService(events, service, &index) )
     {
         events->removeObject(index);
@@ -428,68 +428,68 @@ static void RemoveCachedMouseEventForService(OSArray *events, OSObject *service)
 #define kNXSystemInfoKey "NXSystemInfo"
 
 static void AppendNewNXSystemInfoForService(OSArray *systemInfo, IOService *service)
-{    
+{
     OSDictionary *  deviceInfo  = NULL;
     OSNumber *      deviceID    = NULL;
     IOHIDevice *    hiDevice    = NULL;
     OSObject *      object      = NULL;
-    
+
     if ( !systemInfo || !(hiDevice = OSDynamicCast(IOHIDevice, service)))
         return;
-        
+
     deviceInfo = OSDictionary::withCapacity(4);
-    
+
     if ( !deviceInfo )
         return;
-    
+
     deviceID = OSNumber::withNumber((uintptr_t)hiDevice, 64);
     if (deviceID)
     {
         deviceInfo->setObject("serviceID", deviceID);
         deviceID->release();
     }
-    
+
     object = hiDevice->copyProperty(kIOHIDKindKey);
-    if ( object ) 
-    { 
+    if ( object )
+    {
         deviceInfo->setObject(kIOHIDKindKey, object);
         object->release();
     }
 
     object = hiDevice->copyProperty(kIOHIDInterfaceIDKey);
-    if ( object ) 
-    { 
+    if ( object )
+    {
         deviceInfo->setObject(kIOHIDInterfaceIDKey, object);
         object->release();
     }
 
     object = hiDevice->copyProperty(kIOHIDSubinterfaceIDKey);
-    if ( object ) 
-    { 
+    if ( object )
+    {
         deviceInfo->setObject(kIOHIDSubinterfaceIDKey, object);
         object->release();
     }
-        
+
     if ( hiDevice->metaCast("AppleADBKeyboard") || (hiDevice->getProvider() && hiDevice->getProvider()->metaCast("AppleEmbeddedKeyboard")) )
         deviceInfo->setObject("built-in", kOSBooleanTrue);
 
-    // RY: Hack for rdar://4365935 Turning on NumLock causes Keyboard 
+    // RY: Hack for rdar://4365935 Turning on NumLock causes Keyboard
     // Viewer to display the external keyboard
-    // Because keyboardType information is not passed in special key 
+    // Because keyboardType information is not passed in special key
     // events, CG infers that this event comes from the default keyboard,
-    // or first keyboard in NXSystemInfo. Unforunately, in some cases a 
+    // or first keyboard in NXSystemInfo. Unforunately, in some cases a
     // USB external keyboard will enumerate before a USB internal keyboard.
     // If this is encountered, we should alway insert the internal keyboard
     // at the beginning of the list.  This will cause CG to guess correctly.
-    // RY: Extension for rdar://4418444 Keyboard Viewer defaults to wrong 
+    // RY: Extension for rdar://4418444 Keyboard Viewer defaults to wrong
     // keyboard layout when launched.
     // We should also insert keyboards to the front of the list, prefering
     // Apple, if the front does not already contain a built-in keyboard.
     OSDictionary * tempSystemInfo;
     OSNumber * number;
-    
+
     // If a keyboard
-    if ( ((hiDevice->hidKind() == kHIKeyboardDevice) && (hiDevice->deviceType() != 0))&& 
+    if ( ((hiDevice->hidKind() == kHIKeyboardDevice) && (hiDevice->deviceType() != 0))&&
             // And keyboard is built-in
             ( (deviceInfo->getObject("built-in") == kOSBooleanTrue) ||
             // Or, first item in the list is not a keyboard
@@ -503,7 +503,7 @@ static void AppendNewNXSystemInfoForService(OSArray *systemInfo, IOService *serv
     {
         systemInfo->setObject(deviceInfo);
     }
-    
+
     deviceInfo->release();
 }
 
@@ -512,12 +512,12 @@ static void RemoveNXSystemInfoForService(OSArray *systemInfo, IOService *service
     OSDictionary *  deviceInfo  = NULL;
     OSNumber *      serviceID   = NULL;
     UInt32          i, count;
-    
+
     if ( !systemInfo || !OSDynamicCast(IOHIDevice, service))
         return;
-    
+
     count = systemInfo->getCount();
-    
+
     for ( i=0; i<count; i++ )
     {
         if ( (deviceInfo = (OSDictionary *)systemInfo->getObject(i)) &&
@@ -540,11 +540,11 @@ typedef IOReturn (*KeyboardEQAction)(IOHIDSystem * self, void *args);
 
 typedef struct _KeyboardEQElement {
     queue_chain_t   link;
-    
+
     KeyboardEQAction    action;
-    OSObject *          sender;   
+    OSObject *          sender;
     AbsoluteTime        ts;
-    
+
     union {
         struct {
             unsigned        eventType;
@@ -580,16 +580,16 @@ static UInt8 stickyKeysState = false;
 static void notifyHIDevices(IOService *service, OSArray *hiDevices, UInt32 type)
 {
     IOHIKeyboard	*keyboard;
-    
+
     if(!stickyKeysState || !hiDevices)
         return;
-        
+
     switch ( type )
     {
         case kIOHIDSystem508MouseClickMessage:
         case kIOHIDSystem508SpecialKeyDownMessage:
             for(unsigned index=0; index<hiDevices->getCount(); index++)
-            {	
+            {
             	keyboard = OSDynamicCast(IOHIKeyboard, hiDevices->getObject(index));
                 if (keyboard)
                     keyboard->IOHIKeyboard::message(type, service);
@@ -604,8 +604,8 @@ static void notifyHIDevices(IOService *service, OSArray *hiDevices, UInt32 type)
  * containsObject(), so we must use this instead.
  */
 #define kObjectNotFound ((unsigned int) -1)
-static unsigned int 
-getArrayIndexForObject(OSArray *array, OSObject* object) 
+static unsigned int
+getArrayIndexForObject(OSArray *array, OSObject* object)
 {
     OSObject *tmp;
     u_int i;
@@ -624,7 +624,7 @@ getArrayIndexForObject(OSArray *array, OSObject* object)
 OSDefineMetaClassAndStructors(IOHIDSystem, IOService);
 
 struct IOHIDSystem::ExpansionData
-{ 
+{
     // The goal of the cursorHelper is to isolate all of the cursor
     // calculations and updates into one class.
     IOHIDSystemCursorHelper cursorHelper;
@@ -664,16 +664,16 @@ bool IOHIDSystem::init(OSDictionary * properties)
 {
     if (!super::init(properties))
         return false;
-    
+
     _privateData = (ExpansionData*)IOMalloc(sizeof(ExpansionData));
     if (!_privateData)
         return false;
     bzero(_privateData, sizeof(ExpansionData));
-    
+
     if (!_cursorHelper.init())
         return false;
     _cursorLogTimed();
-    
+
     /*
      * Initialize minimal state.
      */
@@ -692,25 +692,25 @@ bool IOHIDSystem::init(OSDictionary * properties)
     AbsoluteTime_to_scalar(&displaySleepWakeupDeadline) = 0;
     AbsoluteTime_to_scalar(&gIOHIDZeroAbsoluteTime) = 0;
     displaySleepDrivenByPM = false;
-     
-    
+
+
     ioHIDevices      = OSArray::withCapacity(2);
     cachedButtonStates = OSArray::withCapacity(3);
     touchEventPosters = OSSet::withCapacity(2);
     consumedKeys = OSArray::withCapacity(5);
-    
+
     // RY: Populate cachedButtonStates key=0 with a button State
-    // This will cover all pointing devices that don't support 
+    // This will cover all pointing devices that don't support
     // the new private methods.
     AppendNewCachedMouseEventForService(cachedButtonStates, 0);
-    
+
     nanoseconds_to_absolutetime(kIOHIDPowerOnThresholdNS, &gIOHIDPowerOnThresoldAbsoluteTime);
     nanoseconds_to_absolutetime(kIOHIDRelativeTickleThresholdNS, &gIOHIDRelativeTickleThresholdAbsoluteTime);
     nanoseconds_to_absolutetime(kIOHIDDispaySleepAbortThresholdNS, &gIOHIDDisplaySleepAbortThresholdAbsoluteTime);
 
-    
+
     queue_init(&gKeyboardEQ);
-    gKeyboardEQLock = IOLockAlloc();   
+    gKeyboardEQLock = IOLockAlloc();
     return true;
 }
 
@@ -737,7 +737,7 @@ bool IOHIDSystem::start(IOService * provider)
     OSDictionary *matchingService = serviceMatching("IOHIDEventService");
     OSDictionary *matchingWrangler = serviceMatching("IODisplayWrangler");
     OSDictionary *matchingKeyswitch = serviceMatching("AppleKeyswitch");
-    
+
     char provider_path[512];
     int length = sizeof(provider_path);
     provider->getPath( provider_path, &length, gIOServicePlane);
@@ -745,26 +745,26 @@ bool IOHIDSystem::start(IOService * provider)
 
     do {
         if (!super::start(provider))  break;
-        
+
         evInstance = this;
-        
+
         /* A few details to be set up... */
-        _cursorHelper.desktopLocation().fromInt(INIT_CURSOR_X, INIT_CURSOR_Y);
-        _cursorHelper.desktopLocationDelta().fromInt(0, 0);
+        _cursorHelper.desktopLocation().fromIntFloor(INIT_CURSOR_X, INIT_CURSOR_Y);
+        _cursorHelper.desktopLocationDelta().fromIntFloor(0, 0);
         _cursorHelper.updateScreenLocation(NULL, NULL);
         _cursorLogTimed();
-        
+
         evScreenSize = sizeof(EvScreen) * 32;
         evScreen = (void *) IOMalloc(evScreenSize);
         savedParameters = OSDictionary::withCapacity(4);
-        
+
         if (!evScreen || !savedParameters)  break;
-                
+
         bzero(evScreen, evScreenSize);
         firstWaitCursorFrame = EV_WAITCURSOR;
         maxWaitCursorFrame   = EV_MAXCURSOR;
         createParameters();
-        
+
         /*
          * Start up the work loop
          */
@@ -779,102 +779,102 @@ bool IOHIDSystem::start(IOService * provider)
                        (this, (IOInterruptEventSource::Action) &doProcessKeyboardEQ);
         vblES = IOTimerEventSource::timerEventSource
                 (this, &_vblEvent );
-                
+
         if (!workLoop || !cmdGate || !timerES || !eventConsumerES || !keyboardEQES || !vblES)
             break;
-            
+
         if ((workLoop->addEventSource(cmdGate)    != kIOReturnSuccess)
                 ||  (workLoop->addEventSource(timerES) != kIOReturnSuccess)
                 ||  (workLoop->addEventSource(vblES) != kIOReturnSuccess)
                 ||  (workLoop->addEventSource(eventConsumerES) != kIOReturnSuccess)
                 ||  (workLoop->addEventSource(keyboardEQES) != kIOReturnSuccess))
             break;
-            
+
         publishNotify = addMatchingNotification(gIOPublishNotification,
                                                 matchingDevice,
                             &IOHIDSystem::genericNotificationHandler,
                                                 this,
                                                 (void *)&IOHIDSystem::handlePublishNotification );
-                            
+
         if (!publishNotify) break;
-        
+
         eventPublishNotify = addMatchingNotification(gIOPublishNotification,
                              matchingService,
                                  &IOHIDSystem::genericNotificationHandler,
                              this,
                              (void *)&IOHIDSystem::handlePublishNotification );
-                                 
+
         if (!eventPublishNotify) break;
-        
+
         terminateNotify = addMatchingNotification(gIOTerminatedNotification,
                           matchingDevice,
                               &IOHIDSystem::genericNotificationHandler,
                           this,
                           (void *)&IOHIDSystem::handleTerminateNotification );
-                              
+
         if (!terminateNotify) break;
-        
+
         eventTerminateNotify = addMatchingNotification(gIOTerminatedNotification,
                                matchingService,
                                    &IOHIDSystem::genericNotificationHandler,
                                this,
                                (void *)&IOHIDSystem::handleTerminateNotification );
-                                   
+
         if (!eventTerminateNotify) break;
-        
+
         // RY: Listen to the root domain
         rootDomain = (IOService *)getPMRootDomain();
-        
+
         if (rootDomain)
             rootDomain->registerInterestedDriver(this);
-            
+
         registerPrioritySleepWakeInterest(powerStateHandler, this, 0);
-            
+
         // Allocated and publish the systemInfo array
 		systemInfo = OSArray::withCapacity(4);
         if (systemInfo) {
             setProperty(kNXSystemInfoKey, systemInfo);
             systemInfo->release();
         }
-        
+
         /*
          * IOHIDSystem serves both as a service and a nub (we lead a double
          * life).  Register ourselves as a nub to kick off matching.
          */
-        
+
         registerService();
-        
+
         addMatchingNotification(gIOPublishNotification,
                                 matchingWrangler,
                          &IOHIDSystem::genericNotificationHandler,
                                 this,
                                 (void *)&IOHIDSystem::handlePublishNotification );
-                         
+
         // Get notified everytime AppleKeyswitch registers (each time keyswitch changes)
         gSwitchNotification = addMatchingNotification(gIOPublishNotification,
                               matchingKeyswitch,
                               keySwitchNotificationHandler,
                               this,
                               0);
-                                              
+
         iWasStarted = true;
-        
+
         // Let's go ahead and cache our registry name.
         // This was added to remove a call to getName while
         // we are disabling preemption
         registryName = getName();
-        
+
     }
     while (false);
-    
+
     matchingDevice->release();
     matchingService->release();
     matchingWrangler->release();
     matchingKeyswitch->release();
-    
+
     if (!iWasStarted)
         evInstance = 0;
-    
+
     return iWasStarted;
 }
 
@@ -892,7 +892,7 @@ IOReturn IOHIDSystem::powerStateHandler( void *target, void *refCon __unused,
 
 
    if ( messageType != kIOMessageSystemCapabilityChange ) {
-      // We are not interested in anything other than cap change. 
+      // We are not interested in anything other than cap change.
       return kIOReturnSuccess;
    }
    params = (IOPMSystemCapabilityChangeParameters *) messageArgs;
@@ -918,27 +918,27 @@ IOReturn IOHIDSystem::powerStateHandler( void *target, void *refCon __unused,
 
 IOReturn IOHIDSystem::powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned long state, IOService * service)
 {
-    
+
     IOHID_DEBUG(kIOHIDDebugCode_PowerStateChangeEvent, service, state, theFlags, 0);
     if (service == displayManager)
     {
         displayState = theFlags;
         if (theFlags & IOPMDeviceUsable) {
             clock_get_uptime(&displayStateChangeDeadline);
-            ADD_ABSOLUTETIME(&displayStateChangeDeadline, 
+            ADD_ABSOLUTETIME(&displayStateChangeDeadline,
                              &gIOHIDRelativeTickleThresholdAbsoluteTime);
             AbsoluteTime_to_scalar(&displaySleepWakeupDeadline) = 0;
 
-           // Reset all flags. Flag key release events may not get delivered as they 
+           // Reset all flags. Flag key release events may not get delivered as they
            // come late in system sleep or display sleep process.
            updateEventFlags(0);
         }
         else {
              // If the display has transitioned from usable to unusable state
-             // because of display sleep  then set the deadline before which 
+             // because of display sleep  then set the deadline before which
              // pointer movement can bring the display to usable state.
              // Also make sure that this display sleep is not driven by IOPM as part of system sleep
-             
+
            if ( !CMP_ABSOLUTETIME(&displaySleepWakeupDeadline, &gIOHIDZeroAbsoluteTime) && !displaySleepDrivenByPM ) {
              clock_get_uptime(&displaySleepWakeupDeadline);
              ADD_ABSOLUTETIME(&displaySleepWakeupDeadline, &gIOHIDDisplaySleepAbortThresholdAbsoluteTime);
@@ -985,19 +985,19 @@ bool IOHIDSystem::handlePublishNotification(
     }
 
     self->attach( newService );
-    
-    if( OSDynamicCast(IOHIDevice, newService) || 
+
+    if( OSDynamicCast(IOHIDevice, newService) ||
         OSDynamicCast(IOHIDEventService, newService)) {
         if (self->ioHIDevices) {
             if (self->ioHIDevices->getNextIndexOfObject(newService, 0) == (unsigned)-1)
                 self->ioHIDevices->setObject(newService);
         }
-        
+
         if (OSDynamicCast(IOHIPointing, newService))
         {
             AppendNewCachedMouseEventForService(self->cachedButtonStates, newService);
         }
-        
+
         OSArray * newSystemInfo = OSArray::withArray(self->systemInfo);
         if ( newSystemInfo )
         {
@@ -1022,19 +1022,19 @@ bool IOHIDSystem::handleTerminateNotification(
     int	index;
 
     if( self->eventsOpen && (
-        OSDynamicCast(IOHIDevice, service) || 
-        OSDynamicCast(IOHIDEventService, service))) 
+        OSDynamicCast(IOHIDevice, service) ||
+        OSDynamicCast(IOHIDEventService, service)))
     {
         service->close(self);
     }
-    
+
     self->detach(service);
 
     if (self->ioHIDevices) {
         if ((index = self->ioHIDevices->getNextIndexOfObject(service, 0)) != -1)
             self->ioHIDevices->removeObject(index);
     }
-    
+
     OSArray * newSystemInfo = OSArray::withArray(self->systemInfo);
     if ( newSystemInfo )
     {
@@ -1053,7 +1053,7 @@ bool IOHIDSystem::handleTerminateNotification(
         if ( (self->displayState & IOPMDeviceUsable) ) {
             self->relativePointerEvent(0, 0, 0, ts, service);
         }
-        
+
         CachedMouseEventStruct *cachedMouseEvent;
         if ((cachedMouseEvent = GetCachedMouseEventForService(self->cachedButtonStates, service)) &&
             (cachedMouseEvent->proximityData.proximity.enterProximity))
@@ -1062,15 +1062,15 @@ bool IOHIDSystem::handleTerminateNotification(
             cachedMouseEvent->state |= kCachedMousePointingTabletEventPendFlag;
             self->proximityEvent(&(cachedMouseEvent->proximityData), ts, service);
             cachedMouseEvent->state &= ~kCachedMousePointingTabletEventPendFlag;
-            
+
             IOGBounds   bounds = {0, 0, 0, 0};
             IOGPoint   newLoc = {0, 0};
             self->absolutePointerEvent(0, &newLoc, &bounds, false, 0, 0, ts, service);
         }
-                
+
         RemoveCachedMouseEventForService(self->cachedButtonStates, service);
     }
-        
+
     return true;
 }
 
@@ -1083,46 +1083,46 @@ void IOHIDSystem::free()
     if (workLoop) {
         workLoop->disableAllEventSources();
     }
-    
+
     if (_privateData) {
         _cursorHelper.finalize();
         IOFree((void*)_privateData, sizeof(ExpansionData));
     }
-    
+
     if (evScreen) IOFree( (void *)evScreen, evScreenSize );
     evScreen = (void *)0;
     evScreenSize = 0;
-    
+
     if (timerES) {
         timerES->cancelTimeout();
-        
+
         if ( workLoop )
             workLoop->removeEventSource( timerES );
-            
+
         timerES->release();
         timerES = 0;
     }
     if (vblES) {
         vblES->cancelTimeout();
-        
+
         if ( workLoop )
             workLoop->removeEventSource( vblES );
-            
+
         vblES->release();
         vblES = 0;
     }
     if (eventConsumerES) {
         eventConsumerES->disable();
-        
+
         if ( workLoop )
             workLoop->removeEventSource( eventConsumerES );
-            
+
         eventConsumerES->release();
         eventConsumerES = 0;
     }
     if (keyboardEQES) {
         keyboardEQES->disable();
-        
+
         if ( workLoop )
             workLoop->removeEventSource( keyboardEQES );
         keyboardEQES->release();
@@ -1169,7 +1169,7 @@ void IOHIDSystem::free()
         consumedKeys->release();
         consumedKeys = 0;
     }
-    
+
     if ( gKeyboardEQLock ) {
         IOLock * lock = gKeyboardEQLock;
         IOLockLock(lock);
@@ -1177,17 +1177,17 @@ void IOHIDSystem::free()
         IOLockUnlock(lock);
         IOLockFree(lock);
     }
-    
+
     if (_hidKeyboardDevice) {
         _hidKeyboardDevice->release();
         _hidKeyboardDevice = 0;
     }
-    
+
     if (_hidPointingDevice) {
         _hidPointingDevice->release();
         _hidPointingDevice = 0;
     }
-    
+
     super::free();
 }
 
@@ -1201,7 +1201,7 @@ void IOHIDSystem::free()
 IOReturn IOHIDSystem::evOpen(void)
 {
 	IOReturn r = kIOReturnSuccess;
-	
+
 	if ( evOpenCalled == true )
 	{
 		r = kIOReturnBusy;
@@ -1219,7 +1219,7 @@ done:
 	return r;
 }
 
-IOReturn IOHIDSystem::evClose(void){    
+IOReturn IOHIDSystem::evClose(void){
     return cmdGate->runAction((IOCommandGate::Action)doEvClose);
 }
 
@@ -1231,11 +1231,11 @@ IOReturn IOHIDSystem::doEvClose(IOHIDSystem *self)
 
 IOReturn IOHIDSystem::evCloseGated(void)
 {
-	if ( evOpenCalled == false ) 
+	if ( evOpenCalled == false )
 		return kIOReturnBadArgument;
-        
+
     evStateChanging = true;
-        
+
 	// Early close actions here
 	if( cursorEnabled)
             hideCursor();
@@ -1285,31 +1285,31 @@ void IOHIDSystem::evDispatch(
     for( int i = 0; i < screens; i++ ) {
 
         EvScreen *esp = &((EvScreen*)evScreen)[i];
-    
+
         if ( esp->instance )
         {
             p.x = evg->screenCursorFixed.x / 256;	// Copy from shmem.
             p.y = evg->screenCursorFixed.y / 256;
 
             bool onscreen = (0 != (cursorScreens & (1 << i)));
-    
+
             switch ( evcmd )
             {
                 case EVMOVE:
                     if (onscreen)
                         esp->instance->moveCursor(&p, evg->frame);
                     break;
-    
+
                 case EVSHOW:
                     if (onscreen)
                         esp->instance->showCursor(&p, evg->frame);
                     break;
-    
+
                 case EVHIDE:
                     if (onscreen)
                         esp->instance->hideCursor();
                     break;
-    
+
                 case EVLEVEL:
                 case EVNOP:
                     /* lets keep that compiler happy */
@@ -1353,7 +1353,7 @@ void IOHIDSystem::evSpecialKeyMsg(unsigned key,
 				sizeof (struct evioSpecialKeyMsg) );
 	if ( msg == NULL )
 		return;
-	
+
 	// Initialize the message.
 	bcopy( &init_msg, msg, sizeof (struct evioSpecialKeyMsg) );
 	msg->Head.msgh_remote_port = dst_port;
@@ -1374,16 +1374,16 @@ void IOHIDSystem::_resetMouseParameters(void)
 {
 	if ( eventsOpen == false )
 	    return;
-            
+
         OSDictionary 	*tempDict = OSDictionary::withCapacity(3);
         UInt64 		nano;
-        
+
         nanoseconds_to_absolutetime( EV_DCLICKTIME, &clickTimeThresh);
 	clickSpaceThresh.x = clickSpaceThresh.y = EV_DCLICKSPACE;
         AbsoluteTime_to_scalar( &clickTime) = 0;
 	clickLoc.x = clickLoc.y = -EV_DCLICKSPACE;
 	clickState = 1;
-        
+
         if (tempDict) {
             UInt32	tempClickSpace[] = {clickSpaceThresh.x, clickSpaceThresh.y};
             makeInt32ArrayParamProperty( tempDict, kIOHIDClickSpaceKey,
@@ -1392,9 +1392,9 @@ void IOHIDSystem::_resetMouseParameters(void)
             nano = EV_DCLICKTIME;
             makeNumberParamProperty( tempDict, kIOHIDClickTimeKey,
                         nano, 64 );
-            
+
             setParamProperties(tempDict);
-            
+
             tempDict->release();
         }
 }
@@ -1416,27 +1416,27 @@ int IOHIDSystem::registerScreen(IOGraphicsDevice * io_gd,
     {
         return -1;
     }
-    
+
     workLoop->runAction((IOWorkLoop::Action)&IOHIDSystem::doRegisterScreen, this, io_gd, boundsPtr, virtualBoundsPtr);
-    
+
     return(SCREENTOKEN + screens);
 }
- 
+
 IOReturn IOHIDSystem::doRegisterScreen(IOHIDSystem *self, IOGraphicsDevice *io_gd, IOGBounds *bounds, IOGBounds *virtualBounds, void *arg3 __unused)
 {
     self->registerScreenGated(io_gd, bounds, virtualBounds);
-    
+
     return kIOReturnSuccess;
 }
- 
+
 void IOHIDSystem::registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *boundsPtr, IOGBounds *virtualBoundsPtr)
 {
     EvScreen *esp;
     OSNumber *num;
-    
+
     if ( lastShmemPtr == (void *)0 )
         lastShmemPtr = evs;
-    
+
     /* shmemSize and bounds already set */
     esp = &((EvScreen*)evScreen)[screens];
     esp->instance = io_gd;
@@ -1451,7 +1451,7 @@ void IOHIDSystem::registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *bounds
         workSpace.maxx = boundsPtr->maxx;
     if ( esp->displayBounds->maxy < workSpace.maxy )
         workSpace.maxy = boundsPtr->maxy;
-    
+
     if( (num = OSDynamicCast(OSNumber, io_gd->getProperty(kIOFBWaitCursorFramesKey)))
        && (num->unsigned32BitValue() > maxWaitCursorFrame)) {
         firstWaitCursorFrame = 0;
@@ -1462,35 +1462,35 @@ void IOHIDSystem::registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *bounds
         clock_interval_to_absolutetime_interval(num->unsigned32BitValue(), kNanosecondScale,
                                                 &waitFrameRate);
     }
-    
+
     screens++;
 }
 
 
 void IOHIDSystem::unregisterScreen(int index) {
-    
+
     cmdGate->runAction((IOCommandGate::Action)doUnregisterScreen, (void *)index);
-    
+
 }
 
-IOReturn IOHIDSystem::doUnregisterScreen (IOHIDSystem *self, void * arg0) 
+IOReturn IOHIDSystem::doUnregisterScreen (IOHIDSystem *self, void * arg0)
                         /* IOCommandGate::Action */
 {
     int index = (uintptr_t) arg0;
-    
+
     self->unregisterScreenGated(index);
-    
+
     return kIOReturnSuccess;
 }
 
 void IOHIDSystem::unregisterScreenGated(int index)
 {
-    
+
     index -= SCREENTOKEN;
 
     if ( eventsOpen == false || index < 0 || index >= screens )
 	return;
-    
+
     hideCursor();
 
     // clear the state for the screen
@@ -1503,7 +1503,7 @@ void IOHIDSystem::unregisterScreenGated(int index)
     showCursor();
 }
 
-/* Member of EventClient protocol 
+/* Member of EventClient protocol
  *
  * Absolute position input devices and some specialized output devices
  * may need to know the bounding rectangle for all attached displays.
@@ -1521,7 +1521,7 @@ IOReturn IOHIDSystem::registerEventQueue(IODataQueue * queue)
     return cmdGate->runAction((IOCommandGate::Action)doRegisterEventQueue, (void *)queue);
 }
 
-IOReturn IOHIDSystem::doRegisterEventQueue (IOHIDSystem *self, void * arg0) 
+IOReturn IOHIDSystem::doRegisterEventQueue (IOHIDSystem *self, void * arg0)
                         /* IOCommandGate::Action */
 {
     return self->registerEventQueueGated((IODataQueue *)arg0);
@@ -1532,10 +1532,10 @@ IOReturn IOHIDSystem::registerEventQueueGated(void * p1)
     IODataQueue * queue = (IODataQueue *)p1;
     if ( !queue )
         return kIOReturnBadArgument;
-        
+
     if ( !dataQueueSet )
         dataQueueSet = OSSet::withCapacity(4);
-        
+
     dataQueueSet->setObject(queue);
 
     return kIOReturnSuccess;
@@ -1546,7 +1546,7 @@ IOReturn IOHIDSystem::unregisterEventQueue(IODataQueue * queue)
     return cmdGate->runAction((IOCommandGate::Action)doUnregisterEventQueue, (void *)queue);
 }
 
-IOReturn IOHIDSystem::doUnregisterEventQueue (IOHIDSystem *self, void * arg0) 
+IOReturn IOHIDSystem::doUnregisterEventQueue (IOHIDSystem *self, void * arg0)
                         /* IOCommandGate::Action */
 {
     return self->unregisterEventQueueGated((IODataQueue *)arg0);
@@ -1558,7 +1558,7 @@ IOReturn IOHIDSystem::unregisterEventQueueGated(void * p1)
 
     if ( !queue )
         return kIOReturnBadArgument;
-        
+
     if ( dataQueueSet )
         dataQueueSet->removeObject(queue);
 
@@ -1570,7 +1570,7 @@ IOReturn IOHIDSystem::createShmem(void* p1, void*, void*, void*, void*, void*)
     return cmdGate->runAction((IOCommandGate::Action)doCreateShmem, p1);
 }
 
-IOReturn IOHIDSystem::doCreateShmem (IOHIDSystem *self, void * arg0) 
+IOReturn IOHIDSystem::doCreateShmem (IOHIDSystem *self, void * arg0)
                         /* IOCommandGate::Action */
 {
     return self->createShmemGated(arg0);
@@ -1582,33 +1582,33 @@ IOReturn IOHIDSystem::createShmemGated(void* p1)
     int                 shmemVersion = (uintptr_t)p1;
     IOByteCount			size;
     bool                clean = false;
-    
+
     if ( shmemVersion < kIOHIDLastCompatibleShmemVersion ) {
         IOLog("IOHIDSystem::createShmemGated called with low version: %d < %d\n", shmemVersion, kIOHIDLastCompatibleShmemVersion);
         return kIOReturnUnsupported;
     }
-    
+
     if ( shmemVersion > kIOHIDCurrentShmemVersion ) {
         IOLog("IOHIDSystem::createShmemGated called with hi version: %d > %d\n", shmemVersion, kIOHIDCurrentShmemVersion);
         return kIOReturnUnsupported;
     }
-    
+
     if ( 0 == globalMemory) {
-    
+
         size = sizeof(EvOffsets) + sizeof(EvGlobals);
         globalMemory = IOBufferMemoryDescriptor::withOptions( kIODirectionNone | kIOMemoryKernelUserShared, size );
-        
+
         if ( !globalMemory)
             return kIOReturnNoMemory;
-            
+
         shmem_addr = (uintptr_t) globalMemory->getBytesNoCopy();
         shmem_size = size;
-        
+
         clean = true;
     }
-    
+
     initShmem(clean);
-    
+
     return kIOReturnSuccess;
 }
 
@@ -1620,44 +1620,44 @@ void IOHIDSystem::initShmem(bool clean)
     int  i;
     EvOffsets *eop;
     int oldFlags = 0;
-    
+
     /* top of sharedMem is EvOffsets structure */
     eop = (EvOffsets *) shmem_addr;
-    
+
     if (!clean) {
         oldFlags = ((EvGlobals *)((char *)shmem_addr + sizeof(EvOffsets)))->eventFlags;
     }
-    
+
     bzero( (void*)shmem_addr, shmem_size);
-    
+
     /* fill in EvOffsets structure */
     eop->evGlobalsOffset = sizeof(EvOffsets);
     eop->evShmemOffset = eop->evGlobalsOffset + sizeof(EvGlobals);
-    
+
     /* find pointers to start of globals and private shmem region */
     evg = (EvGlobals *)((char *)shmem_addr + eop->evGlobalsOffset);
     evs = (void *)((char *)shmem_addr + eop->evShmemOffset);
-    
+
     evg->version = kIOHIDCurrentShmemVersion;
     evg->structSize = sizeof( EvGlobals);
-    
+
     /* Set default wait cursor parameters */
     evg->waitCursorEnabled = TRUE;
     evg->globalWaitCursorEnabled = TRUE;
     evg->lastFrame = maxWaitCursorFrame;
     evg->waitThreshold = (12 * EV_TICKS_PER_SEC) / 10;
-    
+
     clock_interval_to_absolutetime_interval(DefaultWCFrameRate, kNanosecondScale, &waitFrameRate);
     clock_interval_to_absolutetime_interval(DefaultWCSustain, kNanosecondScale, &waitSustain);
     AbsoluteTime_to_scalar(&waitSusTime) = 0;
     AbsoluteTime_to_scalar(&waitFrameTime) = 0;
-    
+
     EV_TICK_TO_NS(10,&periodicEventDelta);
-    
+
     evg->buttons = 0;
     evg->eNum = INITEVENTNUM;
     evg->eventFlags = oldFlags;
-    
+
     AbsoluteTime ts;
     unsigned tick;
     clock_get_uptime( &ts);
@@ -1665,7 +1665,7 @@ void IOHIDSystem::initShmem(bool clean)
     if ( tick == 0 )
         tick = 1; // No zero values allowed!
     evg->VertRetraceClock = tick;
-    
+
     evg->cursorLoc.x = _cursorHelper.desktopLocation().xValue().as32();
     evg->cursorLoc.y = _cursorHelper.desktopLocation().yValue().as32();
     evg->desktopCursorFixed.x = _cursorHelper.desktopLocation().xValue().asFixed24x8();
@@ -1683,7 +1683,7 @@ void IOHIDSystem::initShmem(bool clean)
     evg->movedMask = 0;
     evg->cursorSema = OS_SPINLOCK_INIT;
     evg->waitCursorSema = OS_SPINLOCK_INIT;
-    
+
     /* Set up low-level queues */
     lleqSize = LLEQSIZE;
     for (i=lleqSize; --i != -1; ) {
@@ -1697,9 +1697,9 @@ void IOHIDSystem::initShmem(bool clean)
     evg->lleq[lleqSize-1].next = 0;
     evg->LLEHead = evg->lleq[evg->LLELast].next;
     evg->LLETail = evg->lleq[evg->LLELast].next;
-    
+
     _cursorLog(AbsoluteTime_to_scalar(&ts));
-    
+
     // Set eventsOpen last to avoid race conditions.
     eventsOpen = true;
 }
@@ -1744,17 +1744,17 @@ void IOHIDSystem::setEventPortGated(mach_port_t port)
         } };
 
     init_msg.h.msgh_remote_port = port;
-    
+
 	if ( eventMsg == NULL )
 		eventMsg = IOMalloc( sizeof (struct _eventMsg) );
 
 	// Initialize the events available message.
 	*((struct _eventMsg *)eventMsg) = init_msg;
     eventPort = port;
-        
+
         // RY: Added this check so that the event consumer
         // can get notified if the queue in not empty.
-        // Otherwise the event consumer will never get a 
+        // Otherwise the event consumer will never get a
         // notification.
         if (EventsInQueue())
             kickEventConsumer();
@@ -1780,15 +1780,15 @@ mach_port_t IOHIDSystem::specialKeyPort(int special_key)
 	return MACH_PORT_NULL;
 }
 
-// 
+//
 // Set the port to be used for stack shot
 //
 void IOHIDSystem::setStackShotPort(mach_port_t port)
 {
     stackShotPort = port;
-        
-    static _stackShotMessage init_msg = 
-    { 
+
+    static _stackShotMessage init_msg =
+    {
         {                                           // mach_msg_header_t    header
             MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND,0),  // mach_msg_bits_t      msgh_bits;
             sizeof (init_msg),                          // mach_msg_size_t      msgh_size;
@@ -1800,7 +1800,7 @@ void IOHIDSystem::setStackShotPort(mach_port_t port)
         0                                           // UInt32               flavor
     };
 
-	if ( stackShotMsg ) { 
+	if ( stackShotMsg ) {
         IOFree(stackShotMsg, sizeof(_stackShotMessage));
         stackShotMsg = NULL;
     }
@@ -1808,7 +1808,7 @@ void IOHIDSystem::setStackShotPort(mach_port_t port)
     if ( stackShotPort ) {
         if ( !(stackShotMsg = IOMalloc(sizeof(_stackShotMessage))) )
             return;
-            
+
         // Initialize the events available message.
         init_msg.header.msgh_remote_port = stackShotPort;
         *((_stackShotMessage*)stackShotMsg) = init_msg;
@@ -1824,19 +1824,19 @@ void IOHIDSystem::dispatchEvent(IOHIDEvent *event, IOOptionBits options __unused
 {
     if ( !event || !dataQueueSet)
         return;
-        
+
     OSCollectionIterator *      iterator    = OSCollectionIterator::withCollection(dataQueueSet);
     IOHIDEventServiceQueue *    dataQueue   = NULL;
-    
+
     if ( !iterator )
         return;
-        
+
     while ((dataQueue = OSDynamicCast(IOHIDEventServiceQueue, iterator->getNextObject()))) {
         dataQueue->enqueueEvent(event);
     }
-    
+
     iterator->release();
-    
+
 }
 
 //
@@ -1851,7 +1851,7 @@ short IOHIDSystem::getUniqueEventNum()
     return(evg->eNum);
 }
 
-// postEvent 
+// postEvent
 //
 // This routine actually places events in the event queue which is in
 // the EvGlobals structure.  It is called from all parts of the ev
@@ -1873,39 +1873,39 @@ void IOHIDSystem::postEvent(int           what,
     PROFILE_TRACE(7);
     if ( processKEQ )
         processKeyboardEQ(this, &ts);
-        
+
     NXEQElement * theHead = (NXEQElement *) &evg->lleq[evg->LLEHead];
     NXEQElement * theLast = (NXEQElement *) &evg->lleq[evg->LLELast];
     NXEQElement * theTail = (NXEQElement *) &evg->lleq[evg->LLETail];
     int    wereEvents;
     unsigned      theClock = EV_NS_TO_TICK(&ts);
-    
+
     if (CMP_ABSOLUTETIME(&ts, &lastEventTime) < 0) {
         ts = lastEventTime;
     }
     lastEventTime = ts;
-    
+
     // dispatch new event
     IOHIDEvent * event = IOHIDEvent::withEventData(ts, what, myData);
     if ( event ) {
         dispatchEvent(event);
         event->release();
     }
-    
+
     /* Some events affect screen dimming (idle time) */
     if (EventCodeMask(what) & NX_UNDIMMASK) {
         lastUndimEvent = ts;
     }
-    
+
     // Update the PS VertRetraceClock off of the timestamp if it looks sane
     if (   theClock > (unsigned)evg->VertRetraceClock && theClock < (unsigned)(evg->VertRetraceClock + (20 * EV_TICK_TIME)) )
         evg->VertRetraceClock = theClock;
-        
+
     wereEvents = EventsInQueue();
-    
+
     xpr_ev_post("postEvent: what %d, X %d Y %d Q %d, needKick %d\n", what,location->x,location->y, EventsInQueue(), needToKickEventConsumer);
     IOHID_DEBUG(kIOHIDDebugCode_PostEvent, what, theHead, theTail, sender);
-    
+
     if ((!evg->dontCoalesce) /* Coalescing enabled */
             && (theHead != theTail)
             && (theLast->event.type == what)
@@ -1929,10 +1929,10 @@ void IOHIDSystem::postEvent(int           what,
         theTail->event.flags        = evg->eventFlags;
         absolutetime_to_nanoseconds(ts, &theLast->event.time);
         theTail->event.window = 0;
-        
+
         if (myData != NULL)
             theTail->event.data = *myData;
-            
+
         switch (what) {
             case NX_LMOUSEDOWN:
                 theTail->event.data.mouse.eventNum =
@@ -1955,7 +1955,7 @@ void IOHIDSystem::postEvent(int           what,
                 notifyHIDevices(this, ioHIDevices, kIOHIDSystem508MouseClickMessage);
                 break;
         }
-        
+
         if (EventCodeMask(what) & PRESSUREEVENTMASK) {
             // this case will not happen unless someone modifies PRESSUREEVENTMASK
             if (!((EventCodeMask(what) & MOUSEEVENTMASK) || (EventCodeMask(what) & MOVEDEVENTMASK)))
@@ -2028,10 +2028,10 @@ void IOHIDSystem::postEvent(int           what,
  */
 
 void IOHIDSystem::kickEventConsumer()
-{ 
+{
 	xpr_ev_post("kickEventConsumer (need == %d)\n",
 		needToKickEventConsumer,2,3,4,5);
-                
+
 	if ( needToKickEventConsumer == true )
 		return;		// Request is already pending
 
@@ -2050,17 +2050,17 @@ void IOHIDSystem::kickEventConsumer()
  */
 
 void IOHIDSystem::sendStackShotMessage(UInt32 flavor)
-{ 
+{
 	kern_return_t r;
 	mach_msg_header_t *msgh;
 
     xpr_ev_post("sendStackShotMessage\n", 1,2,3,4,5);
-    
+
     if (stackShotMsg) {
         ((_stackShotMessage*)stackShotMsg)->flavor = flavor;
         msgh = (mach_msg_header_t *)stackShotMsg;
         if( msgh) {
-    
+
             r = mach_msg_send_from_kernel( msgh, msgh->msgh_size);
             switch ( r ) {
                 case MACH_SEND_TIMED_OUT:/* Already has a message posted */
@@ -2074,7 +2074,7 @@ void IOHIDSystem::sendStackShotMessage(UInt32 flavor)
 	}
 }
 
-/* 
+/*
  * HID System no longer runs the following methods on the EventSource thread.
  * Instead all are run from the caller thread through the use of command gates.
  * This will limit the amount of context switching that takes place.
@@ -2186,7 +2186,7 @@ void IOHIDSystem::scheduleNextPeriodicEvent()
 // Periodic events are driven from this method.
 // After taking care of all pending work, the method
 // calls scheduleNextPeriodicEvent to compute and set the
-// next callout.  
+// next callout.
 
 // Modified this method to call a command Gate action.
 // This will hopefully insure that this is serialized
@@ -2208,7 +2208,7 @@ void IOHIDSystem::periodicEvents(IOTimerEventSource * /* timer */)
 	// We should give up without rescheduling.
 	if ( eventsOpen == false )
 		return;
-        
+
 	// Increment event time stamp last
         clock_get_uptime(&thisPeriodicRun);
 
@@ -2254,7 +2254,7 @@ void IOHIDSystem::periodicEvents(IOTimerEventSource * /* timer */)
 	    }
 	    OSSpinLockUnlock(&evg->waitCursorSema);
 	}
-    
+
 	scheduleNextPeriodicEvent();
 
 	return;
@@ -2299,7 +2299,7 @@ bool IOHIDSystem::resetCursor()
         cursorPin.maxy--;
         cursorPinScreen = pinScreen;
     }
-    
+
     if (newScreens == 0) {
         /* Pin new cursor position to cursorPin rect */
         p->x = (p->x < cursorPin.minx) ?
@@ -2328,7 +2328,7 @@ bool IOHIDSystem::resetCursor()
         tempLoc.fromFixed24x8(evg->desktopCursorFixed.x, evg->desktopCursorFixed.y);
     }
     else {
-        tempLoc.fromInt(evg->cursorLoc.x, evg->cursorLoc.y);
+        tempLoc.fromIntFloor(evg->cursorLoc.x, evg->cursorLoc.y);
     }
     _cursorHelper.desktopLocationDelta() += tempLoc - _cursorHelper.desktopLocation();
     _cursorHelper.desktopLocation() = tempLoc;
@@ -2338,6 +2338,10 @@ bool IOHIDSystem::resetCursor()
     else {
         _cursorHelper.updateScreenLocation(NULL, NULL);
     }
+
+    _cursorHelper.setOverdueTime(0);
+    _cursorHelper.desktopLocationPosting().fromIntFloor(0, 0);
+    _cursorHelper.clearEventCounts();
 
     _cursorLogTimed();
 
@@ -2366,7 +2370,7 @@ bool IOHIDSystem::startCursor()
 }
 
 //
-// Wait Cursor machinery.  These methods should be run from a command 
+// Wait Cursor machinery.  These methods should be run from a command
 // gate action and the shared memory area must be set up.
 //
 void IOHIDSystem::showWaitCursor()
@@ -2404,7 +2408,7 @@ void IOHIDSystem::animateWaitCursor()
 }
 
 void IOHIDSystem::changeCursor(int frame)
-{ 
+{
     evg->frame = ((frame > (int)maxWaitCursorFrame) || (frame > evg->lastFrame)) ? firstWaitCursorFrame : frame;
     xpr_ev_cursor("changeCursor %d\n",evg->frame,2,3,4,5);
     moveCursor();
@@ -2484,7 +2488,7 @@ void IOHIDSystem::detachEventSources()
 	iter = getOpenProviderIterator();
 	if( iter) {
         while( (srcInstance = (IOService *) iter->getNextObject())) {
-        
+
             if ( ! OSDynamicCast(IOHIKeyboard, srcInstance) ) {
                 #ifdef DEBUG
                 kprintf("detachEventSource:%s\n", srcInstance->getName());
@@ -2504,7 +2508,7 @@ void IOHIDSystem::detachEventSources()
 // A new device instance desires to be added to our list.
 // Try to get ownership of the device. If we get it, add it to
 // the list.
-// 
+//
 bool IOHIDSystem::registerEventSource(IOService * source)
 {
     bool success = false;
@@ -2515,7 +2519,7 @@ bool IOHIDSystem::registerEventSource(IOService * source)
 
     if ( OSDynamicCast(IOHIKeyboard, source) ) {
         success = ((IOHIKeyboard*)source)->open(this, kIOServiceSeize,0,
-                    (KeyboardEventCallback)        _keyboardEvent, 
+                    (KeyboardEventCallback)        _keyboardEvent,
                     (KeyboardSpecialEventCallback) _keyboardSpecialEvent,
                     (UpdateEventFlagsCallback)     _updateEventFlags);
     } else if ( OSDynamicCast(IOHIPointing, source) ) {
@@ -2532,9 +2536,9 @@ bool IOHIDSystem::registerEventSource(IOService * source)
                         (AbsolutePointerEventCallback) _absolutePointerEvent,
                         (ScrollWheelEventCallback)     _scrollWheelEvent);
         }
-        
+
     } else {
-        success = source->open(this, kIOServiceSeize, 0);    
+        success = source->open(this, kIOServiceSeize, 0);
     }
 
     if ( success )
@@ -2580,7 +2584,7 @@ IOReturn IOHIDSystem::message(UInt32 type, IOService * provider,
       status = super::message(type, provider, argument);
       break;
   }
-    
+
   return status;
 }
 
@@ -2592,9 +2596,10 @@ IOReturn IOHIDSystem::message(UInt32 type, IOService * provider,
 void IOHIDSystem::scaleLocationToCurrentScreen(IOGPoint *location, IOGBounds *bounds __unused)
 {
     IOHIDSystem * hidsystem = instance();
-    
+
     if ( hidsystem ) {
-        IOFixedPoint64 temp(*location);
+        IOFixedPoint64 temp;
+        temp.fromIntFloor(location->x, location->y);
         hidsystem->_scaleLocationToCurrentScreen(temp, bounds);
         *location = (IOGPoint)temp;
     }
@@ -2623,22 +2628,22 @@ void IOHIDSystem::_scaleLocationToCurrentScreen(IOFixedPoint64 &location, IOGBou
             if ((boundsWidth <= 0) || (boundsHeight <= 0) || (cursorPinWidth <= 0) || (cursorPinHeight <= 0)) {
                 // no transform can be performed
             }
-            else {                
+            else {
                 IOFixedPoint64 scratch;
                 if ((boundsWidth == cursorPinWidth) && (boundsHeight == cursorPinHeight)) {
                     // translation only
-                    location += scratch.fromInt(bounds->minx - cursorPin.minx, 
-                                                bounds->miny - cursorPin.miny);
+                    location += scratch.fromIntFloor(bounds->minx - cursorPin.minx,
+                                                     bounds->miny - cursorPin.miny);
                 }
                 else {
                     // full transform
                     IOFixed64 x_scale;
                     IOFixed64 y_scale;
-                    x_scale.fromInt(cursorPinWidth) /= boundsWidth;
-                    y_scale.fromInt(cursorPinHeight) /= boundsHeight;
-                    location -= scratch.fromInt(bounds->minx, bounds->miny);
+                    x_scale.fromIntFloor(cursorPinWidth) /= boundsWidth;
+                    y_scale.fromIntFloor(cursorPinHeight) /= boundsHeight;
+                    location -= scratch.fromIntFloor(bounds->minx, bounds->miny);
                     location *= scratch.fromFixed64(x_scale, y_scale);
-                    location += scratch.fromInt(cursorPin.minx, cursorPin.miny);
+                    location += scratch.fromIntFloor(cursorPin.minx, cursorPin.miny);
                 }
             }
         }
@@ -2651,7 +2656,7 @@ void IOHIDSystem::_scaleLocationToCurrentScreen(IOFixedPoint64 &location, IOGBou
 // it's deltas and perform any bit flipping needed there.
 //
 // We take the state as presented and turn it into events.
-// 
+//
 void IOHIDSystem::_relativePointerEvent(IOHIDSystem * self,
 				    int        buttons,
                        /* deltaX */ int        dx,
@@ -2677,7 +2682,7 @@ void IOHIDSystem::relativePointerEvent(int        buttons,
                           /* atTime */   AbsoluteTime ts,
                           /* sender */   OSObject * sender)
 {
-    IOHIDCmdGateActionArgs args;        
+    IOHIDCmdGateActionArgs args;
     args.arg0 = &buttons;
     args.arg1 = &dx;
     args.arg2 = &dy;
@@ -2698,21 +2703,21 @@ IOReturn IOHIDSystem::doRelativePointerEvent(IOHIDSystem *self, void * args)
     OSObject *          sender  = (OSObject *)((IOHIDCmdGateActionArgs *)args)->arg4;
 
     self->relativePointerEventGated(buttons, dx, dy, ts, sender);
-    
+
     return kIOReturnSuccess;
 }
 
 void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, AbsoluteTime ts, OSObject * sender)
-{ 
+{
     UnsignedWide nextVBL, vblDeltaTime, eventDeltaTime, moveDeltaTime;
     bool haveVBL;
     bool movementEvent = false;
-    
+
     PROFILE_TRACE(1);
-    
+
     if( eventsOpen == false )
         return;
-    
+
     // Compare relative mouse deltas against thresholds to determine if the
     // movement should generate a tickle. This will prevent chatty mice from
     // tickling without user input.
@@ -2720,36 +2725,36 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, Abs
     if (cachedMouseEvent) {
         UInt64 ts_nano;
         absolutetime_to_nanoseconds(ts, &ts_nano);
-        
+
         if (ts_nano > cachedMouseEvent->eventDeadline) {
             cachedMouseEvent->eventDeadline = ts_nano + kIOHIDPowerOnThresholdNS;
             cachedMouseEvent->accumX = 0;
             cachedMouseEvent->accumY = 0;
         }
-        
+
         cachedMouseEvent->accumX += dx_I;
         cachedMouseEvent->accumY += dy_I;
-        
+
         if ((abs(cachedMouseEvent->accumX) >= kIOHIDRelativeTickleThresholdPixel) ||
             (abs(cachedMouseEvent->accumY) >= kIOHIDRelativeTickleThresholdPixel))
         {
             movementEvent = true;
-        }                
-        
+        }
+
         cachedMouseEvent->lastButtons = buttons;
         cachedMouseEvent->eventDeadline = ts_nano;
-        
+
         // Fake up pressure changes from button state changes
         if( (buttons & EV_LB) != (evg->buttons & EV_LB) ){
             cachedMouseEvent->lastPressure = ( buttons & EV_LB ) ? MAXPRESSURE : MINPRESSURE;
         }
     }
-    
+
 #if WAKE_DISPLAY_ON_MOVEMENT
     if (buttons || movementEvent) {
         TICKLE_DISPLAY(NX_MOUSEMOVED);
     }
-    
+
     if (!DISPLAY_IS_ENABLED || ShouldConsumeHIDEvent(ts, rootDomainStateChangeDeadline)) {
         return;
     }
@@ -2763,7 +2768,7 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, Abs
         }
         return;
     }
-    
+
     if (ShouldConsumeHIDEvent(ts, rootDomainStateChangeDeadline)) {
         return;
     }
@@ -2771,44 +2776,44 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, Abs
         TICKLE_DISPLAY(movementEvent ? NX_MOUSEMOVED : NX_LMOUSEDOWN);
     }
 #endif
-    
+
     _setButtonState(buttons, /* atTime */ ts, sender);
-    
-    
+
+
     IOFixedPoint64 scratch;
     _cursorHelper.incrementEventCount();
-    if ( scratch.fromInt(dx_I, dy_I) ) {
+    if ( scratch.fromIntFloor(dx_I, dy_I) ) {
         eventDeltaTime = *((UnsignedWide *)(&ts));
         SUB_ABSOLUTETIME( &eventDeltaTime, &lastRelativeEventTime );
         lastRelativeEventTime = ts;
-        
+
         IOGraphicsDevice * io_gd = ((EvScreen*)evScreen)[cursorPinScreen].instance;
         if( io_gd) {
             io_gd->getVBLTime( (AbsoluteTime *)&nextVBL, (AbsoluteTime *)&vblDeltaTime );
-        } 
+        }
         else {
             nextVBL.hi = nextVBL.lo = vblDeltaTime.hi = vblDeltaTime.lo = 0;
         }
-        
+
         if (((scratch.xValue() > 0LL) && (_cursorHelper.desktopLocationAccumulated().xValue() < 0LL)) ||
             ((scratch.xValue() < 0LL) && (_cursorHelper.desktopLocationAccumulated().xValue() > 0LL)))
-            _cursorHelper.desktopLocationAccumulated().xValue().fromInt(0);
+            _cursorHelper.desktopLocationAccumulated().xValue().fromIntFloor(0);
         if (((scratch.yValue() > 0LL) && (_cursorHelper.desktopLocationAccumulated().yValue() < 0LL)) ||
             ((scratch.yValue() < 0LL) && (_cursorHelper.desktopLocationAccumulated().yValue() > 0LL)))
-            _cursorHelper.desktopLocationAccumulated().yValue().fromInt(0);
-        
+            _cursorHelper.desktopLocationAccumulated().yValue().fromIntFloor(0);
+
 #ifdef __LP64__
-        IOHID_DEBUG(kIOHIDDebugCode_RelativePointerEventTiming, 
-                    AbsoluteTime_to_scalar(&nextVBL), 
+        IOHID_DEBUG(kIOHIDDebugCode_RelativePointerEventTiming,
+                    AbsoluteTime_to_scalar(&nextVBL),
                     AbsoluteTime_to_scalar(&lastRelativeEventTime),
                     dx_I, dy_I);
 #else
-        IOHID_DEBUG(kIOHIDDebugCode_RelativePointerEventTiming, 
-                    nextVBL.hi, nextVBL.lo, 
+        IOHID_DEBUG(kIOHIDDebugCode_RelativePointerEventTiming,
+                    nextVBL.hi, nextVBL.lo,
                     lastRelativeEventTime.hi, lastRelativeEventTime.lo);
 #endif
         haveVBL = (nextVBL.lo || nextVBL.hi);
-        
+
         _cursorHelper.desktopLocationAccumulated() += scratch;
         if (haveVBL && _cursorHelper.isPosting(AbsoluteTime_to_scalar(&ts)))  {
             // do nothing
@@ -2818,7 +2823,7 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, Abs
             moveDeltaTime = *((UnsignedWide *)(&ts));
             SUB_ABSOLUTETIME( &moveDeltaTime, &lastRelativeMoveTime );
             lastRelativeMoveTime = ts;
-            
+
             if ( scratch ) {
                 if (((dx_I > 0) && (scratch.xValue() < 0LL)) || ((dx_I < 0) && (scratch.xValue() > 0LL))) {
                     IOLog("IOHIDSystem::relativePointerEventGated: unexpected Direction Change X: in=%d out=%d\n", dx_I, (int)scratch.xValue());
@@ -2826,19 +2831,19 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, Abs
                 if (((dy_I > 0) && (scratch.yValue() < 0LL)) || ((dy_I < 0) && (scratch.yValue() > 0LL))) {
                     IOLog("IOHIDSystem::relativePointerEventGated: unexpected Direction Change Y: in=%d out=%d\n", dy_I, (int)scratch.yValue());
                 }
-                
+
                 if( haveVBL ) {
                     static UInt64 resonableVBL = 0;
                     if (!resonableVBL) {
                         // A screen refresh of less than 20Hz (50ms) is not acceptable.
                         nanoseconds_to_absolutetime(50000000, (AbsoluteTime*)(&resonableVBL));
                     }
-                    
+
                     // rdar://5565815 Capping VBL interval
                     if (AbsoluteTime_to_scalar(&vblDeltaTime) > resonableVBL) {
                         AbsoluteTime_to_scalar(&vblDeltaTime) = resonableVBL;
                     }
-                    
+
                     // see rdar://7675662
                     _cursorHelper.startPosting(); // scratch != desktopLocationAccumulated
                                                   // scratch == locationDeltaPosting
@@ -2849,17 +2854,17 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, Abs
 #else
                         absolutetime_to_nanoseconds(vblDeltaTime, &vblInterval_ns);
 #endif
-                        _cursorHelper.expectedCount().fromInt(vblInterval_ns);
-                        _cursorHelper.expectedCount() /= cachedMouseEvent->reportInterval_ns;                                            
+                        _cursorHelper.expectedCount().fromIntFloor(vblInterval_ns);
+                        _cursorHelper.expectedCount() /= cachedMouseEvent->reportInterval_ns;
                     }
                     else {
-                        _cursorHelper.expectedCount().fromInt(0);
+                        _cursorHelper.expectedCount().fromIntFloor(0);
                     }
                     // If this event does not post within 1/20 second after the VBL, assume something went wrong.
                     _cursorHelper.setOverdueTime(AbsoluteTime_to_scalar(&nextVBL) + AbsoluteTime_to_scalar(&resonableVBL));
                     _cursorLog(AbsoluteTime_to_scalar(&ts));
-                    IOHID_DEBUG(kIOHIDDebugCode_RelativePointerEventScaling, 
-                                scratch.xValue().asFixed(), scratch.yValue().asFixed(), 
+                    IOHID_DEBUG(kIOHIDDebugCode_RelativePointerEventScaling,
+                                scratch.xValue().asFixed(), scratch.yValue().asFixed(),
                                 _cursorHelper.expectedCount().asFixed(),
                                 _cursorHelper.getEventCountPosting() * 65536);
                     lastSender = sender;
@@ -2869,8 +2874,8 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, Abs
                 }
                 else
                 {
-                    _cursorHelper.desktopLocationAccumulated().fromInt(0, 0);
-                    _cursorHelper.desktopLocationPosting().fromInt(0, 0);
+                    _cursorHelper.desktopLocationAccumulated().fromIntFloor(0, 0);
+                    _cursorHelper.desktopLocationPosting().fromIntFloor(0, 0);
                     _cursorHelper.clearEventCounts();
                     _cursorHelper.desktopLocation() += scratch;
                     _cursorHelper.desktopLocationDelta() += scratch;
@@ -2938,7 +2943,7 @@ void IOHIDSystem::absolutePointerEvent(
             /* sender */        OSObject *      sender)
 {
     IOHIDCmdGateActionArgs args;
-        
+
     args.arg0 = &buttons;
     args.arg1 = (void *)newLoc;
     args.arg2 = (void *)bounds;
@@ -2962,10 +2967,10 @@ IOReturn IOHIDSystem::doAbsolutePointerEvent(IOHIDSystem *self, void * args)
     int        	stylusAngle	= *(int *)	((IOHIDCmdGateActionArgs *)args)->arg5;
     AbsoluteTime 	ts	= *(AbsoluteTime *) 	((IOHIDCmdGateActionArgs *)args)->arg6;
     OSObject *  sender          = (OSObject *)((IOHIDCmdGateActionArgs *)args)->arg7;
-    
-        
+
+
     self->absolutePointerEventGated(buttons, newLoc, bounds, proximity, pressure, stylusAngle, ts, sender);
-    
+
     return kIOReturnSuccess;
 }
 
@@ -2979,7 +2984,7 @@ void IOHIDSystem::absolutePointerEventGated(
             /* atTime */        AbsoluteTime    ts,
             /* sender */        OSObject *      sender)
 {
-    
+
     /*
      * If you don't know what to pass for the following fields, pass the
      * default values below:
@@ -2988,17 +2993,17 @@ void IOHIDSystem::absolutePointerEventGated(
      */
     NXEventData     outData;    /* dummy data */
     bool            proximityChange = false;
-    
+
     PROFILE_TRACE(5);
-    
+
     if ( !eventsOpen )
         return;
-    
+
     if (ShouldConsumeHIDEvent(ts, rootDomainStateChangeDeadline)) {
         TICKLE_DISPLAY(NX_MOUSEMOVED);
         return;
     }
-    
+
     if (!DISPLAY_IS_ENABLED) {
 #if !WAKE_DISPLAY_ON_MOVEMENT
         if ( CMP_ABSOLUTETIME(&ts, &displaySleepWakeupDeadline) <= 0 )
@@ -3014,29 +3019,30 @@ void IOHIDSystem::absolutePointerEventGated(
         }
         return;
     }
-    
+
     TICKLE_DISPLAY(NX_MOUSEMOVED);
-    
-    IOFixedPoint64 newLoc(*newLocGPoint);
+
+    IOFixedPoint64 newLoc;
+    newLoc.fromIntFloor(newLocGPoint->x, newLocGPoint->y);
     _scaleLocationToCurrentScreen(newLoc, bounds);
-    
+
     // RY: Attempt to add basic tablet support to absolute pointing devices
     // Basically, we will fill in the tablet support portions of both the
     // mouse and mouseMove of NXEventData.  Pending tablet events are stored
-    // in the CachedMouseEventStruct and then later picked off in 
+    // in the CachedMouseEventStruct and then later picked off in
     // _setButtonState and _postMouseMoveEvent
     CachedMouseEventStruct  *cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender);
     if (cachedMouseEvent)
     {
         cachedMouseEvent->pointerFractionX = newLoc.xValue().fraction();
         cachedMouseEvent->pointerFractionY = newLoc.yValue().fraction();
-        
+
         proximityChange = (cachedMouseEvent->proximity != proximity);
-        
+
         cachedMouseEvent->state        |= kCachedMousePointingEventDispFlag;
         cachedMouseEvent->proximity     = proximity;
         cachedMouseEvent->lastPressure  = ScalePressure(pressure);
-        
+
         if ( !(cachedMouseEvent->state & kCachedMouseTabletEventDispFlag) )
         {
             // initialize the proximity and tablet event structs
@@ -3045,27 +3051,27 @@ void IOHIDSystem::absolutePointerEventGated(
                 cachedMouseEvent->state |= kCachedMousePointingTabletEventDispFlag;
                 cachedMouseEvent->proximityData.proximity.capabilityMask  = (
                                                                              NX_TABLET_CAPABILITY_DEVICEIDMASK  |
-                                                                             NX_TABLET_CAPABILITY_ABSXMASK | 
-                                                                             NX_TABLET_CAPABILITY_ABSYMASK | 
-                                                                             NX_TABLET_CAPABILITY_BUTTONSMASK | 
+                                                                             NX_TABLET_CAPABILITY_ABSXMASK |
+                                                                             NX_TABLET_CAPABILITY_ABSYMASK |
+                                                                             NX_TABLET_CAPABILITY_BUTTONSMASK |
                                                                              NX_TABLET_CAPABILITY_PRESSUREMASK);
                 cachedMouseEvent->proximityData.proximity.pointerType       = NX_TABLET_POINTER_PEN;
                 cachedMouseEvent->proximityData.proximity.systemTabletID    = IOHITablet::generateTabletID();
-                cachedMouseEvent->proximityData.proximity.deviceID          = 
+                cachedMouseEvent->proximityData.proximity.deviceID          =
                 cachedMouseEvent->tabletData.tablet.deviceID                = IOHIDPointing::generateDeviceID();
             }
-            
+
             if ( proximityChange )
             {
                 cachedMouseEvent->proximityData.proximity.enterProximity    = proximity;
-                cachedMouseEvent->subType                                   = NX_SUBTYPE_TABLET_PROXIMITY;            
-                
+                cachedMouseEvent->subType                                   = NX_SUBTYPE_TABLET_PROXIMITY;
+
                 cachedMouseEvent->state |= kCachedMousePointingTabletEventPendFlag;
                 proximityEventGated(&(cachedMouseEvent->proximityData), ts, sender);
                 cachedMouseEvent->state &= ~kCachedMousePointingTabletEventPendFlag;
             }
             else if ( proximity )
-            {                
+            {
                 // RY: revert the button state
                 // The window server requires that the lower 3 bits of
                 // the buttons bit field be mangled for interpretation
@@ -3073,28 +3079,28 @@ void IOHIDSystem::absolutePointerEventGated(
                 // applications that make use of the tablet events
                 // require that the buttons field not be mangled.  Thus
                 // the button state should be reverted.
-                cachedMouseEvent->tabletData.tablet.buttons     = buttons & ~0x7; 
+                cachedMouseEvent->tabletData.tablet.buttons     = buttons & ~0x7;
                 if (buttons & 2)
                     cachedMouseEvent->tabletData.tablet.buttons |= 4;
                 if (buttons & EV_RB)
                     cachedMouseEvent->tabletData.tablet.buttons |= 2;
                 if (buttons & EV_LB)
                     cachedMouseEvent->tabletData.tablet.buttons |= 1;
-                
-                cachedMouseEvent->tabletData.tablet.x           = newLoc.xValue().as32();             
-                cachedMouseEvent->tabletData.tablet.y           = newLoc.yValue().as32();                                        
-                cachedMouseEvent->tabletData.tablet.pressure    = pressure; 
-                cachedMouseEvent->subType                       = NX_SUBTYPE_TABLET_POINT;            
+
+                cachedMouseEvent->tabletData.tablet.x           = newLoc.xValue().as32();
+                cachedMouseEvent->tabletData.tablet.y           = newLoc.yValue().as32();
+                cachedMouseEvent->tabletData.tablet.pressure    = pressure;
+                cachedMouseEvent->subType                       = NX_SUBTYPE_TABLET_POINT;
             }
         }
     }
-    
+
     if ( (newLoc != _cursorHelper.desktopLocation()) || proximityChange)
     {
         _cursorHelper.desktopLocationDelta() += newLoc - _cursorHelper.desktopLocation();
         _cursorHelper.desktopLocation() = newLoc;
         _cursorLog(AbsoluteTime_to_scalar(&ts));
-        
+
         _setCursorPosition(false, proximityChange, sender);
     }
     if ( proximityChange && proximity == true )
@@ -3119,14 +3125,14 @@ void IOHIDSystem::absolutePointerEventGated(
                   /* withData */ &outData,
                   /* sender */   sender);
     }
-    
+
     // RY: Clean it off
     if (cachedMouseEvent)
     {
         cachedMouseEvent->subType = NX_SUBTYPE_DEFAULT;
         cachedMouseEvent->pointerFractionX = cachedMouseEvent->pointerFractionY = 0;
     }
-    
+
     PROFILE_TRACE(6);
 }
 
@@ -3172,7 +3178,7 @@ void IOHIDSystem::scrollWheelEvent(short	deltaAxis1,
 
 {
     IOHIDCmdGateActionArgs args;
-        
+
     args.arg0 = &deltaAxis1;
     args.arg1 = &deltaAxis2;
     args.arg2 = &deltaAxis3;
@@ -3204,9 +3210,9 @@ IOReturn IOHIDSystem::doScrollWheelEvent(IOHIDSystem *self, void * args)
     UInt32  options        = *(UInt32 *)((IOHIDCmdGateActionArgs *)args)->arg9;
     AbsoluteTime ts  = *(AbsoluteTime *)((IOHIDCmdGateActionArgs *)args)->arg10;
     OSObject * sender= (OSObject *)((IOHIDCmdGateActionArgs *)args)->arg11;
-    
+
     self->scrollWheelEventGated(deltaAxis1, deltaAxis2, deltaAxis3, fixedDelta1, fixedDelta2, fixedDelta3, pointDeltaAxis1, pointDeltaAxis2, pointDeltaAxis3, options, ts, sender);
-    
+
     return kIOReturnSuccess;
 }
 
@@ -3241,10 +3247,10 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
         return;
     }
 #endif
-    bool        moved = (deltaAxis1 || pointDeltaAxis1 || 
+    bool        moved = (deltaAxis1 || pointDeltaAxis1 ||
                          deltaAxis2 || pointDeltaAxis2 ||
                          deltaAxis3 || pointDeltaAxis3);
-    
+
     UInt32      phase = (options & kScrollTypeOptionPhaseAny);
     switch (phase) {
         case kScrollTypeOptionPhaseBegan:
@@ -3259,7 +3265,7 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
                 _delayedScrollPhase = 0;
             }
             break;
-            
+
         case kScrollTypeOptionPhaseChanged:
             if (_delayedScrollPhase) {
                 // we suppressed a began
@@ -3284,7 +3290,7 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
                 }
             }
             break;
-            
+
         case kScrollTypeOptionPhaseEnded:
         case kScrollTypeOptionPhaseCanceled:
             if (_delayedScrollPhase) {
@@ -3296,13 +3302,13 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
             else {
                 // do nothing
             }
-            
+
             break;
-            
+
         case 0:
             // no phase. do nothing.
             break;
-            
+
         default:
             IOLog("IOHIDSystem::scrollWheelEventGated called with unknown phase state: %08x\n", (unsigned)phase);
             break;
@@ -3322,7 +3328,7 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
                 _delayedScrollMomentum = 0;
             }
             break;
-            
+
         case kScrollTypeMomentumContinue:
             if (_delayedScrollMomentum) {
                 // we suppressed a start
@@ -3347,7 +3353,7 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
                 }
             }
             break;
-            
+
         case kScrollTypeMomentumEnd:
             if (_delayedScrollMomentum) {
                 // we have a suppressed start. the whole scroll needs to be suppressed.
@@ -3358,13 +3364,13 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
             else {
                 // do nothing
             }
-            
+
             break;
-            
+
         case 0:
             // no momentum. do nothing.
             break;
-            
+
         default:
             IOLog("IOHIDSystem::scrollWheelEventGated called with unknown momentum state: %08x\n", (unsigned)momentum);
             break;
@@ -3374,7 +3380,7 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
             return;
 
     TICKLE_DISPLAY(NX_SCROLLWHEELMOVED);
-    
+
     bzero((char *)&wheelData, sizeof wheelData);
     wheelData.scrollWheel.deltaAxis1 = deltaAxis1;
     wheelData.scrollWheel.deltaAxis2 = deltaAxis2;
@@ -3389,7 +3395,7 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
     updateScrollEventForSender(sender, &wheelData);
 	if (momentum)
 		wheelData.scrollWheel.reserved8[2]    = IOHIDevice::GenerateKey(sender);
-            
+
     postEvent(             (options & kScrollTypeZoom) ? NX_ZOOM : NX_SCROLLWHEELMOVED,
             /* at */       &_cursorHelper.desktopLocation(),
             /* atTime */   ts,
@@ -3404,9 +3410,9 @@ void IOHIDSystem::_tabletEvent(IOHIDSystem *self,
                                AbsoluteTime ts,
                                OSObject * sender,
                                void *     refcon __unused)
-{   
+{
     self->tabletEvent(tabletData, ts, sender);
-} 
+}
 
 void IOHIDSystem::tabletEvent(NXEventData *tabletData,
                               AbsoluteTime ts)
@@ -3427,9 +3433,9 @@ IOReturn IOHIDSystem::doTabletEvent(IOHIDSystem *self, void * arg0, void * arg1,
     NXEventData *tabletData 	= (NXEventData *) arg0;
     AbsoluteTime ts		= *(AbsoluteTime *) arg1;
     OSObject * sender		= (OSObject *) arg2;
-    
+
     self->tabletEventGated(tabletData, ts, sender);
-    
+
     return kIOReturnSuccess;
 }
 
@@ -3448,16 +3454,16 @@ void IOHIDSystem::tabletEventGated(NXEventData *tabletData,
     if ((cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender)) &&
         !(cachedMouseEvent->state & kCachedMousePointingTabletEventPendFlag))
     {
-            
+
         cachedMouseEvent->state     |= kCachedMouseTabletEventDispFlag;
         cachedMouseEvent->subType   = NX_SUBTYPE_TABLET_POINT;
         bcopy( tabletData, &(cachedMouseEvent->tabletData), sizeof(NXEventData));
-        
+
         // Don't dispatch an event if they can be embedded in pointing events
         if ( cachedMouseEvent->state & kCachedMousePointingEventDispFlag )
             return;
     }
-                
+
     postEvent(NX_TABLETPOINTER,
               &_cursorHelper.desktopLocation(),
               ts,
@@ -3472,7 +3478,7 @@ void IOHIDSystem::_proximityEvent(IOHIDSystem *self,
                                   AbsoluteTime ts,
                                   OSObject * sender,
                                   void *     refcon __unused)
-{    
+{
     self->proximityEvent(proximityData, ts, sender);
 }
 
@@ -3493,13 +3499,13 @@ void IOHIDSystem::proximityEvent(NXEventData *proximityData,
 IOReturn IOHIDSystem::doProximityEvent(IOHIDSystem *self, void * arg0, void *arg1, void * arg2)
                         /* IOCommandGate::Action */
 {
-    
+
     NXEventData *proximityData	= (NXEventData *)arg0;
     AbsoluteTime ts		= *(AbsoluteTime *)arg1;
     OSObject * sender		= (OSObject *)arg2;
-    
+
     self->proximityEventGated(proximityData, ts, sender);
-   
+
     return kIOReturnSuccess;
 }
 
@@ -3514,7 +3520,7 @@ void IOHIDSystem::proximityEventGated(NXEventData *proximityData,
 
     if(ShouldConsumeHIDEvent(ts, rootDomainStateChangeDeadline))
         return;
-    
+
     if ((cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender)) &&
         !(cachedMouseEvent->state & kCachedMousePointingTabletEventPendFlag))
     {
@@ -3540,14 +3546,14 @@ void IOHIDSystem::doProcessKeyboardEQ(IOHIDSystem * self)
 void IOHIDSystem::processKeyboardEQ(IOHIDSystem * self, AbsoluteTime * deadline)
 {
     KeyboardEQElement * keyboardEQElement;
-    
+
     KEYBOARD_EQ_LOCK;
 
 	while ( ((keyboardEQElement = (KeyboardEQElement *)dequeue_head(&gKeyboardEQ)) != NULL)
             && !(deadline && (CMP_ABSOLUTETIME(&(keyboardEQElement->ts), deadline) > 0)))
      {
         KEYBOARD_EQ_UNLOCK;
-        
+
         if (keyboardEQElement->action)
             (*(keyboardEQElement->action))(self, keyboardEQElement);
 
@@ -3555,14 +3561,14 @@ void IOHIDSystem::processKeyboardEQ(IOHIDSystem * self, AbsoluteTime * deadline)
 
         KEYBOARD_EQ_LOCK;
 	}
-    
+
     KEYBOARD_EQ_UNLOCK;
 }
 
 
 //
 // Process a keyboard state change.
-// 
+//
 void IOHIDSystem::_keyboardEvent(IOHIDSystem * self,
                                 unsigned   eventType,
          /* flags */            unsigned   flags,
@@ -3593,7 +3599,7 @@ void IOHIDSystem::keyboardEvent(unsigned   eventType,
          /* atTime */           AbsoluteTime ts)
 {
     keyboardEvent(eventType, flags, key, charCode, charSet,
-				origCharCode, origCharSet, keyboardType, repeat, ts, 0);    
+				origCharCode, origCharSet, keyboardType, repeat, ts, 0);
 }
 
 void IOHIDSystem::keyboardEvent(unsigned   eventType,
@@ -3612,13 +3618,13 @@ void IOHIDSystem::keyboardEvent(unsigned   eventType,
 
     if ( !keyboardEQElement )
         return;
-        
+
     bzero(keyboardEQElement, sizeof(KeyboardEQElement));
-    
+
     keyboardEQElement->action   = IOHIDSystem::doKeyboardEvent;
     keyboardEQElement->ts       = ts;
     keyboardEQElement->sender   = sender;
-    
+
     keyboardEQElement->event.keyboard.eventType     = eventType;
     keyboardEQElement->event.keyboard.flags         = flags;
     keyboardEQElement->event.keyboard.key           = key;
@@ -3628,7 +3634,7 @@ void IOHIDSystem::keyboardEvent(unsigned   eventType,
     keyboardEQElement->event.keyboard.origCharSet   = origCharSet;
     keyboardEQElement->event.keyboard.keyboardType  = keyboardType;
     keyboardEQElement->event.keyboard.repeat        = repeat;
-    
+
     KEYBOARD_EQ_LOCK;
 	enqueue_tail(&gKeyboardEQ, (queue_entry_t)keyboardEQElement);
     KEYBOARD_EQ_UNLOCK;
@@ -3643,7 +3649,7 @@ IOReturn IOHIDSystem::doKeyboardEvent(IOHIDSystem *self, void * args)
 
     AbsoluteTime ts         = keyboardEQElement->ts;
     OSObject * sender		= keyboardEQElement->sender;
-    
+
     unsigned   eventType	= keyboardEQElement->event.keyboard.eventType;
     unsigned   flags		= keyboardEQElement->event.keyboard.flags;
     unsigned   key          = keyboardEQElement->event.keyboard.key;
@@ -3653,10 +3659,10 @@ IOReturn IOHIDSystem::doKeyboardEvent(IOHIDSystem *self, void * args)
     unsigned   origCharSet	= keyboardEQElement->event.keyboard.origCharSet;
     unsigned   keyboardType	= keyboardEQElement->event.keyboard.keyboardType;
     bool       repeat		= keyboardEQElement->event.keyboard.repeat;
-        
+
     self->keyboardEventGated(eventType, flags, key, charCode, charSet,
 				origCharCode, origCharSet, keyboardType, repeat, ts, sender);
-                                
+
     return kIOReturnSuccess;
 }
 
@@ -3668,7 +3674,7 @@ IOReturn IOHIDSystem::doKeyboardEvent(IOHIDSystem *self, void * args)
 bool IOHIDSystem::addConsumedKey(unsigned key)
 {
     bool result = false;
-    OSNumber *keyCodeNumber; 
+    OSNumber *keyCodeNumber;
     unsigned int index;
 
     keyCodeNumber = OSNumber::withNumber(key, sizeof(key) * 8);
@@ -3692,7 +3698,7 @@ finish:
 bool IOHIDSystem::removeConsumedKey(unsigned key)
 {
     bool result = false;
-    OSNumber *keyCodeNumber; 
+    OSNumber *keyCodeNumber;
     unsigned int index;
 
     keyCodeNumber = OSNumber::withNumber(key, sizeof(key) * 8);
@@ -3719,11 +3725,11 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
                                 /* repeat */           bool       repeat,
                                 /* atTime */           AbsoluteTime ts,
                                 /* sender */           OSObject * sender)
-{         
+{
     UInt32 rootDomainConsumeCause;
     UInt32 displayConsumeCause;
     NXEventData	outData;
-    
+
     /* If we get a key up event, check the consumedKeys array to see if it
      * needs to be consumed.
      */
@@ -3732,7 +3738,7 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
         return;
         }
     }
-                
+
     /* The goal here is to ignore the key presses that woke the system, and for
      * that purpose we are interested in two deadlines. First, we want to
      * consume the first key press that occurs within a second of the
@@ -3748,14 +3754,14 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
     if (rootDomainConsumeCause || displayConsumeCause) {
         TICKLE_DISPLAY(NX_KEYDOWN);
         if (eventType != NX_KEYDOWN) return;
-                
+
         (void) addConsumedKey(key);
 
         if (rootDomainConsumeCause) {
             AbsoluteTime_to_scalar(&rootDomainStateChangeDeadline) = 0;
 
             clock_get_uptime(&displayStateChangeDeadline);
-            ADD_ABSOLUTETIME(&displayStateChangeDeadline, 
+            ADD_ABSOLUTETIME(&displayStateChangeDeadline,
                 &gIOHIDRelativeTickleThresholdAbsoluteTime);
             }
 
@@ -3765,13 +3771,13 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
     /* If the display is off, we consume a key down event and send a tickle to
      * wake the displays. Key up events are also consumed on the rare chance
      * they aren't in the consumedKeys array, but they don't cause a tickle.
-    */ 
+    */
     if ( !DISPLAY_IS_ENABLED ) {
         if ( eventType == NX_KEYDOWN ) {
             (void) addConsumedKey(key);
         }
         TICKLE_DISPLAY(eventType);
-        return;        
+        return;
     }
 
     TICKLE_DISPLAY(NX_KEYDOWN);
@@ -3823,7 +3829,7 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
             origCharCode &= 0xffff;
             origCharSet &= 0xffff;
         }
-        
+
         outData.key.repeat = repeat;
         outData.key.keyCode = key;
         outData.key.charSet = charSet;
@@ -3836,7 +3842,7 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
 
         evg->eventFlags = (evg->eventFlags & ~KEYBOARD_FLAGSMASK)
                 | (flags & KEYBOARD_FLAGSMASK);
-                            
+
         if (cachedEventFlags != evg->eventFlags) {
             cachedEventFlags = evg->eventFlags;
 
@@ -3844,7 +3850,7 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
             // change to prevent double click from occuring
             nanoseconds_to_absolutetime(0, &clickTime);
         }
-        
+
         postEvent(         eventType,
             /* at */       &_cursorHelper.desktopLocation(),
             /* atTime */   ts,
@@ -3904,23 +3910,23 @@ void IOHIDSystem::keyboardSpecialEvent(   unsigned   eventType,
     KeyboardEQElement * keyboardEQElement = NULL;
 
     keyboardEQElement = (KeyboardEQElement *)IOMalloc(sizeof(KeyboardEQElement));
-    
+
     if ( !keyboardEQElement )
         return;
-        
+
     bzero(keyboardEQElement, sizeof(KeyboardEQElement));
-    
+
     keyboardEQElement->action   = IOHIDSystem::doKeyboardSpecialEvent;
     keyboardEQElement->ts       = ts;
     keyboardEQElement->sender   = sender;
-    
+
     keyboardEQElement->event.keyboardSpecial.eventType  = eventType;
     keyboardEQElement->event.keyboardSpecial.flags      = flags;
     keyboardEQElement->event.keyboardSpecial.key        = key;
     keyboardEQElement->event.keyboardSpecial.flavor     = flavor;
     keyboardEQElement->event.keyboardSpecial.guid       = guid;
     keyboardEQElement->event.keyboardSpecial.repeat     = repeat;
-    
+
     KEYBOARD_EQ_LOCK;
 	enqueue_tail(&gKeyboardEQ, (queue_entry_t)keyboardEQElement);
     KEYBOARD_EQ_UNLOCK;
@@ -3943,13 +3949,13 @@ IOReturn IOHIDSystem::doKeyboardSpecialEvent(IOHIDSystem *self, void * args)
     unsigned        flavor      = keyboardEQElement->event.keyboardSpecial.flavor;
     UInt64          guid        = keyboardEQElement->event.keyboardSpecial.guid;
     bool            repeat      = keyboardEQElement->event.keyboardSpecial.repeat;
-    
+
     self->keyboardSpecialEventGated(eventType, flags, key, flavor, guid, repeat, ts, sender);
-    
+
     return kIOReturnSuccess;
 }
 
-void IOHIDSystem::keyboardSpecialEventGated(   
+void IOHIDSystem::keyboardSpecialEventGated(
                                 /* event */     unsigned   eventType,
                                 /* flags */     unsigned   flags,
                                 /* keyCode  */  unsigned   key,
@@ -3965,7 +3971,7 @@ void IOHIDSystem::keyboardSpecialEventGated(
     if ((key != NX_NOSPECIALKEY) || (flavor != NX_SUBTYPE_STICKYKEYS_RELEASE))
         TICKLE_DISPLAY(NX_SYSDEFINED);
 
-    if (ShouldConsumeHIDEvent(ts, rootDomainStateChangeDeadline) || 
+    if (ShouldConsumeHIDEvent(ts, rootDomainStateChangeDeadline) ||
         !DISPLAY_IS_ENABLED)
     {
         return;
@@ -3983,10 +3989,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
 
 	if ( !eventsOpen )
         return;
-   
+
 	// clear event record
 	bzero( (void *)&outData, sizeof outData );
-        		
+
 	// Update flags.
 	evg->eventFlags = (evg->eventFlags & ~KEYBOARD_FLAGSMASK)
 			| (flags & KEYBOARD_FLAGSMASK);
@@ -4000,17 +4006,17 @@ void IOHIDSystem::keyboardSpecialEventGated(
 		switch ( flavor )
 		{
 			case NX_KEYTYPE_EJECT:
-							
+
 				//	Special key handlers:
 				//
 				//	Command = invoke macsbug
 				//	Command+option = sleep now
 				//	Command+option+control = shutdown now
 				//	Control = logout dialog
-				
+
 				if(  (evg->eventFlags & NX_COMMANDMASK) 	&&
-					!(evg->eventFlags & NX_CONTROLMASK) 	&& 
-					!(evg->eventFlags & NX_SHIFTMASK)		&& 
+					!(evg->eventFlags & NX_CONTROLMASK) 	&&
+					!(evg->eventFlags & NX_SHIFTMASK)		&&
 					!(evg->eventFlags & NX_ALTERNATEMASK)		)
 				{
 					// Post a power key event, Classic should pick this up and
@@ -4026,13 +4032,13 @@ void IOHIDSystem::keyboardSpecialEventGated(
                     /* processKEQ*/false);
 				}
 				else if(   (evg->eventFlags & NX_COMMANDMASK) 	&&
-						  !(evg->eventFlags & NX_CONTROLMASK) 	&& 
-						  !(evg->eventFlags & NX_SHIFTMASK)		&& 
+						  !(evg->eventFlags & NX_CONTROLMASK) 	&&
+						  !(evg->eventFlags & NX_SHIFTMASK)		&&
 						   (evg->eventFlags & NX_ALTERNATEMASK)		)
-				{					
+				{
 					//IOLog( "IOHIDSystem -- sleep now!\n" );
 
-					// The Key release events may not get delivered 
+					// The Key release events may not get delivered
 					// to clients if they come late in sleep process. So,
 					// clear the flags before heading to sleep.
 					evg->eventFlags = 0;
@@ -4049,10 +4055,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
 
 				}
 				else if(   (evg->eventFlags & NX_COMMANDMASK) 	&&
-						   (evg->eventFlags & NX_CONTROLMASK) 	&& 
-						  !(evg->eventFlags & NX_SHIFTMASK)		&& 
+						   (evg->eventFlags & NX_CONTROLMASK) 	&&
+						  !(evg->eventFlags & NX_SHIFTMASK)		&&
 						   (evg->eventFlags & NX_ALTERNATEMASK)		)
-				{					
+				{
 					//IOLog( "IOHIDSystem -- shutdown now!\n" );
 
 					// Post the shutdown now event. Someone else will handle the actual call.
@@ -4068,13 +4074,13 @@ void IOHIDSystem::keyboardSpecialEventGated(
 
 				}
 				else if(   (evg->eventFlags & NX_COMMANDMASK) 	&&
-						   (evg->eventFlags & NX_CONTROLMASK) 	&& 
-						  !(evg->eventFlags & NX_SHIFTMASK)		&& 
+						   (evg->eventFlags & NX_CONTROLMASK) 	&&
+						  !(evg->eventFlags & NX_SHIFTMASK)		&&
 						  !(evg->eventFlags & NX_ALTERNATEMASK)		)
 				{
 					// Restart now!
 					//IOLog( "IOHIDSystem -- Restart now!\n" );
-					
+
 					// Post the Restart now event. Someone else will handle the actual call.
 					//
 					outData.compound.subType = NX_SUBTYPE_RESTART_EVENT;
@@ -4088,18 +4094,18 @@ void IOHIDSystem::keyboardSpecialEventGated(
 
 				}
 				else if(  !(evg->eventFlags & NX_COMMANDMASK) 	&&
-						   (evg->eventFlags & NX_CONTROLMASK) 	&& 
-						  !(evg->eventFlags & NX_SHIFTMASK)		&& 
+						   (evg->eventFlags & NX_CONTROLMASK) 	&&
+						  !(evg->eventFlags & NX_SHIFTMASK)		&&
 						  !(evg->eventFlags & NX_ALTERNATEMASK)		)
 				{
 					// Looks like we should put up the normal 'Power Key' dialog.
-					//					
+					//
 					// Set the event flags to zero, because the system will not do the right
 					// thing if we don't zero this out (it will ignore the power key event
 					// we post, thinking that some modifiers are down).
 					//
 					evg->eventFlags = 0;
-					
+
 					// Post the power keydown event.
 					//
 					outData.compound.subType = NX_SUBTYPE_POWER_KEY;
@@ -4118,7 +4124,7 @@ void IOHIDSystem::keyboardSpecialEventGated(
 					// system defined eject event. This way we can have anyone who's watching
 					// for this event (aka LoginWindow) route this event to the right target
 					// (aka AutoDiskMounter).
-					
+
 					//IOLog( "IOHIDSystem--Normal Eject action!\n" );
 
 					// Post the eject keydown event.
@@ -4177,7 +4183,7 @@ void IOHIDSystem::keyboardSpecialEventGated(
                     /* processKEQ*/false);
 
 	}
-	
+
 	// post keydowns and key ups if this flavor should be posted
 	// note, we dont want to do this for events of type NX_SYSDEFINED
 	// we probably _should_ just check for keydowns and keyups here
@@ -4225,7 +4231,7 @@ void IOHIDSystem::keyboardSpecialEventGated(
  * a flags-changed event for such keys.  This method is also used to clear
  * the keyboard flags on a keyboard subsystem reset.
  */
-void IOHIDSystem::_updateEventFlags(IOHIDSystem * self, 
+void IOHIDSystem::_updateEventFlags(IOHIDSystem * self,
                                     unsigned      flags,
                                     OSObject *    sender,
                                     void *        refcon __unused)
@@ -4241,17 +4247,17 @@ void IOHIDSystem::updateEventFlags(unsigned flags)
 void IOHIDSystem::updateEventFlags(unsigned flags, OSObject * sender)
 {
     KeyboardEQElement * keyboardEQElement = (KeyboardEQElement *)IOMalloc(sizeof(KeyboardEQElement));
-    
+
     if ( !keyboardEQElement )
         return;
-        
+
     bzero(keyboardEQElement, sizeof(KeyboardEQElement));
-    
+
     keyboardEQElement->action = IOHIDSystem::doUpdateEventFlags;
     keyboardEQElement->sender = sender;
-    
+
     keyboardEQElement->event.flagsChanged.flags = flags;
-    
+
     KEYBOARD_EQ_LOCK;
 	enqueue_tail(&gKeyboardEQ, (queue_entry_t)keyboardEQElement);
     KEYBOARD_EQ_UNLOCK;
@@ -4263,21 +4269,21 @@ IOReturn IOHIDSystem::doUpdateEventFlags(IOHIDSystem *self, void * args)
                         /* IOCommandGate::Action */
 {
     KeyboardEQElement * keyboardEQElement = (KeyboardEQElement *)args;
-    
+
     OSObject * sender   = keyboardEQElement->sender;
     unsigned   flags	= keyboardEQElement->event.flagsChanged.flags;
-    
+
     self->updateEventFlagsGated(flags, sender);
-    
+
     return kIOReturnSuccess;
 }
 
 void IOHIDSystem::updateEventFlagsGated(unsigned flags, OSObject * sender __unused)
-{        
+{
 	if ( eventsOpen ) {
 	    evg->eventFlags = (evg->eventFlags & ~KEYBOARD_FLAGSMASK)
 			    | (flags & KEYBOARD_FLAGSMASK);
-         
+
             // RY: Reset the clickTime as well on modifier
             // change to prevent double click from occuring
             nanoseconds_to_absolutetime(0, &clickTime);
@@ -4297,29 +4303,29 @@ void IOHIDSystem::_setButtonState(int buttons,
     // This will prevent awkward behavior when two pointing devices are used
     // at the same time.
     CachedMouseEventStruct *cachedMouseEvent = NULL;
-    
+
     if ( cachedButtonStates ) {
         cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender);
-        
+
         if (cachedMouseEvent) {
             cachedMouseEvent->lastButtons = buttons;
         }
-        
+
         if (evg->buttons == buttons)
             return;
-            
+
         buttons = GetCachedMouseButtonStates(cachedButtonStates);
     }
     // *** END HACK ***
-    
+
     // Once again check if new button state differs
     if (evg->buttons == buttons)
         return;
-        
+
     // Magic uber-mouse buttons changed event so we can get all of the buttons...
     NXEventData evData;
     unsigned long hwButtons, hwDelta;
-    
+
     /* I'd like to keep the event button mapping linear, so
         I have to "undo" the LB/RB mouse bit numbering funkiness
         before I pass the information down to the app. */
@@ -4327,25 +4333,25 @@ void IOHIDSystem::_setButtonState(int buttons,
         to be bits 0 and 1 */
     CONVERT_EV_TO_HW_BUTTONS(buttons, hwButtons);
     CONVERT_EV_TO_HW_DELTA((evg->buttons ^ buttons), hwDelta);
-    
+
     evData.compound.reserved = 0;
     evData.compound.subType = NX_SUBTYPE_AUX_MOUSE_BUTTONS;
     evData.compound.misc.L[0] = hwDelta;
     evData.compound.misc.L[1] = hwButtons;
-    
+
     postEvent(  NX_SYSDEFINED,
                 /* at */ &_cursorHelper.desktopLocation(),
                 /* atTime */ ts,
                 /* withData */ &evData,
                 /* sender */    sender);
-                
+
     // End Magic uber-mouse buttons changed event
-    
+
     bzero(&evData, sizeof(NXEventData));
-    
+
     // vtn3: This will update the data structure for touch devices
     updateMouseEventForSender(sender, &evData);
-    
+
     // RY: Roll in the tablet info we got from absolutePointerEventGated
     // into a button event.  Prior to this we were sending null data to
     // post event.  This won't be much different as the only non-zero
@@ -4357,7 +4363,7 @@ void IOHIDSystem::_setButtonState(int buttons,
         evData.mouse.subx = (cachedMouseEvent->pointerFractionX >> 8) & 0xff;
         evData.mouse.suby = (cachedMouseEvent->pointerFractionY >> 8) & 0xff;
         evData.mouse.pressure = cachedMouseEvent->lastPressure;
-        
+
         if (cachedMouseEvent->subType == NX_SUBTYPE_TABLET_POINT) {
             bcopy(&(cachedMouseEvent->tabletData), &(evData.mouse.tablet.point), sizeof(NXTabletPointData));
         }
@@ -4365,7 +4371,7 @@ void IOHIDSystem::_setButtonState(int buttons,
             bcopy(&(cachedMouseEvent->proximityData), &(evData.mouse.tablet.proximity), sizeof(NXTabletProximityData));
         }
     }
-    
+
     if ((evg->buttons & EV_LB) != (buttons & EV_LB)) {
         if (buttons & EV_LB) {
             postEvent(             NX_LMOUSEDOWN,
@@ -4389,7 +4395,7 @@ void IOHIDSystem::_setButtonState(int buttons,
         else
             evg->eventFlags &= ~NX_NONCOALSESCEDMASK;
     }
-    
+
     if ((evg->buttons & EV_RB) != (buttons & EV_RB)) {
         if (buttons & EV_RB) {
             postEvent(             NX_RMOUSEDOWN,
@@ -4406,7 +4412,7 @@ void IOHIDSystem::_setButtonState(int buttons,
                                    /* sender */   sender);
         }
     }
-    
+
     evg->buttons = buttons;
 }
 
@@ -4424,7 +4430,7 @@ void IOHIDSystem::setCursorPosition(IOGPoint * newLoc, bool external, OSObject *
     {
         _cursorHelper.desktopLocationDelta().xValue() += (newLoc->x - _cursorHelper.desktopLocation().xValue());
         _cursorHelper.desktopLocationDelta().yValue() += (newLoc->y - _cursorHelper.desktopLocation().yValue());
-        _cursorHelper.desktopLocation() = *newLoc;
+        _cursorHelper.desktopLocation().fromIntFloor(newLoc->x, newLoc->y);
         _setCursorPosition(external, false, sender);
     }
 }
@@ -4442,43 +4448,36 @@ void IOHIDSystem::setCursorPosition(IOGPoint * newLoc, bool external, OSObject *
 void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObject * sender)
 {
     bool cursorMoved = true;
-    IOHID_DEBUG(kIOHIDDebugCode_SetCursorPosition, sender, 
-                _cursorHelper.desktopLocation().xValue().as64(), 
+    IOHID_DEBUG(kIOHIDDebugCode_SetCursorPosition, sender,
+                _cursorHelper.desktopLocation().xValue().as64(),
                 _cursorHelper.desktopLocation().yValue().as64(), 0);
     IOHID_DEBUG(kIOHIDDebugCode_SetCursorPosition, sender, proximityChange, external, 1);
     PROFILE_TRACE(9);
-    
+
     if (!screens)
         return;
-    
+
     if( OSSpinLockTry(&evg->cursorSema) == 0 ) // host using shmem
     {
         needSetCursorPosition = true;     // try again later
                                           //        scheduleNextPeriodicEvent();
         return;
     }
-    
+
     // Past here we hold the cursorSema lock.  Make sure the lock is
     // cleared before returning or the system will be wedged.
-    
+
     needSetCursorPosition = false;    // We WILL succeed
-    
+
     if (cursorCoupled || external)
     {
         UInt32 newScreens = 0;
         SInt32 pinScreen = -1L;
         EvScreen *screen = (EvScreen *)evScreen;
-        
+
         if (cursorPinned) {
-            if (_cursorHelper.desktopLocation().xValue() < (SInt64)cursorPin.minx)
-                _cursorHelper.desktopLocation().xValue().fromInt(cursorPin.minx);
-            else if (_cursorHelper.desktopLocation().xValue() > (SInt64)cursorPin.maxx)
-                _cursorHelper.desktopLocation().xValue().fromInt(cursorPin.maxx);
-            if (_cursorHelper.desktopLocation().yValue() < (SInt64)cursorPin.miny)
-                _cursorHelper.desktopLocation().yValue().fromInt(cursorPin.miny);
-            else if (_cursorHelper.desktopLocation().yValue() > (SInt64)cursorPin.maxy)
-                _cursorHelper.desktopLocation().yValue().fromInt(cursorPin.maxy);
-        } 
+            _cursorHelper.desktopLocation().clipToRect(cursorPin);
+        }
         else {
             /* Get mask of screens on which the cursor is present */
             for (int i = 0; i < screens; i++ ) {
@@ -4492,11 +4491,10 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                 }
             }
         }
-        
+
         if (newScreens == 0) {
             /* At this point cursor has gone off all screens,
                clip it to the closest screen. */
-            IOFixedPoint64  pinnedLoc;
             IOFixedPoint64  aimLoc = _cursorHelper.desktopLocation();
             int64_t     dx;
             int64_t     dy;
@@ -4507,18 +4505,8 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                     continue;
                 if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
                     continue;
-                if (aimLoc.xValue() < (SInt64)screen[i].desktopBounds->minx)
-                    pinnedLoc.xValue().fromInt(screen[i].desktopBounds->minx);
-                else if (aimLoc.xValue() >= (SInt64)screen[i].desktopBounds->maxx)
-                    pinnedLoc.xValue().fromInt(screen[i].desktopBounds->maxx - 1);
-                else
-                    pinnedLoc.xValue() = aimLoc.xValue();
-                if (aimLoc.yValue() < (SInt64)screen[i].desktopBounds->miny)
-                    pinnedLoc.yValue().fromInt(screen[i].desktopBounds->miny);
-                else if (aimLoc.yValue() >= (SInt64)screen[i].desktopBounds->maxy)
-                    pinnedLoc.yValue().fromInt(screen[i].desktopBounds->maxy - 1);
-                else
-                    pinnedLoc.yValue() = aimLoc.yValue();
+                IOFixedPoint64  pinnedLoc = aimLoc;
+                pinnedLoc.clipToRect(*screen[i].desktopBounds);
                 dx = (pinnedLoc.xValue() - aimLoc.xValue()).as64();
                 dy = (pinnedLoc.yValue() - aimLoc.yValue()).as64();
                 distance = dx * dx + dy * dy;
@@ -4527,10 +4515,10 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                     _cursorHelper.desktopLocation() = pinnedLoc;
                 }
             }
-            IOHID_DEBUG(kIOHIDDebugCode_SetCursorPosition, sender, 
-                        _cursorHelper.desktopLocation().xValue().as64(), 
+            IOHID_DEBUG(kIOHIDDebugCode_SetCursorPosition, sender,
+                        _cursorHelper.desktopLocation().xValue().as64(),
                         _cursorHelper.desktopLocation().yValue().as64(), 2);
-            
+
             /* regenerate mask for new position */
             for (int i = 0; i < screens; i++ ) {
                 if (!screen[i].instance)
@@ -4543,7 +4531,7 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                 }
             }
         }
-        
+
         /* Catch the no-move case */
         if ((_cursorHelper.desktopLocation().xValue().asFixed24x8() == evg->desktopCursorFixed.x) &&
             (_cursorHelper.desktopLocation().yValue().asFixed24x8() == evg->desktopCursorFixed.y) &&
@@ -4563,7 +4551,7 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
             }
             evg->screenCursorFixed.x = _cursorHelper.getScreenLocation().xValue().asFixed24x8();
             evg->screenCursorFixed.y = _cursorHelper.getScreenLocation().yValue().asFixed24x8();
-            
+
             /* If cursor changed screens */
             if (newScreens != cursorScreens) {
                 hideCursor();   /* hide cursor on old screens */
@@ -4580,32 +4568,33 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                 moveCursor();
             }
         }
-    } else {
+    }
+    else {
         /* cursor uncoupled */
         _cursorHelper.desktopLocation().xValue().fromFixed24x8(evg->desktopCursorFixed.x);
         _cursorHelper.desktopLocation().yValue().fromFixed24x8(evg->desktopCursorFixed.y);
     }
-    
+
     AbsoluteTime    ts;
     clock_get_uptime(&ts);
-    
+
     _cursorLog(AbsoluteTime_to_scalar(&ts));
-    
+
     /* See if anybody wants the mouse moved or dragged events */
     // Note: extPostEvent clears evg->movedMask as a hack to prevent these events
     // so any change here should check to make sure it does not break that hack
     if (evg->movedMask) {
         if      ((evg->movedMask & NX_LMOUSEDRAGGEDMASK) && (evg->buttons & EV_LB)) {
             _postMouseMoveEvent(NX_LMOUSEDRAGGED, ts, sender);
-        } 
+        }
         else if ((evg->movedMask & NX_RMOUSEDRAGGEDMASK) && (evg->buttons & EV_RB)) {
             _postMouseMoveEvent(NX_RMOUSEDRAGGED, ts, sender);
-        } 
+        }
         else if  (evg->movedMask & NX_MOUSEMOVEDMASK) {
             _postMouseMoveEvent(NX_MOUSEMOVED, ts, sender);
         }
     }
-    
+
     /* check new cursor position for leaving evg->mouseRect */
     if (cursorMoved && evg->mouseRectValid && _cursorHelper.desktopLocation().inRect(evg->mouseRect))
     {
@@ -4642,7 +4631,7 @@ void IOHIDSystem::_postMouseMoveEvent(int          what,
 
     // vtn3: This will update the data structure for touch devices
     updateMouseMoveEventForSender(sender, &data);
-    
+
     // RY: Roll in the tablet info we got from absolutePointerEventGated
     // into the mouseMove event.
     if (sender && (cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender)))
@@ -4653,14 +4642,14 @@ void IOHIDSystem::_postMouseMoveEvent(int          what,
 
         if (cachedMouseEvent->subType == NX_SUBTYPE_TABLET_PROXIMITY)
         {
-            bcopy(&(cachedMouseEvent->proximityData), &(data.mouseMove.tablet.proximity), sizeof(NXTabletProximityData));        
+            bcopy(&(cachedMouseEvent->proximityData), &(data.mouseMove.tablet.proximity), sizeof(NXTabletProximityData));
         }
         else if (cachedMouseEvent->subType == NX_SUBTYPE_TABLET_POINT)
         {
             bcopy(&(cachedMouseEvent->tabletData), &(data.mouseMove.tablet.point), sizeof(NXTabletPointData));
         }
     }
-     
+
     postEvent(what, &_cursorHelper.desktopLocation(), ts, &data, sender);
     PROFILE_TRACE(12);
 }
@@ -4694,7 +4683,7 @@ IOReturn IOHIDSystem::doNewUserClient(IOHIDSystem *self, void * args)
     UInt32         type         = *(UInt32 *) ((IOHIDCmdGateActionArgs *)args)->arg2;
     OSDictionary * properties   = (OSDictionary *) ((IOHIDCmdGateActionArgs *)args)->arg3;
     IOUserClient ** handler 	= (IOUserClient **) ((IOHIDCmdGateActionArgs *)args)->arg4;
-    
+
     return self->newUserClientGated(owningTask, security_id, type, properties, handler);
 }
 
@@ -4706,7 +4695,7 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
 {
     IOUserClient * newConnect = 0;
     IOReturn  err = kIOReturnNoMemory;
-    
+
     do {
         if ( type == kIOHIDParamConnectType) {
             if ( paramConnect) {
@@ -4720,7 +4709,7 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
                 err = kIOReturnNotOpen;
                 continue;
             }
-            
+
         }
         else if ( type == kIOHIDServerConnectType) {
             newConnect = new IOHIDUserClient;
@@ -4733,12 +4722,12 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
         }
         else
             err = kIOReturnUnsupported;
-            
+
         if ( !newConnect)
             continue;
-            
+
         // initialization is getting out of hand
-        
+
         if ( (newConnect != paramConnect) && (
                     (false == newConnect->initWithTask(owningTask, security_id, type, properties))
                     || (false == newConnect->setProperty(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue))
@@ -4754,9 +4743,9 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
         }
         if ( type == kIOHIDParamConnectType)
             paramConnect = newConnect;
-            
+
         err = kIOReturnSuccess;
-        
+
     }
     while( false );
 
@@ -4764,7 +4753,7 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
     int             pid = -1;
     proc_t          p = (proc_t)get_bsdtask_info(owningTask);
     pid = proc_pid(p);
-    IOLog("%s (%d) %s returned %p\n", __func__, pid, 
+    IOLog("%s (%d) %s returned %p\n", __func__, pid,
           type == kIOHIDParamConnectType ? "IOHIDParamUserClient" :
           type == kIOHIDServerConnectType ? "IOHIDUserClient" :
           type == kIOHIDStackShotConnectType ? "IOHIDStackShotUserClient" :
@@ -4772,7 +4761,7 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
           "kIOReturnUnsupported",
           newConnect);
 #endif
-    
+
     IOHID_DEBUG(kIOHIDDebugCode_NewUserClient, type, err, newConnect, 0);
     *handler = newConnect;
     return err;
@@ -4785,11 +4774,11 @@ IOReturn IOHIDSystem::setEventsEnable(void*p1,void*,void*,void*,void*,void*)
 
     if (mac_iokit_check_hid_control(kauth_cred_get()))
         return kIOReturnNotPermitted;
-    
+
     ret = cmdGate->runAction((IOCommandGate::Action)doSetEventsEnablePre, p1);
     if ( ret == kIOReturnSuccess ) {
         // reset outside gated context
-        _resetMouseParameters();        
+        _resetMouseParameters();
     }
     ret = cmdGate->runAction((IOCommandGate::Action)doSetEventsEnablePost, p1);
 
@@ -4809,7 +4798,7 @@ IOReturn IOHIDSystem::setEventsEnablePreGated(void*p1)
     if( enable) {
         while ( evStateChanging )
             cmdGate->commandSleep(&evStateChanging);
-            
+
         evStateChanging = true;
         attachDefaultEventSources();
     }
@@ -4840,7 +4829,7 @@ IOReturn IOHIDSystem::setCursorEnable(void*p1,void*,void*,void*,void*,void*)
         return kIOReturnNotPermitted;
 
     return cmdGate->runAction((IOCommandGate::Action)doSetCursorEnable, p1);
-    
+
 }
 
 IOReturn IOHIDSystem::doSetCursorEnable(IOHIDSystem *self, void * arg0)
@@ -4852,30 +4841,37 @@ IOReturn IOHIDSystem::doSetCursorEnable(IOHIDSystem *self, void * arg0)
 IOReturn IOHIDSystem::setCursorEnableGated(void* p1)
 {
     bool 		enable = (bool)p1;
-    IOReturn		err = kIOReturnSuccess;
 
     if ( eventsOpen == false )
         return kIOReturnNotOpen;
 
-
-
     if( 0 == screens)	// Should be at least 1!
         return kIOReturnNoDevice;
 
-
     if( enable) {
-	if( cursorStarted) {
+        if( cursorStarted) {
             hideCursor();
             cursorEnabled = resetCursor();
             showCursor();
-	} else
+        }
+        else {
             cursorEnabled = startCursor();
-    } else
+        }
+    }
+    else {
         cursorEnabled = enable;
+    }
 
-    cursorCoupled = cursorEnabled;
-    
-    return err;
+    if (cursorCoupled != cursorEnabled) {
+        _cursorHelper.setOverdueTime(0);
+        _cursorHelper.desktopLocationPosting().fromIntFloor(0, 0);
+        _cursorHelper.clearEventCounts();
+        _cursorLogTimed();
+        vblES->cancelTimeout();
+        cursorCoupled = cursorEnabled;
+    }
+
+    return kIOReturnSuccess;
 }
 
 IOReturn IOHIDSystem::extSetBounds( IOGBounds * bounds )
@@ -4895,7 +4891,7 @@ IOReturn IOHIDSystem::extSetBounds( IOGBounds * bounds )
 }
 
 IOReturn IOHIDSystem::extPostEvent(void*p1,void*p2,void*,void*,void*,void*)
-{                                                                    // IOMethod    
+{                                                                    // IOMethod
     AbsoluteTime	ts;
 
     clock_get_uptime(&ts);
@@ -4918,15 +4914,15 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
     UInt32      buttonState         = 0;
     UInt32      newFlags            = 0;
     AbsoluteTime ts                 = *(AbsoluteTime *)p3;
-	CachedMouseEventStruct *cachedMouseEvent = NULL;        
+	CachedMouseEventStruct *cachedMouseEvent = NULL;
     UInt32      typeMask            = EventCodeMask(event->type);
 
     // rdar://problem/8689199
     int         extPID = proc_selfpid();
 
     IOHID_DEBUG(kIOHIDDebugCode_ExtPostEvent, event->type, *(UInt32*)&(event->location), event->setFlags, event->flags);
-    
-    
+
+
     if (event->type != NX_NULLEVENT && mac_iokit_check_hid_control(kauth_cred_get()))
         return kIOReturnNotPermitted;
 
@@ -4962,15 +4958,15 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
         {
             event->data.mouseMove.reserved1 = ScalePressure(event->data.mouseMove.tablet.point.pressure);
         }
-    } 
+    }
     // We have mouse event without a specified pressure value and an embedded tablet event
     // We need to scale the tablet pressure to fit in mouse pressure
-    else if ((typeMask & MOUSEEVENTMASK) && 
+    else if ((typeMask & MOUSEEVENTMASK) &&
             (event->data.mouse.subType == NX_SUBTYPE_TABLET_POINT) && (event->data.mouse.pressure == 0))
     {
         event->data.mouse.pressure = ScalePressure(event->data.mouse.tablet.point.pressure);
     }
-    
+
     if( event->setCursor)
     {
         // hack: clear evg->movedMask so setCursorPosition will not post
@@ -4981,7 +4977,7 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
             oldMovedMask = evg->movedMask;
             evg->movedMask = 0;
         }
-        
+
         if (( event->type == NX_MOUSEMOVED ) &&
             ( event->setCursor & kIOHIDSetRelativeCursorPosition ))
         {
@@ -4990,16 +4986,16 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
             move.y = (event->data.mouseMove.dy * 256);
             _cursorHelper.desktopLocation() += move;
             _cursorHelper.desktopLocationDelta() += move;
-            
+
             _cursorLog(AbsoluteTime_to_scalar(&ts));
-            
+
             _setCursorPosition();
         }
         else if ( event->setCursor & kIOHIDSetCursorPosition )
         {
             setCursorPosition(&event->location, false);
         }
-        
+
         // other side of hack
         if (isMoveOrDragEvent)
             evg->movedMask = oldMovedMask;
@@ -5023,7 +5019,7 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
                 }
             }
         }
-        
+
         if (newScreens == 0)
         {
             /* At this point cursor has gone off all screens,
@@ -5039,7 +5035,7 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
 
     if ((typeMask & (NX_LMOUSEDOWNMASK | NX_RMOUSEDOWNMASK | NX_LMOUSEUPMASK | NX_RMOUSEUPMASK)) ||
         ((event->type == NX_SYSDEFINED) && (event->data.compound.subType == NX_SUBTYPE_AUX_MOUSE_BUTTONS)))
-    {        
+    {
 	    cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, 0);
         if (cachedMouseEvent)
         {
@@ -5072,7 +5068,7 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
         newFlags = evg->eventFlags = (evg->eventFlags & ~KEYBOARD_FLAGSMASK)
                         | (event->flags & KEYBOARD_FLAGSMASK);
     }
-    
+
     if ( event->setFlags & kIOHIDPostHIDManagerEvent )
     {
         if ((typeMask & (MOUSEEVENTMASK | MOVEDEVENTMASK | NX_SCROLLWHEELMOVEDMASK)) &&
@@ -5082,7 +5078,7 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
             SInt32  dy = 0;
             SInt32  wheel = 0;
             buttonState = 0;
-            
+
             if (typeMask & MOVEDEVENTMASK)
             {
                 dx = event->data.mouseMove.dx;
@@ -5090,33 +5086,33 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
             }
             else if ( event->type == NX_SCROLLWHEELMOVED )
             {
-                wheel = event->data.scrollWheel.deltaAxis1; 
+                wheel = event->data.scrollWheel.deltaAxis1;
             }
-            
+
             // Button state should have already been taken care of by above.
-            if (cachedMouseEvent || 
+            if (cachedMouseEvent ||
         		(NULL != (cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, 0))))
                 CONVERT_EV_TO_HW_BUTTONS((cachedMouseEvent->lastButtons), buttonState);
-            
+
             _hidPointingDevice->postMouseEvent(buttonState, dx, dy, wheel);
             isSeized |= _hidPointingDevice->isSeized();
         }
 
         if ((typeMask & (NX_KEYDOWNMASK | NX_KEYUPMASK | NX_FLAGSCHANGEDMASK)) &&
             (_hidKeyboardDevice || (_hidKeyboardDevice = IOHIDKeyboardDevice::newKeyboardDeviceAndStart(this, 1))))
-        {        
+        {
             _hidKeyboardDevice->postFlagKeyboardEvent(newFlags & KEYBOARD_FLAGSMASK);
 
             if ((event->type != NX_FLAGSCHANGED) && (event->data.key.repeat == 0))
             {
                 _hidKeyboardDevice->postKeyboardEvent(event->data.key.keyCode, (event->type == NX_KEYDOWN));
             }
-            
+
             isSeized |= _hidKeyboardDevice->isSeized();
         }
     }
-    
-    if ( !isSeized ) 
+
+    if ( !isSeized )
     {
         postEvent(             event->type,
                 /* at */       &_cursorHelper.desktopLocation(),
@@ -5131,7 +5127,7 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
 
 
 IOReturn IOHIDSystem::extSetMouseLocation(void*p1,void*p2,void*,void*,void*,void*)
-{                                                                    // IOMethod 
+{                                                                    // IOMethod
     if (mac_iokit_check_hid_control(kauth_cred_get()))
         return kIOReturnNotPermitted;
     if ((sizeof(int32_t)*3) != (intptr_t)p2) {
@@ -5149,9 +5145,9 @@ IOReturn IOHIDSystem::doExtSetMouseLocation(IOHIDSystem *self, void * arg0)
 }
 
 IOReturn IOHIDSystem::extSetMouseLocationGated(void *p1)
-{    
+{
     IOFixedPoint32 * loc = (IOFixedPoint32 *)p1;
-    
+
     IOHID_DEBUG(kIOHIDDebugCode_ExtSetLocation, loc ? loc->x : 0, loc ? loc->y : 0, loc, 0);
 
     //    setCursorPosition(loc, true);
@@ -5187,7 +5183,7 @@ IOReturn IOHIDSystem::doExtGetToggleState(IOHIDSystem *self, void *p1, void *p2)
     switch (selector) {
         case kIOHIDCapsLockState:
             return self->getCapsLockState(state_O);
-            
+
         case kIOHIDNumLockState:
             return self->getNumLockState(state_O);
     }
@@ -5203,7 +5199,7 @@ IOReturn IOHIDSystem::doExtSetToggleState(IOHIDSystem *self, void *p1, void *p2)
     switch (selector) {
         case kIOHIDCapsLockState:
             return self->setCapsLockState(state_I);
-            
+
         case kIOHIDNumLockState:
             return self->setNumLockState(state_I);
     }
@@ -5256,7 +5252,7 @@ IOReturn IOHIDSystem::setCapsLockState(unsigned int state_I)
                         AbsoluteTime timeStamp;
                         UInt32 opts = (1<<31) /* kDelayedOption */;
                         clock_get_uptime(&timeStamp);
-                                                
+
                         keyboard->dispatchKeyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock, 1, opts);
                         keyboard->dispatchKeyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock, 0, opts);
                     }
@@ -5321,7 +5317,7 @@ IOReturn IOHIDSystem::setNumLockState(unsigned int state_I)
                         AbsoluteTime timeStamp;
                         UInt32 opts = 0;
                         clock_get_uptime(&timeStamp);
-                        
+
                         keyboard->dispatchKeyboardEvent(timeStamp, kHIDPage_AppleVendorTopCase, kHIDUsage_AV_TopCase_KeyboardFn, 1, opts);
                         keyboard->dispatchKeyboardEvent(timeStamp, kHIDPage_AppleVendorTopCase, kHIDUsage_AV_TopCase_KeyboardFn, 0, opts);
                     }
@@ -5376,7 +5372,7 @@ void IOHIDSystem::makeNumberParamProperty( OSDictionary * dict, const char * key
 {
     OSNumber *	numberRef;
     numberRef = OSNumber::withNumber(number, bits);
-    
+
     if( numberRef) {
         dict->setObject( key, numberRef);
         numberRef->release();
@@ -5390,10 +5386,10 @@ void IOHIDSystem::makeInt32ArrayParamProperty( OSDictionary * dict, const char *
     OSNumber *	number;
 
     array = OSArray::withCapacity(count);
-    
+
     if ( !array )
         return;
-        
+
     for (unsigned i=0; i<count; i++)
     {
         number = OSNumber::withNumber(intArray[i], sizeof(UInt32) << 3);
@@ -5403,7 +5399,7 @@ void IOHIDSystem::makeInt32ArrayParamProperty( OSDictionary * dict, const char *
             number->release();
         }
     }
-    
+
     dict->setObject( key, array);
     array->release();
 }
@@ -5438,11 +5434,11 @@ void IOHIDSystem::createParameters( void )
     fixed = EV_DEFAULTSCROLLACCELLEVEL;
     makeNumberParamProperty( savedParameters, kIOHIDScrollAccelerationKey,
                 fixed, sizeof(fixed) << 3);
-                
+
     fixed = kIOHIDButtonMode_EnableRightClick;
     makeNumberParamProperty( savedParameters, kIOHIDPointerButtonMode,
                 fixed, sizeof(fixed) << 3);
-                
+
     // set eject delay properties
     int32 = kEjectF12DelayMS;
     makeNumberParamProperty( savedParameters, kIOHIDF12EjectDelayKey,
@@ -5450,17 +5446,17 @@ void IOHIDSystem::createParameters( void )
     int32 = kEjectKeyDelayMS;
     makeNumberParamProperty( savedParameters, kIOHIDKeyboardEjectDelay,
                             int32, 32 );
-     
+
     // set slow keys delay property
     int32 = 0;
     makeNumberParamProperty( savedParameters, kIOHIDSlowKeysDelayKey,
                 int32, 32 );
-	
+
 	// set disabled property
 	int32 = 0; // not disabled
     makeNumberParamProperty( savedParameters, kIOHIDStickyKeysDisabledKey,
                 int32, 32 );
-	
+
 	// set on/off property
 	int32 = 0; // off
     makeNumberParamProperty( savedParameters, kIOHIDStickyKeysOnKey,
@@ -5470,7 +5466,7 @@ void IOHIDSystem::createParameters( void )
 	int32 = 0; // off, shift does not toggle
     makeNumberParamProperty( savedParameters, kIOHIDStickyKeysShiftTogglesKey,
                 int32, 32 );
-                
+
 	// set option toggles property
 	int32 = 0; // off, option does not toggle
     makeNumberParamProperty( savedParameters, kIOHIDMouseKeysOptionTogglesKey,
@@ -5486,7 +5482,7 @@ void IOHIDSystem::createParameters( void )
     // RY: Set up idleTimeSerializer.  This should generate the
     // current idle time when requested.
     OSSerializer * idleTimeSerializer = OSSerializer::forTarget(this, IOHIDSystem::_idleTimeSerializerCallback);
-    
+
     if (idleTimeSerializer)
     {
         setProperty( kIOHIDIdleTimeKey, idleTimeSerializer);
@@ -5502,12 +5498,12 @@ bool IOHIDSystem::_idleTimeSerializerCallback(void * target, void * ref __unused
     UInt64          idleTimeNano = 0;
     bool            retValue = false;
 
-    if( self->eventsOpen ) 
+    if( self->eventsOpen )
     {
         clock_get_uptime( &currentTime);
         SUB_ABSOLUTETIME( &currentTime, &(self->lastUndimEvent));
         absolutetime_to_nanoseconds( currentTime, &idleTimeNano);
-    } 
+    }
 
 	number = OSNumber::withNumber(idleTimeNano, 64);
     if (number)
@@ -5515,7 +5511,7 @@ bool IOHIDSystem::_idleTimeSerializerCallback(void * target, void * ref __unused
         retValue = number->serialize( s );
         number->release();
     }
-    
+
     return retValue;
 }
 
@@ -5527,7 +5523,7 @@ IOReturn IOHIDSystem::setProperties( OSObject * properties )
 
     dict = OSDynamicCast( OSDictionary, properties );
     if( dict) {
-        if (dict->getObject(kIOHIDUseKeyswitchKey) && 
+        if (dict->getObject(kIOHIDUseKeyswitchKey) &&
             ( IOUserClient::clientHasPrivilege(current_task(), kIOClientPrivilegeAdministrator) != kIOReturnSuccess)) {
             dict->removeObject(kIOHIDUseKeyswitchKey);
         }
@@ -5544,39 +5540,39 @@ IOReturn IOHIDSystem::setParamProperties( OSDictionary * dict )
     OSIterator *    iter    = NULL;
     IOReturn		ret     = kIOReturnSuccess;
     IOReturn		err     = kIOReturnSuccess;
-    
+
     // Tip off devices that these are default parameters
     dict->setObject(kIOHIDDefaultParametersKey, kOSBooleanTrue);
-    
-    ret = cmdGate->runAction((IOCommandGate::Action)doSetParamPropertiesPre, dict, &iter); 
-    
+
+    ret = cmdGate->runAction((IOCommandGate::Action)doSetParamPropertiesPre, dict, &iter);
+
     if ( ret == kIOReturnSuccess ) {
-    
+
         // Do the following down calls outside of the gate
         if( iter) {
             IOService *     eventSrc;
             OSDictionary *  validParameters;
             while( (eventSrc = (IOService *) iter->getNextObject())) {
-            
+
                 if ( OSDynamicCast(IOHIDKeyboard, eventSrc) || OSDynamicCast(IOHIDPointing, eventSrc) || OSDynamicCast(IOHIDConsumer, eventSrc))
                     continue;
-                    
+
                 // Use valid parameters per device.  Basically if the IOHIDevice has a given property
                 // in its registery we should NOT push it down via setParamProperties as properties
                 // generated via the global IOHIDSystem::setParamProperties are defaults.
                 validParameters = createFilteredParamPropertiesForService(eventSrc, dict);
                 if ( validParameters ) {
-                
+
                     if ( OSDynamicCast(IOHIDevice, eventSrc) )
                         ret = ((IOHIDevice *)eventSrc)->setParamProperties( validParameters );
                     else if ( OSDynamicCast( IOHIDEventService, eventSrc ) )
                         ret = ((IOHIDEventService *)eventSrc)->setSystemProperties( validParameters );
-                     
+
                     if( (ret != kIOReturnSuccess) && (ret != kIOReturnBadArgument))
                         err = ret;
-                        
+
                     dict->merge(validParameters);
-                    
+
                     validParameters->release();
                 }
             }
@@ -5584,7 +5580,7 @@ IOReturn IOHIDSystem::setParamProperties( OSDictionary * dict )
         }
 
         // Grab the gate again.
-        cmdGate->runAction((IOCommandGate::Action)doSetParamPropertiesPost, dict); 
+        cmdGate->runAction((IOCommandGate::Action)doSetParamPropertiesPost, dict);
     }
 
     return err;
@@ -5593,17 +5589,17 @@ IOReturn IOHIDSystem::setParamProperties( OSDictionary * dict )
 OSDictionary * IOHIDSystem::createFilteredParamPropertiesForService(IOService * service, OSDictionary * dict)
 {
     OSDictionary * validParameters = OSDictionary::withCapacity(4);
-    
+
     if ( !validParameters )
         return NULL;
 
     OSDictionary * deviceParameters = NULL;
-    
+
     if ( OSDynamicCast(IOHIDevice, service) )
         deviceParameters = OSDynamicCast(OSDictionary, service->getProperty(kIOHIDParametersKey));
     else if ( OSDynamicCast( IOHIDEventService, service ) )
         deviceParameters = OSDynamicCast(OSDictionary, service->getProperty(kIOHIDEventServicePropertiesKey));
-        
+
     OSCollectionIterator * iterator = OSCollectionIterator::withCollection(dict);
     if ( iterator ) {
         bool done = false;
@@ -5624,7 +5620,7 @@ OSDictionary * IOHIDSystem::createFilteredParamPropertiesForService(IOService * 
         }
         iterator->release();
     }
-    
+
     if ( validParameters->getCount() == 0 ) {
         validParameters->release();
         validParameters = NULL;
@@ -5632,14 +5628,14 @@ OSDictionary * IOHIDSystem::createFilteredParamPropertiesForService(IOService * 
     else {
         validParameters->setObject(kIOHIDDefaultParametersKey, kOSBooleanTrue);
     }
-    
+
     return validParameters;
 }
 
 
 IOReturn IOHIDSystem::doSetParamPropertiesPre(IOHIDSystem *self, void * arg0, void * arg1)
                         /* IOCommandGate::Action */
-{    
+{
     return self->setParamPropertiesPreGated((OSDictionary *)arg0, (OSIterator**)arg1);
 }
 
@@ -5647,24 +5643,24 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
 {
     OSArray *	array;
     OSNumber *	number;
-	
+
     // check for null
     if (dict == NULL)
         return kIOReturnError;
-        
+
     // adding a pending flag here because we will be momentarily openning the gate
     // to make down calls into the client, before closing back up again to merge
     // the properties.
     while ( setParamPropertiesInProgress )
         cmdGate->commandSleep(&setParamPropertiesInProgress);
-        
+
     setParamPropertiesInProgress = true;
-        
+
     if( (number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDUseKeyswitchKey))))
     {
         gUseKeyswitch = number->unsigned32BitValue();
     }
-		
+
     if( (number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDClickTimeKey))))
     {
         UInt64	nano = number->unsigned64BitValue();
@@ -5672,7 +5668,7 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
     }
     if( (array = OSDynamicCast( OSArray,
 		dict->getObject(kIOHIDClickSpaceKey)))) {
-                
+
         if ((number = OSDynamicCast( OSNumber,
 		array->getObject(EVSIOSCS_X))))
         {
@@ -5704,16 +5700,16 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
             stickyKeysState &= ~(1 << 1);
 
     }
-    
+
     // save all params for new devices
     if ( dict->getObject(kIOHIDResetKeyboardKey) ) {
         UInt64 nano = EV_DEFAULTKEYREPEAT;
         makeNumberParamProperty( dict, kIOHIDKeyRepeatKey, nano, 64 );
-        
+
         nano = EV_DEFAULTINITIALREPEAT;
         makeNumberParamProperty( dict, kIOHIDInitialKeyRepeatKey, nano, 64 );
     }
-    
+
     if ( dict->getObject(kIOHIDResetPointerKey) ) {
         IOFixed fixed = EV_DEFAULTPOINTERACCELLEVEL;
         makeNumberParamProperty( dict, kIOHIDPointerAccelerationKey, fixed, sizeof(fixed) << 3);
@@ -5724,12 +5720,12 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
         UInt64 nano = EV_DCLICKTIME;
         makeNumberParamProperty( dict, kIOHIDClickTimeKey, nano, 64 );
     }
-    
+
     if ( dict->getObject(kIOHIDScrollResetKey) ) {
         IOFixed fixed = EV_DEFAULTSCROLLACCELLEVEL;
         makeNumberParamProperty( dict, kIOHIDScrollAccelerationKey, fixed, sizeof(fixed) << 3);
     }
-        
+
     // update connected input devices
     if ( pOpenIter )
         *pOpenIter = getOpenProviderIterator();
@@ -5739,7 +5735,7 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
 
 IOReturn IOHIDSystem::doSetParamPropertiesPost(IOHIDSystem *self, void * arg0)
                         /* IOCommandGate::Action */
-{    
+{
     return self->setParamPropertiesPostGated((OSDictionary *)arg0);
 }
 
@@ -5749,7 +5745,7 @@ IOReturn IOHIDSystem::setParamPropertiesPostGated( OSDictionary * dict)
         bool resetKeyboard  = dict->getObject(kIOHIDResetKeyboardKey) != NULL;
         bool resetPointer   = dict->getObject(kIOHIDResetPointerKey) != NULL;
         bool resetScroll    = dict->getObject(kIOHIDScrollResetKey) != NULL;
-                
+
         OSDictionary * newParams = OSDictionary::withDictionary( savedParameters );
         if( newParams) {
             if ( resetKeyboard ) {
@@ -5765,23 +5761,23 @@ IOReturn IOHIDSystem::setParamPropertiesPostGated( OSDictionary * dict)
                 newParams->removeObject(kIOHIDTrackpadScrollAccelerationKey);
                 newParams->removeObject(kIOHIDMouseScrollAccelerationKey);
             }
-            
+
             newParams->merge( dict );
             setProperty( kIOHIDParametersKey, newParams );
             newParams->release();
             savedParameters = newParams;
         }
-        
+
         // Send anevent notification that the properties changed.
         struct evioLLEvent		event;
         AbsoluteTime 		ts;
         // clear event record
         bzero( (void *)&event, sizeof event);
-        
+
         event.data.compound.subType = NX_SUBTYPE_HIDPARAMETER_MODIFIED;
         clock_get_uptime(&ts);
         postEvent(NX_SYSDEFINED, &_cursorHelper.desktopLocation(), ts, &(event.data));
-        
+
     }
 
     // Wake any pending setParamProperties commands.  They
@@ -5792,7 +5788,7 @@ IOReturn IOHIDSystem::setParamPropertiesPostGated( OSDictionary * dict)
     return kIOReturnSuccess;
 }
 
-UInt8 IOHIDSystem::getSubtypeForSender(OSObject * sender) 
+UInt8 IOHIDSystem::getSubtypeForSender(OSObject * sender)
 {
     UInt8 subtype = NX_SUBTYPE_DEFAULT;
     if (touchEventPosters->containsObject(sender)) {
@@ -5801,21 +5797,21 @@ UInt8 IOHIDSystem::getSubtypeForSender(OSObject * sender)
     return subtype;
 }
 
-void IOHIDSystem::updateMouseMoveEventForSender(OSObject * sender, NXEventData * evData) 
+void IOHIDSystem::updateMouseMoveEventForSender(OSObject * sender, NXEventData * evData)
 {
     if (sender && evData) {
-        evData->mouse.subType = getSubtypeForSender(sender);        
+        evData->mouse.subType = getSubtypeForSender(sender);
     }
 }
 
-void IOHIDSystem::updateMouseEventForSender(OSObject * sender, NXEventData * evData) 
+void IOHIDSystem::updateMouseEventForSender(OSObject * sender, NXEventData * evData)
 {
     if (sender && evData) {
-        evData->mouseMove.subType = getSubtypeForSender(sender);        
+        evData->mouseMove.subType = getSubtypeForSender(sender);
     }
 }
 
-void IOHIDSystem::updateScrollEventForSender(OSObject * sender, NXEventData * evData) 
+void IOHIDSystem::updateScrollEventForSender(OSObject * sender, NXEventData * evData)
 {
     if (sender && evData) {
         if (NX_SUBTYPE_MOUSE_TOUCH == getSubtypeForSender(sender)) {
@@ -5824,10 +5820,10 @@ void IOHIDSystem::updateScrollEventForSender(OSObject * sender, NXEventData * ev
     }
 }
 
-bool IOHIDSystem::attach( IOService * provider ) 
+bool IOHIDSystem::attach( IOService * provider )
 {
     IORegistryEntry *entry = provider;
-    
+
     if (!super::attach(provider))   return false;
     while(entry) {
         if (kOSBooleanTrue == entry->getProperty("MTEventSource")) {
@@ -5838,11 +5834,11 @@ bool IOHIDSystem::attach( IOService * provider )
             entry = entry->getParentEntry(gIOServicePlane);
         }
     }
-    
+
     return true;
 }
 
-void IOHIDSystem::detach( IOService * provider ) 
+void IOHIDSystem::detach( IOService * provider )
 {
     touchEventPosters->removeObject(provider);
     super::detach(provider);

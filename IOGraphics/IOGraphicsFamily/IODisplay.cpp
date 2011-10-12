@@ -84,6 +84,7 @@ const OSSymbol * gIODisplayManufacturerSpecificKey;
 
 const OSSymbol * gIODisplayPowerStateKey;
 const OSSymbol * gIODisplayControllerIDKey;
+const OSSymbol * gIODisplayCapabilityStringKey;
 
 const OSSymbol * gIODisplayParametersCommitKey;
 const OSSymbol * gIODisplayParametersDefaultKey;
@@ -242,6 +243,8 @@ void IODisplay::initialize( void )
 
 	gIODisplayControllerIDKey = OSSymbol::withCStringNoCopy(
 											kIODisplayControllerIDKey);
+	gIODisplayCapabilityStringKey = OSSymbol::withCStringNoCopy(
+											kIODisplayCapabilityStringKey);
 
     IORegistryEntry * entry;
     if ((entry = getServiceRoot())
@@ -894,8 +897,11 @@ bool IODisplay::updateNumber( OSDictionary * params, const OSSymbol * key,
 {
     OSNumber * num;
 
-    if ((num = (OSNumber *) params->getObject( key )))
+    if ((OSCollection::kImmutable & params->setOptions(0, 0)) 
+		&& (num = (OSNumber *) params->getObject(key)))
+    {
         num->setValue(value);
+	}
     else
     {
         num = OSNumber::withNumber( value, 32 );

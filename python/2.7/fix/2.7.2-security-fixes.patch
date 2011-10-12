@@ -1,0 +1,433 @@
+--- Lib/SimpleHTTPServer.py.orig	2008-07-06 14:34:39.000000000 -0700
++++ Lib/SimpleHTTPServer.py	2011-07-25 23:18:14.000000000 -0700
+@@ -15,6 +15,7 @@ import posixpath
+ import BaseHTTPServer
+ import urllib
+ import cgi
++import sys
+ import shutil
+ import mimetypes
+ try:
+@@ -131,7 +132,8 @@ class SimpleHTTPRequestHandler(BaseHTTPS
+         length = f.tell()
+         f.seek(0)
+         self.send_response(200)
+-        self.send_header("Content-type", "text/html")
++        encoding = sys.getfilesystemencoding()
++        self.send_header("Content-type", "text/html; charset=%s" % encoding)
+         self.send_header("Content-Length", str(length))
+         self.end_headers()
+         return f
+--- Lib/test/test_normalization.py.orig	2010-03-15 11:08:58.000000000 -0700
++++ Lib/test/test_normalization.py	2011-07-25 23:18:14.000000000 -0700
+@@ -53,9 +53,6 @@ class NormalizationTest(unittest.TestCas
+             if line.startswith("@Part"):
+                 part = line.split()[0]
+                 continue
+-            if part == "@Part3":
+-                # XXX we don't support PRI #29 yet, so skip these tests for now
+-                continue
+             try:
+                 c1,c2,c3,c4,c5 = [unistr(x) for x in line.split(';')[:-1]]
+             except RangeError:
+--- Lib/test/test_time.py.orig	2010-11-21 05:34:58.000000000 -0800
++++ Lib/test/test_time.py	2011-07-25 23:18:14.000000000 -0700
+@@ -1,6 +1,7 @@
+ from test import test_support
+ import time
+ import unittest
++import sys
+ 
+ 
+ class TimeTestCase(unittest.TestCase):
+@@ -37,6 +38,13 @@ class TimeTestCase(unittest.TestCase):
+             except ValueError:
+                 self.fail('conversion specifier: %r failed.' % format)
+ 
++        # Issue #10762: Guard against invalid/non-supported format string
++        # so that Python don't crash (Windows crashes when the format string
++        # input to [w]strftime is not kosher.
++        if sys.platform.startswith('win'):
++            with self.assertRaises(ValueError):
++                time.strftime('%f')
++
+     def test_strftime_bounds_checking(self):
+         # Make sure that strftime() checks the bounds of the various parts
+         #of the time tuple (0 is valid for *all* values).
+@@ -114,10 +122,20 @@ class TimeTestCase(unittest.TestCase):
+     def test_asctime(self):
+         time.asctime(time.gmtime(self.t))
+         self.assertRaises(TypeError, time.asctime, 0)
++        self.assertRaises(TypeError, time.asctime, ())
++        # XXX: Posix compiant asctime should refuse to convert
++        # year > 9999, but Linux implementation does not.
++        # self.assertRaises(ValueError, time.asctime,
++        #                  (12345, 1, 0, 0, 0, 0, 0, 0, 0))
++        # XXX: For now, just make sure we don't have a crash:
++        try:
++            time.asctime((12345, 1, 1, 0, 0, 0, 0, 1, 0))
++        except ValueError:
++            pass
+ 
++    @unittest.skipIf(not hasattr(time, "tzset"),
++        "time module has no attribute tzset")
+     def test_tzset(self):
+-        if not hasattr(time, "tzset"):
+-            return # Can't test this; don't want the test suite to fail
+ 
+         from os import environ
+ 
+@@ -213,6 +231,17 @@ class TimeTestCase(unittest.TestCase):
+         t1 = time.mktime(lt1)
+         self.assertTrue(0 <= (t1-t0) < 0.2)
+ 
++    def test_mktime(self):
++        # Issue #1726687
++        for t in (-2, -1, 0, 1):
++            try:
++                tt = time.localtime(t)
++            except (OverflowError, ValueError):
++                pass
++            else:
++                self.assertEqual(time.mktime(tt), t)
++
++
+ def test_main():
+     test_support.run_unittest(TimeTestCase)
+ 
+--- Lib/test/test_unicodedata.py.orig	2010-11-21 05:34:58.000000000 -0800
++++ Lib/test/test_unicodedata.py	2011-07-25 23:18:14.000000000 -0700
+@@ -188,9 +188,22 @@ class UnicodeFunctionsTest(UnicodeDataba
+ 
+     def test_pr29(self):
+         # http://www.unicode.org/review/pr-29.html
+-        for text in (u"\u0b47\u0300\u0b3e", u"\u1100\u0300\u1161"):
++        # See issues #1054943 and #10254.
++        composed = (u"\u0b47\u0300\u0b3e", u"\u1100\u0300\u1161",
++                    u'Li\u030dt-s\u1e73\u0301',
++                    u'\u092e\u093e\u0930\u094d\u0915 \u091c\u093c'
++                    + u'\u0941\u0915\u0947\u0930\u092c\u0930\u094d\u0917',
++                    u'\u0915\u093f\u0930\u094d\u0917\u093f\u091c\u093c'
++                    + 'u\u0938\u094d\u0924\u093e\u0928')
++        for text in composed:
+             self.assertEqual(self.db.normalize('NFC', text), text)
+ 
++    def test_issue10254(self):
++        # Crash reported in #10254
++        a = u'C\u0338' * 20  + u'C\u0327'
++        b = u'C\u0338' * 20  + u'\xC7'
++        self.assertEqual(self.db.normalize('NFC', a), b)
++
+     def test_east_asian_width(self):
+         eaw = self.db.east_asian_width
+         self.assertRaises(TypeError, eaw, 'a')
+--- Lib/test/test_urllib.py.orig	2010-11-21 05:34:58.000000000 -0800
++++ Lib/test/test_urllib.py	2011-07-25 23:18:14.000000000 -0700
+@@ -5,6 +5,7 @@ import httplib
+ import unittest
+ from test import test_support
+ import os
++import sys
+ import mimetools
+ import tempfile
+ import StringIO
+@@ -148,6 +149,16 @@ class urlopen_HttpTests(unittest.TestCas
+         finally:
+             self.unfakehttp()
+ 
++    def test_url_fragment(self):
++        # Issue #11703: geturl() omits fragments in the original URL.
++        url = 'http://docs.python.org/library/urllib.html#OK'
++        self.fakehttp('Hello!')
++        try:
++            fp = urllib.urlopen(url)
++            self.assertEqual(fp.geturl(), url)
++        finally:
++            self.unfakehttp()
++
+     def test_read_bogus(self):
+         # urlopen() should raise IOError for many error codes.
+         self.fakehttp('''HTTP/1.1 401 Authentication Required
+@@ -161,6 +172,20 @@ Content-Type: text/html; charset=iso-885
+         finally:
+             self.unfakehttp()
+ 
++    def test_invalid_redirect(self):
++        # urlopen() should raise IOError for many error codes.
++        self.fakehttp("""HTTP/1.1 302 Found
++Date: Wed, 02 Jan 2008 03:03:54 GMT
++Server: Apache/1.3.33 (Debian GNU/Linux) mod_ssl/2.8.22 OpenSSL/0.9.7e
++Location: file:README
++Connection: close
++Content-Type: text/html; charset=iso-8859-1
++""")
++        try:
++            self.assertRaises(IOError, urllib.urlopen, "http://python.org/")
++        finally:
++            self.unfakehttp()
++
+     def test_empty_socket(self):
+         # urlopen() raises IOError if the underlying socket does not send any
+         # data. (#1680230)
+@@ -606,6 +631,23 @@ class Pathname_Tests(unittest.TestCase):
+                          "url2pathname() failed; %s != %s" %
+                          (expect, result))
+ 
++    @unittest.skipUnless(sys.platform == 'win32',
++                         'test specific to the nturl2path library')
++    def test_ntpath(self):
++        given = ('/C:/', '///C:/', '/C|//')
++        expect = 'C:\\'
++        for url in given:
++            result = urllib.url2pathname(url)
++            self.assertEqual(expect, result,
++                             'nturl2path.url2pathname() failed; %s != %s' %
++                             (expect, result))
++        given = '///C|/path'
++        expect = 'C:\\path'
++        result = urllib.url2pathname(given)
++        self.assertEqual(expect, result,
++                         'nturl2path.url2pathname() failed; %s != %s' %
++                         (expect, result))
++
+ class Utility_Tests(unittest.TestCase):
+     """Testcase to test the various utility functions in the urllib."""
+ 
+@@ -641,7 +683,7 @@ class URLopener_Tests(unittest.TestCase)
+ 
+ # Just commented them out.
+ # Can't really tell why keep failing in windows and sparc.
+-# Everywhere else they work ok, but on those machines, someteimes
++# Everywhere else they work ok, but on those machines, sometimes
+ # fail in one of the tests, sometimes in other. I have a linux, and
+ # the tests go ok.
+ # If anybody has one of the problematic enviroments, please help!
+--- Lib/test/test_urllib2.py.orig	2010-11-21 21:04:33.000000000 -0800
++++ Lib/test/test_urllib2.py	2011-07-25 23:18:14.000000000 -0700
+@@ -748,7 +748,7 @@ class HandlerTests(unittest.TestCase):
+             else:
+                 self.assertTrue(o.req is req)
+                 self.assertEqual(req.type, "ftp")
+-            self.assertEqual(req.type is "ftp", ftp)
++            self.assertEqual(req.type == "ftp", ftp)
+ 
+     def test_http(self):
+ 
+@@ -969,6 +969,28 @@ class HandlerTests(unittest.TestCase):
+             self.assertEqual(count,
+                              urllib2.HTTPRedirectHandler.max_redirections)
+ 
++    def test_invalid_redirect(self):
++        from_url = "http://example.com/a.html"
++        valid_schemes = ['http', 'https', 'ftp']
++        invalid_schemes = ['file', 'imap', 'ldap']
++        schemeless_url = "example.com/b.html"
++        h = urllib2.HTTPRedirectHandler()
++        o = h.parent = MockOpener()
++        req = Request(from_url)
++        req.timeout = socket._GLOBAL_DEFAULT_TIMEOUT
++
++        for scheme in invalid_schemes:
++            invalid_url = scheme + '://' + schemeless_url
++            self.assertRaises(urllib2.HTTPError, h.http_error_302,
++                              req, MockFile(), 302, "Security Loophole",
++                              MockHeaders({"location": invalid_url}))
++
++        for scheme in valid_schemes:
++            valid_url = scheme + '://' + schemeless_url
++            h.http_error_302(req, MockFile(), 302, "That's fine",
++                MockHeaders({"location": valid_url}))
++            self.assertEqual(o.req.get_full_url(), valid_url)
++
+     def test_cookie_redirect(self):
+         # cookies shouldn't leak into redirected requests
+         from cookielib import CookieJar
+@@ -985,6 +1007,15 @@ class HandlerTests(unittest.TestCase):
+         o.open("http://www.example.com/")
+         self.assertTrue(not hh.req.has_header("Cookie"))
+ 
++    def test_redirect_fragment(self):
++        redirected_url = 'http://www.example.com/index.html#OK\r\n\r\n'
++        hh = MockHTTPHandler(302, 'Location: ' + redirected_url)
++        hdeh = urllib2.HTTPDefaultErrorHandler()
++        hrh = urllib2.HTTPRedirectHandler()
++        o = build_test_opener(hh, hdeh, hrh)
++        fp = o.open('http://www.example.com')
++        self.assertEqual(fp.geturl(), redirected_url.strip())
++
+     def test_proxy(self):
+         o = OpenerDirector()
+         ph = urllib2.ProxyHandler(dict(http="proxy.example.com:3128"))
+@@ -1270,12 +1301,16 @@ class RequestTests(unittest.TestCase):
+         req = Request("<URL:http://www.python.org>")
+         self.assertEqual("www.python.org", req.get_host())
+ 
+-    def test_urlwith_fragment(self):
++    def test_url_fragment(self):
+         req = Request("http://www.python.org/?qs=query#fragment=true")
+         self.assertEqual("/?qs=query", req.get_selector())
+         req = Request("http://www.python.org/#fun=true")
+         self.assertEqual("/", req.get_selector())
+ 
++        # Issue 11703: geturl() omits fragment in the original URL.
++        url = 'http://docs.python.org/library/urllib2.html#OK'
++        req = Request(url)
++        self.assertEqual(req.get_full_url(), url)
+ 
+ def test_main(verbose=None):
+     from test import test_urllib2
+--- Lib/urllib.py.orig	2010-11-21 21:04:33.000000000 -0800
++++ Lib/urllib.py	2011-07-25 23:18:14.000000000 -0700
+@@ -644,6 +644,18 @@ class FancyURLopener(URLopener):
+         fp.close()
+         # In case the server sent a relative URL, join with original:
+         newurl = basejoin(self.type + ":" + url, newurl)
++
++        # For security reasons we do not allow redirects to protocols
++        # other than HTTP, HTTPS or FTP.
++        newurl_lower = newurl.lower()
++        if not (newurl_lower.startswith('http://') or
++                newurl_lower.startswith('https://') or
++                newurl_lower.startswith('ftp://')):
++            raise IOError('redirect error', errcode,
++                          errmsg + " - Redirection to url '%s' is not allowed" %
++                          newurl,
++                          headers)
++
+         return self.open(newurl)
+ 
+     def http_error_301(self, url, fp, errcode, errmsg, headers, data=None):
+--- Lib/urllib2.py.orig	2010-11-20 03:24:08.000000000 -0800
++++ Lib/urllib2.py	2011-07-25 23:45:53.000000000 -0700
+@@ -190,7 +190,7 @@ class Request:
+                  origin_req_host=None, unverifiable=False):
+         # unwrap('<URL:type://host/path>') --> 'type://host/path'
+         self.__original = unwrap(url)
+-        self.__original, fragment = splittag(self.__original)
++        self.__original, self.__fragment = splittag(self.__original)
+         self.type = None
+         # self.__r_type is what's left after doing the splittype
+         self.host = None
+@@ -236,7 +236,10 @@ class Request:
+         return self.data
+ 
+     def get_full_url(self):
+-        return self.__original
++        if self.__fragment:
++            return '%s#%s' % (self.__original, self.__fragment)
++        else:
++            return self.__original
+ 
+     def get_type(self):
+         if self.type is None:
+@@ -299,8 +302,9 @@ class OpenerDirector:
+     def __init__(self):
+         client_version = "Python-urllib/%s" % __version__
+         self.addheaders = [('User-agent', client_version)]
+-        # manage the individual handlers
++        # self.handlers is retained only for backward compatibility
+         self.handlers = []
++        # manage the individual handlers
+         self.handle_open = {}
+         self.handle_error = {}
+         self.process_response = {}
+@@ -350,8 +354,6 @@ class OpenerDirector:
+             added = True
+ 
+         if added:
+-            # the handlers must work in an specific order, the order
+-            # is specified in a Handler attribute
+             bisect.insort(self.handlers, handler)
+             handler.add_parent(self)
+ 
+@@ -579,6 +581,17 @@ class HTTPRedirectHandler(BaseHandler):
+ 
+         newurl = urlparse.urljoin(req.get_full_url(), newurl)
+ 
++        # For security reasons we do not allow redirects to protocols
++        # other than HTTP, HTTPS or FTP.
++        newurl_lower = newurl.lower()
++        if not (newurl_lower.startswith('http://') or
++                newurl_lower.startswith('https://') or
++                newurl_lower.startswith('ftp://')):
++            raise HTTPError(newurl, code,
++                            msg + " - Redirection to url '%s' is not allowed" %
++                            newurl,
++                            headers, fp)
++
+         # XXX Probably want to forget about the state of the current
+         # request, although that might interact poorly with other
+         # handlers that also use handler-specific request attributes
+--- Modules/timemodule.c.orig	2010-06-05 07:54:26.000000000 -0700
++++ Modules/timemodule.c	2011-07-25 23:18:14.000000000 -0700
+@@ -487,7 +487,7 @@ time_strftime(PyObject *self, PyObject *
+         if (outbuf[1]=='#')
+             ++outbuf; /* not documented by python, */
+         if (outbuf[1]=='\0' ||
+-            !strchr("aAbBcdfHIjmMpSUwWxXyYzZ%", outbuf[1]))
++            !strchr("aAbBcdHIjmMpSUwWxXyYzZ%", outbuf[1]))
+         {
+             PyErr_SetString(PyExc_ValueError, "Invalid format string");
+             return 0;
+@@ -572,6 +572,10 @@ time_asctime(PyObject *self, PyObject *a
+     } else if (!gettmarg(tup, &buf))
+         return NULL;
+     p = asctime(&buf);
++    if (p == NULL) {
++        PyErr_SetString(PyExc_ValueError, "invalid time");
++        return NULL;
++    }
+     if (p[24] == '\n')
+         p[24] = '\0';
+     return PyString_FromString(p);
+@@ -628,8 +632,11 @@ time_mktime(PyObject *self, PyObject *tu
+     time_t tt;
+     if (!gettmarg(tup, &buf))
+         return NULL;
++    buf.tm_wday = -1;  /* sentinel; original value ignored */
+     tt = mktime(&buf);
+-    if (tt == (time_t)(-1)) {
++    /* Return value of -1 does not necessarily mean an error, but tm_wday
++     * cannot remain set to -1 if mktime succeeded. */
++    if (tt == (time_t)(-1) && buf.tm_wday == -1) {
+         PyErr_SetString(PyExc_OverflowError,
+                         "mktime argument out of range");
+         return NULL;
+@@ -667,7 +674,7 @@ time_tzset(PyObject *self, PyObject *unu
+ }
+ 
+ PyDoc_STRVAR(tzset_doc,
+-"tzset(zone)\n\
++"tzset()\n\
+ \n\
+ Initialize, or reinitialize, the local timezone to the value stored in\n\
+ os.environ['TZ']. The TZ environment variable should be specified in\n\
+--- Modules/unicodedata.c.orig	2010-11-22 02:53:46.000000000 -0800
++++ Modules/unicodedata.c	2011-07-25 23:31:45.000000000 -0700
+@@ -682,10 +682,14 @@ nfc_nfkc(PyObject *self, PyObject *input
+       comb = 0;
+       while (i1 < end) {
+           int comb1 = _getrecord_ex(*i1)->combining;
+-          if (comb && (comb1 == 0 || comb == comb1)) {
+-              /* Character is blocked. */
+-              i1++;
+-              continue;
++          if (comb) {
++              if (comb1 == 0)
++                  break;
++              if (comb >= comb1) {
++                  /* Character is blocked. */
++                  i1++;
++                  continue;
++              }
+           }
+           l = find_nfc_index(self, nfc_last, *i1);
+           /* *i1 cannot be combined with *i. If *i1
+@@ -709,6 +713,7 @@ nfc_nfkc(PyObject *self, PyObject *input
+           /* Replace the original character. */
+           *i = code;
+           /* Mark the second character unused. */
++          assert(cskipped < 20);
+           skipped[cskipped++] = i1;
+           i1++;
+           f = find_nfc_index(self, nfc_first, *i);

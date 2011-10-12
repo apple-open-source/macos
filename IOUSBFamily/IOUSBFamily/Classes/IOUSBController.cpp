@@ -585,14 +585,34 @@ IOUSBController::start( IOService * provider )
     {
         IOUSBCommand *command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);    
         if ( command )
+		{
+			IODMACommand *dmaCommand = command->GetDMACommand();
+			
+			if (dmaCommand)
+			{
+				dmaCommand->release();
+				command->SetDMACommand(NULL);
+			}
+			
             command->release();
+		}
     }
     
     for ( i = 0; i < (int)_currentSizeOfIsocCommandPool; i++ )
     {
         IOUSBIsocCommand *command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);  
         if ( command )
+		{
+			IODMACommand *dmaCommand = command->GetDMACommand();
+			
+			if (dmaCommand)
+			{
+				dmaCommand->release();
+				command->SetDMACommand(NULL);
+			}
+			
             command->release();
+		}
     }
 	
     if ( _freeUSBCommandPool )
@@ -1199,7 +1219,13 @@ IOUSBController::InterruptTransaction(IOUSBCommand *command)
 		USBTrace( kUSBTController,  kTPInterruptTransaction, ((_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), command->GetReqCount(), data[0], data[1]);
 	}
 
+	_activeInterruptTransfers++;
     err = UIMCreateInterruptTransfer(command);
+	
+	if (err)
+	{
+		_activeInterruptTransfers--;
+	}
 	
 	USBTrace_End( kUSBTController, kTPInterruptTransaction, (uintptr_t)this, err, command->GetCompletionTimeout(), command->GetNoDataTimeout());
 	
@@ -1283,6 +1309,8 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
     }
     else
         me->Complete(theCompletion, status, bufferSizeRemaining);
+	
+	me->_activeInterruptTransfers--;
 	
 }
 
@@ -1512,7 +1540,11 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
 
 	command->SetUSLCompletion(completion);
 	if (!_activeIsochTransfers && (_isochMaxBusStall != 0))
-		requireMaxBusStall(_isochMaxBusStall);										// require a max stall of 10 microseconds on the PCI bus
+    {
+		requireMaxBusStall(_isochMaxBusStall);										// require a max stall of N microseconds on the PCI bus
+        if (metaCast("AppleUSBUHCI"))
+            requireMaxInterruptDelay(_isochMaxBusStall);
+    }
 	
 	_activeIsochTransfers++;
 	err = UIMCreateIsochTransfer(command);	
@@ -1521,7 +1553,11 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
         USBLog(3,"%s[%p]::IsocTransaction: error queueing isoc transfer (0x%x)", getName(), this, err);
 		_activeIsochTransfers--;
 		if (!_activeIsochTransfers && (_isochMaxBusStall != 0))
+        {
 			requireMaxBusStall(0);										// remove max stall requirement on the PCI bus
+            if (metaCast("AppleUSBUHCI"))
+                requireMaxInterruptDelay(0);
+        }
 	}
 
 	USBTrace_End( kUSBTController, kTPIsocTransaction, (uintptr_t)this, err, (uintptr_t)command->GetFrameList(), 0);
@@ -1594,7 +1630,7 @@ IOUSBController::WatchdogTimer(OSObject *target, IOTimerEventSource *source)
     IOUSBController*	me = OSDynamicCast(IOUSBController, target);
     IOReturn			err;
 	
-    if (!me || !source || me->isInactive() )
+    if (!me || !source )
     {
  		if ( me && me->_expansionData )
 		{
@@ -2373,23 +2409,20 @@ void
 IOUSBController::stop( IOService * provider )
 {
 #pragma unused (provider)
-   UInt32				i;
-    IOUSBCommand *		command;
-    UInt32				retries = 0;
-	
-    USBLog(5,"+%s[%p]::stop (%p)", getName(), this, provider);
-    
-    // Wait for the watchdog timer to expire.  There doesn't seem to be any
-    // way to cancel a timer that is already "executing".  cancelTimeout will
-    // call thread_cancel which will only cancel if the thread is pending
-    // We might wait up to 5 seconds here.
-    //
-    while ( retries < 600 && _watchdogTimerActive )
+	UInt32				i;
+	    
+	if ( _expansionData && _watchdogUSBTimer )
     {
-        IOSleep(100);
-        retries++;
+		_watchdogUSBTimer->cancelTimeout();
+		
+		if ( _workLoop )
+			_workLoop->removeEventSource( _watchdogUSBTimer );
+		
+		_watchdogUSBTimer->release();
+		_watchdogUSBTimer = NULL;
     }
-    
+	
+	
     // Finalize the UIM -- need to do it in the stop so that other devices
     // can still use the UIM data structures while they are being terminated (e.g. we 
     // can't do it in the terminate message
@@ -2418,16 +2451,36 @@ IOUSBController::stop( IOService * provider )
     //
     for ( i = 0; i < _currentSizeOfCommandPool; i++ )
     {
-        command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);    
+		IOUSBCommand *		command = (IOUSBCommand*)_freeUSBCommandPool->getCommand(false);    
         if ( command )
+		{
+			IODMACommand *dmaCommand = command->GetDMACommand();
+			
+			if (dmaCommand)
+			{
+				dmaCommand->release();
+				command->SetDMACommand(NULL);
+			}
+			
             command->release();
+		}
     }
     
     for ( i = 0; i < _currentSizeOfIsocCommandPool; i++ )
     {
-        command = (IOUSBCommand *)_freeUSBIsocCommandPool->getCommand(false);  
+		IOUSBIsocCommand *	command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);  
         if ( command )
+		{
+			IODMACommand *dmaCommand = command->GetDMACommand();
+			
+			if (dmaCommand)
+			{
+				dmaCommand->release();
+				command->SetDMACommand(NULL);
+			}
+			
             command->release();
+		}
     }
 	
     if ( _freeUSBCommandPool )
@@ -2442,15 +2495,6 @@ IOUSBController::stop( IOService * provider )
         _freeUSBIsocCommandPool = NULL;
     }
     
-	if ( _expansionData && _watchdogUSBTimer )
-    {
-		_watchdogUSBTimer->cancelTimeout();
-		
-		if ( _workLoop )
-			_workLoop->removeEventSource( _watchdogUSBTimer );
-    }
-	
-	
 	if ( _workLoop && _commandGate)
 		_workLoop->removeEventSource( _commandGate );
 	

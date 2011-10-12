@@ -174,7 +174,7 @@ void DADialogShowDeviceRemoval( void )
             CFDictionarySetValue( description, kCFUserNotificationAlertMessageKey,    __kDADialogTextDeviceRemoval       );
             CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey, gDABundlePath                      );
 
-            notification = CFUserNotificationCreate( kCFAllocatorDefault, 60, kCFUserNotificationStopAlertLevel, NULL, description );
+            notification = CFUserNotificationCreate( kCFAllocatorDefault, 0, kCFUserNotificationStopAlertLevel, NULL, description );
 
             if ( notification )
             {
@@ -228,7 +228,7 @@ void DADialogShowDeviceUnreadable( DADiskRef disk )
                 }
             }
 
-            notification = CFUserNotificationCreate( kCFAllocatorDefault, 60, kCFUserNotificationCautionAlertLevel, NULL, description );
+            notification = CFUserNotificationCreate( kCFAllocatorDefault, 0, kCFUserNotificationCautionAlertLevel, NULL, description );
 
             if ( notification )
             {
@@ -298,7 +298,7 @@ void DADialogShowDeviceUnrepairable( DADiskRef disk )
                 CFDictionarySetValue( description, kCFUserNotificationHelpBookKey,        CFSTR( "com.apple.machelp" )      );
                 CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey, gDABundlePath                     );
 
-                notification = CFUserNotificationCreate( kCFAllocatorDefault, 60, kCFUserNotificationStopAlertLevel, NULL, description );
+                notification = CFUserNotificationCreate( kCFAllocatorDefault, 0, kCFUserNotificationStopAlertLevel, NULL, description );
 
                 if ( notification )
                 {

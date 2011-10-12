@@ -4200,6 +4200,7 @@ IOReturn IOFramebuffer::postWake(void)
     }
 
 	__private->controller->postWakeChange = __private->controller->connectChange;
+	gIOFBLastReadClamshellState = gIOFBCurrentClamshellState;
 
 	if (sleepConnectCheck)
 	{
@@ -4563,6 +4564,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 				(int) gIOFBLastClamshellState, (int) gIOFBCurrentClamshellState);
 
 		gIOFBLastClamshellState = gIOFBCurrentClamshellState;
+		gIOFBLastReadClamshellState = gIOFBCurrentClamshellState;
 
 		probeAll(kIOFBUserRequestProbe);
 		for (uint32_t index = 0;
@@ -5577,7 +5579,6 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 #if VERSION_MAJOR < 11
 #warning sl
 #else
-#warning lion
         case kIOMessageSystemCapabilityChange:
 		{
 			IOPMSystemCapabilityChangeParameters * params = (typeof params) messageArgument;
@@ -6655,7 +6656,7 @@ void IOFramebuffer::initFB(void)
 		SUB_ABSOLUTETIME(&now, &__private->controller->initTime);
 		absolutetime_to_nanoseconds(now, &nsec);
 		timeout = (nsec > kInitFBTimeoutNS);
-		if (timeout) DEBG1("%s: init timeout\n", thisName);
+		if (timeout) DEBG1(thisName, " init timeout\n");
 
 		IOFramebufferBootInitFB(
 			vramMap->getVirtualAddress(), 

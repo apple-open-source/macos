@@ -3,7 +3,7 @@ UserType	= Developer
 ToolType	= Commands
 Extra_CC_Flags  = -gdwarf-2 -D__APPLE_USE_RFC_2292
 Extra_Configure_Flags = --prefix="/usr" --sysconfdir="/private/etc" --localstatedir="/private/var" --enable-atomic="no" \
-                        --with-openssl=yes --with-gssapi=yes
+                        --with-openssl=yes --with-gssapi=yes --enable-symtable=none
 
 Extra_Environment = sysconfdir="/private/etc"                               \
                     includedir="/usr/local/include"			\

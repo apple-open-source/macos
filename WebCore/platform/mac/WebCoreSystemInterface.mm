@@ -122,6 +122,7 @@ CGImageRef (*wkIOSurfaceContextCreateImage)(CGContextRef context);
 WKScrollbarPainterRef (*wkMakeScrollbarPainter)(int controlSize, bool isHorizontal);
 WKScrollbarPainterRef (*wkMakeScrollbarReplacementPainter)(WKScrollbarPainterRef oldPainter, int newStyle, int controlSize, bool isHorizontal);
 void (*wkScrollbarPainterSetDelegate)(WKScrollbarPainterRef, id scrollbarPainterDelegate);
+void (*wkScrollbarPainterSetEnabled)(WKScrollbarPainterRef, bool enabled);
 void (*wkScrollbarPainterPaint)(WKScrollbarPainterRef, bool enabled, double value, CGFloat proportion, CGRect frameRect);
 void (*wkScrollbarPainterForceFlashScrollers)(WKScrollbarPainterControllerRef);
 int (*wkScrollbarThickness)(int controlSize);
@@ -162,6 +163,9 @@ bool (*wkExecutableWasLinkedOnOrBeforeSnowLeopard)(void);
 CFStringRef (*wkCopyDefaultSearchProviderDisplayName)(void);
 
 NSURL *(*wkAVAssetResolvedURL)(AVAsset*);
+
+NSCursor *(*wkCursor)(const char*);
+
 #endif
 
 void (*wkUnregisterUniqueIdForElement)(id element);
@@ -179,6 +183,7 @@ CFURLStorageSessionRef (*wkCreatePrivateStorageSession)(CFStringRef);
 NSURLRequest* (*wkCopyRequestWithStorageSession)(CFURLStorageSessionRef, NSURLRequest*);
 CFHTTPCookieStorageRef (*wkCopyHTTPCookieStorage)(CFURLStorageSessionRef);
 unsigned (*wkGetHTTPCookieAcceptPolicy)(CFHTTPCookieStorageRef);
+void (*wkSetHTTPCookieAcceptPolicy)(CFHTTPCookieStorageRef, unsigned);
 NSArray *(*wkHTTPCookiesForURL)(CFHTTPCookieStorageRef, NSURL *);
 void (*wkSetHTTPCookiesForURL)(CFHTTPCookieStorageRef, NSArray *, NSURL *, NSURL *);
 void (*wkDeleteHTTPCookie)(CFHTTPCookieStorageRef, NSHTTPCookie *);

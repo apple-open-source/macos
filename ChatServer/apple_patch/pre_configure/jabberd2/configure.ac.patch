@@ -1,6 +1,6 @@
---- /tmp/jabberd-2.2.13/configure.ac	2011-02-23 08:24:36.000000000 -0800
-+++ ./jabberd2/configure.ac	2011-02-24 16:31:30.000000000 -0800
-@@ -614,6 +614,25 @@ fi
+--- /tmp/jabberd-2.2.14/configure.ac	2011-05-31 15:11:38.000000000 -0700
++++ ./jabberd2/configure.ac	2011-06-22 20:13:00.000000000 -0700
+@@ -615,6 +615,25 @@ fi
  AC_SUBST(SQLITE_LIBS)
  AM_CONDITIONAL(STORAGE_SQLITE, [test "x-$have_sqlite" = "x-yes"])
  

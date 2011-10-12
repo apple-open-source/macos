@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -133,15 +133,15 @@ typedef struct
     void *   buffer;
 } dk_dvd_read_rzone_info_t;
 
-#define DKIOCDVDREADSTRUCTURE _IOW('d', 128, dk_dvd_read_structure_t)
-#define DKIOCDVDREPORTKEY     _IOW('d', 129, dk_dvd_report_key_t)
-#define DKIOCDVDSENDKEY       _IOW('d', 130, dk_dvd_send_key_t)
+#define DKIOCDVDREADSTRUCTURE   _IOW('d', 128, dk_dvd_read_structure_t)
+#define DKIOCDVDREPORTKEY       _IOW('d', 129, dk_dvd_report_key_t)
+#define DKIOCDVDSENDKEY         _IOW('d', 130, dk_dvd_send_key_t)
 
-#define DKIOCDVDGETSPEED      _IOR('d', 131, uint16_t)
-#define DKIOCDVDSETSPEED      _IOW('d', 131, uint16_t)
+#define DKIOCDVDGETSPEED        _IOR('d', 131, uint16_t)
+#define DKIOCDVDSETSPEED        _IOW('d', 131, uint16_t)
 
-#define DKIOCDVDREADDISCINFO  _IOWR('d', 132, dk_dvd_read_disc_info_t)
-#define DKIOCDVDREADRZONEINFO _IOWR('d', 133, dk_dvd_read_rzone_info_t)
+#define DKIOCDVDREADDISCINFO    _IOWR('d', 132, dk_dvd_read_disc_info_t)
+#define DKIOCDVDREADRZONEINFO   _IOWR('d', 133, dk_dvd_read_rzone_info_t)
 
 #ifdef KERNEL
 #ifdef __cplusplus

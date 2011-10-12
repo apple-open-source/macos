@@ -30,23 +30,19 @@
 
 #include <RegisterFile.h>
 #include <dfg/DFGNode.h>
+#include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 #include <wtf/StdLibExtras.h>
 
 namespace JSC {
 
 class CodeBlock;
+class ExecState;
 
 namespace DFG {
 
 // helper function to distinguish vars & temporaries from arguments.
 inline bool operandIsArgument(int operand) { return operand < 0; }
-
-typedef uint8_t PredictedType;
-static const PredictedType PredictNone  = 0;
-static const PredictedType PredictCell  = 0x01;
-static const PredictedType PredictArray = 0x03;
-static const PredictedType PredictInt32 = 0x04;
 
 struct PredictionSlot {
 public:
@@ -146,7 +142,31 @@ public:
             m_argumentPredictions[argument].m_value |= prediction;
         } else if ((unsigned)operand < m_variablePredictions.size())
             m_variablePredictions[operand].m_value |= prediction;
-            
+    }
+    
+    void predictGlobalVar(unsigned varNumber, PredictedType prediction)
+    {
+        HashMap<unsigned, PredictionSlot>::iterator iter = m_globalVarPredictions.find(varNumber + 1);
+        if (iter == m_globalVarPredictions.end()) {
+            PredictionSlot predictionSlot;
+            predictionSlot.m_value |= prediction;
+            m_globalVarPredictions.add(varNumber + 1, predictionSlot);
+        } else
+            iter->second.m_value |= prediction;
+    }
+    
+    void predict(Node& node, PredictedType prediction)
+    {
+        switch (node.op) {
+        case GetLocal:
+            predict(node.local(), prediction);
+            break;
+        case GetGlobalVar:
+            predictGlobalVar(node.varNumber(), prediction);
+            break;
+        default:
+            break;
+        }
     }
 
     PredictedType getPrediction(int operand)
@@ -159,8 +179,49 @@ public:
             return m_variablePredictions[operand].m_value;
         return PredictNone;
     }
+    
+    PredictedType getGlobalVarPrediction(unsigned varNumber)
+    {
+        HashMap<unsigned, PredictionSlot>::iterator iter = m_globalVarPredictions.find(varNumber + 1);
+        if (iter == m_globalVarPredictions.end())
+            return PredictNone;
+        return iter->second.m_value;
+    }
+    
+    PredictedType getPrediction(Node& node)
+    {
+        Node* nodePtr = &node;
+        
+        if (nodePtr->op == ValueToNumber)
+            nodePtr = &(*this)[nodePtr->child1()];
+
+        if (nodePtr->op == ValueToInt32)
+            nodePtr = &(*this)[nodePtr->child1()];
+        
+        switch (nodePtr->op) {
+        case GetLocal:
+            return getPrediction(nodePtr->local());
+        case GetGlobalVar:
+            return getGlobalVarPrediction(nodePtr->varNumber());
+        case GetById:
+        case GetMethod:
+        case GetByVal:
+        case Call:
+        case Construct:
+            return nodePtr->getPrediction();
+        default:
+            return PredictNone;
+        }
+    }
+
+#ifndef NDEBUG
+    static const char *opName(NodeType);
+#endif
+
+    void predictArgumentTypes(ExecState*);
 
     Vector< OwnPtr<BasicBlock> , 8> m_blocks;
+    Vector<NodeIndex, 16> m_varArgChildren;
 private:
 
     // When a node's refCount goes from 0 to 1, it must (logically) recursively ref all of its children, and vice versa.
@@ -168,6 +229,7 @@ private:
 
     Vector<PredictionSlot, 16> m_argumentPredictions;
     Vector<PredictionSlot, 16> m_variablePredictions;
+    HashMap<unsigned, PredictionSlot> m_globalVarPredictions;
 };
 
 } } // namespace JSC::DFG

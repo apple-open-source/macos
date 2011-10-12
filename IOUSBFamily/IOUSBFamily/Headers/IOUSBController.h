@@ -80,7 +80,7 @@ enum
 	kErrataUHCISupportsResumeDetectOnConnect	= (1 << 21),	// UHCI controller will generate a ResumeDetect interrupt while in Global Suspend if a device is plugged in
 	kErrataDontUseCompanionController			= (1 << 22),	// For systems which will end up being EHCI only
 	kErrataIgnoreRootHubPowerClearFeature		= (1 << 23),	// MCP89 - don't power off the root hub ports
-	kErrataDisableAsynchronousParkMode			= (1 << 24)		// some controllers which default to using Async Park Mode don't quite work with it
+	kErrataDisablePCIeLinkOnSleep				= (1 << 24)		// some controllers require us to do some extra work in the PCIe bridge on sleep.. we just set a property
 };
 
 enum
@@ -203,6 +203,7 @@ protected:
 		bool				_controllerCanSleep;				// true iff the controller is able to support sleep/wake
 		bool				_needToClose;
 		UInt32				_isochMaxBusStall;					// value (in ns) of the maximum PCI bus stall allowed for Isoch.
+		SInt32				_activeInterruptTransfers;			// interrupt transfers in the queue
     };
     ExpansionData *_expansionData;
 	

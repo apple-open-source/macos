@@ -78,6 +78,7 @@
 		4B1D92010F8BDE7D00125940 /* launchd.ops in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4B1D91ED0F8BDE1A00125940 /* launchd.ops */; };
 		4B287733111A509400C07B35 /* launchd_helper.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B287732111A509400C07B35 /* launchd_helper.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		4B28781B111A61A400C07B35 /* launchd_helper.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B287732111A509400C07B35 /* launchd_helper.defs */; };
+		4B43EAF414101C5800E9E776 /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B43EAF314101C5800E9E776 /* ServiceManagement.framework */; };
 		4B9A1C1F132759F700019C67 /* events.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B0A30FF131F24AC002DE2E5 /* events.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		4B9EDCA20EAFC77E00A78496 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B9EDCA10EAFC77E00A78496 /* DiskArbitration.framework */; };
 		4BA2F5FD1243063D00C2AADD /* init.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4BA2F5FC1243063D00C2AADD /* init.defs */; };
@@ -378,6 +379,7 @@
 		4B10F1F30F43BF5C00875782 /* launchctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = launchctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B1D91ED0F8BDE1A00125940 /* launchd.ops */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = launchd.ops; path = launchd/src/launchd.ops; sourceTree = "<group>"; };
 		4B287732111A509400C07B35 /* launchd_helper.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = launchd_helper.defs; path = launchd/src/launchd_helper.defs; sourceTree = "<group>"; };
+		4B43EAF314101C5800E9E776 /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = /System/Library/Frameworks/ServiceManagement.framework; sourceTree = "<absolute>"; };
 		4B9EDCA10EAFC77E00A78496 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
 		4BA2F5FC1243063D00C2AADD /* init.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = init.defs; path = /usr/local/include/xpc/init.defs; sourceTree = SDKROOT; };
 		7215DE4B0EFAF2EC00ABD81E /* libauditd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libauditd.dylib; path = /usr/lib/libauditd.dylib; sourceTree = "<absolute>"; };
@@ -488,6 +490,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4B43EAF414101C5800E9E776 /* ServiceManagement.framework in Frameworks */,
 				FCC841CC0EA7138700C01666 /* IOKit.framework in Frameworks */,
 				FC3628080E9345E10054F1A3 /* CoreFoundation.framework in Frameworks */,
 				FCD713740E95DE49001B0111 /* libedit.dylib in Frameworks */,
@@ -598,6 +601,7 @@
 		FC36280C0E9345F60054F1A3 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4B43EAF314101C5800E9E776 /* ServiceManagement.framework */,
 				4B9EDCA10EAFC77E00A78496 /* DiskArbitration.framework */,
 				FC36292C0E934AA40054F1A3 /* libbsm.dylib */,
 				7215DE4B0EFAF2EC00ABD81E /* libauditd.dylib */,
@@ -954,7 +958,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "install -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/System/Library/LaunchAgents\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/System/Library/LaunchDaemons\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/Library/LaunchAgents\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/Library/LaunchDaemons\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/private/etc/mach_init.d\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/private/etc/mach_init_per_login_session.d\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/private/etc/mach_init_per_user.d\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man";
+			shellScript = "install -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/System/Library/LaunchAgents\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/System/Library/LaunchDaemons\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/Library/LaunchAgents\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/Library/LaunchDaemons\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man";
 			showEnvVarsInLog = 0;
 		};
 		FC7B87B20EA7195F00542082 /* ShellScript */ = {
@@ -968,7 +972,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man\n/bin/mkdir -p \"$DSTROOT/private/var/db/launchd.db/com.apple.launchd\"\n/usr/sbin/chown root:wheel \"$DSTROOT/private/var/db/launchd.db\"\n/usr/sbin/chown root:wheel \"$DSTROOT/private/var/db/launchd.db/com.apple.launchd\"\n";
+			shellScript = "/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man\n/bin/mkdir -p \"$DSTROOT/private/var/db/launchd.db/com.apple.launchd\"\n/usr/sbin/chown root:wheel \"$DSTROOT/private/var/db/launchd.db\"\n/usr/sbin/chown root:wheel \"$DSTROOT/private/var/db/launchd.db/com.apple.launchd\"\n/bin/mkdir -p \"$DSTROOT/private/etc/mach_init.d\"\n/bin/mkdir -p \"$DSTROOT/private/etc/mach_init_per_user.d\"\n/bin/mkdir -p \"$DSTROOT/private/etc/mach_init_per_login_session.d\"\n/usr/sbin/chown root:wheel \"$DSTROOT/private/etc/mach_init.d\"\n/usr/sbin/chown root:wheel \"$DSTROOT/private/etc/mach_init_per_user.d\"\n/usr/sbin/chown root:wheel \"$DSTROOT/private/etc/mach_init_per_login_session.d\"";
 			showEnvVarsInLog = 0;
 		};
 		FC7B87EE0EA71A4900542082 /* ShellScript */ = {
@@ -1038,7 +1042,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "install -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/System/Library/LaunchAgents\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/System/Library/LaunchDaemons\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/Library/LaunchAgents\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/Library/LaunchDaemons\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/private/etc/mach_init.d\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/private/etc/mach_init_per_login_session.d\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/private/etc/mach_init_per_user.d\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man";
+			shellScript = "install -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/System/Library/LaunchAgents\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/System/Library/LaunchDaemons\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/Library/LaunchAgents\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$DSTROOT\"/Library/LaunchDaemons\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

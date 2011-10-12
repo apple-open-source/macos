@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.5.5
+VERSION = 2.5.6
 
 PWD := $(shell pwd)
 ifndef DSTROOT
@@ -149,7 +149,7 @@ $(OBJROOT)/$(PROJECT):
 	cd '$(OBJROOT)/$(PROJECT)' && \
 	patch -p0 -i $(FIX)/qt-changes.diff && \
 	patch -p0 -i $(FIX)/CVE-2009-4134,CVE-2010-1449,CVE-2010-1450-rgbimg-int-overflow.patch && \
-	patch -p0 -i $(FIX)/CVE-2010-1634,CVE-2010-2089-audioop-int-overflow.patch
+	patch -p0 -i $(FIX)/additional-2.6.7-security-fixes.patch
 	@set -x && \
 	cd '$(OBJROOT)' && \
 	ed - $(PROJECT)/configure.in < $(FIX)/configure42.in.ed

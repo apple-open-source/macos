@@ -459,6 +459,7 @@ KLRenewInitialTickets(KLPrincipal      inPrincipal,
     krb5_ccache id;
     krb5_kdc_flags flags;
     krb5_const_realm realm;
+    krb5_principal principal = NULL;
 
     memset(&in, 0, sizeof(in));
 
@@ -471,11 +472,22 @@ KLRenewInitialTickets(KLPrincipal      inPrincipal,
     if (outCredCacheName)
 	*outCredCacheName = NULL;
 
-    ret = heim_krb5_cc_cache_match(milcontext, inPrincipal, &id);
-    if (ret)
-	return ret; /* XXX */
+    if (inPrincipal) {
+	principal = inPrincipal;
+    } else {
+	ret = heim_krb5_get_default_principal(milcontext, &principal);
+	if (ret)
+	    return ret;
+    }
 
-    in.client = inPrincipal;
+    ret = heim_krb5_cc_cache_match(milcontext, principal, &id);
+    if (ret) {
+	if (inPrincipal == NULL)
+	    heim_krb5_free_principal(milcontext, principal);
+	return ret;
+    }
+
+    in.client = principal;
 
     realm = heim_krb5_principal_get_realm(milcontext, in.client);
 
@@ -484,6 +496,8 @@ KLRenewInitialTickets(KLPrincipal      inPrincipal,
     else
 	ret = heim_krb5_make_principal(milcontext, &in.server, realm, KRB5_TGS_NAME, realm, NULL);
     if (ret) {
+	if (inPrincipal == NULL)
+	    heim_krb5_free_principal(milcontext, principal);
 	heim_krb5_cc_close(milcontext, id);
 	return ret;
     }
@@ -494,6 +508,8 @@ KLRenewInitialTickets(KLPrincipal      inPrincipal,
 
     /* Pull out renewable from previous ticket */
     ret = heim_krb5_get_credentials(milcontext, KRB5_GC_CACHED, id, &in, &cred);
+    if (inPrincipal == NULL)
+	heim_krb5_free_principal(milcontext, principal);
     if (ret == 0 && cred) {
 	flags.b.renewable = cred->flags.b.renewable;
 	heim_krb5_free_creds (milcontext, cred);

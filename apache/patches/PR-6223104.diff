@@ -19,7 +19,7 @@
  
 --- server/mpm/prefork/prefork.c.orig	2010-10-11 23:21:28.000000000 -0500
 +++ server/mpm/prefork/prefork.c	2010-11-01 16:13:10.000000000 -0500
-@@ -1407,14 +1407,42 @@
+@@ -1412,14 +1412,42 @@
      return NULL;
  }
  
@@ -63,7 +63,7 @@
      if (ap_daemons_limit > server_limit) {
         ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
                      "WARNING: MaxClients of %d exceeds ServerLimit value "
-@@ -1444,6 +1472,23 @@
+@@ -1449,6 +1477,23 @@
      }
  
      tmp_server_limit = atoi(arg);
@@ -87,4 +87,3 @@
      /* you cannot change ServerLimit across a restart; ignore
       * any such attempts
       */
-

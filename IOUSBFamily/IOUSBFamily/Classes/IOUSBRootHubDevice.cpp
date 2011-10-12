@@ -472,6 +472,13 @@ IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 	
 	IOLockLock(gExtraCurrentIOLockClass.lock);
 	
+	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	{
+		USBLog(5, "%s[%p]::RequestExtraPower - _expansionData or _IORESOURCESENTRY is NULL after locking", getName(), this);
+		IOLockUnlock(gExtraCurrentIOLockClass.lock);
+		return 0;
+	}
+	
 	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtra);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
@@ -535,7 +542,14 @@ IOUSBRootHubDevice::ReturnExtraPower(UInt32 returnedPower)
 	}
 	
 	IOLockLock(gExtraCurrentIOLockClass.lock);
-
+	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	{
+		USBLog(5, "%s[%p]::ReturnExtraPower - _expansionData or _IORESOURCESENTRY is NULL after locking", getName(), this);
+		IOLockUnlock(gExtraCurrentIOLockClass.lock);
+		return;
+	}
+	
+	
 	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtra);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
@@ -616,7 +630,14 @@ IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 	}
 
 	IOLockLock(gExtraCurrentIOLockClass.lock);
-
+	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	{
+		USBLog(5, "%s[%p]::RequestSleepPower - _expansionData or _IORESOURCESENTRY is NULL after locking", getName(), this);
+		IOLockUnlock(gExtraCurrentIOLockClass.lock);
+		return 0;
+	}
+	
+	
 	// OK, at this point, we have a request for sleep current that exceeds the "standard" USB load of 500mA, so we need to see if we can give it from our extra.  Note that the
 	// request is total current, while the extra is "extra above 500mA"
 	
@@ -677,12 +698,20 @@ IOUSBRootHubDevice::ReturnSleepPower(UInt32 returnedPower)
 	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
 	{
 		USBLog(5, "%s[%p]::ReturnSleepPower - _expansionData or _IORESOURCESENTRY is NULL", getName(), this);
+		return;
 	}
 	
 	USBLog(5, "%s[%p]::ReturnSleepPower - returning = %d", getName(), this, (uint32_t)returnedPower);
 	
 	IOLockLock(gExtraCurrentIOLockClass.lock);
-
+	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	{
+		USBLog(5, "%s[%p]::ReturnSleepPower - _expansionData or _IORESOURCESENTRY is NULL after locking", getName(), this);
+		IOLockUnlock(gExtraCurrentIOLockClass.lock);
+		return;
+	}
+	
+	
 	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtraInSleep);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)

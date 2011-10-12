@@ -97,8 +97,6 @@ gss_acquire_cred(OM_uint32 *minor_status,
 	if (mechs == GSS_C_NO_OID_SET)
 		mechs = _gss_mech_oids;
 
-	_gss_mg_log(10, "gss_acquire_cred: %p", cred);
-
 	set.count = 1;
 	min_time = GSS_C_INDEFINITE;
 	for (i = 0; i < mechs->count; i++) {
@@ -167,6 +165,8 @@ gss_acquire_cred(OM_uint32 *minor_status,
 		*minor_status = 0;
 		return (GSS_S_NO_CRED);
 	}
+
+	_gss_mg_log_cred(10, cred, "gss_acquire_cred");
 
 	if (time_rec)
 		*time_rec = min_time;

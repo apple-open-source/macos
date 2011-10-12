@@ -307,6 +307,7 @@ private:
     const _Tp *_M_finish;
 };
 
+char *cached_realpath(const char * file_name, char * resolved_name);
 
 } // end namespace Security
 

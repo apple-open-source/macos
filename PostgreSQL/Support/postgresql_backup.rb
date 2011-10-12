@@ -14,6 +14,7 @@ require 'ftools'
 require 'logger'
 require 'optparse'
 require 'ostruct'
+require 'shellwords'
 
 $: << File.dirname(File.expand_path(__FILE__))
 require 'backuptool'
@@ -43,12 +44,15 @@ class PostgreSQLTool < BackupTool
 	BACKUP_FILE = "dumpall.psql.gz"
 	DB_DIR = "/private/var/pgsql"
 	SECRET_DIR = "/.ServerBackups/postgresql"
+	LOG_DIR = "/Library/Logs"
+	LOG_FILE = "PostgreSQL.log"
+	SOCKET_DIR = "/var/pgsql_socket"
 
 	#
 	# Class Methods
 	#
 	def initialize
-		super("PostgreSQL", "1.1")
+		super("postgres", "1.2")
 		self
 	end
 
@@ -58,24 +62,12 @@ class PostgreSQLTool < BackupTool
 
 	# Get the current database location
 	def dataDir
-		dataDir = nil
-		begin
-			if !self.launch("/usr/sbin/serveradmin settings postgres:dataDir") do |output|
-				dataDir = output.strip.sub(/\A.*= /, '')
-				dataDir.delete!('"')
-				$log.debug("Service data directory is #{dataDir}")
-				end
-			then
-				$log.warn("Error determining data directory; using default.")
-				dataDir = nil
-			end
-		rescue => exc
-			$log.error("Exception trying to determine data directory: #{exc.to_s.capitalize}")
-			return DB_DIR
-		end
+		dataDir = self.setting("postgres:dataDir")
 		if (dataDir.nil? || dataDir.empty? || dataDir["/var/pgsql"])
+			$log.warn("Error determining data directory; using default.")
 			return DB_DIR
 		end
+		$log.debug("Service data directory is #{dataDir}")
 		return dataDir
 	end
 
@@ -87,6 +79,21 @@ class PostgreSQLTool < BackupTool
 		end
 		return dataDir.sub(/Data\z/, "Backup")
 	end
+
+	# Get the current log file
+	def logFile
+		logDir = self.setting("postgres:log_directory", LOG_DIR)
+		logFile = self.setting("postgres:log_filename", LOG_FILE)
+		$log.debug("Service log file is #{logDir}/#{logFile}")
+		return "#{logDir}/#{logFile}"
+	end
+
+	# Get the current socket directory.
+	def socketDir
+		return self.setting("postgres:unix_socket_directory", SOCKET_DIR)
+	end
+
+	# Primary operations
 
 	# Validate arguments and backup this service
 	def backup
@@ -102,9 +109,11 @@ class PostgreSQLTool < BackupTool
 		unless self.class::DATASETS.include?(what)
 			raise OptionParser::InvalidArgument, "Unknown data set '#{@options[:dataset]}' specified."
 		end
-		# The passed :archive_dir and :what are ignored because the dump is put on the live data volume
+		# The passed :archive_dir and :what are ignored because the dump is put
+		# on the live data volume
 		archive_dir = self.backupDir
 		dump_file = "#{archive_dir}/#{BACKUP_FILE}"
+		# Create the backup directory as necessary.
 		unless File.directory?(archive_dir)
 			if File.exists?(archive_dir)
 				$log.info "Moving aside #{archive_dir}...\n"
@@ -115,16 +124,17 @@ class PostgreSQLTool < BackupTool
 			# _postgres:_postgres has uid:gid of 216:216
 			File.chown(216, 216, archive_dir)
 		end
+		# Backup only once a day
 		mod_time = File.exists?(dump_file) ? File.mtime(dump_file) : Time.at(0)
 		if (Time.now - mod_time) >= (24 * 60 * 60)
 			$log.info "Creating dump file \'#{dump_file}\'..."
-			system("/usr/bin/sudo -u _postgres /usr/bin/pg_dumpall | /usr/bin/gzip > #{dump_file}")
+			system("/usr/bin/sudo -u _postgres /usr/bin/pg_dumpall | /usr/bin/gzip > #{dump_file.shellescape}")
 			if ($?.exitstatus == 0)
 				File.chmod(0640, dump_file)
 				File.chown(216, 216, dump_file)
 				$log.info "...Backup succeeded."
 			else
-				$log.err "...Backup failed! Status=#{$?.exitstatus}"
+				$log.error "...Backup failed! Status=#{$?.exitstatus}"
 			end
 		else
 			$log.info "Dump file is less than 24 hours old; skipping."
@@ -193,12 +203,32 @@ class PostgreSQLTool < BackupTool
 		if (source_dir == SECRET_DIR)
 			source_dir = ""
 		end
+
+		# Create the log file if it doesn't exist.
+		log_file = self.logFile
+		if !File.exists?(log_file)
+			$log.warn "Recreating #{log_file}."
+			FileUtils.touch(log_file)
+		end
+		# Always ensure the permissions & ownership are correct.
+		FileUtils.chmod(0660, log_file)
+		# _postgres has uid of 216; using instead of string in case user db hasn't yet been restored
+		FileUtils.chown(216, "admin", log_file)
+
+		# Create the socket directory if it doesn't exist.
+		socket_dir = self.socketDir
+		if !File.exists?(socket_dir)
+			$log.warn "Recreating #{socket_dir}."
+			FileUtils.mkdir_p(socket_dir, :mode => 0750)
+			FileUtils.chown(216, 216, socket_dir)
+		end
+
 		# Bail if the restore file is not present.
 		archive_dir = self.backupDir
 		dump_file = "#{source_dir}#{archive_dir}/#{BACKUP_FILE}"
 		$log.info "Restoring \'#{dump_file}\' to \'#{target}\'..."
-		unless File.file?("#{dump_file}")
-			raise RuntimeError, "Backup file not present in source volume."
+		unless File.file?(dump_file)
+			raise RuntimeError, "Backup file not present in source volume! Nothing to restore!"
 		end
 
 		# Recall if the service was previously enabled
@@ -216,10 +246,10 @@ class PostgreSQLTool < BackupTool
 		FileUtils.mkdir_p(db_dir, :mode => 0700)
 		# _postgres:_postgres has uid:gid of 216:216
 		File.chown(216, 216, db_dir)
-		self.launch("/usr/bin/sudo -u _postgres /usr/bin/initdb --encoding UTF8 -D #{db_dir}")
+		self.launch("/usr/bin/sudo -u _postgres /usr/bin/initdb --encoding UTF8 -D #{db_dir.shellescape}")
 		self.launch("/usr/sbin/serveradmin start postgres")
 		$log.info "...replaying database contents (this may take a while)..."
-		system("/usr/bin/gzcat #{dump_file} | /usr/bin/sudo -u _postgres /usr/bin/psql postgres")
+		system("/usr/bin/gzcat #{dump_file.shellescape} | /usr/bin/sudo -u _postgres /usr/bin/psql postgres")
 		self.launch("/usr/sbin/serveradmin stop postgres") unless state
 		$log.info "...Restore succeeded."
 	end
@@ -232,11 +262,17 @@ begin
 	tool.parse!(ARGV)
 	status = tool.run
 rescue OptionParser::InvalidArgument => exc
-	print "#{exc.to_s.capitalize}\n\n"
+	$log.error "#{exc.to_s.capitalize}\n\n"
 	tool.usage
 	exit EX_USAGE
 rescue RuntimeError => exc
-	print "#{exc.to_s.capitalize}\n"
+	$log.error "#{exc.to_s.capitalize}\n"
+	exit EX_UNAVAILABLE
+rescue Exception => exc
+	$log.error "#{exc.to_s.capitalize}\n"
+	exit EX_UNAVAILABLE
+rescue
+	$log.error "unknown exception thrown\n"
 	exit EX_UNAVAILABLE
 end
 exit (status ? EX_OK : EX_UNAVAILABLE)

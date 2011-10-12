@@ -28,6 +28,7 @@
 
 #include "BlockStack.h"
 #include "Handle.h"
+#include "HashCountedSet.h"
 #include "SentinelLinkedList.h"
 #include "SinglyLinkedList.h"
 
@@ -37,9 +38,7 @@ class HandleHeap;
 class HeapRootVisitor;
 class JSGlobalData;
 class JSValue;
-class MarkStack;
-class TypeCounter;
-typedef MarkStack SlotVisitor;
+class SlotVisitor;
 
 class WeakHandleOwner {
 public:
@@ -62,18 +61,20 @@ public:
     void makeWeak(HandleSlot, WeakHandleOwner* = 0, void* context = 0);
     HandleSlot copyWeak(HandleSlot);
 
-    void markStrongHandles(HeapRootVisitor&);
-    void markWeakHandles(HeapRootVisitor&);
+    void visitStrongHandles(HeapRootVisitor&);
+    void visitWeakHandles(HeapRootVisitor&);
     void finalizeWeakHandles();
 
     void writeBarrier(HandleSlot, const JSValue&);
 
 #if !ASSERT_DISABLED
     bool hasWeakOwner(HandleSlot, WeakHandleOwner*);
+    bool hasFinalizer(HandleSlot);
 #endif
 
     unsigned protectedGlobalObjectCount();
-    void protectedObjectTypeCounts(TypeCounter&);
+
+    template<typename Functor> void forEachStrongHandle(Functor&, const HashCountedSet<JSCell*>& skipSet);
 
 private:
     class Node {
@@ -112,8 +113,9 @@ private:
 
     void grow();
     
-#if !ASSERT_DISABLED
+#if ENABLE(GC_VALIDATION) || !ASSERT_DISABLED
     bool isValidWeakNode(Node*);
+    bool isLiveNode(Node*);
 #endif
 
     JSGlobalData* m_globalData;
@@ -148,6 +150,10 @@ inline HandleHeap::Node* HandleHeap::toNode(HandleSlot handle)
 
 inline HandleSlot HandleHeap::allocate()
 {
+    // Forbid assignment to handles during the finalization phase, since it would violate many GC invariants.
+    // File a bug with stack trace if you hit this.
+    if (m_nextToFinalize)
+        CRASH();
     if (m_freeList.isEmpty())
         grow();
 
@@ -161,8 +167,8 @@ inline void HandleHeap::deallocate(HandleSlot handle)
 {
     Node* node = toNode(handle);
     if (node == m_nextToFinalize) {
-        m_nextToFinalize = node->next();
         ASSERT(m_nextToFinalize->next());
+        m_nextToFinalize = m_nextToFinalize->next();
     }
 
     SentinelLinkedList<Node>::remove(node);
@@ -180,6 +186,10 @@ inline HandleSlot HandleHeap::copyWeak(HandleSlot other)
 
 inline void HandleHeap::makeWeak(HandleSlot handle, WeakHandleOwner* weakOwner, void* context)
 {
+    // Forbid assignment to handles during the finalization phase, since it would violate many GC invariants.
+    // File a bug with stack trace if you hit this.
+    if (m_nextToFinalize)
+        CRASH();
     Node* node = toNode(handle);
     node->makeWeak(weakOwner, context);
 
@@ -196,6 +206,11 @@ inline void HandleHeap::makeWeak(HandleSlot handle, WeakHandleOwner* weakOwner, 
 inline bool HandleHeap::hasWeakOwner(HandleSlot handle, WeakHandleOwner* weakOwner)
 {
     return toNode(handle)->weakOwner() == weakOwner;
+}
+
+inline bool HandleHeap::hasFinalizer(HandleSlot handle)
+{
+    return toNode(handle)->weakOwner();
 }
 #endif
 
@@ -270,6 +285,19 @@ inline HandleHeap::Node* HandleHeap::Node::next()
 inline WeakHandleOwner* HandleHeap::Node::emptyWeakOwner()
 {
     return reinterpret_cast<WeakHandleOwner*>(-1);
+}
+
+template<typename Functor> void HandleHeap::forEachStrongHandle(Functor& functor, const HashCountedSet<JSCell*>& skipSet)
+{
+    Node* end = m_strongList.end();
+    for (Node* node = m_strongList.begin(); node != end; node = node->next()) {
+        JSValue value = *node->slot();
+        if (!value || !value.isCell())
+            continue;
+        if (skipSet.contains(value.asCell()))
+            continue;
+        functor(value.asCell());
+    }
 }
 
 }

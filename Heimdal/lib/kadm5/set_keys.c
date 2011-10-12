@@ -42,7 +42,8 @@ RCSID("$Id$");
 kadm5_ret_t
 _kadm5_set_keys(kadm5_server_context *context,
 		hdb_entry *ent,
-		const char *password)
+		const char *password,
+		krb5_enctype *enctypes)
 {
     Key *keys;
     size_t num_keys;
@@ -50,9 +51,11 @@ _kadm5_set_keys(kadm5_server_context *context,
 
     ret = hdb_generate_key_set_password(context->context,
 					ent->principal,
-					password, &keys, &num_keys);
+					password, enctypes,
+					&keys, &num_keys);
     if (ret)
 	return ret;
+
 
     _kadm5_free_keys (context->context, ent->keys.len, ent->keys.val);
     ent->keys.val = keys;
@@ -196,6 +199,7 @@ is_des_key_p(int keytype)
 kadm5_ret_t
 _kadm5_set_keys_randomly (kadm5_server_context *context,
 			  hdb_entry *ent,
+			  krb5_enctype *enctypes,
 			  krb5_keyblock **new_keys,
 			  int *n_keys)
 {
@@ -206,7 +210,7 @@ _kadm5_set_keys_randomly (kadm5_server_context *context,
    Key *keys;
 
    ret = hdb_generate_key_set(context->context, ent->principal,
-			       &keys, &num_keys, 1);
+			      enctypes, &keys, &num_keys, 1);
    if (ret)
 	return ret;
 

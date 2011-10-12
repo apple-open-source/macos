@@ -780,6 +780,8 @@ IOUSBDeviceUserClientV2::DeviceRequestIn(UInt8 bmRequestType,  UInt8 bRequest, U
 			}
 		}
 	}
+	else
+		ret = kIOReturnNotAttached;
 	
 Exit:
 	
@@ -1072,6 +1074,8 @@ IOUSBDeviceUserClientV2::DeviceRequestOut(UInt8 bmRequestType,  UInt8 bRequest, 
 			}
 		}
 	}
+	else
+		ret = kIOReturnNotAttached;
 	
 Exit:
 	
@@ -1434,7 +1438,7 @@ IOUSBDeviceUserClientV2::SuspendDevice(bool suspend)
     IncrementOutstandingIO();
 
     if (fOwner && !isInactive())
-	ret = fOwner->SuspendDevice(suspend);
+		ret = fOwner->SuspendDevice(suspend);
     else
         ret = kIOReturnNotAttached;
 

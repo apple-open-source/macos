@@ -42,7 +42,7 @@ struct option opt_info[] = {
 #ifdef MEEK_PICKY
     { kOptNameMeek,             no_argument,        &longopt, kLongOptMeek },
     { kOptNamePicky,            no_argument,        &longopt, kLongOptPicky },
-#endif
+#endif /* MEEK_PICKY */
 
    /* We register the query predicates so that they are handled correctly
     * even with the few short options we have (without these, -invalid gets

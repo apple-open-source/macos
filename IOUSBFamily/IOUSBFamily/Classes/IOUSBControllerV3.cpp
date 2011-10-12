@@ -2,7 +2,7 @@
 *
 * @APPLE_LICENSE_HEADER_START@
 * 
- * Copyright © 1997-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1997-2011 Apple Inc.  All rights reserved.
 * 
 * This file contains Original Code and/or Modifications of Original Code
 * as defined in and that are subject to the Apple Public Source License
@@ -37,6 +37,7 @@
 
 #include <IOKit/IOHibernatePrivate.h>
 #include <IOKit/IOTimerEventSource.h>
+#include <IOKit/IOKitKeys.h>
 
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
@@ -68,8 +69,13 @@ uint32_t *				IOUSBControllerV3::_gHibernateState;
 #define _externalUSBDeviceAssertionID	_v3ExpansionData->_externalUSBDeviceAssertionID
 #define _externalDeviceCount			_v3ExpansionData->_externalDeviceCount
 #define _inCheckPowerModeSleeping		_v3ExpansionData->_inCheckPowerModeSleeping
+#define	_onThunderbolt					_v3ExpansionData->_onThunderbolt
+#define	_thunderboltModelID				_v3ExpansionData->_thunderboltModelID
 
 
+#ifndef kIOPMPCISleepResetKey
+	#define kIOPMPCISleepResetKey           "IOPMPCISleepReset"
+#endif
 
 #ifndef CONTROLLERV3_USE_KPRINTF
 #define CONTROLLERV3_USE_KPRINTF 0
@@ -257,39 +263,52 @@ IOUSBControllerV3::didTerminate( IOService * provider, IOOptionBits options, boo
 unsigned long 
 IOUSBControllerV3::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
 {
-	unsigned long		ret = super::maxCapabilityForDomainState(domainState);
-	// add in the kIOPMClockNormal flag if it is already part of our inputRequirement for the ON state (KeyLargo systems)
-	IOPMPowerFlags		domainStateForDoze = kIOPMDoze | (_myPowerStates[kUSBPowerStateOn].inputPowerRequirement & kIOPMClockNormal);
-
-	// if we are currently asleep, check to see if we are waking from hibernation
-	if ( (_myPowerState == kUSBPowerStateSleep) && _gHibernateState && (*_gHibernateState == kIOHibernateStateWakingFromHibernate) && !_wakingFromHibernation)
+	unsigned long		ret;
+	
+	if (isInactive())
 	{
-		UInt16	configCommand = _device->configRead16(kIOPCIConfigCommand);
-		
-		// make sure that the PCI config space is set up to allow memory access. this appears to fix some OHCI controllers
-		USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - waking from hibernation - setting flag - kIOPCIConfigCommand(%p)", getName(), this, (void*)configCommand);
-		_device->configWrite16(kIOPCIConfigCommand, configCommand | kIOPCICommandMemorySpace);
-		USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - new kIOPCIConfigCommand(%p)", getName(), this, (void*)_device->configRead16(kIOPCIConfigCommand));
-		
-		ResetControllerState();
-		EnableAllEndpoints(true);
-		_wakingFromHibernation = true;
-		ret = kUSBPowerStateOff;
-	}
-	else if (_restarting)
-	{
-		USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - restarting", getName(), this);
-		ret = kUSBPowerStateRestart;
-	}
-	else if (_poweringDown)
-	{
-		USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - powering off", getName(), this);
-		ret = kUSBPowerStateOff;
-	}
-	else if (domainState == domainStateForDoze)
-	{
-		USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - going into the PCI Doze state - we can support full ON..", getName(), this);
+		// note: sometimes IOPowerManager will try to send us to IDLE in the middle of termination
+		// this override of normal behavior will make sure that we always tell the PM that we can be ON during termination
+		USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - INACTIVE - assuming full ON", getName(), this);
 		ret = kUSBPowerStateOn;
+	}
+	else
+	{
+		ret = super::maxCapabilityForDomainState(domainState);
+
+		// add in the kIOPMClockNormal flag if it is already part of our inputRequirement for the ON state (KeyLargo systems)
+		IOPMPowerFlags		domainStateForDoze = kIOPMDoze | (_myPowerStates[kUSBPowerStateOn].inputPowerRequirement & kIOPMClockNormal);
+
+		// if we are currently asleep, check to see if we are waking from hibernation
+		if ( (_myPowerState == kUSBPowerStateSleep) && _gHibernateState && (*_gHibernateState == kIOHibernateStateWakingFromHibernate) && !_wakingFromHibernation)
+		{
+			UInt16	configCommand = _device->configRead16(kIOPCIConfigCommand);
+			
+			// make sure that the PCI config space is set up to allow memory access. this appears to fix some OHCI controllers
+			USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - waking from hibernation - setting flag - kIOPCIConfigCommand(%p)", getName(), this, (void*)configCommand);
+			_device->configWrite16(kIOPCIConfigCommand, configCommand | kIOPCICommandMemorySpace);
+			USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - new kIOPCIConfigCommand(%p)", getName(), this, (void*)_device->configRead16(kIOPCIConfigCommand));
+			
+			ResetControllerState();
+			EnableAllEndpoints(true);
+			_wakingFromHibernation = true;
+			ret = kUSBPowerStateOff;
+		}
+		else if (_restarting)
+		{
+			USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - restarting", getName(), this);
+			ret = kUSBPowerStateRestart;
+		}
+		else if (_poweringDown)
+		{
+			USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - powering off", getName(), this);
+			ret = kUSBPowerStateOff;
+		}
+		else if (domainState == domainStateForDoze)
+		{
+			USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - going into the PCI Doze state - we can support full ON..", getName(), this);
+			ret = kUSBPowerStateOn;
+		}
 	}
 	USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - domainState[%p], returning[%p]", getName(), this, (void*)domainState, (void*)ret);
 	return ret;
@@ -340,6 +359,7 @@ IOUSBControllerV3::setPowerState( unsigned long powerStateOrdinal, IOService* wh
 	{
 		USBLog(1,"IOUSBControllerV3(%s)[%p]::setPowerState - isInactive - no op", getName(), this);
 		USBTrace( kUSBTController, kTPControllersetPowerState, (uintptr_t)this, 0, 0, 2 );
+		_myPowerState = powerStateOrdinal;
 		return kIOPMAckImplied;
 	}
 	
@@ -1676,14 +1696,17 @@ IOUSBControllerV3::ClosePipe(USBDeviceAddress address, Endpoint *endpoint)
 {
 	IOReturn	kr;
 	
-	// we can  close the pipe without being fully on, as long as we know what state we are in
-	if (!(_controllerAvailable || _wakingFromHibernation || _restarting || _poweringDown))
+	// if we are in the middle of termination, then we can go ahead and allow the call, since we won't be touching any hardware regs
+	if (!isInactive())
 	{
-		kr = CheckPowerModeBeforeGatedCall((char *) "ClosePipe");
-		if ( kr != kIOReturnSuccess )
-			return kr;
+		// we can  close the pipe without being fully on, as long as we know what state we are in
+		if (!(_controllerAvailable || _wakingFromHibernation || _restarting || _poweringDown))
+		{
+			kr = CheckPowerModeBeforeGatedCall((char *) "ClosePipe");
+			if ( kr != kIOReturnSuccess )
+				return kr;
+		}
 	}
-
 	return IOUSBController::ClosePipe(address, endpoint);
 }
 
@@ -1694,14 +1717,17 @@ IOUSBControllerV3::AbortPipe(USBDeviceAddress address, Endpoint *endpoint)
 {
 	IOReturn	kr;
 	
-	// we can  abort the pipe without being fully on, as long as we know what state we are in
-	if (!(_controllerAvailable || _wakingFromHibernation || _restarting || _poweringDown))
+	// if we are in the middle of termination, then we can go ahead and allow the call, since we won't be touching any hardware regs
+	if (!isInactive())
 	{
-		kr = CheckPowerModeBeforeGatedCall((char *) "AbortPipe");
-		if ( kr != kIOReturnSuccess )
-			return kr;
+	// we can  abort the pipe without being fully on, as long as we know what state we are in
+		if (!(_controllerAvailable || _wakingFromHibernation || _restarting || _poweringDown))
+		{
+			kr = CheckPowerModeBeforeGatedCall((char *) "AbortPipe");
+			if ( kr != kIOReturnSuccess )
+				return kr;
+		}
 	}
-	
 	return IOUSBController::AbortPipe(address, endpoint);
 }
 
@@ -1712,14 +1738,17 @@ IOUSBControllerV3::ResetPipe(USBDeviceAddress address, Endpoint *endpoint)
 {
 	IOReturn	kr;
 	
-	// we can  reset the pipe without being fully on, as long as we know what state we are in
-	if (!(_controllerAvailable || _wakingFromHibernation || _restarting || _poweringDown))
+	// if we are in the middle of termination, then we can go ahead and allow the call, since we won't be touching any hardware regs
+	if (!isInactive())
 	{
-		kr = CheckPowerModeBeforeGatedCall((char *) "ResetPipe");
-		if ( kr != kIOReturnSuccess )
-			return kr;
-	}
-	
+		// we can  reset the pipe without being fully on, as long as we know what state we are in
+		if (!(_controllerAvailable || _wakingFromHibernation || _restarting || _poweringDown))
+		{
+			kr = CheckPowerModeBeforeGatedCall((char *) "ResetPipe");
+			if ( kr != kIOReturnSuccess )
+				return kr;
+		}
+	}	
 	return IOUSBController::ResetPipe(address, endpoint);
 }
 
@@ -1834,14 +1863,17 @@ IOUSBControllerV3::RemoveHSHub(USBDeviceAddress highSpeedHub)
 {
 	IOReturn	kr;
 	
-	// we can  remove a hub without being fully on, as long as we know what state we are in
-	if (!(_controllerAvailable || _wakingFromHibernation || _restarting || _poweringDown))
+	// if we are in the middle of termination, then we can go ahead and allow the call, since we won't be touching any hardware regs
+	if (!isInactive())
 	{
-		kr = CheckPowerModeBeforeGatedCall((char *) "RemoveHSHub");
-		if ( kr != kIOReturnSuccess )
-			return kr;
-	}
-	
+		// we can  remove a hub without being fully on, as long as we know what state we are in
+		if (!(_controllerAvailable || _wakingFromHibernation || _restarting || _poweringDown))
+		{
+			kr = CheckPowerModeBeforeGatedCall((char *) "RemoveHSHub");
+			if ( kr != kIOReturnSuccess )
+				return kr;
+		}
+	}	
 	return IOUSBControllerV2::RemoveHSHub(highSpeedHub);
 }
 

@@ -2485,12 +2485,14 @@ InstallCEA861EXTColor( IOFBConnectRef connectRef, EDID * edid __unused, CEA861EX
                     uint8_t byte;
                     byte = ext->data[index+6];
                     depths = kIODisplayRGBColorComponentBits8;
+#if 0
                     if (kHDMISupportFlagDC30 & byte)
                         depths |= kIODisplayRGBColorComponentBits10;
                     if (kHDMISupportFlagDC36 & byte)
                         depths |= kIODisplayRGBColorComponentBits12;
                     if (kHDMISupportFlagDC48 & byte)
                         depths |= kIODisplayRGBColorComponentBits16;
+#endif
                     if (kHDMISupportFlagDCY444 & byte)
                         depths |= (depths * kIODisplayYCbCr444ColorComponentBits6);
                     connectRef->supportedComponentDepths[kAllVendors] |= depths;
@@ -2507,23 +2509,6 @@ InstallCEA861EXT( IOFBConnectRef connectRef, EDID * edid, CEA861EXT * ext, Boole
 {
     IOReturn err;
     IOByteCount offset = ext->detailedTimingsOffset;
-
-    enum {
-        // flags
-        kCEASupportUnderscan    = 0x80,
-        kCEASupportBasicAudio   = 0x40,
-        kCEASupportYCbCr444     = 0x20,
-        kCEASupportYCbCr422     = 0x10,
-        kCEASupportNativeCount  = 0x0F,
-    };
-    enum {
-        kHDMISupportFlagAI      = 0x80,
-        kHDMISupportFlagDC48    = 0x40,
-        kHDMISupportFlagDC36    = 0x20,
-        kHDMISupportFlagDC30    = 0x10,
-        kHDMISupportFlagDCY444  = 0x08,
-        kHDMISupportFlagDVIDual = 0x01,
-    };
 
     connectRef->useScalerUnderscan = (connectRef->scalerInfo 
         && (kIOScaleCanSupportInset & connectRef->scalerInfo->scalerFeatures));
@@ -3076,7 +3061,7 @@ _IODisplayCreateInfoDictionary(
 			if (0x10ac == vendor)
 			{
 				data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
-												   spoofEDID, 128, kCFAllocatorNull);
+												   spoofEDID, sizeof(spoofEDID), kCFAllocatorNull);
 			}
 			vendor = product = 0;
         }

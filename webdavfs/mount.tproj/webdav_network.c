@@ -1237,6 +1237,77 @@ pthread_mutex_lock:
 /******************************************************************************/
 
 /*
+ * SecAddTrustedCerts
+ *
+ * Adds trusted SecCertificateRefs to our global SSL properties dictionary
+ */
+static void SecAddTrustedCerts(CFArrayRef certs)
+{
+	SecCertificateRef certRef;
+	const void *certPtr;
+	CFMutableArrayRef newCertArr, incomingCerts;
+	CFArrayRef existingCertArr;
+	CFIndex i, count;
+	
+	require(certs != NULL, out);
+	require(gSSLPropertiesDict != NULL, out);
+	
+	incomingCerts = NULL;
+	
+	// Make a mutable copy of incoming certs
+	incomingCerts = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, certs);
+	require(incomingCerts != NULL, out);
+	
+	// Any existing trusted certificates?
+	existingCertArr = CFDictionaryGetValue(gSSLPropertiesDict, _kCFStreamSSLTrustedLeafCertificates);
+	
+	
+	if (existingCertArr == NULL) {
+		// Add our copy of incoming certs to the dictionary
+		CFDictionarySetValue(gSSLPropertiesDict, _kCFStreamSSLTrustedLeafCertificates, incomingCerts);
+	}
+	else {
+		// Copy old certificates
+		newCertArr = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, existingCertArr);
+		require(newCertArr != NULL, MallocNewCerts);
+		
+		// Remove old certificates
+		CFDictionaryRemoveValue(gSSLPropertiesDict, _kCFStreamSSLTrustedLeafCertificates);
+
+		// Add any new certs
+		count = CFArrayGetCount(incomingCerts);
+
+		for (i = 0; i < count; ++i)
+		{
+			certPtr = CFArrayGetValueAtIndex(incomingCerts, i);
+			if (certPtr == NULL)
+				continue;
+			
+			certRef = *((SecCertificateRef*)((void*)&certPtr)); /* ugly but it works */
+	
+			if (CFArrayContainsValue(newCertArr, CFRangeMake(0, CFArrayGetCount(newCertArr)), certRef) == false) {
+				
+				// Don't have this cert yet, so add it
+				CFArrayAppendValue(newCertArr, certRef);
+			}
+		}
+		
+		// Now set the new array
+		CFDictionarySetValue(gSSLPropertiesDict, _kCFStreamSSLTrustedLeafCertificates, newCertArr);
+	}
+
+	if (incomingCerts != NULL) {
+		// Release our reference from the Copy
+		CFRelease(incomingCerts);
+	}
+out:
+MallocNewCerts:	
+	return;
+}
+
+/******************************************************************************/
+
+/*
  * SecCertificateCreateCFData
  *
  * Creates a CFDataRef from a SecCertificateRef.
@@ -1326,7 +1397,7 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error)
 	 */ 
 	snprintf(CFUserTextEncodingEnvSetting, sizeof(CFUserTextEncodingEnvSetting), CFENVFORMATSTRING, getuid());
 	
-	
+	certs = NULL;
 	result = FALSE;
 	fd[0] = fd[1] = -1;
 	
@@ -1339,7 +1410,6 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error)
 	require(certs != NULL, CFReadStreamCopyProperty);
 	
 	certs_data = SecCertificateArrayCreateCFDataArray(certs);
-	CFRelease(certs);
 	require(certs_data != NULL, CFReadStreamCopyProperty);
 
 	CFDictionaryAddValue(dict, kSSLClientPropTLSServerCertificateChain, certs_data);
@@ -1407,6 +1477,12 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error)
 		{
 			result = FALSE;
 		}
+		
+		// Did the user confirm the certificate?
+		if (result == TRUE) {
+			// Yes, add them to the global SSL properties dictionary
+			SecAddTrustedCerts(certs);
+		}
 	}
 	else
 	{
@@ -1444,6 +1520,10 @@ pipe:
 CFPropertyListCreateXMLData:
 CFURLCopyHostName:
 CFNumberCreate:
+	if ( certs != NULL )
+	{
+		CFRelease(certs);
+	}
 CFReadStreamCopyProperty:
 	if ( dict != NULL )
 	{
@@ -1499,18 +1579,13 @@ static int HandleSSLErrors(CFReadStreamRef readStreamRef)
 				case errSSLCertExpired:
 				case errSSLCertNotYetValid:
 					/* The certificate for this server has expired or is not yet valid */
-					if ( (CFDictionaryGetValue(gSSLPropertiesDict, kCFStreamSSLAllowsExpiredCertificates) == NULL) )
+					if ( ConfirmCertificate(readStreamRef, error) )
 					{
-						if ( ConfirmCertificate(readStreamRef, error) )
-						{
-							result = EAGAIN;
-							CFDictionarySetValue(gSSLPropertiesDict, kCFStreamSSLAllowsExpiredCertificates, kCFBooleanTrue);
-							CFDictionarySetValue(gSSLPropertiesDict, kCFStreamSSLAllowsExpiredRoots, kCFBooleanTrue);
-						}
-						else
-						{
-							result = ECANCELED;
-						}
+						result = EAGAIN;
+					}
+					else
+					{
+						result = ECANCELED;
 					}
 					break;
 					
@@ -1518,34 +1593,26 @@ static int HandleSSLErrors(CFReadStreamRef readStreamRef)
 				case errSSLXCertChainInvalid:
 				case errSSLHostNameMismatch:
 					/* The certificate for this server is invalid */
-					if ( (CFDictionaryGetValue(gSSLPropertiesDict, kCFStreamSSLValidatesCertificateChain) == NULL) )
+					if ( ConfirmCertificate(readStreamRef, error) )
 					{
-						if ( ConfirmCertificate(readStreamRef, error) )
-						{
-							result = EAGAIN;
-							CFDictionarySetValue(gSSLPropertiesDict, kCFStreamSSLValidatesCertificateChain, kCFBooleanFalse);
-						}
-						else
-						{
-							result = ECANCELED;
-						}
+						result = EAGAIN;
+					}
+					else
+					{
+						result = ECANCELED;
 					}
 					break;
 					
 				case errSSLUnknownRootCert:
 				case errSSLNoRootCert:
 					/* The certificate for this server was signed by an unknown certifying authority */
-					if ( (CFDictionaryGetValue(gSSLPropertiesDict, kCFStreamSSLAllowsAnyRoot) == NULL) )
+					if ( ConfirmCertificate(readStreamRef, error) )
 					{
-						if ( ConfirmCertificate(readStreamRef, error) )
-						{
-							result = EAGAIN;
-							CFDictionarySetValue(gSSLPropertiesDict, kCFStreamSSLAllowsAnyRoot, kCFBooleanTrue);
-						}
-						else
-						{
-							result = ECANCELED;
-						}
+						result = EAGAIN;
+					}
+					else
+					{
+						result = ECANCELED;
 					}
 					break;
 					

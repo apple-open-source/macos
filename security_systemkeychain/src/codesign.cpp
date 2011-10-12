@@ -26,6 +26,7 @@
 //
 #include "codesign.h"
 #include <Security/SecKeychain.h>
+#include "cs_utils.h"
 #include <cmath>
 #include <getopt.h>
 
@@ -76,8 +77,8 @@ Architecture architecture;			// specific binary architecture to process (from a 
 const char *bundleVersion;			// specific version string requested (from a versioned bundle)
 bool noMachO = false;				// force non-MachO operation
 bool dryrun = false;				// do not actually change anything
-bool preserveMetadata = false;		// keep metadata from previous signature (if any)
 bool allArchitectures = false;		// process all architectures in a universal (aka fat) code file
+int preserveMetadata = 0;           // what metadata to keep from previous signature
 
 
 //
@@ -96,6 +97,7 @@ static const char *features[] = {
 static void usage();
 static OSStatus keychain_open(const char *name, SecKeychainRef &keychain);
 static bool chooseArchitecture(const char *arg);
+static uint32_t parseMetadataFlags(const char *arg);
 static void checkFeatures(const char *arg);
 
 
@@ -162,7 +164,7 @@ const struct option options[] = {
 	{ "keychain",	required_argument,		NULL, optKeychain },
 	{ "no-macho",	no_argument,			NULL, optNoMachO },
 	{ "prefix",		required_argument,		NULL, optIdentifierPrefix },
-	{ "preserve-metadata", no_argument,		NULL, optPreserveMetadata },
+	{ "preserve-metadata", optional_argument, NULL, optPreserveMetadata },
 	{ "procaction",	required_argument,		NULL, optProcAction },
 	{ "procinfo",	no_argument,			NULL, optProcInfo },
 	{ "remove-signature", no_argument,		NULL, optRemoveSignature },
@@ -299,7 +301,7 @@ int main(int argc, char *argv[])
 				noMachO = true;
 				break;
 			case optPreserveMetadata:
-				preserveMetadata = true;
+				preserveMetadata = parseMetadataFlags(optarg);
 				break;
 			case optProcAction:
 				operation = doProcAction;
@@ -464,6 +466,26 @@ bool chooseArchitecture(const char *arg)
 	case 2:
 		architecture = Architecture(arch, subarch);
 		break;
+	}
+}
+
+
+static uint32_t parseMetadataFlags(const char *arg)
+{
+	static const SecCodeDirectoryFlagTable metadataFlags[] = {
+		{ "identifier",	kPreserveIdentifier,		true },
+		{ "requirements", kPreserveRequirements,	true },
+		{ "entitlements", kPreserveEntitlements,	true },
+		{ "resource-rules", kPreserveResourceRules,	true },
+		{ NULL }
+	};
+	if (arg == NULL) {	// --preserve-metadata compatibility default
+		uint32_t flags = kPreserveRequirements | kPreserveEntitlements | kPreserveResourceRules;
+		if (!getenv("RC_XBS") || getenv("RC_BUILDIT"))	// if we're NOT in real B&I...
+			flags |= kPreserveIdentifier;				// ... then preserve identifier too
+		return flags;
+	} else {
+		return parseOptionTable(arg, metadataFlags);
 	}
 }
 

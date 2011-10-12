@@ -1417,6 +1417,8 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
 			ret = kIOUSBUnknownPipeErr;
 		}
 	}
+	else
+		ret = kIOReturnNotAttached;
 	
 Exit:
 	
@@ -1676,6 +1678,8 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 			ret = kIOUSBUnknownPipeErr;
 		}
 	}
+	else
+		ret = kIOReturnNotAttached;
 	
 Exit:
 	if (pipeObj)
@@ -2268,6 +2272,8 @@ IOUSBInterfaceUserClientV2::ControlRequestOut(UInt8 pipeRef, UInt8 bmRequestType
 			ret = kIOUSBUnknownPipeErr;
 		}
 	}
+	else
+		ret = kIOReturnNotAttached;
 	
 Exit:
 	if (pipeObj)
@@ -2586,6 +2592,8 @@ IOUSBInterfaceUserClientV2::ControlRequestIn(UInt8 pipeRef, UInt8 bmRequestType,
 			ret = kIOUSBUnknownPipeErr;
 		}
 	}
+	else
+		ret = kIOReturnNotAttached;
 	
 Exit:
 	
@@ -4244,7 +4252,7 @@ IOUSBInterfaceUserClientV2::ClientCloseGated( void )
 	retain();
     
 	// First, close any return any bandwith that might still be around, and close any pipes that might be open
-	if ( fOwner && FOPENED_FOR_EXCLUSIVEACCESS )
+	if ( fDead && fOwner && FOPENED_FOR_EXCLUSIVEACCESS )
 	{
 		// If the interface is other than 0, set it to 0 before closing the pipes
 		UInt8	altSetting = fOwner->GetAlternateSetting();
@@ -4293,16 +4301,16 @@ IOUSBInterfaceUserClientV2::ClientCloseGated( void )
 			USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  closing pipes",  this);
 			fOwner->ClosePipes();
 		}
-
-		// Check to see if the client forgot to call ::close()
-		if ( FOPENED_FOR_EXCLUSIVEACCESS )
-		{
-			IOOptionBits	options = kUSBOptionBitOpenExclusivelyMask;
-			
-			USBLog(6, "IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  we were open exclusively, closing exclusively",  this);
-			FOPENED_FOR_EXCLUSIVEACCESS = false;
-			fOwner->close(this, options);
-		}
+	}
+	
+	// Check to see if the client forgot to call ::close()
+	if ( fOwner && FOPENED_FOR_EXCLUSIVEACCESS )
+	{
+		IOOptionBits	options = kUSBOptionBitOpenExclusivelyMask;
+		
+		USBLog(6, "IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  we were open exclusively, closing exclusively",  this);
+		FOPENED_FOR_EXCLUSIVEACCESS = false;
+		fOwner->close(this, options);
 	}
 			
 	// Note that the terminate will end up calling provider->close(), so this is where the fOwner->open() from start() is balanced.  We don't want to do this

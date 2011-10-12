@@ -15,6 +15,7 @@ my @rewritesyms = (
     "krb5_free_keyblock",
     "krb5_auth_con_getremotesubkey",
     "krb5_auth_con_getlocalsubkey",
+    "krb5_set_password",
     "krb5_set_password_using_ccache",
     "krb5_realm_compare",
     "krb5_get_renewed_creds",
@@ -73,6 +74,7 @@ my @rewritesyms = (
     "krb5_sname_to_principal",
     "krb5_get_credentials",
     "krb5_get_error_string",
+    "krb5_get_default_principal",
     "krb5_get_init_creds_opt_alloc",
     "krb5_get_init_creds_opt_free",
     "krb5_get_init_creds_opt_set_canonicalize",
@@ -114,6 +116,8 @@ my @rewritesyms = (
     "com_right",
     "com_right_r",
     "gss_import_name",
+    "krb5_appdefault_boolean",
+    "krb5_appdefault_string",
     );
 
 my @proxysyms = (

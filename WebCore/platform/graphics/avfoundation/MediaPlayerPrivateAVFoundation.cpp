@@ -621,7 +621,7 @@ void MediaPlayerPrivateAVFoundation::setPreload(MediaPlayer::Preload preload)
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         Frame* frame = m_player->frameView() ? m_player->frameView()->frame() : 0;
         ApplicationCacheHost* cacheHost = frame ? frame->loader()->documentLoader()->applicationCacheHost() : 0;
-        ApplicationCacheResource* resource;
+        ApplicationCacheResource* resource = 0;
         if (cacheHost && cacheHost->shouldLoadResourceFromApplicationCache(ResourceRequest(m_assetURL), resource) && resource) {
             // AVFoundation can't open arbitrary data pointers, so if this ApplicationCacheResource doesn't 
             // have a valid local path, just open the resource's original URL.
@@ -633,20 +633,29 @@ void MediaPlayerPrivateAVFoundation::setPreload(MediaPlayer::Preload preload)
 #endif    
             createAVAssetForURL(m_assetURL);
 
+        // FIXME: Remove this Windows-specific code when <rdar://problem/9877730> is fixed, until then
+        // we can't create an AVPlayer without an AVPlayerItem on Windows, so we always have to create
+        // the item first.
+#if PLATFORM(WIN)
+        createAVPlayerItem();
+#endif
         createAVPlayer();
 
         checkPlayability();
     }
 
+    // FIXME: Enable this code on Windows when <rdar://problem/9877730> is fixed.
+#if PLATFORM(MAC)
     // Don't force creation of the player item unless we already know that the asset is playable. If we aren't
     // there yet, or if we already know it is not playable, creating it now won't help.
     if (m_preload == MediaPlayer::Auto && m_assetIsPlayable)
         createAVPlayerItem();
+#endif
 
     setDelayCallbacks(false);
 }
 
-void MediaPlayerPrivateAVFoundation::setDelayCallbacks(bool delay)
+void MediaPlayerPrivateAVFoundation::setDelayCallbacks(bool delay) const
 {
     MutexLocker lock(m_queueMutex);
     if (delay)
@@ -784,6 +793,9 @@ void MediaPlayerPrivateAVFoundation::dispatchNotification()
         break;
     case Notification::DurationChanged:
         invalidateCachedDuration();
+        break;
+    case Notification::ContentsNeedsDisplay:
+        contentsNeedsDisplay();
         break;
 
     case Notification::None:

@@ -24,7 +24,7 @@ Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
 AEP			= YES
-AEP_Version		= 2.4.4
+AEP_Version		= 2.4.6
 # License file must be empty as this is a subproject.
 AEP_LicenseFile		=
 AEP_Patches		=
@@ -38,7 +38,7 @@ install::
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
-include $(SRCROOT)/../AEP.make
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/AEP.make
 
 # Override settings from above include
 ifndef MACOSX_DEPLOYMENT_TARGET

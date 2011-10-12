@@ -125,6 +125,17 @@ void freeFieldIssuingDistPoint (
 	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue
 }
 
+void freeFieldCrlDistributionPoints (
+	CssmOwnedData		&fieldValue)
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = verifySetFreeExtension(fieldValue, false);
+	Allocator &alloc = fieldValue.allocator;
+	CE_CRLDistPointsSyntax *cdsaObj = 
+			(CE_CRLDistPointsSyntax *)cssmExt->value.parsedValue;
+	CL_freeCssmDistPoints(cdsaObj, alloc);
+	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue
+}
+
 /* HoldInstructionCode - CSSM_OID */
 /* InvalidityDate - CSSM_DATA */
 void freeFieldOidOrData (

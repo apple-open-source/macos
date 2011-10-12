@@ -42,36 +42,36 @@
 
 namespace JSC {
 
-template <class Base>
-inline JSCallbackObject<Base>* JSCallbackObject<Base>::asCallbackObject(JSValue value)
+template <class Parent>
+inline JSCallbackObject<Parent>* JSCallbackObject<Parent>::asCallbackObject(JSValue value)
 {
     ASSERT(asObject(value)->inherits(&s_info));
     return static_cast<JSCallbackObject*>(asObject(value));
 }
 
-template <class Base>
-JSCallbackObject<Base>::JSCallbackObject(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, JSClassRef jsClass, void* data)
-    : Base(globalObject, structure)
+template <class Parent>
+JSCallbackObject<Parent>::JSCallbackObject(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, JSClassRef jsClass, void* data)
+    : Parent(globalObject, structure)
     , m_callbackObjectData(adoptPtr(new JSCallbackObjectData(data, jsClass)))
 {
-    ASSERT(Base::inherits(&s_info));
+    ASSERT(Parent::inherits(&s_info));
     init(exec);
 }
 
 // Global object constructor.
 // FIXME: Move this into a separate JSGlobalCallbackObject class derived from this one.
-template <class Base>
-JSCallbackObject<Base>::JSCallbackObject(JSGlobalData& globalData, JSClassRef jsClass, Structure* structure)
-    : Base(globalData, structure)
+template <class Parent>
+JSCallbackObject<Parent>::JSCallbackObject(JSGlobalData& globalData, JSClassRef jsClass, Structure* structure)
+    : Parent(globalData, structure)
     , m_callbackObjectData(adoptPtr(new JSCallbackObjectData(0, jsClass)))
 {
-    ASSERT(Base::inherits(&s_info));
-    ASSERT(Base::isGlobalObject());
+    ASSERT(Parent::inherits(&s_info));
+    ASSERT(Parent::isGlobalObject());
     init(static_cast<JSGlobalObject*>(this)->globalExec());
 }
 
-template <class Base>
-void JSCallbackObject<Base>::init(ExecState* exec)
+template <class Parent>
+void JSCallbackObject<Parent>::init(ExecState* exec)
 {
     ASSERT(exec);
     
@@ -100,18 +100,18 @@ void JSCallbackObject<Base>::init(ExecState* exec)
     }
 }
 
-template <class Base>
-UString JSCallbackObject<Base>::className() const
+template <class Parent>
+UString JSCallbackObject<Parent>::className() const
 {
     UString thisClassName = classRef()->className();
     if (!thisClassName.isEmpty())
         return thisClassName;
     
-    return Base::className();
+    return Parent::className();
 }
 
-template <class Base>
-bool JSCallbackObject<Base>::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+template <class Parent>
+bool JSCallbackObject<Parent>::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     JSContextRef ctx = toRef(exec);
     JSObjectRef thisRef = toRef(this);
@@ -149,8 +149,11 @@ bool JSCallbackObject<Base>::getOwnPropertySlot(ExecState* exec, const Identifie
         
         if (OpaqueJSClassStaticValuesTable* staticValues = jsClass->staticValues(exec)) {
             if (staticValues->contains(propertyName.impl())) {
-                slot.setCustom(this, staticValueGetter);
-                return true;
+                JSValue value = getStaticValue(exec, propertyName);
+                if (value) {
+                    slot.setValue(value);
+                    return true;
+                }
             }
         }
         
@@ -162,11 +165,11 @@ bool JSCallbackObject<Base>::getOwnPropertySlot(ExecState* exec, const Identifie
         }
     }
     
-    return Base::getOwnPropertySlot(exec, propertyName, slot);
+    return Parent::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-template <class Base>
-bool JSCallbackObject<Base>::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+template <class Parent>
+bool JSCallbackObject<Parent>::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
     PropertySlot slot;
     if (getOwnPropertySlot(exec, propertyName, slot)) {
@@ -181,11 +184,11 @@ bool JSCallbackObject<Base>::getOwnPropertyDescriptor(ExecState* exec, const Ide
         return true;
     }
 
-    return Base::getOwnPropertyDescriptor(exec, propertyName, descriptor);
+    return Parent::getOwnPropertyDescriptor(exec, propertyName, descriptor);
 }
 
-template <class Base>
-void JSCallbackObject<Base>::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
+template <class Parent>
+void JSCallbackObject<Parent>::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     JSContextRef ctx = toRef(exec);
     JSObjectRef thisRef = toRef(this);
@@ -225,8 +228,7 @@ void JSCallbackObject<Base>::put(ExecState* exec, const Identifier& propertyName
                         throwError(exec, toJS(exec, exception));
                     if (result || exception)
                         return;
-                } else
-                    throwError(exec, createReferenceError(exec, "Attempt to set a property that is not settable."));
+                }
             }
         }
         
@@ -234,17 +236,17 @@ void JSCallbackObject<Base>::put(ExecState* exec, const Identifier& propertyName
             if (StaticFunctionEntry* entry = staticFunctions->get(propertyName.impl())) {
                 if (entry->attributes & kJSPropertyAttributeReadOnly)
                     return;
-                JSCallbackObject<Base>::putDirect(exec->globalData(), propertyName, value); // put as override property
+                JSCallbackObject<Parent>::putDirect(exec->globalData(), propertyName, value); // put as override property
                 return;
             }
         }
     }
     
-    return Base::put(exec, propertyName, value, slot);
+    return Parent::put(exec, propertyName, value, slot);
 }
 
-template <class Base>
-bool JSCallbackObject<Base>::deleteProperty(ExecState* exec, const Identifier& propertyName)
+template <class Parent>
+bool JSCallbackObject<Parent>::deleteProperty(ExecState* exec, const Identifier& propertyName)
 {
     JSContextRef ctx = toRef(exec);
     JSObjectRef thisRef = toRef(this);
@@ -283,17 +285,17 @@ bool JSCallbackObject<Base>::deleteProperty(ExecState* exec, const Identifier& p
         }
     }
     
-    return Base::deleteProperty(exec, propertyName);
+    return Parent::deleteProperty(exec, propertyName);
 }
 
-template <class Base>
-bool JSCallbackObject<Base>::deleteProperty(ExecState* exec, unsigned propertyName)
+template <class Parent>
+bool JSCallbackObject<Parent>::deleteProperty(ExecState* exec, unsigned propertyName)
 {
     return deleteProperty(exec, Identifier::from(exec, propertyName));
 }
 
-template <class Base>
-ConstructType JSCallbackObject<Base>::getConstructData(ConstructData& constructData)
+template <class Parent>
+ConstructType JSCallbackObject<Parent>::getConstructData(ConstructData& constructData)
 {
     for (JSClassRef jsClass = classRef(); jsClass; jsClass = jsClass->parentClass) {
         if (jsClass->callAsConstructor) {
@@ -304,14 +306,14 @@ ConstructType JSCallbackObject<Base>::getConstructData(ConstructData& constructD
     return ConstructTypeNone;
 }
 
-template <class Base>
-EncodedJSValue JSCallbackObject<Base>::construct(ExecState* exec)
+template <class Parent>
+EncodedJSValue JSCallbackObject<Parent>::construct(ExecState* exec)
 {
     JSObject* constructor = exec->callee();
     JSContextRef execRef = toRef(exec);
     JSObjectRef constructorRef = toRef(constructor);
     
-    for (JSClassRef jsClass = static_cast<JSCallbackObject<Base>*>(constructor)->classRef(); jsClass; jsClass = jsClass->parentClass) {
+    for (JSClassRef jsClass = static_cast<JSCallbackObject<Parent>*>(constructor)->classRef(); jsClass; jsClass = jsClass->parentClass) {
         if (JSObjectCallAsConstructorCallback callAsConstructor = jsClass->callAsConstructor) {
             int argumentCount = static_cast<int>(exec->argumentCount());
             Vector<JSValueRef, 16> arguments(argumentCount);
@@ -333,8 +335,8 @@ EncodedJSValue JSCallbackObject<Base>::construct(ExecState* exec)
     return JSValue::encode(JSValue());
 }
 
-template <class Base>
-bool JSCallbackObject<Base>::hasInstance(ExecState* exec, JSValue value, JSValue)
+template <class Parent>
+bool JSCallbackObject<Parent>::hasInstance(ExecState* exec, JSValue value, JSValue)
 {
     JSContextRef execRef = toRef(exec);
     JSObjectRef thisRef = toRef(this);
@@ -356,8 +358,8 @@ bool JSCallbackObject<Base>::hasInstance(ExecState* exec, JSValue value, JSValue
     return false;
 }
 
-template <class Base>
-CallType JSCallbackObject<Base>::getCallData(CallData& callData)
+template <class Parent>
+CallType JSCallbackObject<Parent>::getCallData(CallData& callData)
 {
     for (JSClassRef jsClass = classRef(); jsClass; jsClass = jsClass->parentClass) {
         if (jsClass->callAsFunction) {
@@ -368,14 +370,14 @@ CallType JSCallbackObject<Base>::getCallData(CallData& callData)
     return CallTypeNone;
 }
 
-template <class Base>
-EncodedJSValue JSCallbackObject<Base>::call(ExecState* exec)
+template <class Parent>
+EncodedJSValue JSCallbackObject<Parent>::call(ExecState* exec)
 {
     JSContextRef execRef = toRef(exec);
     JSObjectRef functionRef = toRef(exec->callee());
     JSObjectRef thisObjRef = toRef(exec->hostThisValue().toThisObject(exec));
     
-    for (JSClassRef jsClass = static_cast<JSCallbackObject<Base>*>(toJS(functionRef))->classRef(); jsClass; jsClass = jsClass->parentClass) {
+    for (JSClassRef jsClass = static_cast<JSCallbackObject<Parent>*>(toJS(functionRef))->classRef(); jsClass; jsClass = jsClass->parentClass) {
         if (JSObjectCallAsFunctionCallback callAsFunction = jsClass->callAsFunction) {
             int argumentCount = static_cast<int>(exec->argumentCount());
             Vector<JSValueRef, 16> arguments(argumentCount);
@@ -397,8 +399,8 @@ EncodedJSValue JSCallbackObject<Base>::call(ExecState* exec)
     return JSValue::encode(JSValue());
 }
 
-template <class Base>
-void JSCallbackObject<Base>::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
+template <class Parent>
+void JSCallbackObject<Parent>::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
     JSContextRef execRef = toRef(exec);
     JSObjectRef thisRef = toRef(this);
@@ -432,17 +434,17 @@ void JSCallbackObject<Base>::getOwnPropertyNames(ExecState* exec, PropertyNameAr
         }
     }
     
-    Base::getOwnPropertyNames(exec, propertyNames, mode);
+    Parent::getOwnPropertyNames(exec, propertyNames, mode);
 }
 
-template <class Base>
-double JSCallbackObject<Base>::toNumber(ExecState* exec) const
+template <class Parent>
+double JSCallbackObject<Parent>::toNumber(ExecState* exec) const
 {
     // We need this check to guard against the case where this object is rhs of
     // a binary expression where lhs threw an exception in its conversion to
     // primitive
     if (exec->hadException())
-        return NaN;
+        return std::numeric_limits<double>::quiet_NaN();
     JSContextRef ctx = toRef(exec);
     JSObjectRef thisRef = toRef(this);
     
@@ -461,14 +463,14 @@ double JSCallbackObject<Base>::toNumber(ExecState* exec) const
 
             double dValue;
             if (value)
-                return toJS(exec, value).getNumber(dValue) ? dValue : NaN;
+                return toJS(exec, value).getNumber(dValue) ? dValue : std::numeric_limits<double>::quiet_NaN();
         }
             
-    return Base::toNumber(exec);
+    return Parent::toNumber(exec);
 }
 
-template <class Base>
-UString JSCallbackObject<Base>::toString(ExecState* exec) const
+template <class Parent>
+UString JSCallbackObject<Parent>::toString(ExecState* exec) const
 {
     JSContextRef ctx = toRef(exec);
     JSObjectRef thisRef = toRef(this);
@@ -489,23 +491,23 @@ UString JSCallbackObject<Base>::toString(ExecState* exec) const
                 return toJS(exec, value).getString(exec);
         }
             
-    return Base::toString(exec);
+    return Parent::toString(exec);
 }
 
-template <class Base>
-void JSCallbackObject<Base>::setPrivate(void* data)
+template <class Parent>
+void JSCallbackObject<Parent>::setPrivate(void* data)
 {
     m_callbackObjectData->privateData = data;
 }
 
-template <class Base>
-void* JSCallbackObject<Base>::getPrivate()
+template <class Parent>
+void* JSCallbackObject<Parent>::getPrivate()
 {
     return m_callbackObjectData->privateData;
 }
 
-template <class Base>
-bool JSCallbackObject<Base>::inherits(JSClassRef c) const
+template <class Parent>
+bool JSCallbackObject<Parent>::inherits(JSClassRef c) const
 {
     for (JSClassRef jsClass = classRef(); jsClass; jsClass = jsClass->parentClass)
         if (jsClass == c)
@@ -514,15 +516,13 @@ bool JSCallbackObject<Base>::inherits(JSClassRef c) const
     return false;
 }
 
-template <class Base>
-JSValue JSCallbackObject<Base>::staticValueGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
+template <class Parent>
+JSValue JSCallbackObject<Parent>::getStaticValue(ExecState* exec, const Identifier& propertyName)
 {
-    JSCallbackObject* thisObj = asCallbackObject(slotBase);
-    
-    JSObjectRef thisRef = toRef(thisObj);
+    JSObjectRef thisRef = toRef(this);
     RefPtr<OpaqueJSString> propertyNameRef;
     
-    for (JSClassRef jsClass = thisObj->classRef(); jsClass; jsClass = jsClass->parentClass)
+    for (JSClassRef jsClass = classRef(); jsClass; jsClass = jsClass->parentClass)
         if (OpaqueJSClassStaticValuesTable* staticValues = jsClass->staticValues(exec))
             if (StaticValueEntry* entry = staticValues->get(propertyName.impl()))
                 if (JSObjectGetPropertyCallback getProperty = entry->getProperty) {
@@ -542,17 +542,17 @@ JSValue JSCallbackObject<Base>::staticValueGetter(ExecState* exec, JSValue slotB
                         return toJS(exec, value);
                 }
 
-    return throwError(exec, createReferenceError(exec, "Static value property defined with NULL getProperty callback."));
+    return JSValue();
 }
 
-template <class Base>
-JSValue JSCallbackObject<Base>::staticFunctionGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
+template <class Parent>
+JSValue JSCallbackObject<Parent>::staticFunctionGetter(ExecState* exec, JSValue slotParent, const Identifier& propertyName)
 {
-    JSCallbackObject* thisObj = asCallbackObject(slotBase);
+    JSCallbackObject* thisObj = asCallbackObject(slotParent);
     
     // Check for cached or override property.
     PropertySlot slot2(thisObj);
-    if (thisObj->Base::getOwnPropertySlot(exec, propertyName, slot2))
+    if (thisObj->Parent::getOwnPropertySlot(exec, propertyName, slot2))
         return slot2.getValue(exec, propertyName);
     
     for (JSClassRef jsClass = thisObj->classRef(); jsClass; jsClass = jsClass->parentClass) {
@@ -560,7 +560,7 @@ JSValue JSCallbackObject<Base>::staticFunctionGetter(ExecState* exec, JSValue sl
             if (StaticFunctionEntry* entry = staticFunctions->get(propertyName.impl())) {
                 if (JSObjectCallAsFunctionCallback callAsFunction = entry->callAsFunction) {
                     
-                    JSObject* o = new (exec) JSCallbackFunction(exec, asGlobalObject(thisObj->getAnonymousValue(0)), callAsFunction, propertyName);
+                    JSObject* o = JSCallbackFunction::create(exec, asGlobalObject(thisObj->getAnonymousValue(0)), callAsFunction, propertyName);
                     thisObj->putDirect(exec->globalData(), propertyName, o, entry->attributes);
                     return o;
                 }
@@ -571,10 +571,10 @@ JSValue JSCallbackObject<Base>::staticFunctionGetter(ExecState* exec, JSValue sl
     return throwError(exec, createReferenceError(exec, "Static function property defined with NULL callAsFunction callback."));
 }
 
-template <class Base>
-JSValue JSCallbackObject<Base>::callbackGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
+template <class Parent>
+JSValue JSCallbackObject<Parent>::callbackGetter(ExecState* exec, JSValue slotParent, const Identifier& propertyName)
 {
-    JSCallbackObject* thisObj = asCallbackObject(slotBase);
+    JSCallbackObject* thisObj = asCallbackObject(slotParent);
     
     JSObjectRef thisRef = toRef(thisObj);
     RefPtr<OpaqueJSString> propertyNameRef;

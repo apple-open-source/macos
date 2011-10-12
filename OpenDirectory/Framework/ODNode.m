@@ -34,9 +34,9 @@
 @interface NSODNode : ODNode
 @end
 @implementation NSODNode
-CF_CLASSIMPLEMENTATION(ODNode)
 extern Boolean _CFIsDeallocating(CFTypeRef);
 extern CFTypeRef _CFTryRetain(CFTypeRef);
+CF_CLASSIMPLEMENTATION(ODNode)
 - (BOOL)_isDeallocating { return _CFIsDeallocating((CFTypeRef)self); }
 - (BOOL)_tryRetain { return _CFTryRetain((CFTypeRef)self) != NULL; }
 @end

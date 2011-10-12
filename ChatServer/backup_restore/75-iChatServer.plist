@@ -60,10 +60,17 @@
 		<string>/private/etc/jabberd/jabberd.cfg</string>
 		<string>/Library/Preferences/com.apple.ichatserver.plist</string>
 		<string>/Library/Preferences/com.apple.Proxy65.plist</string>
+		<string>/private/etc/jabberd/Rooms.plist</string>
 	</array>
 	
 	<key>DataFiles</key>
 	<array/>
+
+	<key>RoomsDataDirectory</key>
+	<string>/private/var/jabberd/Rooms</string>
+
+	<key>RoomsLogDataDirectory</key>
+	<string>/private/var/jabberd/muc_room_logs</string>
 
 	<key>Version</key>
 	<string>10.6</string>

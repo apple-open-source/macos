@@ -2353,7 +2353,9 @@ si_module_static_ds(void)
 		/* si_mac_all not supported */
 		.sim_mac_all = NULL,
 
-		.sim_addrinfo = &ds_addrinfo,
+		/* si_addrinfo not supported */
+		.sim_wants_addrinfo = NULL,
+		.sim_addrinfo = NULL,
 	};
 
 	static si_mod_t si =

@@ -126,4 +126,4 @@ fat_iterator createFatIteratorForKext(OSKextRef aKext);
 void usage(UsageLevel level);
 
 
-#endif
+#endif /* _KEXTFIND_H_ */

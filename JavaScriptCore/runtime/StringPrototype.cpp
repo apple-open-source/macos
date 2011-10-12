@@ -248,6 +248,41 @@ public:
     int length;
 };
 
+static ALWAYS_INLINE JSValue jsSpliceSubstrings(ExecState* exec, JSString* sourceVal, const UString& source, const StringRange* substringRanges, int rangeCount)
+{
+    if (rangeCount == 1) {
+        int sourceSize = source.length();
+        int position = substringRanges[0].position;
+        int length = substringRanges[0].length;
+        if (position <= 0 && length >= sourceSize)
+            return sourceVal;
+        // We could call UString::substr, but this would result in redundant checks
+        return jsString(exec, StringImpl::create(source.impl(), max(0, position), min(sourceSize, length)));
+    }
+
+    int totalLength = 0;
+    for (int i = 0; i < rangeCount; i++)
+        totalLength += substringRanges[i].length;
+
+    if (!totalLength)
+        return jsString(exec, "");
+
+    UChar* buffer;
+    RefPtr<StringImpl> impl = StringImpl::tryCreateUninitialized(totalLength, buffer);
+    if (!impl)
+        return throwOutOfMemoryError(exec);
+
+    int bufferPos = 0;
+    for (int i = 0; i < rangeCount; i++) {
+        if (int srcLen = substringRanges[i].length) {
+            StringImpl::copyChars(buffer + bufferPos, source.characters() + substringRanges[i].position, srcLen);
+            bufferPos += srcLen;
+        }
+    }
+
+    return jsString(exec, impl.release());
+}
+
 static ALWAYS_INLINE JSValue jsSpliceSubstringsWithSeparators(ExecState* exec, JSString* sourceVal, const UString& source, const StringRange* substringRanges, int rangeCount, const UString* separators, int separatorCount)
 {
     if (rangeCount == 1 && separatorCount == 0) {
@@ -266,11 +301,11 @@ static ALWAYS_INLINE JSValue jsSpliceSubstringsWithSeparators(ExecState* exec, J
     for (int i = 0; i < separatorCount; i++)
         totalLength += separators[i].length();
 
-    if (totalLength == 0)
+    if (!totalLength)
         return jsString(exec, "");
 
     UChar* buffer;
-    PassRefPtr<StringImpl> impl = StringImpl::tryCreateUninitialized(totalLength, buffer);
+    RefPtr<StringImpl> impl = StringImpl::tryCreateUninitialized(totalLength, buffer);
     if (!impl)
         return throwOutOfMemoryError(exec);
 
@@ -291,15 +326,18 @@ static ALWAYS_INLINE JSValue jsSpliceSubstringsWithSeparators(ExecState* exec, J
         }
     }
 
-    return jsString(exec, impl);
+    return jsString(exec, impl.release());
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    JSString* sourceVal = thisValue.toThisJSString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    JSString* sourceVal = thisValue.isString() ? asString(thisValue) : jsString(exec, thisValue.toString(exec));
     JSValue pattern = exec->argument(0);
     JSValue replacement = exec->argument(1);
+    JSGlobalData* globalData = &exec->globalData();
 
     UString replacementString;
     CallData callData;
@@ -316,6 +354,44 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec)
         bool global = reg->global();
 
         RegExpConstructor* regExpConstructor = exec->lexicalGlobalObject()->regExpConstructor();
+
+        // Optimization for substring removal (replace with empty).
+        if (global && callType == CallTypeNone && !replacementString.length()) {
+            int lastIndex = 0;
+            unsigned startPosition = 0;
+
+            Vector<StringRange, 16> sourceRanges;
+
+            while (true) {
+                int matchIndex;
+                int matchLen = 0;
+                int* ovector;
+                regExpConstructor->performMatch(*globalData, reg, source, startPosition, matchIndex, matchLen, &ovector);
+                if (matchIndex < 0)
+                    break;
+
+                if (lastIndex < matchIndex)
+                    sourceRanges.append(StringRange(lastIndex, matchIndex - lastIndex));
+
+                lastIndex = matchIndex + matchLen;
+                startPosition = lastIndex;
+
+                // special case of empty match
+                if (!matchLen) {
+                    startPosition++;
+                    if (startPosition > sourceLen)
+                        break;
+                }
+            }
+
+            if (!lastIndex)
+                return JSValue::encode(sourceVal);
+
+            if (static_cast<unsigned>(lastIndex) < sourceLen)
+                sourceRanges.append(StringRange(lastIndex, sourceLen - lastIndex));
+
+            return JSValue::encode(jsSpliceSubstrings(exec, sourceVal, source, sourceRanges.data(), sourceRanges.size()));
+        }
 
         int lastIndex = 0;
         unsigned startPosition = 0;
@@ -335,7 +411,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec)
                 int matchIndex;
                 int matchLen = 0;
                 int* ovector;
-                regExpConstructor->performMatch(reg, source, startPosition, matchIndex, matchLen, &ovector);
+                regExpConstructor->performMatch(*globalData, reg, source, startPosition, matchIndex, matchLen, &ovector);
                 if (matchIndex < 0)
                     break;
 
@@ -369,7 +445,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec)
                 startPosition = lastIndex;
 
                 // special case of empty match
-                if (matchLen == 0) {
+                if (!matchLen) {
                     startPosition++;
                     if (startPosition > sourceLen)
                         break;
@@ -380,7 +456,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec)
                 int matchIndex;
                 int matchLen = 0;
                 int* ovector;
-                regExpConstructor->performMatch(reg, source, startPosition, matchIndex, matchLen, &ovector);
+                regExpConstructor->performMatch(*globalData, reg, source, startPosition, matchIndex, matchLen, &ovector);
                 if (matchIndex < 0)
                     break;
 
@@ -422,7 +498,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec)
                 startPosition = lastIndex;
 
                 // special case of empty match
-                if (matchLen == 0) {
+                if (!matchLen) {
                     startPosition++;
                     if (startPosition > sourceLen)
                         break;
@@ -486,7 +562,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncCharAt(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    UString s = thisValue.toThisString(exec);
+    UString s = thisValue.toString(exec);
     unsigned len = s.length();
     JSValue a0 = exec->argument(0);
     if (a0.isUInt32()) {
@@ -506,7 +582,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncCharCodeAt(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    UString s = thisValue.toThisString(exec);
+    UString s = thisValue.toString(exec);
     unsigned len = s.length();
     JSValue a0 = exec->argument(0);
     if (a0.isUInt32()) {
@@ -540,7 +616,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncIndexOf(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    UString s = thisValue.toThisString(exec);
+    UString s = thisValue.toString(exec);
     int len = s.length();
 
     JSValue a0 = exec->argument(0);
@@ -571,7 +647,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncLastIndexOf(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    UString s = thisValue.toThisString(exec);
+    UString s = thisValue.toString(exec);
     int len = s.length();
 
     JSValue a0 = exec->argument(0);
@@ -600,11 +676,12 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncMatch(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    UString s = thisValue.toThisString(exec);
+    UString s = thisValue.toString(exec);
+    JSGlobalData* globalData = &exec->globalData();
 
     JSValue a0 = exec->argument(0);
 
-    RefPtr<RegExp> reg;
+    RegExp* reg;
     if (a0.inherits(&RegExpObject::s_info))
         reg = asRegExpObject(a0)->regExp();
     else {
@@ -613,12 +690,12 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncMatch(ExecState* exec)
          *  If regexp is not an object whose [[Class]] property is "RegExp", it is
          *  replaced with the result of the expression new RegExp(regexp).
          */
-        reg = exec->globalData().regExpCache()->lookupOrCreate(a0.toString(exec), NoFlags);
+        reg = RegExp::create(exec->globalData(), a0.toString(exec), NoFlags);
     }
     RegExpConstructor* regExpConstructor = exec->lexicalGlobalObject()->regExpConstructor();
     int pos;
     int matchLength = 0;
-    regExpConstructor->performMatch(reg.get(), s, 0, pos, matchLength);
+    regExpConstructor->performMatch(*globalData, reg, s, 0, pos, matchLength);
     if (!(reg->global())) {
         // case without 'g' flag is handled like RegExp.prototype.exec
         if (pos < 0)
@@ -631,7 +708,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncMatch(ExecState* exec)
     while (pos >= 0) {
         list.append(jsSubstring(exec, s, pos, matchLength));
         pos += matchLength == 0 ? 1 : matchLength;
-        regExpConstructor->performMatch(reg.get(), s, pos, pos, matchLength);
+        regExpConstructor->performMatch(*globalData, reg, s, pos, pos, matchLength);
     }
     if (list.isEmpty()) {
         // if there are no matches at all, it's important to return
@@ -648,11 +725,12 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncSearch(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    UString s = thisValue.toThisString(exec);
+    UString s = thisValue.toString(exec);
+    JSGlobalData* globalData = &exec->globalData();
 
     JSValue a0 = exec->argument(0);
 
-    RefPtr<RegExp> reg;
+    RegExp* reg;
     if (a0.inherits(&RegExpObject::s_info))
         reg = asRegExpObject(a0)->regExp();
     else { 
@@ -661,12 +739,12 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncSearch(ExecState* exec)
          *  If regexp is not an object whose [[Class]] property is "RegExp", it is
          *  replaced with the result of the expression new RegExp(regexp).
          */
-        reg = exec->globalData().regExpCache()->lookupOrCreate(a0.toString(exec), NoFlags);
+        reg = RegExp::create(exec->globalData(), a0.toString(exec), NoFlags);
     }
     RegExpConstructor* regExpConstructor = exec->lexicalGlobalObject()->regExpConstructor();
     int pos;
     int matchLength = 0;
-    regExpConstructor->performMatch(reg.get(), s, 0, pos, matchLength);
+    regExpConstructor->performMatch(*globalData, reg, s, 0, pos, matchLength);
     return JSValue::encode(jsNumber(pos));
 }
 
@@ -675,7 +753,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncSlice(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    UString s = thisValue.toThisString(exec);
+    UString s = thisValue.toString(exec);
     int len = s.length();
 
     JSValue a0 = exec->argument(0);
@@ -702,7 +780,8 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncSplit(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    UString s = thisValue.toThisString(exec);
+    UString s = thisValue.toString(exec);
+    JSGlobalData* globalData = &exec->globalData();
 
     JSValue a0 = exec->argument(0);
     JSValue a1 = exec->argument(1);
@@ -713,14 +792,14 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncSplit(ExecState* exec)
     unsigned limit = a1.isUndefined() ? 0xFFFFFFFFU : a1.toUInt32(exec);
     if (a0.inherits(&RegExpObject::s_info)) {
         RegExp* reg = asRegExpObject(a0)->regExp();
-        if (s.isEmpty() && reg->match(s, 0) >= 0) {
+        if (s.isEmpty() && reg->match(*globalData, s, 0) >= 0) {
             // empty string matched by regexp -> empty array
             return JSValue::encode(result);
         }
         unsigned pos = 0;
         while (i != limit && pos < s.length()) {
             Vector<int, 32> ovector;
-            int mpos = reg->match(s, pos, &ovector);
+            int mpos = reg->match(*globalData, s, pos, &ovector);
             if (mpos < 0)
                 break;
             int mlen = ovector[1] - ovector[0];
@@ -765,16 +844,19 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncSplit(ExecState* exec)
 EncodedJSValue JSC_HOST_CALL stringProtoFuncSubstr(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
-        return throwVMTypeError(exec);
     unsigned len;
     JSString* jsString = 0;
     UString uString;
     if (thisValue.isString()) {
         jsString = static_cast<JSString*>(thisValue.asCell());
         len = jsString->length();
+    } else if (thisValue.isUndefinedOrNull()) {
+        // CheckObjectCoercible
+        return throwVMTypeError(exec);
     } else {
-        uString = thisValue.toThisObject(exec)->toString(exec);
+        uString = thisValue.toString(exec);
+        if (exec->hadException())
+            return JSValue::encode(jsUndefined());
         len = uString.length();
     }
 
@@ -802,16 +884,19 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncSubstr(ExecState* exec)
 EncodedJSValue JSC_HOST_CALL stringProtoFuncSubstring(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
-        return throwVMTypeError(exec);
     int len;
     JSString* jsString = 0;
     UString uString;
     if (thisValue.isString()) {
         jsString = static_cast<JSString*>(thisValue.asCell());
         len = jsString->length();
+    } else if (thisValue.isUndefinedOrNull()) {
+        // CheckObjectCoercible
+        return throwVMTypeError(exec);
     } else {
-        uString = thisValue.toThisObject(exec)->toString(exec);
+        uString = thisValue.toString(exec);
+        if (exec->hadException())
+            return JSValue::encode(jsUndefined());
         len = uString.length();
     }
 
@@ -850,7 +935,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncToLowerCase(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    JSString* sVal = thisValue.toThisJSString(exec);
+    JSString* sVal = thisValue.isString() ? asString(thisValue) : jsString(exec, thisValue.toString(exec));
     const UString& s = sVal->value(exec);
 
     int sSize = s.length();
@@ -890,7 +975,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncToUpperCase(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
-    JSString* sVal = thisValue.toThisJSString(exec);
+    JSString* sVal = thisValue.isString() ? asString(thisValue) : jsString(exec, thisValue.toString(exec));
     const UString& s = sVal->value(exec);
 
     int sSize = s.length();
@@ -933,8 +1018,8 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncLocaleCompare(ExecState* exec)
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
 
-    UString s = thisValue.toThisString(exec);
     JSValue a0 = exec->argument(0);
     return JSValue::encode(jsNumber(localeCompare(s, a0.toString(exec))));
 }
@@ -942,70 +1027,90 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncLocaleCompare(ExecState* exec)
 EncodedJSValue JSC_HOST_CALL stringProtoFuncBig(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     return JSValue::encode(jsMakeNontrivialString(exec, "<big>", s, "</big>"));
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncSmall(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     return JSValue::encode(jsMakeNontrivialString(exec, "<small>", s, "</small>"));
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncBlink(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     return JSValue::encode(jsMakeNontrivialString(exec, "<blink>", s, "</blink>"));
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncBold(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     return JSValue::encode(jsMakeNontrivialString(exec, "<b>", s, "</b>"));
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncFixed(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     return JSValue::encode(jsMakeNontrivialString(exec, "<tt>", s, "</tt>"));
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncItalics(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     return JSValue::encode(jsMakeNontrivialString(exec, "<i>", s, "</i>"));
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncStrike(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     return JSValue::encode(jsMakeNontrivialString(exec, "<strike>", s, "</strike>"));
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncSub(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     return JSValue::encode(jsMakeNontrivialString(exec, "<sub>", s, "</sub>"));
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncSup(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     return JSValue::encode(jsMakeNontrivialString(exec, "<sup>", s, "</sup>"));
 }
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncFontcolor(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     JSValue a0 = exec->argument(0);
     return JSValue::encode(jsMakeNontrivialString(exec, "<font color=\"", a0.toString(exec), "\">", s, "</font>"));
 }
@@ -1013,7 +1118,9 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncFontcolor(ExecState* exec)
 EncodedJSValue JSC_HOST_CALL stringProtoFuncFontsize(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     JSValue a0 = exec->argument(0);
 
     uint32_t smallInteger;
@@ -1056,7 +1163,9 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncFontsize(ExecState* exec)
 EncodedJSValue JSC_HOST_CALL stringProtoFuncAnchor(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     JSValue a0 = exec->argument(0);
     return JSValue::encode(jsMakeNontrivialString(exec, "<a name=\"", a0.toString(exec), "\">", s, "</a>"));
 }
@@ -1064,7 +1173,9 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncAnchor(ExecState* exec)
 EncodedJSValue JSC_HOST_CALL stringProtoFuncLink(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
+        return throwVMTypeError(exec);
+    UString s = thisValue.toString(exec);
     JSValue a0 = exec->argument(0);
     UString linkText = a0.toString(exec);
 
@@ -1109,7 +1220,7 @@ static inline JSValue trimString(ExecState* exec, JSValue thisValue, int trimKin
 {
     if (thisValue.isUndefinedOrNull()) // CheckObjectCoercible
         return throwTypeError(exec);
-    UString str = thisValue.toThisString(exec);
+    UString str = thisValue.toString(exec);
     unsigned left = 0;
     if (trimKind & TrimLeft) {
         while (left < str.length() && isTrimWhitespace(str[left]))

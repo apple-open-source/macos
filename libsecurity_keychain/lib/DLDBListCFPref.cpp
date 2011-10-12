@@ -37,7 +37,7 @@
 #include <pwd.h>
 #include <sys/param.h>
 #include <copyfile.h>
-#include <xpc/xpc.h>
+#include <xpc/private.h>
 #include <syslog.h>
 #include <sandbox.h>
 
@@ -872,8 +872,8 @@ DLDbListCFPref::member(const DLDbIdentifier &dldbIdentifier)
 				 inPath[PATH_MAX];
 			
 			// try to resolve these down to a canonical form
-			const char* localPathPtr = realpath(ix->dbName(), localPath);
-			const char* inPathPtr = realpath(dldbIdentifier.dbName(), inPath);
+			const char* localPathPtr = cached_realpath(ix->dbName(), localPath);
+			const char* inPathPtr = cached_realpath(dldbIdentifier.dbName(), inPath);
 
 			// if either of the paths didn't resolve for some reason, use the originals
 			if (localPathPtr == NULL)

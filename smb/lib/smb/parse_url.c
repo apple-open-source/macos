@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2006 - 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -199,11 +199,28 @@ static CFArrayRef CreateWrkgrpUserArray(CFURLRef url)
 static int SetServerFromURL(struct smb_ctx *ctx, CFURLRef url)
 {
 	CFIndex maxlen;
-	
-	/* The serverNameRef should always contain the URL host name or the Bonjour Name */
-	if (ctx->serverNameRef)
+	CFStringRef serverNameRef = CFURLCopyHostName(url);
+
+	/*
+	 * Every time we parse the URL we end up replacing the server name. In the 
+	 * future we should skip replacing the server name if we already have one and
+	 * the one return CFURLCopyHostName matches it.
+	 *
+	 * Not going to make that big of a change in an update, so lets limit to the
+	 * case were we are dealing with using a domain controller.
+	 */
+	if (serverNameRef && ctx->serverNameRef && ctx->serverName &&
+		(ctx->serverIsDomainController) &&	
+		(ctx->ct_flags & SMBCF_CONNECTED) && 
+		(CFStringCompare(serverNameRef, ctx->serverNameRef, 0) == kCFCompareEqualTo)) {
+		CFRelease(serverNameRef);
+		return 0; /* Same name nothing to do here */
+	}
+	if (ctx->serverNameRef) {
 		CFRelease(ctx->serverNameRef);
-	ctx->serverNameRef = CFURLCopyHostName(url);
+	}
+		/* The serverNameRef should always contain the URL host name or the Bonjour Name */
+	ctx->serverNameRef = serverNameRef;
 	if (ctx->serverNameRef == NULL)
 		return EINVAL;
 	DebugLogCFString(ctx->serverNameRef, "Server", __FUNCTION__, __LINE__);

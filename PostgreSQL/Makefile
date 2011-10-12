@@ -8,7 +8,7 @@ Project         = postgresql
 ProjectName     = PostgreSQL
 UserType        = Administrator
 ToolType        = Commands
-Submission      = 22
+Submission      = 25
 
 # Variables only used by project
 DBDir = $(VARDIR)/pgsql
@@ -66,7 +66,7 @@ AEP_Binaries	= $(addprefix /,$(shell cd $(DSTROOT) && $(FIND) usr -type f -perm 
 
 Configure_Products = config.log src/include/pg_config.h
 GnuAfterInstall	= install-docs install-contrib \
-			install-macosx install-backup archive-strip-binaries
+			install-macosx install-backup install-wrapper archive-strip-binaries
 ContribTools	= hstore intarray pg_upgrade pg_upgrade_support
 
 # Local targets that must be defined before including the following
@@ -118,4 +118,10 @@ install-backup: install-macosx
 	$(INSTALL_SCRIPT) Support/postgresql_backup.rb $(DSTROOT)$(LIBEXECDIR)/server_backup
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(ETCDIR)/server_backup
 	$(INSTALL_FILE) Support/46-postgresql.plist $(DSTROOT)$(ETCDIR)/server_backup
+	@echo "Done."
+
+install-wrapper:
+	@echo "Installing wrapper"
+	$(MV) $(DSTROOT)/usr/bin/postgres $(DSTROOT)/usr/bin/postgres_real
+	$(INSTALL) -m 755 Support/postgres $(DSTROOT)/usr/bin/postgres
 	@echo "Done."

@@ -1,6 +1,6 @@
---- /tmp/jabberd-2.2.13/storage/Makefile.am	2011-02-23 08:24:34.000000000 -0800
-+++ ./jabberd2/storage/Makefile.am	2011-02-24 16:25:21.000000000 -0800
-@@ -104,3 +104,8 @@ storage_sqlite_la_LDFLAGS = $(MODULE_LDF
+--- /tmp/jabberd-2.2.14/storage/Makefile.am	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/storage/Makefile.am	2011-06-22 20:13:00.000000000 -0700
+@@ -107,3 +107,8 @@ storage_sqlite_la_LDFLAGS = $(MODULE_LDF
  storage_sqlite_la_LIBADD  = $(MODULE_LIBADD) $(SQLITE_LIBS)
  endif
  

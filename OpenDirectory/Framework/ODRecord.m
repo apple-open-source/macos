@@ -29,9 +29,9 @@
 @interface NSODRecord : ODRecord
 @end
 @implementation NSODRecord
-CF_CLASSIMPLEMENTATION(ODRecord)
 extern Boolean _CFIsDeallocating(CFTypeRef);
 extern CFTypeRef _CFTryRetain(CFTypeRef);
+CF_CLASSIMPLEMENTATION(ODRecord)
 - (BOOL)_isDeallocating { return _CFIsDeallocating((CFTypeRef)self); }
 - (BOOL)_tryRetain { return _CFTryRetain((CFTypeRef)self) != NULL; }
 @end

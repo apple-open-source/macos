@@ -59,8 +59,6 @@
 
 static mach_port_t get_root_bootstrap_port(void);
 
- #define _vproc_set_crash_log_message(x)
-
 static int64_t cached_pid = -1;
 static struct vproc_shmem_s *vproc_shmem;
 static pthread_once_t shmem_inited = PTHREAD_ONCE_INIT;

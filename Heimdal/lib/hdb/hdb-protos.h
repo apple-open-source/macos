@@ -221,6 +221,7 @@ krb5_error_code
 hdb_generate_key_set (
 	krb5_context /*context*/,
 	krb5_principal /*principal*/,
+	krb5_enctype *enctypes,
 	Key **/*ret_key_set*/,
 	size_t */*nkeyset*/,
 	int /*no_salt*/);
@@ -230,6 +231,7 @@ hdb_generate_key_set_password (
 	krb5_context /*context*/,
 	krb5_principal /*principal*/,
 	const char */*password*/,
+	krb5_enctype *enctypes,
 	Key **/*keys*/,
 	size_t */*num_keys*/);
 

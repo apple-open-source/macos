@@ -5,6 +5,8 @@
 #
 set CWD=`pwd`
 set ROOT_CERT_DIR=$CWD/roots
+set DISTRUSTED_CERT_DIR=$CWD/distrusted
+set REVOKED_CERT_DIR=$CWD/revoked
 set KC_DIR=$CWD/BuiltKeychains
 
 if((! -e "$ROOT_CERT_DIR") || (! -e "$KC_DIR")) then
@@ -16,6 +18,8 @@ set ROOT_CERT_KC=SystemRootCertificates.keychain
 set ROOT_CERT_KC_PATH="$KC_DIR/$ROOT_CERT_KC"
 set SETTINGS_FILE=SystemTrustSettings.plist
 set SETTINGS_FILE_PATH="$KC_DIR/$SETTINGS_FILE"
+set TEMP_CERT_KC=SystemTempCertificates.keychain
+set TEMP_CERT_KC_PATH=/tmp/"$TEMP_CERT_KC"
 set SECURITY=/usr/bin/security
 
 # save keychain list so we don't add SystemRootCertificates to it
@@ -24,7 +28,7 @@ printf "Saved user keychain list:\n%s\n\n" "${SAVED_KC_LIST}"
 
 echo Creating empty $ROOT_CERT_KC...
 rm -f "$ROOT_CERT_KC_PATH" || exit(1)
-$SECURITY create-keychain -p $ROOT_CERT_KC "$ROOT_CERT_KC_PATH" || exit(1)
+$SECURITY create-keychain -p "$ROOT_CERT_KC" "$ROOT_CERT_KC_PATH" || exit(1)
 
 echo Creating empty $SETTINGS_FILE...
 rm -f "$SETTINGS_FILE_PATH" || exit(1)
@@ -41,9 +45,37 @@ foreach root (*)
 	$SECURITY -q add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" -k "$ROOT_CERT_KC_PATH" "$root" || exit(1)
 end
 
+# After adding the trusted roots, add trust settings to explicitly distrust certs
+#
+echo Creating empty $TEMP_CERT_KC...
+rm -f "$TEMP_CERT_KC_PATH" || exit(1)
+$SECURITY create-keychain -p "$TEMP_CERT_KC" "$TEMP_CERT_KC_PATH" || exit(1)
+
+echo Explicitly distrusting certs...
+
+cd "$DISTRUSTED_CERT_DIR" || exit(1)
+
+foreach cert (*)
+	echo Processing $cert...
+	$SECURITY -q add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" -k "$TEMP_CERT_KC_PATH" -r deny "$cert" || exit(1)
+end
+
+echo Explicitly revoking certs...
+
+cd "$REVOKED_CERT_DIR" || exit(1)
+
+foreach cert (*)
+	echo Processing $cert...
+	### these will eventually get a different trust result than distrusted certs, when we support that;
+	### one should produce a soft failure (warning) and the other a hard failure.
+	$SECURITY -q add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" -k "$TEMP_CERT_KC_PATH" -r deny "$cert" || exit(1)
+end
+
+rm -f "$TEMP_CERT_KC_PATH" || exit(1)
+
+
 # Check that we successfully added every root in the "roots" directory
 #
-
 set EXPECTED=`ls -1 "$ROOT_CERT_DIR" | wc -l | awk '{print $1}'`
 
 set ACTUAL=`security find-certificate -a "$ROOT_CERT_KC_PATH" | grep "labl" | wc -l | awk '{print $1}'`

@@ -15,7 +15,7 @@ struct master_service;
 
 /* This should be kept in sync with LOGIN_MAX_INBUF_SIZE. Multiply it by two
    to make sure there's space to transfer the command tag  */
-#define MASTER_AUTH_MAX_DATA_SIZE (1024*2)
+#define MASTER_AUTH_MAX_DATA_SIZE (2048*2)			/* APPLE */
 
 #define MASTER_AUTH_ERRMSG_INTERNAL_FAILURE \
 	"Internal error occurred. Refer to server log for more information."

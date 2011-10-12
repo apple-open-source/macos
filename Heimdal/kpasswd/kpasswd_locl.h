@@ -97,6 +97,7 @@
 #include <roken.h>
 #include <getarg.h>
 #include <krb5.h>
+#include <heimbase.h>
 #include "crypto-headers.h" /* for des_read_pw_string */
 
 #endif /* __KPASSWD_LOCL_H__ */

@@ -25,6 +25,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				EB238E4E13D78124006C979E /* PBXTargetDependency */,
 				EB6FCA8F10A6606000D80A61 /* PBXTargetDependency */,
 				EB17B66A106304FA0015DEB4 /* PBXTargetDependency */,
 				1C20F27A10F284E300C456B4 /* PBXTargetDependency */,
@@ -90,6 +91,9 @@
 		EB0F2AC510004C5600224B2D /* heim-sym.i386.s in Sources */ = {isa = PBXBuildFile; fileRef = EB0F2AC410004C5600224B2D /* heim-sym.i386.s */; };
 		EB15204010AA532E00B6446B /* password.c in Sources */ = {isa = PBXBuildFile; fileRef = EB15203F10AA532E00B6446B /* password.c */; };
 		EB1F5D4010A905F300B69A08 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		EB238E4A13D780DE006C979E /* test-password.c in Sources */ = {isa = PBXBuildFile; fileRef = EB238E3813D7801D006C979E /* test-password.c */; };
+		EB238E4B13D780E6006C979E /* test_collection.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C72629010F5AB22009BFC63 /* test_collection.c */; };
+		EB238E4C13D78114006C979E /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
 		EB2430D010586E42001A4FB8 /* heim-proxy.ppc.s in Sources */ = {isa = PBXBuildFile; fileRef = EB2430CE10586E42001A4FB8 /* heim-proxy.ppc.s */; };
 		EB2430D110586E42001A4FB8 /* heim-sym.ppc.s in Sources */ = {isa = PBXBuildFile; fileRef = EB2430CF10586E42001A4FB8 /* heim-sym.ppc.s */; };
 		EB27475510881A4400AAB294 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
@@ -321,6 +325,20 @@
 			remoteGlobalIDString = EB0F29BE1000160500224B2D;
 			remoteInfo = Kerberos;
 		};
+		EB238E4813D780CB006C979E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		EB238E4D13D78124006C979E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB238E3D13D78035006C979E;
+			remoteInfo = "test-password";
+		};
 		EB27475810881A4C00AAB294 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
@@ -353,7 +371,7 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EBED4E4C12958B720029A1B4 /* test-KLAcquireInitialTickets */;
+			remoteGlobalIDString = EBED4E4C12958B720029A1B4;
 			remoteInfo = "test-KLAcquireInitialTickets";
 		};
 		EBA0D03B100AA382002C4826 /* PBXContainerItemProxy */ = {
@@ -380,6 +398,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		EB238E3C13D78035006C979E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		EB274761108838DC00AAB294 /* install include-krb5 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -557,6 +584,8 @@
 		EB0F2AC410004C5600224B2D /* heim-sym.i386.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "heim-sym.i386.s"; sourceTree = "<group>"; };
 		EB15203F10AA532E00B6446B /* password.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = password.c; sourceTree = "<group>"; };
 		EB1F5D3910A905D200B69A08 /* test-principal */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-principal"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB238E3813D7801D006C979E /* test-password.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-password.c"; path = "test/test-password.c"; sourceTree = "<group>"; };
+		EB238E3E13D78035006C979E /* test-password */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-password"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB2430CE10586E42001A4FB8 /* heim-proxy.ppc.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "heim-proxy.ppc.s"; sourceTree = "<group>"; };
 		EB2430CF10586E42001A4FB8 /* heim-sym.ppc.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "heim-sym.ppc.s"; sourceTree = "<group>"; };
 		EB27474A108819F600AAB294 /* test-sd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-sd"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -773,6 +802,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB238E3B13D78035006C979E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB238E4C13D78114006C979E /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB274748108819F500AAB294 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -915,6 +952,7 @@
 				1C82A7DE10C5CA3900115F67 /* test-krb5 */,
 				1C1A4FB310DC3D1B001883EA /* test-gss-server */,
 				EBED4E4D12958B720029A1B4 /* test-KLAcquireInitialTickets */,
+				EB238E3E13D78035006C979E /* test-password */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -922,6 +960,7 @@
 		1C20F22410F283AB00C456B4 /* test */ = {
 			isa = PBXGroup;
 			children = (
+				EB238E3813D7801D006C979E /* test-password.c */,
 				EBED4E4812958B4D0029A1B4 /* test-KLAcquireInitialTickets.c */,
 				1CC0D8151108ED7600D084BB /* krb5.conf.in */,
 				1C72629010F5AB22009BFC63 /* test_collection.c */,
@@ -1421,6 +1460,24 @@
 			productReference = EB1F5D3910A905D200B69A08 /* test-principal */;
 			productType = "com.apple.product-type.tool";
 		};
+		EB238E3D13D78035006C979E /* test-password */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB238E4513D78036006C979E /* Build configuration list for PBXNativeTarget "test-password" */;
+			buildPhases = (
+				EB238E3A13D78035006C979E /* Sources */,
+				EB238E3B13D78035006C979E /* Frameworks */,
+				EB238E3C13D78035006C979E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB238E4913D780CB006C979E /* PBXTargetDependency */,
+			);
+			name = "test-password";
+			productName = "test-password";
+			productReference = EB238E3E13D78035006C979E /* test-password */;
+			productType = "com.apple.product-type.tool";
+		};
 		EB274749108819F500AAB294 /* test-sd */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EB27475010881A3200AAB294 /* Build configuration list for PBXNativeTarget "test-sd" */;
@@ -1543,6 +1600,7 @@
 				EB1F5D3810A905D200B69A08 /* test-principal */,
 				EB274749108819F500AAB294 /* test-sd */,
 				EBED4E4C12958B720029A1B4 /* test-KLAcquireInitialTickets */,
+				EB238E3D13D78035006C979E /* test-password */,
 			);
 		};
 /* End PBXProject section */
@@ -1661,6 +1719,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				1C20F25B10F284A200C456B4 /* test-principal.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB238E3A13D78035006C979E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB238E4B13D780E6006C979E /* test_collection.c in Sources */,
+				EB238E4A13D780DE006C979E /* test-password.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1805,6 +1872,16 @@
 			isa = PBXTargetDependency;
 			target = EB0F29BE1000160500224B2D /* Kerberos */;
 			targetProxy = EB17B669106304FA0015DEB4 /* PBXContainerItemProxy */;
+		};
+		EB238E4913D780CB006C979E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = EB238E4813D780CB006C979E /* PBXContainerItemProxy */;
+		};
+		EB238E4E13D78124006C979E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB238E3D13D78035006C979E /* test-password */;
+			targetProxy = EB238E4D13D78124006C979E /* PBXContainerItemProxy */;
 		};
 		EB27475910881A4C00AAB294 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2095,6 +2172,43 @@
 			};
 			name = Release;
 		};
+		EB238E4613D78036006C979E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB238E4713D78036006C979E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		EB27474D108819F600AAB294 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2359,6 +2473,14 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+		EB238E4513D78036006C979E /* Build configuration list for PBXNativeTarget "test-password" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB238E4613D78036006C979E /* Debug */,
+				EB238E4713D78036006C979E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
 		};
 		EB27475010881A3200AAB294 /* Build configuration list for PBXNativeTarget "test-sd" */ = {
 			isa = XCConfigurationList;

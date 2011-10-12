@@ -1519,11 +1519,18 @@ ExitStatus generateKextSymbols(
         goto finish;
     }
 
-   /*****
-    * If we aren't loading and don't have a load address
-    * for aKext, ask for load addresses for it and any of its dependencies.
-    */
-    if (saveFlag && !toolArgs->doLoad &&
+    /*****
+     * If we don't have a load address for aKext, ask for load addresses for it 
+     * and any of its dependencies.
+     * NOTE (9656777) - OSKextNeedsLoadAddressForDebugSymbols() needs to be 
+     * called even if we loaded the kext.  The reason is that loading the kext
+     * does not necessarily mean the load address was set in the load info
+     * kept in the kernel.  Calling OSKextNeedsLoadAddressForDebugSymbols()
+     * will implicitly set the load address if the kernel has it thus 
+     * avoiding having to ask the user for it.  And without that load address
+     * we silently give back a partial symbol file that gdb dislikes.
+     */
+    if (saveFlag &&
         OSKextNeedsLoadAddressForDebugSymbols(aKext)) {
 
         loadList = OSKextCopyLoadList(aKext, /* needAll */ true);

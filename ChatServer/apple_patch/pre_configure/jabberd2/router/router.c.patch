@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/router/router.c	2011-02-23 08:24:35.000000000 -0800
-+++ ./jabberd2/router/router.c	2011-02-24 16:25:21.000000000 -0800
+--- /tmp/jabberd-2.2.14/router/router.c	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/router/router.c	2011-06-22 20:13:00.000000000 -0700
 @@ -20,6 +20,11 @@
  
  #include "router.h"

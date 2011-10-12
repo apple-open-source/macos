@@ -81,8 +81,9 @@ int
 _heim_ipc_create_cred(uid_t, gid_t, pid_t, pid_t, heim_icred *);
 
 int
-_heim_ipc_create_network_cred(struct sockaddr *, krb5_socklen_t, heim_icred *);
-
+_heim_ipc_create_network_cred(struct sockaddr *, krb5_socklen_t,
+			      struct sockaddr *, krb5_socklen_t,
+			      heim_icred *);
 void
 _heim_ipc_suspend_timer(void);
 

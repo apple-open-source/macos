@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 24957 $";
+static const char *const __rcs_file_version__ = "$Revision: 25182 $";
 
 #include "config.h"
 #include "launch.h"
@@ -33,6 +33,7 @@ static const char *const __rcs_file_version__ = "$Revision: 24957 $";
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFPriv.h>
 #include <CoreFoundation/CFLogUtilities.h>
+#include <ServiceManagement/ServiceManagement_Private.h>
 #include <TargetConditionals.h>
 #include <IOKit/IOKitLib.h>
 #include <NSSystemDirectories.h>
@@ -2275,13 +2276,7 @@ bootstrap_cmd(int argc, char *const argv[])
 				load_launchd_items[6] = "local";
 				the_argc += 2;
 			}
-			if (strcasecmp(session_type, VPROCMGR_SESSION_LOGINWINDOW) == 0) {
-				load_launchd_items[the_argc] = "/etc/mach_init_per_login_session.d";
-				the_argc += 1;
-			}
 		} else if (strcasecmp(session_type, VPROCMGR_SESSION_AQUA) == 0) {
-			load_launchd_items[5] = "/etc/mach_init_per_user.d";
-			the_argc += 1;
 			/* For now, we'll just load user Background agents when
 			 * bootstrapping the Aqua session. This way, we can 
 			 * safely assume that the home directory is present. If
@@ -2290,7 +2285,7 @@ bootstrap_cmd(int argc, char *const argv[])
 			 * risk of deadlocking against mount_url. But this fix should
 			 * satisfy <rdar://problem/5279345>.
 			 */
-			the_argc_user = 5;
+			the_argc_user = 4;
 			
 			/* We want to read environment.plist, which is in the user's home directory.
 			 * Since the dance to mount a network home directory is fairly complex, all we
@@ -2320,6 +2315,9 @@ bootstrap_cmd(int argc, char *const argv[])
 			vproc_err_t err = vproc_swap_integer(NULL, VPROC_GSK_WEIRD_BOOTSTRAP, &junk, NULL);
 			if (!err) {
 				retval = load_and_unload_cmd(the_argc_user, load_launchd_items_user);
+#if TARGET_OS_MAC
+				_SMLoginItemBootstrapItems();
+#endif
 			}
 		}
 		
@@ -3685,7 +3683,7 @@ do_potential_fsck(void)
 	const char *remount_tool[] = { "mount", "-uw", "/", NULL };
 #if TARGET_OS_EMBEDDED
 	const char *nvram_tool[] = { "/usr/sbin/nvram", "auto-boot=false", NULL };
-#endif
+#endif /* TARGET_OS_EMBEDDED */
 	struct statfs sfs;
 
 	if (!assumes(statfs("/", &sfs) != -1)) {

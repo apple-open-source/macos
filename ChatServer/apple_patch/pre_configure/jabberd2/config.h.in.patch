@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/config.h.in	2011-02-23 08:24:50.000000000 -0800
-+++ ./jabberd2/config.h.in	2011-02-24 16:25:21.000000000 -0800
+--- /tmp/jabberd-2.2.14/config.h.in	2011-05-31 15:11:48.000000000 -0700
++++ ./jabberd2/config.h.in	2011-06-22 20:13:00.000000000 -0700
 @@ -585,6 +585,9 @@
  /* Define to 1 if you want to use SQLite 3 for storage. */
  #undef STORAGE_SQLITE

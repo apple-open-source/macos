@@ -247,7 +247,22 @@ void DecodedExten::parse(
 		CL_nssIssuingDistPointToCssm(nssObj, cdsaObj, mCoder, alloc);
 		vCdsaObj = cdsaObj;
 	}
-	
+    /*
+        <rdar://problem/9580989> CrashTracer: [USER] 48 crashes in WebProcess at ...
+        This code should not normally be executed, since it seems from RFC5280 that
+        CSSMOID_IssuingDistributionPoint is the correct extension to use.
+    */
+	else if(clCompareCssmData(&mExtnId, &CSSMOID_CrlDistributionPoints)) {
+		CE_CRLDistPointsSyntax *cdsaObj;
+		NSS_CRLDistributionPoints *nssObj;
+		nssToCssm<NSS_CRLDistributionPoints, CE_CRLDistPointsSyntax>(
+			*this,
+			nssObj, 
+			cdsaObj,
+			alloc);
+		CL_nssDistPointsToCssm((const NSS_CRLDistributionPoints&)*nssObj, *cdsaObj, mCoder, alloc);
+		vCdsaObj = cdsaObj;
+	}
 	/*
 	 * cert entry extensions 
 	 */

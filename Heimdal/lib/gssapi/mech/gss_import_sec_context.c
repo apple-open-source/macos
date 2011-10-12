@@ -68,6 +68,7 @@ gss_import_sec_context(OM_uint32 *minor_status,
 		*minor_status = ENOMEM;
 		return (GSS_S_FAILURE);
 	}
+	memset(ctx, 0, sizeof(struct _gss_context));
 	ctx->gc_mech = m;
 	major_status = m->gm_import_sec_context(minor_status,
 	    &buf, &ctx->gc_ctx);

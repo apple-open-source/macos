@@ -77,6 +77,11 @@ heim_abortv(const char *fmt, va_list ap)
 #define heim_assert(e,t) \
     (__builtin_expect(!(e), 0) ? heim_abort(t ":" #e) : (void)0)
 
+void
+heim_warn_blocking(const char *apiname, heim_base_once_t *once);
+
+#define HEIM_WARN_BLOCKING(name, var) \
+{ static heim_base_once_t var = HEIM_BASE_ONCE_INIT; heim_warn_blocking(name, &var); }
 
 /* 
  * alloc allocates a plain memory object

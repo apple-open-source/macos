@@ -47,6 +47,13 @@ krb5_verify_init_creds_opt_set_ap_req_nofail(krb5_verify_init_creds_opt *options
     options->ap_req_nofail = ap_req_nofail;
 }
 
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+krb5_verify_init_creds_opt_set_service(krb5_verify_init_creds_opt *options,
+				       const char *service)
+{
+    options->service = service;
+}
+
 /*
  *
  */
@@ -82,6 +89,10 @@ krb5_verify_init_creds(krb5_context context,
     krb5_auth_context auth_context = NULL;
     krb5_principal server = NULL;
     krb5_keytab keytab = NULL;
+    const char *service = "host";
+
+    if (options && options->service)
+	service = options->service;
 
     krb5_data_zero (&req);
 
@@ -97,11 +108,14 @@ krb5_verify_init_creds(krb5_context context,
 
 	ret = krb5_sname_to_principal (context,
 				       local_hostname,
-				       "host",
+				       service,
 				       KRB5_NT_SRV_HST,
 				       &server);
-	if (ret)
+	if (ret) {
+	    if (fail_verify_is_ok(context, options))
+		ret = 0;
 	    goto cleanup;
+	}
     } else
 	server = ap_req_server;
 

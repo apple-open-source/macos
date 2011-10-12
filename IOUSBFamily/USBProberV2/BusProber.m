@@ -212,7 +212,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     USBDeviceAddress        address = 0;
     IOUSBDeviceDescriptor   dev;
     int                     len = 0;
-	int						currConfig;
+	int 					currConfig;
     IOReturn                error = kIOReturnSuccess, actErr = kIOReturnSuccess;
 	BOOL					needToSuspend = FALSE;
 	

@@ -1,4 +1,4 @@
-.Dd January 20, 2010
+.Dd May 7, 2011
 .Dt CODESIGN 1
 .Os
 .Sh NAME
@@ -49,6 +49,10 @@ forms; less frequent and specialized options have only long form.
 .Sh OPTIONS
 The options are as follows:
 .Bl -tag -width indent
+.It Fl -all-architectures
+When verifying a code signature on code that has a universal ("fat") Mach-O binary,
+separately verify each architecture contained. This is the default unless overridden
+with the -a (--architecture) option.
 .It Fl a, -architecture Ar architecture
 When verifying or displaying signatures, explicitly select the Mach-O architecture
 given. The
@@ -60,6 +64,19 @@ If the
 .Ar path
 uses the Mach-O format and contains no code of the given architecture, the command will fail.
 The default is to operate on the native host architecture as specified by the local system.
+.br
+Note that when signing,
+.Nm
+will always sign all architectures contained in a universal Mach-O file.
+.It Fl -bundle-version Ar version-string
+When handling versioned bundles such as frameworks, explicitly specify the version
+to operate on. This must be one of the names in the "Versions" directory of the bundle.
+If not specified,
+.Nm
+uses the bundle's default version.
+Note that most frameworks delivered with the system have only one version, and thus
+this option is irrelevant for them.
+There is currently no facility for operating on all versions of a bundle at once.
 .It Fl d, -display
 Display information about the code at the path(s) given. Increasing levels
 of verbosity produce more output.
@@ -72,6 +89,14 @@ the specified file. The code being signed is not modified and need not be
 writable.
 When verifying, designates a file containing a detached signature to be used
 for verification. Any embedded signature in the code is ignored.
+.It Fl -detached-database
+When signing, specifies that a detached signature should be generated as with
+the --detached option, but that the resulting signature should be written into a system
+database, from where it is made automatically available whenever apparently unsigned
+code is validated on the system.
+.br
+Writing to this system database requires elevated process privileges that are
+not available to ordinary users.
 .It Fl f, -force
 When signing, causes
 .Nm
@@ -123,10 +148,6 @@ interpreted as --verify instead (and does not increase verbosity).
 Requests verification of code signatures.
 If other actions (sign, display, etc.) are also requested, -v is interpreted
 to mean --verbose.
-.It Fl -all-architectures
-When verifying a code signature on code that has a universal ("fat") Mach-O binary,
-separately verify each architecture contained. By default, only the native architecture
-(as indicated by the host system) is verified.
 .It Fl -continue
 Instructs
 .Nm
@@ -199,16 +220,29 @@ identifier contains a dot, it is used as-is. Typically,
 this is used to deal with command tools without Info.plists, whose default
 identifier is simply the command's filename; the conventional prefix used
 is com.domain. (note that the final dot needs to be explicit).
-.It Fl -preserve-metadata
+.It Fl -preserve-metadata=list
 When re-signing code that is already signed, reuse some information from the old signature.
 If new data is specified explicitly, it is preferred.
 You still need to specify the -f (--force) option to enable overwriting signatures at all.
 If this option is absent, any old signature has no effect on the signing process.
 .br
-This option preserves the signing identifier, internal requirements,
-entitlements, and the resource rules. Note that internal requirements are preserved or overridden as a whole;
-individual requirements cannot be selectively edited with this option.
-.It Fl -resource-rules=filename
+This option takes a comma-separated list of names, which you may reasonably abbreviate:
+.Bl -tag -width resource-rules
+.It identifier
+Preserve the signing identifier (--identifier) instead of generating a default identifier.
+.It entitlements
+Preserve the entitlement data (--entitlements).
+.It resource-rules
+Preserve and reuse the resource rules (--resource-rules).
+.It requirements
+Preserve the internal requirements (--requirements option), including any explicit Designated
+Requirement. Note that all internal requirements are preserved or regenerated as a whole; you
+cannot pick and choose individual elements with this option.
+.El
+For historical reasons, this option can be given without a value, which preserves all
+of these values as presently known. This use is deprecated and will eventually be removed;
+always specify an explicit list of preserved items.
+.It Fl -resource-rules Ar filename
 During signing, this option overrides the default rules for collecting bundle
 resources to be sealed into the signature. The argument is the path to a
 property list (plist) file containing resource scanning instructions.
@@ -474,6 +508,10 @@ if you specified the -f option.
 If you require atomicity of signing stricter than provided by
 .Nm ,
 you need to make an explicit copy of your code and sign that.
+.Sh FILES
+.Bl -tag -width "/var/db/DetachedSignatures" -compact
+.It Pa /var/db/DetachedSignatures
+System-wide database of detached code signatures for unsigned code.
 .Sh SEE ALSO
 .Xr csreq 1
 .Xr xcodebuild 1
@@ -486,6 +524,10 @@ Some options only apply to particular operations, and
 .Nm
 ignores them (without complaining)
 if you specify them for an operation for which they have no meaning.
+.Pp
+The --preserve-metadata option used to take no value, and varied across releases in what exactly
+it preserved. The ensuing confusion is still with you if you need to make backward-compatible
+scripts.
 .Pp
 The dual meaning of the
 .Ar -v

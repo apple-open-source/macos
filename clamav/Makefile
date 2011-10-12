@@ -2,7 +2,7 @@
 #
 
 Project			= clamav
-OPEN_SOURCE_VER	= 0.97
+OPEN_SOURCE_VER	= 0.97.1
 PROJECT_VERSION	= $(Project)-$(OPEN_SOURCE_VER)
 
 # Configuration values we customize

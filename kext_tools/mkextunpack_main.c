@@ -105,7 +105,7 @@ For each arch:
         - Else add kext to assembled list
         
     - Need to save infoDict, executable, resources
-#endif
+#endif /* 0 */
 
 /*******************************************************************************
 *******************************************************************************/

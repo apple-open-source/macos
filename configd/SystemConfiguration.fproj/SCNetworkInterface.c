@@ -71,6 +71,10 @@
 #define	kIODeviceSupportsHoldKey	"V92Modem"
 #endif
 
+#ifndef	kPCIThunderboltString
+#define kPCIThunderboltString		"PCI-Thunderbolt"
+#endif
+
 #ifndef	kUSBProductString
 #define kUSBProductString		"USB Product Name"
 #endif
@@ -1223,6 +1227,13 @@ static const struct {
 };
 
 
+static const CFStringRef	slot_prefixes[]	= {
+	CFSTR("thunderbolt slot "),
+	CFSTR("pci slot "),
+	CFSTR("slot-"),
+};
+
+
 static CFStringRef
 pci_slot(io_registry_entry_t interface, CFTypeRef *pci_slot_name)
 {
@@ -1249,12 +1260,17 @@ pci_slot(io_registry_entry_t interface, CFTypeRef *pci_slot_name)
 					      kCFStringEncodingUTF8);
 		}
 
-		if (CFStringGetLength(slot) > 5) {
-			(void) CFStringFindAndReplace(slot,
-						      CFSTR("slot-"),
-						      CFSTR(""),
-						      CFRangeMake(0, 5),
-						      kCFCompareCaseInsensitive|kCFCompareAnchored);
+		for (i = 0; i < sizeof(slot_prefixes)/sizeof(slot_prefixes[0]); i++) {
+			CFIndex		len;
+
+			len = CFStringGetLength(slot_prefixes[i]);
+			if (CFStringGetLength(slot) > len) {
+				(void) CFStringFindAndReplace(slot,
+							      slot_prefixes[i],
+							      CFSTR(""),
+							      CFRangeMake(0, len),
+							      kCFCompareCaseInsensitive|kCFCompareAnchored);
+			}
 		}
 
 		for (i = 0; i < sizeof(slot_mappings)/sizeof(slot_mappings[0]); i++) {
@@ -1315,7 +1331,7 @@ compare_bsdNames(const void *val1, const void *val2, void *context)
 
 
 static CFStringRef
-pci_port(CFTypeRef slot_name, CFStringRef bsdName)
+pci_port(CFTypeRef slot_name, int ift, CFStringRef bsdName)
 {
 	CFIndex			n;
 	CFStringRef		port_name	= NULL;
@@ -1378,15 +1394,33 @@ pci_port(CFTypeRef slot_name, CFStringRef bsdName)
 
 		while ((child = IOIteratorNext(child_iterator)) != MACH_PORT_NULL) {
 			if (IOObjectConformsTo(child, kIONetworkInterfaceClass)) {
-				CFStringRef	if_bsdName;
+				CFNumberRef	child_if_type;
+				int		child_ift	= ift;
 
-				if_bsdName = IORegistryEntryCreateCFProperty(child,
-									     CFSTR(kIOBSDNameKey),
-									     NULL,
-									     0);
-				if (if_bsdName != NULL) {
-					CFArrayAppendValue(port_names, if_bsdName);
-					CFRelease(if_bsdName);
+				child_if_type = IORegistryEntryCreateCFProperty(child,
+										CFSTR(kIOInterfaceType),
+										NULL,
+										0);
+				if (child_if_type != NULL) {
+					if (!isA_CFNumber(child_if_type) ||
+					    !CFNumberGetValue(child_if_type, kCFNumberIntType, &child_ift)) {
+						// assume that it's a match
+						child_ift = ift;
+					}
+					CFRelease(child_if_type);
+				}
+
+				if (ift == child_ift) {
+					CFStringRef	if_bsdName;
+
+					if_bsdName = IORegistryEntryCreateCFProperty(child,
+										     CFSTR(kIOBSDNameKey),
+										     NULL,
+										     0);
+					if (if_bsdName != NULL) {
+						CFArrayAppendValue(port_names, if_bsdName);
+						CFRelease(if_bsdName);
+					}
 				}
 			}
 			IOObjectRelease(child);
@@ -1411,7 +1445,7 @@ pci_port(CFTypeRef slot_name, CFStringRef bsdName)
 
 
 static Boolean
-pci_slot_info(io_registry_entry_t interface, CFStringRef *slot_name, CFStringRef *port_name)
+pci_slot_info(io_registry_entry_t interface, int ift, CFStringRef *slot_name, CFStringRef *port_name)
 {
 	CFStringRef	bsd_name;
 	Boolean		ok		= FALSE;
@@ -1428,7 +1462,7 @@ pci_slot_info(io_registry_entry_t interface, CFStringRef *slot_name, CFStringRef
 	*slot_name = pci_slot(interface, &pci_slot_name);
 	if (*slot_name != NULL) {
 		if (pci_slot_name != NULL) {
-			*port_name = pci_port(pci_slot_name, bsd_name);
+			*port_name = pci_port(pci_slot_name, ift, bsd_name);
 			CFRelease(pci_slot_name);
 		}
 		ok = TRUE;
@@ -1500,6 +1534,25 @@ isBluetoothBuiltin(Boolean *haveController)
 }
 
 
+static Boolean
+isThunderbolt(io_registry_entry_t interface)
+{
+	CFTypeRef	val;
+
+	val = IORegistryEntrySearchCFProperty(interface,
+					      kIOServicePlane,
+					      CFSTR(kPCIThunderboltString),
+					      NULL,
+					      kIORegistryIterateRecursively | kIORegistryIterateParents);
+	if (val != NULL) {
+		CFRelease(val);
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+
 static void
 processUSBInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 		    io_registry_entry_t			interface,
@@ -1527,6 +1580,53 @@ processUSBInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 								     kIORegistryIterateRecursively | kIORegistryIterateParents);
 
 	return;
+}
+
+
+static Boolean
+update_interface_name(SCNetworkInterfacePrivateRef	interfacePrivate,
+		      io_registry_entry_t		interface,
+		      Boolean				useUSBInfo)
+{
+	Boolean		updated	= FALSE;
+	CFTypeRef	val;
+
+	// check if a "Product Name" has been provided
+	val = IORegistryEntrySearchCFProperty(interface,
+					      kIOServicePlane,
+					      CFSTR(kIOPropertyProductNameKey),
+					      NULL,
+					      kIORegistryIterateRecursively | kIORegistryIterateParents);
+	if ((val == NULL) && useUSBInfo && (interfacePrivate->usb.name != NULL)) {
+		// else, use "USB Product Name" if available
+		val = CFRetain(interfacePrivate->usb.name);
+	}
+	if (val != NULL) {
+		CFStringRef	productName;
+
+		productName = IOCopyCFStringValue(val);
+		CFRelease(val);
+
+		if (productName != NULL) {
+			if (CFStringGetLength(productName) > 0) {
+				// if we have a [somewhat reasonable?] product name
+				if (interfacePrivate->name != NULL) {
+					CFRelease(interfacePrivate->name);
+				}
+				interfacePrivate->name = CFRetain(productName);
+				if (interfacePrivate->localized_name != NULL) {
+					CFRelease(interfacePrivate->localized_name);
+				}
+				interfacePrivate->localized_name = copy_interface_string(bundle, productName, TRUE);
+
+				updated = TRUE;
+			}
+
+			CFRelease(productName);
+		}
+	}
+
+	return updated;
 }
 
 
@@ -1740,19 +1840,33 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 						CFStringRef		port_name;
 						CFStringRef		slot_name;
 
-						if (pci_slot_info(interface, &slot_name, &port_name)) {
-							if (port_name == NULL) {
-								interfacePrivate->localized_key  = CFSTR("pci-ether");
-								interfacePrivate->localized_arg1 = slot_name;
+						// set interface "name"
+						if (!update_interface_name(interfacePrivate, interface, FALSE) &&
+						    pci_slot_info(interface, ift, &slot_name, &port_name)) {
+							if (isThunderbolt(interface)) {
+								if (port_name == NULL) {
+									interfacePrivate->localized_key  = CFSTR("thunderbolt-ether");
+									interfacePrivate->localized_arg1 = slot_name;
+								} else {
+									interfacePrivate->localized_key  = CFSTR("thunderbolt-multiether");
+									interfacePrivate->localized_arg1 = slot_name;
+									interfacePrivate->localized_arg2 = port_name;
+								}
+
 							} else {
-								interfacePrivate->localized_key  = CFSTR("pci-multiether");
-								interfacePrivate->localized_arg1 = slot_name;
-								interfacePrivate->localized_arg2 = port_name;
+								if (port_name == NULL) {
+									interfacePrivate->localized_key  = CFSTR("pci-ether");
+									interfacePrivate->localized_arg1 = slot_name;
+								} else {
+									interfacePrivate->localized_key  = CFSTR("pci-multiether");
+									interfacePrivate->localized_arg1 = slot_name;
+									interfacePrivate->localized_arg2 = port_name;
+								}
 							}
 						}
 					} else if (CFEqual(provider, CFSTR("IOUSBDevice")) ||
 						   CFEqual(provider, CFSTR("IOUSBInterface"))) {
-
+						// get USB info (if available)
 						processUSBInterface(interfacePrivate,
 								    interface,
 								    interface_dict,
@@ -1761,38 +1875,8 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 								    bus,
 								    bus_dict);
 
-						// check if a "Product Name" has been provided
-						val = IORegistryEntrySearchCFProperty(interface,
-										      kIOServicePlane,
-										      CFSTR(kIOPropertyProductNameKey),
-										      NULL,
-										      kIORegistryIterateRecursively | kIORegistryIterateParents);
-						if ((val == NULL) && (interfacePrivate->usb.name != NULL)) {
-							// else, use "USB Product Name" if available
-							val = CFRetain(interfacePrivate->usb.name);
-						}
-						if (val != NULL) {
-							CFStringRef	productName;
-
-							productName = IOCopyCFStringValue(val);
-							CFRelease(val);
-
-							if (productName != NULL) {
-								if (CFStringGetLength(productName) > 0) {
-									// if we have a [somewhat reasonable?] product name
-									if (interfacePrivate->name != NULL) {
-										CFRelease(interfacePrivate->name);
-									}
-									interfacePrivate->name = CFRetain(productName);
-									if (interfacePrivate->localized_name != NULL) {
-										CFRelease(interfacePrivate->localized_name);
-									}
-									interfacePrivate->localized_name = copy_interface_string(bundle, productName, TRUE);
-								}
-
-								CFRelease(productName);
-							}
-						} else {
+						// set interface "name"
+						if (!update_interface_name(interfacePrivate, interface, TRUE)) {
 							interfacePrivate->localized_key  = CFSTR("usb-ether");
 							interfacePrivate->localized_arg1 = IODictionaryCopyCFStringValue(interface_dict, CFSTR(kIOBSDNameKey));
 						}
@@ -1825,12 +1909,31 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 			if (interfacePrivate->builtin) {
 				interfacePrivate->localized_key = CFSTR("firewire");
 			} else {
+				CFStringRef	port_name;
 				CFStringRef	slot_name;
 
-				slot_name = pci_slot(interface, NULL);
-				if (slot_name != NULL) {
-					interfacePrivate->localized_key  = CFSTR("pci-firewire");
-					interfacePrivate->localized_arg1 = slot_name;
+				// set interface "name"
+				if (!update_interface_name(interfacePrivate, interface, FALSE) &&
+				    pci_slot_info(interface, ift, &slot_name, &port_name)) {
+					if (isThunderbolt(interface)) {
+						if (port_name == NULL) {
+							interfacePrivate->localized_key  = CFSTR("thunderbolt-firewire");
+							interfacePrivate->localized_arg1 = slot_name;
+						} else {
+							interfacePrivate->localized_key  = CFSTR("thunderbolt-multifirewire");
+							interfacePrivate->localized_arg1 = slot_name;
+							interfacePrivate->localized_arg2 = port_name;
+						}
+					} else {
+						if (port_name == NULL) {
+							interfacePrivate->localized_key  = CFSTR("pci-firewire");
+							interfacePrivate->localized_arg1 = slot_name;
+						} else {
+							interfacePrivate->localized_key  = CFSTR("pci-multifirewire");
+							interfacePrivate->localized_arg1 = slot_name;
+							interfacePrivate->localized_arg2 = port_name;
+						}
+					}
 				}
 			}
 
@@ -2219,47 +2322,22 @@ processSerialInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 		}
 
 		if (!isModem || !CFEqual(base, CFSTR("modem"))) {
-			CFStringRef	productName;
+			// get USB info (if available)
+			processUSBInterface(interfacePrivate,
+					    interface,
+					    interface_dict,
+					    controller,
+					    controller_dict,
+					    bus,
+					    bus_dict);
 
-			// check if a "Product Name" has been provided
-			val = IORegistryEntrySearchCFProperty(interface,
-							      kIOServicePlane,
-							      CFSTR(kIOPropertyProductNameKey),
-							      NULL,
-							      kIORegistryIterateRecursively | kIORegistryIterateParents);
-			if (val == NULL) {
-				// check if a "USB Product Name" has been provided
-				val = IORegistryEntrySearchCFProperty(interface,
-								      kIOServicePlane,
-								      CFSTR(kUSBProductString),
-								      NULL,
-								      kIORegistryIterateRecursively | kIORegistryIterateParents);
-			}
-			if (val != NULL) {
-				productName = IOCopyCFStringValue(val);
-				CFRelease(val);
-
-				if (productName != NULL) {
-					if (CFStringGetLength(productName) > 0) {
-						// if we have a [somewhat reasonable?] product name
-						if (interfacePrivate->name != NULL) {
-							CFRelease(interfacePrivate->name);
-						}
-						interfacePrivate->name = CFRetain(productName);
-						if (interfacePrivate->localized_name != NULL) {
-							CFRelease(interfacePrivate->localized_name);
-						}
-						interfacePrivate->localized_name = copy_interface_string(bundle, productName, TRUE);
-
-						// if not provided, also check if the product name
-						// matches a CCL script
-						if ((modemCCL == NULL) &&
-						    is_valid_connection_script(productName)) {
-							set_connection_script(interfacePrivate, productName);
-						}
-					}
-
-					CFRelease(productName);
+			// set interface "name"
+			if (update_interface_name(interfacePrivate, interface, TRUE)) {
+				// if "ModemCCL" not provided, also check if the product/interface
+				// name matches a CCL script
+				if ((modemCCL == NULL) &&
+				    is_valid_connection_script(interfacePrivate->name)) {
+					set_connection_script(interfacePrivate, interfacePrivate->name);
 				}
 			}
 		}

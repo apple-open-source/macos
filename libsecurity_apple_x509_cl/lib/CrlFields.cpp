@@ -473,6 +473,10 @@ static const oidToFieldFuncs crlFieldTable[] = {
 		&setFieldSubjIssuerAltName, &freeFieldSubjIssuerAltName } ,
 	{	&CSSMOID_IssuerAltName, &getFieldIssuerAltName,
 		&setFieldSubjIssuerAltName, &freeFieldSubjIssuerAltName } ,
+
+	{	&CSSMOID_CrlDistributionPoints,	// get/set not implemented
+		&getField_Unimplemented, &setField_ReadOnly,			
+		&freeFieldCrlDistributionPoints},
 	// etc..
 };
 

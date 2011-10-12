@@ -28,10 +28,18 @@ namespace JSC {
 
     class StringObject : public JSWrapperObject {
     public:
-        StringObject(ExecState*, Structure*);
-        StringObject(ExecState*, Structure*, const UString&);
+        typedef JSWrapperObject Base;
 
+        static StringObject* create(ExecState* exec, Structure* structure)
+        {
+            return new (allocateCell<StringObject>(*exec->heap())) StringObject(exec, structure);  
+        }
+        static StringObject* create(ExecState* exec, Structure* structure, const UString& str)
+        {
+            return new (allocateCell<StringObject>(*exec->heap())) StringObject(exec, structure, str);  
+        }
         static StringObject* create(ExecState*, JSGlobalObject*, JSString*);
+        
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
@@ -51,6 +59,8 @@ namespace JSC {
         }
 
     protected:
+        StringObject(ExecState*, Structure*);
+        StringObject(ExecState*, Structure*, const UString&);
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | JSWrapperObject::StructureFlags;
         StringObject(JSGlobalData&, Structure*, JSString*);
     };

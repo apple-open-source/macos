@@ -27,4 +27,4 @@
 CFDataRef createMkext1ForArch(const NXArchInfo * arch, CFArrayRef archiveKexts,
     Boolean compress);
 
-#endif
+#endif /* __MKEXT1_FILE_H__ */

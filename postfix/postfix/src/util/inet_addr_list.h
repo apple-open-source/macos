@@ -28,6 +28,9 @@ typedef struct INET_ADDR_LIST {
 extern void inet_addr_list_init(INET_ADDR_LIST *);
 extern void inet_addr_list_free(INET_ADDR_LIST *);
 extern void inet_addr_list_uniq(INET_ADDR_LIST *);
+#ifdef __APPLE_OS_X_SERVER
+extern void inet_addr_list_clean(INET_ADDR_LIST *);
+#endif
 extern void inet_addr_list_append(INET_ADDR_LIST *, struct sockaddr *);
 
 /* LICENSE

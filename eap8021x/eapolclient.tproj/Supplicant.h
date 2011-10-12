@@ -78,5 +78,8 @@ Supplicant_update_configuration(SupplicantRef supp,
 void
 Supplicant_stop(SupplicantRef supp);
 
+void
+Supplicant_simulate_success(SupplicantRef supp);
+
 #endif /* _S_SUPPLICANT_H */
 

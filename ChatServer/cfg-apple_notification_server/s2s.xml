@@ -79,17 +79,18 @@
   <local>
     <!-- IP and port to listen for incoming s2s connections on
                                            (default: 0.0.0.0, 5269) -->
-	<!-- APPLE: FIXME: must use IPv4 as of 2.2.9 due to what may be https://bugs.launchpad.net/jabberd2/+bug/374687 -->
-    <!-- <ip>::</ip> -->
-    <ip>0.0.0.0</ip>
+    <ip>::</ip>
     <port>5268</port>
 
     <!-- Multihomed machines (with more than one interface and IP address)
          need to specify outgoing S2S connections interface/address.
-         If not set, the <ip> section address above is used. -->
-    <!--
-    <origin>1.2.3.4</origin>
-    -->
+         If not set, the <ip> section address above is used.
+         APPLE: specify multiple origin IP addrs to add support for both
+         IPv4 and IPv6 connections. -->
+    <origins>
+        <ip>::</ip>
+        <ip>0.0.0.0</ip>
+    </origins>
 
     <!-- Secret used to generate dialback keys. If you have more than
          one s2s instance configured, make sure that this is the same on

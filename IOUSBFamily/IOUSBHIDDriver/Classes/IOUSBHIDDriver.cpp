@@ -1138,7 +1138,7 @@ IOUSBHIDDriver::getReport(	IOMemoryDescriptor * report,
 	IOBufferMemoryDescriptor * buffer = OSDynamicCast(IOBufferMemoryDescriptor, report);
 	if (buffer)
 	{
-		USBLog(5, "IOUSBHIDDriver(%s)[%p]::getReport we have an IOBufferMemoryDescriptor, so set the length to wLenDone of %d", getName(), this, requestPB.wLenDone);
+		USBLog(5, "IOUSBHIDDriver(%s)[%p]::getReport we have an IOBufferMemoryDescriptor, so set the length to wLenDone of %d", getName(), this, (int)requestPB.wLenDone);
 		buffer->setLength((vm_size_t)requestPB.wLenDone);
 	}
 	
@@ -1536,6 +1536,7 @@ IOUSBHIDDriver::newReportIntervalNumber() const
 void 
 IOUSBHIDDriver::InterruptReadHandlerEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining)
 {
+#pragma unused (param)
     IOUSBHIDDriver *	me = OSDynamicCast(IOUSBHIDDriver, target);
     uint64_t			timeStamp;
     
@@ -1552,7 +1553,8 @@ IOUSBHIDDriver::InterruptReadHandlerEntry(OSObject *target, void *param, IORetur
 void 
 IOUSBHIDDriver::InterruptReadHandlerWithTimeStampEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining, AbsoluteTime timeStamp)
 {
-    IOUSBHIDDriver *	me = OSDynamicCast(IOUSBHIDDriver, target);
+#pragma unused (param, timeStamp)
+   IOUSBHIDDriver *	me = OSDynamicCast(IOUSBHIDDriver, target);
     
     if (!me)
         return;
@@ -2029,6 +2031,7 @@ IOUSBHIDDriver::HandleReportEntry(OSObject *target, thread_call_param_t timeStam
 void
 IOUSBHIDDriver::HandleReport(AbsoluteTime timeStamp)
 {
+#pragma unused (timeStamp)
     IOReturn			status;
     IOUSBDevRequest		request;
     
@@ -2749,6 +2752,7 @@ IOUSBHIDDriver::ClaimPendingRead(OSObject *target, void *param1, void *param2, v
 IOReturn
 IOUSBHIDDriver::ChangeOutstandingIO(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
+#pragma unused (param2, param3, param4)
     IOUSBHIDDriver *me = OSDynamicCast(IOUSBHIDDriver, target);
     UInt32	direction = (uintptr_t)param1;
     
@@ -2881,18 +2885,21 @@ IOUSBHIDDriver::GetHexChar(char hexChar)
 void
 IOUSBHIDDriver::processPacket(void *data, UInt32 size)
 {
-    return;
+#pragma unused (data, size)
+   return;
 }
 
 IOReturn
 IOUSBHIDDriver::GetReport(UInt8 inReportType, UInt8 inReportID, UInt8 *vInBuf, UInt32 *vInSize)
 {
-    return kIOReturnSuccess;
+#pragma unused (inReportType, inReportID, vInBuf, vInSize)
+   return kIOReturnSuccess;
 }
 
 IOReturn
 IOUSBHIDDriver::SetReport(UInt8 outReportType, UInt8 outReportID, UInt8 *vOutBuf, UInt32 vOutSize)
 {
+#pragma unused (outReportType, outReportID, vOutBuf, vOutSize)
     return kIOReturnSuccess;
 }
 

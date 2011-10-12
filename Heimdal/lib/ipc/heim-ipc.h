@@ -64,7 +64,11 @@ pid_t
 heim_ipc_cred_get_session(heim_icred);
 
 struct sockaddr *
-heim_ipc_cred_get_address(heim_icred cred, krb5_socklen_t *sa_size);
+heim_ipc_cred_get_client_address(heim_icred cred, krb5_socklen_t *sa_size);
+
+struct sockaddr *
+heim_ipc_cred_get_server_address(heim_icred cred, krb5_socklen_t *sa_size);
+
 
 void
 heim_ipc_main(void);

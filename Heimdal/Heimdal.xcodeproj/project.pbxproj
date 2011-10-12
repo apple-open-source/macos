@@ -274,6 +274,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				EB6B1FCB13AC1A1D001CB8AD /* PBXTargetDependency */,
 				EBC6ACCB1277C25F009F5BA5 /* PBXTargetDependency */,
 				EBC6ACC91277C25F009F5BA5 /* PBXTargetDependency */,
 				EB0DA2B612727D6C002ECA30 /* PBXTargetDependency */,
@@ -1458,6 +1459,10 @@
 		EB692768107929C700ACB444 /* heim_asn1.h in Install framework headers */ = {isa = PBXBuildFile; fileRef = EBFB56A30F2181960009D37C /* heim_asn1.h */; };
 		EB692797107933CC00ACB444 /* sel-gram.h in Headers */ = {isa = PBXBuildFile; fileRef = EB692795107933CC00ACB444 /* sel-gram.h */; };
 		EB6AE312101EE5E700A69D87 /* gssapi_spi.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF8B8B7101785A6000BA085 /* gssapi_spi.h */; };
+		EB6B1FB113AC1992001CB8AD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB6B1FB013AC1992001CB8AD /* CoreFoundation.framework */; };
+		EB6B1FC713AC19E7001CB8AD /* GSSCredentialSelector.m in Sources */ = {isa = PBXBuildFile; fileRef = EB6B1FC513AC19E7001CB8AD /* GSSCredentialSelector.m */; };
+		EB6B1FC813AC19FC001CB8AD /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDA3358105990230042FFAE /* GSS.framework */; };
+		EB6B1FC913AC19FC001CB8AD /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
 		EB6DD060127CFAE8002DE784 /* ccdigest.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6DD05F127CFAE8002DE784 /* ccdigest.c */; };
 		EB6EE7E11085BDA800F92EAF /* gssapi.h in Headers */ = {isa = PBXBuildFile; fileRef = EB91CFDB0F28477300CCDEA3 /* gssapi.h */; };
 		EB6EE7E21085BDB600F92EAF /* krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F2710F22CD3500D1AB35 /* krb5.h */; };
@@ -2119,6 +2124,9 @@
 		EB9538C10FFD1A450013822C /* default_config.c in Sources */ = {isa = PBXBuildFile; fileRef = EB9662F90F285D1800E3B9E0 /* default_config.c */; };
 		EB9538C20FFD1A450013822C /* set_dbinfo.c in Sources */ = {isa = PBXBuildFile; fileRef = EB96631B0F285D1800E3B9E0 /* set_dbinfo.c */; };
 		EB9539280FFD1A750013822C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB04E85B0F3476BE009A5B13 /* CoreFoundation.framework */; };
+		EB953D7313CD1BD500045986 /* gssapi_plugin.h in Copy GSS PrivateHeaders */ = {isa = PBXBuildFile; fileRef = EB953D6E13CD1AF300045986 /* gssapi_plugin.h */; };
+		EB953D7D13CD212B00045986 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
+		EB953D8013CE251100045986 /* log.c in Sources */ = {isa = PBXBuildFile; fileRef = EB953D7E13CE24F500045986 /* log.c */; };
 		EB9662B80F285AA500E3B9E0 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = EB9662A40F285AA500E3B9E0 /* common.c */; };
 		EB9662B90F285AA500E3B9E0 /* db.c in Sources */ = {isa = PBXBuildFile; fileRef = EB9662A50F285AA500E3B9E0 /* db.c */; };
 		EB9662BA0F285AA500E3B9E0 /* db3.c in Sources */ = {isa = PBXBuildFile; fileRef = EB9662A60F285AA500E3B9E0 /* db3.c */; };
@@ -3187,6 +3195,7 @@
 		EBF8BBC6101B2229000BA085 /* asn1-common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB567E0F2181960009D37C /* asn1-common.h */; };
 		EBF8BBD0101B22FA000BA085 /* libipc-client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBC6C6690FFAB41D0065A377 /* libipc-client.a */; };
 		EBF8BBF5101C0AA2000BA085 /* iter_cred.c in Sources */ = {isa = PBXBuildFile; fileRef = EBF8BBF4101C0AA2000BA085 /* iter_cred.c */; };
+		EBFA152C13ABDDDB008069DF /* gssapi_plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFA152B13ABDDDB008069DF /* gssapi_plugin.h */; };
 		EBFACCD311A5A99D0031025B /* hex.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB573D0F21822D0009D37C /* hex.h */; };
 		EBFB57B20F2182A70009D37C /* compile_et.c in Sources */ = {isa = PBXBuildFile; fileRef = EBFB56EF0F2181E90009D37C /* compile_et.c */; };
 		EBFB57B30F2182B10009D37C /* error.c in Sources */ = {isa = PBXBuildFile; fileRef = EBFB56F10F2181E90009D37C /* error.c */; };
@@ -4399,6 +4408,13 @@
 			remoteGlobalIDString = EBFB59280F22550E0009D37C;
 			remoteInfo = asn1_compile;
 		};
+		EB6B1FCA13AC1A1D001CB8AD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB6B1FAE13AC1992001CB8AD;
+			remoteInfo = GSSCredentialSelector;
+		};
 		EB6C40FF0F88181900EAF060 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -4839,6 +4855,27 @@
 			proxyType = 1;
 			remoteGlobalIDString = EBB6B3DE0F22C493006BD106;
 			remoteInfo = roken;
+		};
+		EB953D7413CD1CC100045986 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB49AA6B0F2584790076E27F;
+			remoteInfo = Heimdal;
+		};
+		EB953D7613CD1CD600045986 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB49AA6B0F2584790076E27F;
+			remoteInfo = Heimdal;
+		};
+		EB953D7813CD1CD600045986 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBDA3357105990230042FFAE;
+			remoteInfo = GSS;
 		};
 		EB9661F00F2850F400E3B9E0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -5900,6 +5937,7 @@
 			dstPath = "/System/Library/Frameworks/$(PRIVATE_HEADERS_FOLDER_PATH)";
 			dstSubfolderSpec = 0;
 			files = (
+				EB953D7313CD1BD500045986 /* gssapi_plugin.h in Copy GSS PrivateHeaders */,
 				EBAE7AC812B045E1002DA026 /* gssapi_rewrite.h in Copy GSS PrivateHeaders */,
 				EB792B1512271ABB004407A7 /* gssapi_scram.h in Copy GSS PrivateHeaders */,
 				EBBB6BB110599A5400B84263 /* gssapi_spi.h in Copy GSS PrivateHeaders */,
@@ -6543,6 +6581,11 @@
 		EB694C270F87E9D70086B3A6 /* parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parse.h; path = Derived/compile_et/parse.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB6A7B0A0F30372E0034AFBE /* Heimdal-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Heimdal-Info.plist"; path = "packages/mac/Heimdal-Info.plist"; sourceTree = "<group>"; };
 		EB6A7B990F3045BE0034AFBE /* krb5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = krb5.h; path = Derived/Heimdal/krb5.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB6B1FAF13AC1992001CB8AD /* GSSCredentialSelector.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GSSCredentialSelector.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB6B1FB013AC1992001CB8AD /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		EB6B1FC413AC19E7001CB8AD /* GSSCredentialSelector-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "GSSCredentialSelector-Info.plist"; path = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist"; sourceTree = "<group>"; };
+		EB6B1FC513AC19E7001CB8AD /* GSSCredentialSelector.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = GSSCredentialSelector.m; path = plugins/GSSCredentialSelector/GSSCredentialSelector.m; sourceTree = "<group>"; };
+		EB6B1FD113AC218B001CB8AD /* gssapi_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi_plugin.h; path = GSS/gssapi_plugin.h; sourceTree = "<group>"; };
 		EB6DD05F127CFAE8002DE784 /* ccdigest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ccdigest.c; path = lib/hcrypto/ccdigest.c; sourceTree = "<group>"; };
 		EB6FC9D410A4AA2300D80A61 /* kadmind.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = kadmind.sb; path = packages/mac/kadmind.sb; sourceTree = "<group>"; };
 		EB6FC9D510A4AA2300D80A61 /* kpasswdd.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = kpasswdd.sb; path = packages/mac/kpasswdd.sb; sourceTree = "<group>"; };
@@ -6834,6 +6877,8 @@
 		EB9537620FFC74050013822C /* digest_asn1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = digest_asn1.h; path = Derived/digest_asn1.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB9537E50FFC786C0013822C /* com.apple.Kerberos.digest-service.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "com.apple.Kerberos.digest-service.plist"; path = "packages/mac/com.apple.Kerberos.digest-service.plist"; sourceTree = "<group>"; };
 		EB9537E60FFC78980013822C /* com.apple.Kerberos.kdc.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.Kerberos.kdc.plist; path = packages/mac/com.apple.Kerberos.kdc.plist; sourceTree = "<group>"; };
+		EB953D6E13CD1AF300045986 /* gssapi_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi_plugin.h; path = GSS/gssapi_plugin.h; sourceTree = "<group>"; };
+		EB953D7E13CE24F500045986 /* log.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = log.c; path = base/log.c; sourceTree = "<group>"; };
 		EB9662930F285A2100E3B9E0 /* libhdb.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libhdb.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB9662A40F285AA500E3B9E0 /* common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = common.c; path = lib/hdb/common.c; sourceTree = "<group>"; };
 		EB9662A50F285AA500E3B9E0 /* db.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = db.c; path = lib/hdb/db.c; sourceTree = "<group>"; };
@@ -7598,6 +7643,7 @@
 		EBF8BB07101A9C38000BA085 /* iter_cred.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = iter_cred.c; path = lib/gssapi/ntlm/iter_cred.c; sourceTree = "<group>"; };
 		EBF8BB08101A9C38000BA085 /* kdc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = kdc.c; path = lib/gssapi/ntlm/kdc.c; sourceTree = "<group>"; };
 		EBF8BBF4101C0AA2000BA085 /* iter_cred.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = iter_cred.c; path = lib/gssapi/krb5/iter_cred.c; sourceTree = "<group>"; };
+		EBFA152B13ABDDDB008069DF /* gssapi_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi_plugin.h; path = lib/gssapi/gssapi/gssapi_plugin.h; sourceTree = "<group>"; };
 		EBFB567A0F2181960009D37C /* asn1_err.et */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = asn1_err.et; path = lib/asn1/asn1_err.et; sourceTree = "<group>"; };
 		EBFB567B0F2181960009D37C /* asn1_gen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = asn1_gen.c; path = lib/asn1/asn1_gen.c; sourceTree = "<group>"; };
 		EBFB567C0F2181960009D37C /* asn1_print.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = asn1_print.c; path = lib/asn1/asn1_print.c; sourceTree = "<group>"; };
@@ -8122,6 +8168,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB6B1FAC13AC1992001CB8AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB6B1FC813AC19FC001CB8AD /* GSS.framework in Frameworks */,
+				EB6B1FC913AC19FC001CB8AD /* Heimdal.framework in Frameworks */,
+				EB6B1FB113AC1992001CB8AD /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB6FCB1910A759AC00D80A61 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -8219,6 +8275,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB953D7D13CD212B00045986 /* Heimdal.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -8859,6 +8916,7 @@
 				EB224FEE128A1FD60093D709 /* test_enctypes */,
 				EB47CCBF12F8C148002E6C2F /* test_get_cred */,
 				EBD090A91330353A001D0938 /* GSSEmbeddedSample.app */,
+				EB6B1FAF13AC1992001CB8AD /* GSSCredentialSelector.bundle */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -8866,8 +8924,9 @@
 		72C1AC1C120C874300ED5EBB /* plugins */ = {
 			isa = PBXGroup;
 			children = (
-				EB0DA25812727C2D002ECA30 /* SCKerberosConfig */,
+				EB6B1FC313AC19BD001CB8AD /* GSSCredentailSelector */,
 				EBF791D9121910F800D4957A /* GSSNotificationForwarder */,
+				EB0DA25812727C2D002ECA30 /* SCKerberosConfig */,
 				72C1AC40120C87C300ED5EBB /* Reachability.m */,
 			);
 			name = plugins;
@@ -9146,6 +9205,7 @@
 		EB42F4FA116BCE7100FCDD8F /* base */ = {
 			isa = PBXGroup;
 			children = (
+				EB953D7E13CE24F500045986 /* log.c */,
 				EBD26EAC11EB8E4900FD93AC /* heimqueue.h */,
 				EB82E7D11172B32200F32A49 /* bool.c */,
 				EB82E7D21172B32200F32A49 /* null.c */,
@@ -9535,6 +9595,15 @@
 			name = Heimdal;
 			sourceTree = "<group>";
 		};
+		EB6B1FC313AC19BD001CB8AD /* GSSCredentailSelector */ = {
+			isa = PBXGroup;
+			children = (
+				EB6B1FC413AC19E7001CB8AD /* GSSCredentialSelector-Info.plist */,
+				EB6B1FC513AC19E7001CB8AD /* GSSCredentialSelector.m */,
+			);
+			name = GSSCredentailSelector;
+			sourceTree = "<group>";
+		};
 		EB75781D106DB030005F33AA /* include */ = {
 			isa = PBXGroup;
 			children = (
@@ -9682,6 +9751,7 @@
 		EB7A40950F283FCC00FA18F7 /* gssapi */ = {
 			isa = PBXGroup;
 			children = (
+				EBFA152B13ABDDDB008069DF /* gssapi_plugin.h */,
 				EB7928DF12260B69004407A7 /* gssapi_scram.h */,
 				EB17B5DD1062E0980015DEB4 /* gssapi_netlogon.h */,
 				EBF8B8B7101785A6000BA085 /* gssapi_spi.h */,
@@ -10220,6 +10290,7 @@
 		EBBB6B40105992F900B84263 /* GSS */ = {
 			isa = PBXGroup;
 			children = (
+				EB6B1FD113AC218B001CB8AD /* gssapi_plugin.h */,
 				EBAE7AC012B045D9002DA026 /* gssapi_rewrite.h */,
 				EB792B1412271AAB004407A7 /* gssapi_scram.h */,
 				EB0F9C17111E3DF700744852 /* gssapi_netlogon.h */,
@@ -10228,6 +10299,7 @@
 				EBBB6BAA10599A1700B84263 /* gssapi_spi.h */,
 				EBBB6BAB10599A1700B84263 /* gssapi_spnego.h */,
 				EBBB6BAC10599A1700B84263 /* gssapi.h */,
+				EB953D6E13CD1AF300045986 /* gssapi_plugin.h */,
 			);
 			name = GSS;
 			sourceTree = "<group>";
@@ -10581,6 +10653,7 @@
 				EBD090AC1330353B001D0938 /* UIKit.framework */,
 				EBD090AE1330353B001D0938 /* Foundation.framework */,
 				EBD090B01330353B001D0938 /* CoreGraphics.framework */,
+				EB6B1FB013AC1992001CB8AD /* CoreFoundation.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -11950,6 +12023,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB6B1FAD13AC1992001CB8AD /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB6FCC5910A75C2100D80A61 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -12196,6 +12276,7 @@
 				EBCDF35F122E3AE700707CDE /* gssapi_netlogon.h in Headers */,
 				EBAE7AD012B0462C002DA026 /* gssapi_rewrite.h in Headers */,
 				EBAE7B0B12B16A06002DA026 /* heimbase.h in Headers */,
+				EBFA152C13ABDDDB008069DF /* gssapi_plugin.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -13968,6 +14049,25 @@
 			productReference = EB61814A105F522A004A7FF2 /* libgss-netlogon.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		EB6B1FAE13AC1992001CB8AD /* GSSCredentialSelector */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB6B1FC213AC1992001CB8AD /* Build configuration list for PBXNativeTarget "GSSCredentialSelector" */;
+			buildPhases = (
+				EB6B1FAB13AC1992001CB8AD /* Sources */,
+				EB6B1FAC13AC1992001CB8AD /* Frameworks */,
+				EB6B1FAD13AC1992001CB8AD /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB953D7713CD1CD600045986 /* PBXTargetDependency */,
+				EB953D7913CD1CD600045986 /* PBXTargetDependency */,
+			);
+			name = GSSCredentialSelector;
+			productName = GSSCredentialSelector;
+			productReference = EB6B1FAF13AC1992001CB8AD /* GSSCredentialSelector.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
 		EB6FCB1A10A759AC00D80A61 /* kcminit */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EB6FCB2610A759D900D80A61 /* Build configuration list for PBXNativeTarget "kcminit" */;
@@ -14137,6 +14237,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				EB953D7513CD1CC100045986 /* PBXTargetDependency */,
 				EBF81D99133057BD00DD4D3C /* PBXTargetDependency */,
 			);
 			name = "gss-mechglue";
@@ -15245,6 +15346,7 @@
 				727E2635120B6D75002CBF58 /* Reachability */,
 				EBF791AA12190B9900D4957A /* GSSNotificationForwarder */,
 				EB0DA26012727C7F002ECA30 /* SCKerberosConfig */,
+				EB6B1FAE13AC1992001CB8AD /* GSSCredentialSelector */,
 				EBDB59C110A361DE003FD0F9 /* kpasswd */,
 				EB9536020FFC27450013822C /* digest-service */,
 				EB9662E40F285CAB00E3B9E0 /* kdc */,
@@ -15517,7 +15619,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\nmkdir -p ${HEIMDAL_TMPDIR}/Heimdal\n\nfor a in \\\n\t${SRCROOT}/lib/com_err/com_err.h \\\n\t${SRCROOT}/lib/com_err/com_right.h \\\n\t${SRCROOT}/base/heimbase.h \\\n\t${SRCROOT}/lib/krb5/krb5.h \\\n\t${SRCROOT}/lib/hx509/hx509.h \\\n\t${SRCROOT}/lib/hx509/hx509-protos.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_krb5.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_ntlm.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_spnego.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_netlogon.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_spi.h \\\n     ;\ndo\n     perl ${SRCROOT}/packages/mac/Heimdal-ify.pl Heimdal \"$a\" ${HEIMDAL_TMPDIR}/Heimdal || exit 1\ndone\n\n";
+			shellScript = "\nmkdir -p ${HEIMDAL_TMPDIR}/Heimdal\n\nfor a in \\\n\t${SRCROOT}/lib/com_err/com_err.h \\\n\t${SRCROOT}/lib/com_err/com_right.h \\\n\t${SRCROOT}/base/heimbase.h \\\n\t${SRCROOT}/lib/krb5/krb5.h \\\n\t${SRCROOT}/lib/hx509/hx509.h \\\n\t${SRCROOT}/lib/hx509/hx509-protos.h \\\n     ;\ndo\n     perl ${SRCROOT}/packages/mac/Heimdal-ify.pl Heimdal \"$a\" ${HEIMDAL_TMPDIR}/Heimdal || exit 1\ndone\n\n";
 		};
 		EB8B2DAE105E09A40067076B /* Add Headers symlink */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -15573,7 +15675,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\nmkdir -p ${HEIMDAL_TMPDIR}/GSS\n\nfor a in \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_krb5.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_netlogon.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_ntlm.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_scram.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_spnego.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_spi.h \\\n     ;\ndo\n     perl ${SRCROOT}/packages/mac/Heimdal-ify.pl GSS \"$a\" ${HEIMDAL_TMPDIR}/GSS || exit 1\ndone\n\nfor a in \\\n\t${HEIMDAL_TMPDIR}/gssapi_rewrite.h \\\n\t;\ndo\n     perl ${SRCROOT}/packages/mac/Heimdal-ify.pl GSS \"$a\" ${HEIMDAL_TMPDIR}/GSS || exit 1\ndone\n";
+			shellScript = "\nmkdir -p ${HEIMDAL_TMPDIR}/GSS\n\nfor a in \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_krb5.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_netlogon.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_ntlm.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_scram.h \\\n\t${SRCROOT}/lib/gssapi/gssapi/gssapi_spnego.h \\\n    ${SRCROOT}/lib/gssapi/gssapi/gssapi_spi.h \\\n    ${SRCROOT}/lib/gssapi/gssapi/gssapi_plugin.h \\\n     ;\ndo\n     perl ${SRCROOT}/packages/mac/Heimdal-ify.pl GSS \"$a\" ${HEIMDAL_TMPDIR}/GSS || exit 1\ndone\n\nfor a in \\\n\t${HEIMDAL_TMPDIR}/gssapi_rewrite.h \\\n\t;\ndo\n     perl ${SRCROOT}/packages/mac/Heimdal-ify.pl GSS \"$a\" ${HEIMDAL_TMPDIR}/GSS || exit 1\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -15806,6 +15908,7 @@
 				EBED189C117234960097433E /* number.c in Sources */,
 				EB82E7D31172B32200F32A49 /* bool.c in Sources */,
 				EB82E7D41172B32200F32A49 /* null.c in Sources */,
+				EB953D8013CE251100045986 /* log.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -15896,6 +15999,14 @@
 				EB618229105F61EE004A7FF2 /* release_cred.c in Sources */,
 				EB61822A105F61EE004A7FF2 /* release_name.c in Sources */,
 				EB618257105F6C59004A7FF2 /* crypto.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB6B1FAB13AC1992001CB8AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB6B1FC713AC19E7001CB8AD /* GSSCredentialSelector.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -17560,6 +17671,11 @@
 			target = EBFB59280F22550E0009D37C /* heimdal-asn1_compile */;
 			targetProxy = EB6927A71079369000ACB444 /* PBXContainerItemProxy */;
 		};
+		EB6B1FCB13AC1A1D001CB8AD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB6B1FAE13AC1992001CB8AD /* GSSCredentialSelector */;
+			targetProxy = EB6B1FCA13AC1A1D001CB8AD /* PBXContainerItemProxy */;
+		};
 		EB6C41000F88181900EAF060 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EB9662920F285A2100E3B9E0 /* hdb */;
@@ -17874,6 +17990,21 @@
 			isa = PBXTargetDependency;
 			target = EBB6B3DE0F22C493006BD106 /* roken */;
 			targetProxy = EB9536FB0FFC5F070013822C /* PBXContainerItemProxy */;
+		};
+		EB953D7513CD1CC100045986 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB49AA6B0F2584790076E27F /* Heimdal */;
+			targetProxy = EB953D7413CD1CC100045986 /* PBXContainerItemProxy */;
+		};
+		EB953D7713CD1CD600045986 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB49AA6B0F2584790076E27F /* Heimdal */;
+			targetProxy = EB953D7613CD1CD600045986 /* PBXContainerItemProxy */;
+		};
+		EB953D7913CD1CD600045986 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBDA3357105990230042FFAE /* GSS */;
+			targetProxy = EB953D7813CD1CD600045986 /* PBXContainerItemProxy */;
 		};
 		EB9661F10F2850F400E3B9E0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -21038,6 +21169,63 @@
 			};
 			name = Debug;
 		};
+		EB6B1FBF13AC1992001CB8AD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				INFOPLIST_FILE = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist";
+				INSTALL_PATH = /System/Library/KerberosPlugins/GSSAPI;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		EB6B1FC013AC1992001CB8AD /* Release-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				INFOPLIST_FILE = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist";
+				INSTALL_PATH = /System/Library/KerberosPlugins/GSSAPI;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = "Release-Embedded";
+		};
+		EB6B1FC113AC1992001CB8AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				INFOPLIST_FILE = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist";
+				INSTALL_PATH = /System/Library/KerberosPlugins/GSSAPI;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
 		EB6FCB1D10A759AE00D80A61 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -23926,6 +24114,16 @@
 				EB692773107932A200ACB444 /* Release */,
 				EB42F4571169203600FCDD8F /* Release-Embedded */,
 				EB692774107932A200ACB444 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB6B1FC213AC1992001CB8AD /* Build configuration list for PBXNativeTarget "GSSCredentialSelector" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB6B1FBF13AC1992001CB8AD /* Release */,
+				EB6B1FC013AC1992001CB8AD /* Release-Embedded */,
+				EB6B1FC113AC1992001CB8AD /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

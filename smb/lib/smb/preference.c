@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010 - 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,7 +49,7 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 	if (level == 0) {
 		/* 
 		 * Neither of these are defined in the man pages. We should add
-		 * kernel log level, then in a Lion+1 remove debug level.
+		 * kernel log level, then in future remove debug level.
 		 */
 		rc_getint(rcfile, sname, "debug_level", &prefs->KernelLogLevel);
 		rc_getint(rcfile, sname, "kloglevel", &prefs->KernelLogLevel);
@@ -128,6 +128,16 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 				 * optimized away.)
 				 */
 				prefs->minAuthAllowed = SMB_MINAUTH;
+			}
+		}
+		/* Only get the value if it exist */
+		if (rc_getbool(rcfile, sname, "workAroundEMC", &altflags) == 0) {			
+			if (altflags) {
+				prefs->workAroundEMCPanic = TRUE;
+			} else {
+				prefs->workAroundEMCPanic = FALSE;	
+				smb_log_info("%s: Turning off the EMC Workaround!", 
+							 ASL_LEVEL_DEBUG, __FUNCTION__);
 			}
 		}
 	}
@@ -285,6 +295,8 @@ void getDefaultPreferences(struct smb_prefs *prefs)
 	prefs->altflags = SMBFS_MNT_STREAMS_ON | SMBFS_MNT_COMPOUND_ON;
 	prefs->minAuthAllowed = SMB_MINAUTH_NTLM;
 	prefs->NetBIOSResolverTimeout = DefaultNetBIOSResolverTimeout;
+	prefs->workAroundEMCPanic = TRUE;
+	
 	/* Now get any values stored in the System Configuration */
 	getSCPreferences(prefs);
 }

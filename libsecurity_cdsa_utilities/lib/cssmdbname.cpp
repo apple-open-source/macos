@@ -60,7 +60,7 @@ void DbName::CanonicalizeName()
 {
 	if (mDbNameValid)
 	{
-		char* s = realpath(mDbName.c_str(), NULL);
+		char* s = cached_realpath(mDbName.c_str(), NULL);
 		if (s != NULL)
 		{
 			mCanonicalName = s;
@@ -87,7 +87,7 @@ void DbName::CanonicalizeName()
 				if (n > 0)
 				{
 					string tmpPath = mDbName.substr(0, n);
-					s = realpath(tmpPath.c_str(), NULL);
+					s = cached_realpath(tmpPath.c_str(), NULL);
 					if (s != NULL)
 					{
 						mCanonicalName = s;

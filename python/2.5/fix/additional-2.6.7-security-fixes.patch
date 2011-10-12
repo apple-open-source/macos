@@ -1,0 +1,135 @@
+--- Lib/smtpd.py.orig	2007-10-23 20:52:50.000000000 -0700
++++ Lib/smtpd.py	2011-07-26 10:38:14.000000000 -0700
+@@ -121,7 +121,15 @@ class SMTPChannel(asynchat.async_chat):
+         self.__rcpttos = []
+         self.__data = ''
+         self.__fqdn = socket.getfqdn()
+-        self.__peer = conn.getpeername()
++        try:
++            self.__peer = conn.getpeername()
++        except socket.error:
++            # a race condition  may occur if the other end is closing
++            # before we can get the peername
++            self.close()
++            if socker.error.args[0] != errno.ENOTCONN:
++                raise
++            return
+         print >> DEBUGSTREAM, 'Peer:', repr(self.__peer)
+         self.push('220 %s %s' % (self.__fqdn, __version__))
+         self.set_terminator('\r\n')
+@@ -285,7 +293,20 @@ class SMTPServer(asyncore.dispatcher):
+             localaddr, remoteaddr)
+ 
+     def handle_accept(self):
+-        conn, addr = self.accept()
++        try:
++            conn, addr = self.accept()
++        except TypeError:
++            # sometimes accept() might return None
++            return
++        except socket.error:
++            # ECONNABORTED might be thrown
++            if socket.error.args[0] != errno.ECONNABORTED:
++                raise
++            return
++        else:
++            # sometimes addr == None instead of (ip, port)
++            if addr == None:
++                return
+         print >> DEBUGSTREAM, 'Incoming connection from %s' % repr(addr)
+         channel = SMTPChannel(self, conn, addr)
+ 
+--- Lib/test/test_normalization.py.orig	2006-03-24 00:02:51.000000000 -0800
++++ Lib/test/test_normalization.py	2011-07-26 10:24:29.000000000 -0700
+@@ -40,9 +40,6 @@ def test_main():
+         if line.startswith("@Part"):
+             part = line.split()[0]
+             continue
+-        if part == "@Part3":
+-            # XXX we don't support PRI #29 yet, so skip these tests for now
+-            continue
+         try:
+             c1,c2,c3,c4,c5 = [unistr(x) for x in line.split(';')[:-1]]
+         except RangeError:
+--- Lib/test/test_time.py.orig	2006-07-17 21:41:36.000000000 -0700
++++ Lib/test/test_time.py	2011-07-26 11:10:42.000000000 -0700
+@@ -115,6 +115,16 @@ class TimeTestCase(unittest.TestCase):
+     def test_asctime(self):
+         time.asctime(time.gmtime(self.t))
+         self.assertRaises(TypeError, time.asctime, 0)
++        self.assertRaises(TypeError, time.asctime, ())
++        # XXX: Posix compiant asctime should refuse to convert
++        # year > 9999, but Linux implementation does not.
++        # self.assertRaises(ValueError, time.asctime,
++        #                  (12345, 1, 0, 0, 0, 0, 0, 0, 0))
++        # XXX: For now, just make sure we don't have a crash:
++        try:
++            time.asctime((12345, 1, 0, 0, 0, 0, 0, 0, 0))
++        except ValueError:
++            pass
+ 
+     def test_tzset(self):
+         if not hasattr(time, "tzset"):
+--- Lib/test/test_unicodedata.py.orig	2007-07-28 00:01:43.000000000 -0700
++++ Lib/test/test_unicodedata.py	2011-07-26 11:13:12.000000000 -0700
+@@ -174,6 +174,18 @@ class UnicodeFunctionsTest(UnicodeDataba
+         # The rest can be found in test_normalization.py
+         # which requires an external file.
+ 
++    def test_pr29(self):
++        # http://www.unicode.org/review/pr-29.html
++        # See issues #1054943 and #10254.
++        composed = (u"\u0b47\u0300\u0b3e", u"\u1100\u0300\u1161",
++                    u'Li\u030dt-s\u1e73\u0301',
++                    u'\u092e\u093e\u0930\u094d\u0915 \u091c\u093c'
++                    + u'\u0941\u0915\u0947\u0930\u092c\u0930\u094d\u0917',
++                    u'\u0915\u093f\u0930\u094d\u0917\u093f\u091c\u093c'
++                    + 'u\u0938\u094d\u0924\u093e\u0928')
++        for text in composed:
++            self.assertEqual(self.db.normalize('NFC', text), text)
++
+     def test_east_asian_width(self):
+         eaw = self.db.east_asian_width
+         self.assertRaises(TypeError, eaw, 'a')
+--- Modules/timemodule.c.orig	2007-12-24 12:00:42.000000000 -0800
++++ Modules/timemodule.c	2011-07-26 11:15:33.000000000 -0700
+@@ -545,6 +545,10 @@ time_asctime(PyObject *self, PyObject *a
+ 	} else if (!gettmarg(tup, &buf))
+ 		return NULL;
+ 	p = asctime(&buf);
++	if (p == NULL) {
++		PyErr_SetString(PyExc_ValueError, "invalid time");
++		return NULL;
++	}
+ 	if (p[24] == '\n')
+ 		p[24] = '\0';
+ 	return PyString_FromString(p);
+--- Modules/unicodedata.c.orig	2007-07-28 00:01:43.000000000 -0700
++++ Modules/unicodedata.c	2011-07-26 11:19:15.000000000 -0700
+@@ -675,10 +675,14 @@ nfc_nfkc(PyObject *self, PyObject *input
+       comb = 0;
+       while (i1 < end) {
+           int comb1 = _getrecord_ex(*i1)->combining;
+-          if (comb1 && comb == comb1) {
+-              /* Character is blocked. */
+-              i1++;
+-              continue;
++          if (comb) {
++	      if (comb1 == 0)
++		  break;
++	      if (comb >= comb1) {
++		  /* Character is blocked. */
++		  i1++;
++		  continue;
++	      }
+           }
+           l = find_nfc_index(self, nfc_last, *i1);
+           /* *i1 cannot be combined with *i. If *i1
+@@ -702,6 +706,7 @@ nfc_nfkc(PyObject *self, PyObject *input
+           /* Replace the original character. */
+           *i = code;
+           /* Mark the second character unused. */
++          assert(cskipped < 20);
+           skipped[cskipped++] = i1;
+           i1++;
+           f = find_nfc_index(self, nfc_first, *i);

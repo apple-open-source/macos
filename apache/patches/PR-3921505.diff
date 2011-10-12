@@ -1,6 +1,6 @@
 --- modules/generators/mod_autoindex.c.orig	2007-09-13 14:46:46.000000000 -0700
 +++ modules/generators/mod_autoindex.c	2007-09-13 14:46:58.000000000 -0700
-@@ -2016,7 +2016,7 @@
+@@ -2017,7 +2017,7 @@
          charset = autoindex_conf->charset;
      }
      else {

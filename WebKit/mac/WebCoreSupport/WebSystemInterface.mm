@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -119,6 +119,7 @@ void InitWebCoreSystemInterface(void)
     INIT(CreateCTTypesetterWithUniCharProviderAndOptions);
     INIT(MakeScrollbarPainter);
     INIT(ScrollbarPainterSetDelegate);
+    INIT(ScrollbarPainterSetEnabled);
     INIT(ScrollbarPainterPaint);
     INIT(ScrollbarPainterForceFlashScrollers);
     INIT(ScrollbarThickness);
@@ -155,6 +156,7 @@ void InitWebCoreSystemInterface(void)
     INIT(ExecutableWasLinkedOnOrBeforeSnowLeopard);
     INIT(CopyDefaultSearchProviderDisplayName);
     INIT(AVAssetResolvedURL);
+    INIT(Cursor);
 #endif
 
     INIT(GetAXTextMarkerTypeID);

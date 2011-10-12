@@ -21,7 +21,6 @@
 #import <Foundation/Foundation.h>
 #import <OpenDirectory/NSOpenDirectory.h>
 #import <OpenDirectory/OpenDirectoryPriv.h>
-#import <AOSNotification/AOSNotification.h>
 #import <DirectoryService/DirServicesTypes.h>
 #import <DirectoryService/DirServicesConst.h>
 

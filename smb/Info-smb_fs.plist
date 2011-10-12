@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.0</string>
+	<string>1.7.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.0</string>
+	<string>1.7.1</string>
 	<key>FSPersonalities</key>
 	<dict>
 		<key>SMB_FS_CDFS</key>
@@ -80,6 +80,6 @@
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2004-2010 Apple Inc. All rights reserved.</string>
+	<string>Copyright © 2004-2011 Apple Inc. All rights reserved.</string>
 </dict>
 </plist>

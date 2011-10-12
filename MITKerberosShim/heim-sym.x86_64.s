@@ -302,6 +302,31 @@ _heim_krb5_auth_con_getlocalsubkey:
 	movq    (%r11), %r11
 	jmp	*%r11
 
+	.globl _heim_krb5_set_password
+_heim_krb5_set_password:
+	pushq	%rbp
+	movq	%rsp, %rbp
+	subq	$208, %rsp
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+	call	_heim_load_functions
+	popq %r9
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	addq	$208, %rsp
+	movq	%rbp, %rsp
+	popq   %rbp
+	movq    _fun_krb5_set_password@GOTPCREL(%rip), %r11
+	movq    (%r11), %r11
+	jmp	*%r11
+
 	.globl _heim_krb5_set_password_using_ccache
 _heim_krb5_set_password_using_ccache:
 	pushq	%rbp
@@ -1752,6 +1777,31 @@ _heim_krb5_get_error_string:
 	movq    (%r11), %r11
 	jmp	*%r11
 
+	.globl _heim_krb5_get_default_principal
+_heim_krb5_get_default_principal:
+	pushq	%rbp
+	movq	%rsp, %rbp
+	subq	$208, %rsp
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+	call	_heim_load_functions
+	popq %r9
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	addq	$208, %rsp
+	movq	%rbp, %rsp
+	popq   %rbp
+	movq    _fun_krb5_get_default_principal@GOTPCREL(%rip), %r11
+	movq    (%r11), %r11
+	jmp	*%r11
+
 	.globl _heim_krb5_get_init_creds_opt_alloc
 _heim_krb5_get_init_creds_opt_alloc:
 	pushq	%rbp
@@ -2777,6 +2827,56 @@ _heim_gss_import_name:
 	movq    (%r11), %r11
 	jmp	*%r11
 
+	.globl _heim_krb5_appdefault_boolean
+_heim_krb5_appdefault_boolean:
+	pushq	%rbp
+	movq	%rsp, %rbp
+	subq	$208, %rsp
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+	call	_heim_load_functions
+	popq %r9
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	addq	$208, %rsp
+	movq	%rbp, %rsp
+	popq   %rbp
+	movq    _fun_krb5_appdefault_boolean@GOTPCREL(%rip), %r11
+	movq    (%r11), %r11
+	jmp	*%r11
+
+	.globl _heim_krb5_appdefault_string
+_heim_krb5_appdefault_string:
+	pushq	%rbp
+	movq	%rsp, %rbp
+	subq	$208, %rsp
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+	call	_heim_load_functions
+	popq %r9
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	addq	$208, %rsp
+	movq	%rbp, %rsp
+	popq   %rbp
+	movq    _fun_krb5_appdefault_string@GOTPCREL(%rip), %r11
+	movq    (%r11), %r11
+	jmp	*%r11
+
 .comm _fun_krb5_cc_end_seq_get,8,3
 .comm _fun_krb5_config_get_string,8,3
 .comm _fun_krb5_set_default_in_tkt_etypes,8,3
@@ -2789,6 +2889,7 @@ _heim_gss_import_name:
 .comm _fun_krb5_free_keyblock,8,3
 .comm _fun_krb5_auth_con_getremotesubkey,8,3
 .comm _fun_krb5_auth_con_getlocalsubkey,8,3
+.comm _fun_krb5_set_password,8,3
 .comm _fun_krb5_set_password_using_ccache,8,3
 .comm _fun_krb5_realm_compare,8,3
 .comm _fun_krb5_get_renewed_creds,8,3
@@ -2847,6 +2948,7 @@ _heim_gss_import_name:
 .comm _fun_krb5_sname_to_principal,8,3
 .comm _fun_krb5_get_credentials,8,3
 .comm _fun_krb5_get_error_string,8,3
+.comm _fun_krb5_get_default_principal,8,3
 .comm _fun_krb5_get_init_creds_opt_alloc,8,3
 .comm _fun_krb5_get_init_creds_opt_free,8,3
 .comm _fun_krb5_get_init_creds_opt_set_canonicalize,8,3
@@ -2888,4 +2990,6 @@ _heim_gss_import_name:
 .comm _fun_com_right,8,3
 .comm _fun_com_right_r,8,3
 .comm _fun_gss_import_name,8,3
+.comm _fun_krb5_appdefault_boolean,8,3
+.comm _fun_krb5_appdefault_string,8,3
 #endif

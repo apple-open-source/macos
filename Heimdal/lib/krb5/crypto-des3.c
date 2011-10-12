@@ -199,12 +199,13 @@ _krb5_DES3_random_to_key(krb5_context context,
 			 const void *data,
 			 size_t size)
 {
-    unsigned char *x = key->keyvalue.data;
+    unsigned char *x;
     const uint8_t *q = data;
     uint8_t *k;
     int i, j;
 
-    memset(x, 0, sizeof(x));
+    memset(key->keyvalue.data, 0, key->keyvalue.length);
+    x = key->keyvalue.data;
     for (i = 0; i < 3; ++i) {
 	unsigned char foo;
 	for (j = 0; j < 7; ++j) {

@@ -1,6 +1,36 @@
---- /tmp/jabberd-2.2.13/s2s/out.c	2011-02-23 08:24:34.000000000 -0800
-+++ ./jabberd2/s2s/out.c	2011-02-24 16:47:41.000000000 -0800
-@@ -596,6 +596,22 @@ int out_packet(s2s_t s2s, pkt_t pkt) {
+--- /tmp/jabberd-2.2.14/s2s/out.c	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/s2s/out.c	2011-07-25 00:14:20.000000000 -0700
+@@ -391,7 +391,7 @@ int out_route(s2s_t s2s, char *route, in
+     char ipport[INET6_ADDRSTRLEN + 16], *dkey, *c;
+     time_t now;
+     int reuse = 0;
+-    char ip[INET6_ADDRSTRLEN];
++    char ip[INET6_ADDRSTRLEN] = {0};
+     int port, c_len, from_len;
+ 
+     c = memchr(route, '/', routelen);
+@@ -513,7 +513,19 @@ int out_route(s2s_t s2s, char *route, in
+             /* connect */
+             log_debug(ZONE, "initiating connection to %s", ipport);
+ 
+-            (*out)->fd = mio_connect(s2s->mio, port, ip, s2s->origin_ip, _out_mio_callback, (void *) *out);
++            /* APPLE: multiple origin_ips may be specified; use IPv6 if possible or otherwise IPv4 */
++            int ip_is_v6 = 0;
++            if (strchr(ip, ':') != NULL)
++                ip_is_v6 = 1;
++            int i;
++            for (i = 0; i < s2s->origin_nips; i++) {
++                // only bother with mio_connect if the src and dst IPs are of the same type
++                if ((ip_is_v6 && (strchr(s2s->origin_ips[i], ':') != NULL)) ||          // both are IPv6
++                            (! ip_is_v6 && (strchr(s2s->origin_ips[i], ':') == NULL)))  // both are IPv4
++                    (*out)->fd = mio_connect(s2s->mio, port, ip, s2s->origin_ips[i], _out_mio_callback, (void *) *out);
++
++                if ((*out)->fd != NULL) break;
++            }
+ 
+             if ((*out)->fd == NULL) {
+                 dnsres_t bad;
+@@ -596,6 +608,22 @@ int out_packet(s2s_t s2s, pkt_t pkt) {
      conn_state_t state;
      int ret;
  
@@ -23,7 +53,7 @@
      /* new route key */
      rkey = s2s_route_key(NULL, pkt->from->domain, pkt->to->domain);
      rkeylen = strlen(rkey);
-@@ -683,8 +699,9 @@ int out_packet(s2s_t s2s, pkt_t pkt) {
+@@ -683,8 +711,9 @@ int out_packet(s2s_t s2s, pkt_t pkt) {
      }
  
      /* this is a new route - send dialback auth request to piggyback on the existing connection */
@@ -34,7 +64,7 @@
      free(rkey);
      return 0;
  }
-@@ -1536,7 +1553,7 @@ static int _out_sx_callback(sx_t s, sx_e
+@@ -1541,7 +1570,7 @@ static int _out_sx_callback(sx_t s, sx_e
  
                  /* if no stream version from either side, kick off dialback for each route, */
                  /* otherwise wait for stream features */
@@ -43,7 +73,7 @@
                       log_debug(ZONE, "no stream version, sending dialbacks for %s immediately", out->key);
                       out->online = 1;
                       send_dialbacks(out);
-@@ -1568,7 +1585,7 @@ static int _out_sx_callback(sx_t s, sx_e
+@@ -1573,7 +1602,7 @@ static int _out_sx_callback(sx_t s, sx_e
                          elem = nad_find_elem(nad, 0, ns, "starttls", 1);
                          if(elem >= 0) {
                              log_debug(ZONE, "got STARTTLS in stream features");
@@ -52,7 +82,7 @@
                                  starttls = 1;
                                  nad_free(nad);
                                  return 0;
-@@ -1580,13 +1597,19 @@ static int _out_sx_callback(sx_t s, sx_e
+@@ -1585,13 +1614,19 @@ static int _out_sx_callback(sx_t s, sx_e
  
                  /* If we're not establishing a starttls connection, send dialbacks */
                  if (!starttls) {
@@ -72,7 +102,7 @@
  #endif
              }
  
-@@ -1617,7 +1640,10 @@ static int _out_sx_callback(sx_t s, sx_e
+@@ -1622,7 +1657,10 @@ static int _out_sx_callback(sx_t s, sx_e
              return 0;
  
          case event_CLOSED:

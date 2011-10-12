@@ -114,11 +114,27 @@ struct JSCallbackObjectData : WeakHandleOwner {
 };
 
     
-template <class Base>
-class JSCallbackObject : public Base {
-public:
+template <class Parent>
+class JSCallbackObject : public Parent {
+protected:
     JSCallbackObject(ExecState*, JSGlobalObject*, Structure*, JSClassRef, void* data);
     JSCallbackObject(JSGlobalData&, JSClassRef, Structure*);
+    // We'd like to use the placement version of operator new defined in JSCell, but 
+    // we can't because Parent is a template argument, so we just duplicate the same 
+    // functionality here.
+    void* operator new(size_t, void* ptr) { return ptr; }
+
+public:
+    typedef Parent Base;
+
+    static JSCallbackObject* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, JSClassRef classRef, void* data)
+    {
+        return new (allocateCell<JSCallbackObject>(*exec->heap())) JSCallbackObject(exec, globalObject, structure, classRef, data);
+    }
+    static JSCallbackObject* create(JSGlobalData& globalData, JSClassRef classRef, Structure* structure)
+    {
+        return new (allocateCell<JSCallbackObject>(globalData.heap)) JSCallbackObject(globalData, classRef, structure);
+    }
 
     void setPrivate(void* data);
     void* getPrivate();
@@ -130,7 +146,7 @@ public:
 
     static Structure* createStructure(JSGlobalData& globalData, JSValue proto) 
     { 
-        return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), Base::AnonymousSlotCount, &s_info); 
+        return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), Parent::AnonymousSlotCount, &s_info); 
     }
     
     JSValue getPrivateProperty(const Identifier& propertyName) const
@@ -149,7 +165,7 @@ public:
     }
 
 protected:
-    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | ImplementsHasInstance | OverridesHasInstance | OverridesVisitChildren | OverridesGetPropertyNames | Base::StructureFlags;
+    static const unsigned StructureFlags = ProhibitsPropertyCaching | OverridesGetOwnPropertySlot | ImplementsHasInstance | OverridesHasInstance | OverridesVisitChildren | OverridesGetPropertyNames | Parent::StructureFlags;
 
 private:
     virtual UString className() const;
@@ -174,7 +190,10 @@ private:
 
     virtual void visitChildren(SlotVisitor& visitor)
     {
-        Base::visitChildren(visitor);
+        ASSERT_GC_OBJECT_INHERITS((static_cast<Parent*>(this)), &JSCallbackObject<Parent>::s_info);
+        COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+        ASSERT(Parent::structure()->typeInfo().overridesVisitChildren());
+        Parent::visitChildren(visitor);
         m_callbackObjectData->visitChildren(visitor);
     }
 
@@ -185,7 +204,7 @@ private:
     static EncodedJSValue JSC_HOST_CALL call(ExecState*);
     static EncodedJSValue JSC_HOST_CALL construct(ExecState*);
    
-    static JSValue staticValueGetter(ExecState*, JSValue, const Identifier&);
+    JSValue getStaticValue(ExecState*, const Identifier&);
     static JSValue staticFunctionGetter(ExecState*, JSValue, const Identifier&);
     static JSValue callbackGetter(ExecState*, JSValue, const Identifier&);
 

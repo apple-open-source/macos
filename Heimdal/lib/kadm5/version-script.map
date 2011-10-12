@@ -9,6 +9,7 @@ HEIMDAL_KAMD5_SERVER_1.0 {
 		kadm5_chpass_principal;
 		kadm5_chpass_principal_with_key;
 		kadm5_create_principal;
+		kadm5_create_principal2;
 		kadm5_delete_principal;
 		kadm5_destroy;
 		kadm5_flush;

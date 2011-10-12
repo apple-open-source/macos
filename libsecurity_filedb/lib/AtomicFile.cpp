@@ -283,10 +283,40 @@ AtomicFile::ropen(const char *const name, int flags, mode_t mode)
 {
     bool isCreate = (flags & O_CREAT) != 0;
     
+    /*
+        The purpose of checkForRead and checkForWrite is to mitigate
+        spamming of the log when a user has installed certain third
+        party software packages which create additional keychains.
+        Certain applications use a custom sandbox profile which do not
+        permit this and so the user gets a ton of spam in the log.
+        This turns into a serious performance problem.
+        
+        We handle this situation by checking two factors:
+        
+            1:  If the user is trying to create a file, we send the
+                request directly to open.  This is the right thing
+                to do, as we don't want most applications creating
+                keychains unless they have been expressly authorized
+                to do so.
+                
+                The layers above this one only set O_CREAT when a file
+                doesn't exist, so the case where O_CREAT can be called
+                on an existing file is irrelevant.
+            
+            2:  If the user is trying to open the file for reading or
+                writing, we check with the sandbox mechanism to see if
+                the operation will be permitted (and tell it not to
+                log if it the operation will fail).
+                
+                If the operation is not permitted, we return -1 which
+                emulates the behavior of open.  sandbox_check sets
+                errno properly, so the layers which call this function
+                will be able to act as though open had been called.
+    */
+
     bool checkForRead = false;
     bool checkForWrite = false;
     
-    // if we are actually trying to create the file, we
     int fd, tries_left = 4 /* kNoResRetry */;
 
     if (!isCreate)
@@ -307,7 +337,7 @@ AtomicFile::ropen(const char *const name, int flags, mode_t mode)
 
         if (checkForRead)
         {
-            int result = sandbox_check(getpid(), "file-read-data", SANDBOX_FILTER_PATH, name);
+            int result = sandbox_check(getpid(), "file-read-data", (sandbox_filter_type) (SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT), name);
             if (result != 0)
             {
                 return -1;
@@ -316,7 +346,7 @@ AtomicFile::ropen(const char *const name, int flags, mode_t mode)
         
         if (checkForWrite)
         {
-            int result = sandbox_check(getpid(), "file-write-data", SANDBOX_FILTER_PATH, name);
+            int result = sandbox_check(getpid(), "file-write-data", (sandbox_filter_type) (SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT), name);
             if (result != 0)
             {
                 return -1;

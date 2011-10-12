@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/s2s/main.c	2011-02-23 08:24:34.000000000 -0800
-+++ ./jabberd2/s2s/main.c	2011-02-24 16:46:24.000000000 -0800
+--- /tmp/jabberd-2.2.14/s2s/main.c	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/s2s/main.c	2011-07-25 23:22:41.000000000 -0700
 @@ -40,6 +40,10 @@ static void _s2s_pidfile(s2s_t s2s) {
      char *pidfile;
      FILE *f;
@@ -62,7 +62,38 @@
      s2s->retry_init = j_atoi(config_get_one(s2s->config, "router.retry.init", 0), 3);
      s2s->retry_lost = j_atoi(config_get_one(s2s->config, "router.retry.lost", 0), 3);
      if((s2s->retry_sleep = j_atoi(config_get_one(s2s->config, "router.retry.sleep", 0), 2)) < 1)
-@@ -147,12 +188,18 @@ static void _s2s_config_expand(s2s_t s2s
+@@ -115,17 +156,24 @@ static void _s2s_config_expand(s2s_t s2s
+ 
+     s2s->packet_stats = config_get_one(s2s->config, "stats.packet", 0);
+ 
++    if(s2s->local_ip == NULL)
++        s2s->local_ip = "0.0.0.0";
++
+     /*
+      * If no origin IP is specified, use local IP as the originating one:
+      * it makes most sense, at least for SSL'ized connections.
++     * APPLE: make origin an array of addresses so that both IPv4 and IPv6 can be specified.
+      */
+     s2s->local_ip = config_get_one(s2s->config, "local.ip", 0);
+-    s2s->origin_ip = config_get_one(s2s->config, "local.origin", 0);
+-    if(s2s->origin_ip == NULL && s2s->local_ip != NULL)
+-        s2s->origin_ip = s2s->local_ip;
+-
+-    if(s2s->local_ip == NULL)
+-        s2s->local_ip = "0.0.0.0";
++    if((elem = config_get(s2s->config, "local.origins.ip")) != NULL) {
++        s2s->origin_ips = elem->values;
++        s2s->origin_nips = elem->nvalues;
++    }
++    if (s2s->origin_nips == 0) {
++        s2s->origin_ips = (char **)malloc(sizeof(s2s->origin_ips));
++        s2s->origin_ips[0] = strdup(s2s->local_ip);
++        s2s->origin_nips = 1;
++    }
+ 
+     s2s->local_port = j_atoi(config_get_one(s2s->config, "local.port", 0), 0);
+ 
+@@ -147,12 +195,18 @@ static void _s2s_config_expand(s2s_t s2s
      s2s->local_pemfile = config_get_one(s2s->config, "local.pemfile", 0);
      s2s->local_cachain = config_get_one(s2s->config, "local.cachain", 0);
      s2s->local_verify_mode = j_atoi(config_get_one(s2s->config, "local.verify-mode", 0), 0);
@@ -81,7 +112,7 @@
  
      s2s->check_interval = j_atoi(config_get_one(s2s->config, "check.interval", 0), 60);
      s2s->check_queue = j_atoi(config_get_one(s2s->config, "check.queue", 0), 60);
-@@ -211,16 +258,18 @@ static void _s2s_hosts_expand(s2s_t s2s)
+@@ -211,16 +265,18 @@ static void _s2s_hosts_expand(s2s_t s2s)
  
          host->host_verify_mode = j_atoi(j_attr((const char **) elem->attrs[i], "verify-mode"), 0);
  
@@ -102,7 +133,7 @@
                      log_write(s2s->log, LOG_ERR, "failed to load %s SSL pemfile", host->realm);
                      host->host_pemfile = NULL;
                  }
-@@ -591,6 +640,191 @@ static int _mio_resolver_callback(mio_t 
+@@ -591,6 +647,191 @@ static int _mio_resolver_callback(mio_t 
      return 0;
  }
  
@@ -294,7 +325,7 @@
  JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S", "Jabber Open Source Server: Server to Server", "jabberd2router\0")
  {
      s2s_t s2s;
-@@ -704,7 +938,7 @@ JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S
+@@ -704,7 +945,7 @@ JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S
  #ifdef HAVE_SSL
      /* get the ssl context up and running */
      if(s2s->local_pemfile != NULL) {
@@ -303,7 +334,7 @@
  
          if(s2s->sx_ssl == NULL) {
              log_write(s2s->log, LOG_ERR, "failed to load local SSL pemfile, SSL will not be available to peers");
-@@ -715,7 +949,7 @@ JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S
+@@ -715,7 +956,7 @@ JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S
  
      /* try and get something online, so at least we can encrypt to the router */
      if(s2s->sx_ssl == NULL && s2s->router_pemfile != NULL) {

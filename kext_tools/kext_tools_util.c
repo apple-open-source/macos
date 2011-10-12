@@ -33,7 +33,7 @@
 
 #if PRAGMA_MARK
 #pragma mark Basic Utility
-#endif
+#endif /* PRAGMA_MARK */
 /*********************************************************************
 *********************************************************************/
 char * createUTF8CStringForCFString(CFStringRef aString)
@@ -125,7 +125,7 @@ void addToArrayIfAbsent(CFMutableArrayRef array, const void * value)
 
 #if PRAGMA_MARK
 #pragma mark Path & File
-#endif
+#endif /* PRAGMA_MARK */
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus checkPath(
@@ -326,7 +326,7 @@ finish:
 
 #if PRAGMA_MARK
 #pragma mark Logging
-#endif
+#endif /* PRAGMA_MARK */
 /*******************************************************************************
 *******************************************************************************/
 OSKextLogSpec _sLogSpecsForVerboseLevels[] = {
@@ -582,7 +582,7 @@ const char * safe_mach_error_string(mach_error_t error_code)
 
 #if PRAGMA_MARK
 #pragma mark User Input
-#endif
+#endif /* PRAGMA_MARK */
 /*******************************************************************************
 * user_approve()
 *
@@ -740,7 +740,7 @@ finish:
 
 #if PRAGMA_MARK
 #pragma mark Caches
-#endif
+#endif /* PRAGMA_MARK */
 /*******************************************************************************
 *******************************************************************************/
 Boolean readSystemKextPropertyValues(

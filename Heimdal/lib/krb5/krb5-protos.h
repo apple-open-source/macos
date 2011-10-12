@@ -4589,6 +4589,18 @@ krb5_tkt_creds_init(krb5_context context,
 
     krb5_error_code
     krb5_ret_uuid(krb5_storage *sp, krb5_uuid uuid);
+    
+    krb5_error_code
+    _krb5_plugin_run_f(krb5_context, const char *, const char *, int, int, void *,
+		       krb5_error_code (*)(krb5_context, const void *,
+					   void *, void *));
+
+    void _krb5_load_plugins(krb5_context, const char *, const char **);
+
+
+    KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+    krb5_verify_init_creds_opt_set_service(krb5_verify_init_creds_opt *options,
+					   const char *service);
 
 #ifdef __cplusplus
 }

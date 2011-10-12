@@ -1,15 +1,15 @@
---- /tmp/jabberd-2.2.13/configure	2011-02-23 08:24:49.000000000 -0800
-+++ ./jabberd2/configure	2011-04-18 17:50:22.000000000 -0700
-@@ -701,7 +701,7 @@ MAKEFLAGS=
+--- /tmp/jabberd-2.2.14/configure	2011-05-31 15:11:47.000000000 -0700
++++ ./jabberd2/configure	2011-07-07 17:52:39.000000000 -0700
+@@ -709,7 +709,7 @@ MAKEFLAGS=
  # Identity of this package.
  PACKAGE_NAME='jabberd'
  PACKAGE_TARNAME='jabberd'
--PACKAGE_VERSION='2.2.13'
-+PACKAGE_VERSION='2.2.13-373'
- PACKAGE_STRING='jabberd 2.2.13'
+-PACKAGE_VERSION='2.2.14'
++PACKAGE_VERSION='2.2.14-373.2'
+ PACKAGE_STRING='jabberd 2.2.14'
  PACKAGE_BUGREPORT='jabberd2@lists.xiaoka.com'
  PACKAGE_URL=''
-@@ -775,6 +775,8 @@ STORAGE_DB_TRUE
+@@ -783,6 +783,8 @@ STORAGE_DB_TRUE
  DB_LIBS
  STORAGE_SQLITE_FALSE
  STORAGE_SQLITE_TRUE
@@ -18,7 +18,7 @@
  SQLITE_LIBS
  STORAGE_PGSQL_FALSE
  STORAGE_PGSQL_TRUE
-@@ -925,6 +927,7 @@ with_zlib
+@@ -935,6 +937,7 @@ with_zlib
  enable_mysql
  enable_pgsql
  enable_sqlite
@@ -26,7 +26,7 @@
  enable_db
  with_oracle_home
  enable_oracle
-@@ -1582,6 +1585,7 @@ Optional Features:
+@@ -1593,6 +1596,7 @@ Optional Features:
    --enable-mysql=DIR      enable MySQL auth/reg/storage support (no)
    --enable-pgsql=DIR      enable PostgreSQL auth/reg/storage support (no)
    --enable-sqlite         enable SQLite3 auth/reg/storage support (no)
@@ -34,16 +34,16 @@
    --enable-db             enable Berkeley DB auth/reg/storage support (no)
    --enable-oracle         enable Oracle auth/reg/storage support (no)
    --enable-ldap           enable OpenLDAP auth/reg support (no)
-@@ -3076,7 +3080,7 @@ fi
+@@ -3098,7 +3102,7 @@ fi
  
  # Define the identity of the package.
   PACKAGE='jabberd'
-- VERSION='2.2.13'
+- VERSION='2.2.14'
 + VERSION="$PACKAGE_VERSION"
  
  
  cat >>confdefs.h <<_ACEOF
-@@ -4195,7 +4199,7 @@ $as_echo "$ac_try_echo"; } >&5
+@@ -4216,7 +4220,7 @@ $as_echo "$ac_try_echo"; } >&5
  else
    eval ac_cv_prog_cc_${ac_cc}_c_o=no
  fi
@@ -52,16 +52,16 @@
  
  fi
  if eval test \$ac_cv_prog_cc_${ac_cc}_c_o = yes; then
-@@ -10875,7 +10879,7 @@ fi
+@@ -10896,7 +10900,7 @@ fi
  # check for optimisation level
  { $as_echo "$as_me:${as_lineno-$LINENO}: checking CFLAGS optimization level" >&5
  $as_echo_n "checking CFLAGS optimization level... " >&6; }
 -if echo $CFLAGS | grep '.*-O[3s].*' >/dev/null 2>&1; then
 +if echo $CFLAGS | grep '.*-O[3].*' >/dev/null 2>&1; then
-     as_fn_error "maximum allowed optimization level is -O2" "$LINENO" 5
+     as_fn_error $? "maximum allowed optimization level is -O2" "$LINENO" 5
  fi
  { $as_echo "$as_me:${as_lineno-$LINENO}: result: fine" >&5
-@@ -14504,7 +14508,7 @@ _ACEOF
+@@ -14515,7 +14519,7 @@ _ACEOF
  fi
  done
  
@@ -70,7 +70,7 @@
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking if snprintf can handle NULL arguments" >&5
  $as_echo_n "checking if snprintf can handle NULL arguments... " >&6; }
      if test "$cross_compiling" = yes; then :
-@@ -14535,7 +14539,7 @@ rm -f core *.core core.conftest.* gmon.o
+@@ -14546,7 +14550,7 @@ rm -f core *.core core.conftest.* gmon.o
  fi
  
  fi
@@ -79,7 +79,7 @@
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking if vsnprintf can handle NULL arguments" >&5
  $as_echo_n "checking if vsnprintf can handle NULL arguments... " >&6; }
      if test "$cross_compiling" = yes; then :
-@@ -14731,7 +14735,7 @@ _ACEOF
+@@ -14742,7 +14746,7 @@ _ACEOF
  
  fi
  
@@ -88,16 +88,16 @@
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Libidn version >= 0.3.0" >&5
  $as_echo_n "checking for Libidn version >= 0.3.0... " >&6; }
      if test "$cross_compiling" = yes; then :
-@@ -14764,7 +14768,7 @@ rm -f core *.core core.conftest.* gmon.o
+@@ -14775,7 +14779,7 @@ rm -f core *.core core.conftest.* gmon.o
  fi
  
  fi
 -if test "x-$have_idn" != "x-yes" ; then
 +if test "x-$have_idn" != "x-yes" && test ! "x-$ac_cv_lib_idn_have_version" = "x-yes"; then
-     as_fn_error "Libidn >= 0.3.0 not found" "$LINENO" 5
+     as_fn_error $? "Libidn >= 0.3.0 not found" "$LINENO" 5
  fi
  
-@@ -15148,7 +15152,7 @@ _ACEOF
+@@ -15159,7 +15163,7 @@ _ACEOF
  fi
  
      fi
@@ -106,7 +106,7 @@
          { $as_echo "$as_me:${as_lineno-$LINENO}: checking for OpenSSL version >= 0.9.6b" >&5
  $as_echo_n "checking for OpenSSL version >= 0.9.6b... " >&6; }
          if test "$cross_compiling" = yes; then :
-@@ -15181,6 +15185,10 @@ rm -f core *.core core.conftest.* gmon.o
+@@ -15192,6 +15196,10 @@ rm -f core *.core core.conftest.* gmon.o
  fi
  
      fi
@@ -115,9 +115,9 @@
 +    fi
 +
      if test "x-$have_openssl" != "x-yes" ; then
-         as_fn_error "OpenSSL >= 0.9.6b not found" "$LINENO" 5
+         as_fn_error $? "OpenSSL >= 0.9.6b not found" "$LINENO" 5
      fi
-@@ -15621,6 +15629,35 @@ else
+@@ -15632,6 +15640,35 @@ else
    STORAGE_SQLITE_FALSE=
  fi
  
@@ -153,8 +153,8 @@
  
  # Berkeley DB
  _save_libs="$LIBS"
-@@ -17035,6 +17072,10 @@ if test -z "${STORAGE_SQLITE_TRUE}" && t
-   as_fn_error "conditional \"STORAGE_SQLITE\" was never defined.
+@@ -17059,6 +17096,10 @@ if test -z "${STORAGE_SQLITE_TRUE}" && t
+   as_fn_error $? "conditional \"STORAGE_SQLITE\" was never defined.
  Usually this means the macro was only invoked conditionally." "$LINENO" 5
  fi
 +if test -z "${STORAGE_APPLE_TRUE}" && test -z "${STORAGE_APPLE_FALSE}"; then
@@ -162,5 +162,5 @@
 +Usually this means the macro was only invoked conditionally." "$LINENO" 5
 +fi
  if test -z "${STORAGE_DB_TRUE}" && test -z "${STORAGE_DB_FALSE}"; then
-   as_fn_error "conditional \"STORAGE_DB\" was never defined.
+   as_fn_error $? "conditional \"STORAGE_DB\" was never defined.
  Usually this means the macro was only invoked conditionally." "$LINENO" 5

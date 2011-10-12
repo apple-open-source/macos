@@ -29,6 +29,10 @@
 
 #include <wtf/Platform.h>
 
+#if OS(WINDOWS) && !OS(WINCE) && !PLATFORM(QT) && !PLATFORM(CHROMIUM)
+#include <WebCore/WebCoreHeaderDetection.h>
+#endif
+
 /* See note in wtf/Platform.h for more info on EXPORT_MACROS. */
 #if USE(EXPORT_MACROS)
 
@@ -238,7 +242,6 @@ typedef float CGFloat;
 #endif
 #endif /* USE(CG) */
 
-
 #if PLATFORM(WIN) && USE(CG)
 #define WTF_USE_SAFARI_THEME 1
 #endif
@@ -253,3 +256,8 @@ typedef float CGFloat;
 #include <bridge/npruntime_internal.h>
 #endif
 
+// FIXME: Move this to JavaScriptCore/wtf/Platform.h, which is where we define WTF_USE_AVFOUNDATION on the Mac.
+// https://bugs.webkit.org/show_bug.cgi?id=67334
+#if PLATFORM(WIN) && HAVE(AVCF)
+#define WTF_USE_AVFOUNDATION 1
+#endif

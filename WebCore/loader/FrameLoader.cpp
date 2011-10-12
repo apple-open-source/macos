@@ -228,13 +228,15 @@ void FrameLoader::init()
     // This needs to be done early, so that an initial document gets correct sandbox flags in its SecurityOrigin.
     updateSandboxFlags();
 
-    // this somewhat odd set of steps is needed to give the frame an initial empty document
+    // This somewhat odd set of steps gives the frame an initial empty document.
+    // It would be better if this could be done with even fewer steps.
     m_stateMachine.advanceTo(FrameLoaderStateMachine::CreatingInitialEmptyDocument);
     setPolicyDocumentLoader(m_client->createDocumentLoader(ResourceRequest(KURL(ParsedURLString, "")), SubstituteData()).get());
     setProvisionalDocumentLoader(m_policyDocumentLoader.get());
     setState(FrameStateProvisional);
     m_provisionalDocumentLoader->setResponse(ResourceResponse(KURL(), "text/html", 0, String(), String()));
     m_provisionalDocumentLoader->finishedLoading();
+    ASSERT(!m_frame->document());
     m_documentLoader->writer()->begin(KURL(), false);
     m_documentLoader->writer()->end();
     m_frame->document()->cancelParsing();
@@ -1337,6 +1339,9 @@ static bool isFeedWithNestedProtocolInHTTPFamily(const KURL& url)
 void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHistory, bool lockBackForwardList,
     PassRefPtr<Event> event, PassRefPtr<FormState> formState, ReferrerPolicy referrerPolicy)
 {    
+    // Protect frame from getting blown away inside dispatchBeforeLoadEvent in loadWithDocumentLoader.
+    RefPtr<Frame> protect(m_frame);
+
     KURL url = request.resourceRequest().url();
 
     ASSERT(m_frame->document());
@@ -1573,7 +1578,13 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
             loader->setTriggeringAction(NavigationAction(newURL, policyChecker()->loadType(), isFormSubmission));
 
         if (Element* ownerElement = m_frame->ownerElement()) {
-            if (!ownerElement->dispatchBeforeLoadEvent(loader->request().url().string())) {
+            // We skip dispatching the beforeload event if we've already
+            // committed a real document load because the event would leak
+            // subsequent activity by the frame which the parent frame isn't
+            // supposed to learn. For example, if the child frame navigated to
+            // a new URL, the parent frame shouldn't learn the URL.
+            if (!m_stateMachine.committedFirstRealDocumentLoad()
+                && !ownerElement->dispatchBeforeLoadEvent(loader->request().url().string())) {
                 continueLoadAfterNavigationPolicy(loader->request(), formState, false);
                 return;
             }
@@ -2315,11 +2326,8 @@ void FrameLoader::didReceiveServerRedirectForProvisionalLoadForFrame()
 
 void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
 {
-    // FIXME: Platforms shouldn't differ here!
-#if PLATFORM(WIN) || PLATFORM(CHROMIUM)
     if (m_stateMachine.creatingInitialEmptyDocument())
         return;
-#endif
 
 #if !ENABLE(WEB_ARCHIVE)
     m_client->finishedLoading(loader);
@@ -2987,6 +2995,9 @@ bool FrameLoader::shouldClose()
         if (i == targetFrames.size())
             shouldClose = true;
     }
+
+    if (!shouldClose)
+        m_submittedFormURL = KURL();
 
     return shouldClose;
 }

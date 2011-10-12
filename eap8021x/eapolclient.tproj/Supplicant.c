@@ -71,6 +71,7 @@
 #include <opendirectory/adsupport.h>
 #endif /* ! TARGET_OS_EMBEDDED */
 #include <Security/SecureTransport.h>
+#include "symbol_scope.h"
 #include "Supplicant.h"
 #include "Timer.h"
 #include "EAPOLSocket.h"
@@ -1853,7 +1854,7 @@ dictInsertMode(CFMutableDictionaryRef dict, EAPOLControlMode mode)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 Supplicant_stop(SupplicantRef supp)
 {
     eapolclient_log(kLogFlagBasic, "stop\n");
@@ -2455,7 +2456,7 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
     }
 }
 
-void
+PRIVATE_EXTERN void
 Supplicant_start(SupplicantRef supp)
 {
     if (EAPOLSocketIsLinkActive(supp->sock)) {
@@ -2968,7 +2969,7 @@ debug_properties_present(CFDictionaryRef dict)
     return (ret);
 }
 
-bool
+PRIVATE_EXTERN bool
 Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 				bool * should_stop)
 {
@@ -3159,7 +3160,7 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
     return (change);
 }
 
-bool
+PRIVATE_EXTERN bool
 Supplicant_control(SupplicantRef supp,
 		   EAPOLClientControlCommand command,
 		   CFDictionaryRef control_dict)
@@ -3242,7 +3243,7 @@ Supplicant_control(SupplicantRef supp,
     return (should_stop);
 }
 
-void
+PRIVATE_EXTERN void
 Supplicant_link_status_changed(SupplicantRef supp, bool active)
 {
     struct timeval	t = {0, 0};
@@ -3287,7 +3288,7 @@ Supplicant_link_status_changed(SupplicantRef supp, bool active)
     return;
 }
 
-SupplicantRef
+PRIVATE_EXTERN SupplicantRef
 Supplicant_create(EAPOLSocketRef sock)
 {
     SupplicantRef		supp = NULL;
@@ -3318,7 +3319,7 @@ Supplicant_create(EAPOLSocketRef sock)
     return (NULL);
 }
 
-SupplicantRef
+PRIVATE_EXTERN SupplicantRef
 Supplicant_create_with_supplicant(EAPOLSocketRef sock, SupplicantRef main_supp)
 {
     SupplicantRef	supp;
@@ -3362,7 +3363,7 @@ Supplicant_create_with_supplicant(EAPOLSocketRef sock, SupplicantRef main_supp)
     return (supp);
 }
 
-void
+PRIVATE_EXTERN void
 Supplicant_free(SupplicantRef * supp_p)
 {
     SupplicantRef supp;
@@ -3412,7 +3413,7 @@ Supplicant_free(SupplicantRef * supp_p)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 Supplicant_set_debug(SupplicantRef supp, bool debug)
 {
     supp->debug = debug;
@@ -3421,14 +3422,14 @@ Supplicant_set_debug(SupplicantRef supp, bool debug)
     return;
 }
 
-SupplicantState
+PRIVATE_EXTERN SupplicantState
 Supplicant_get_state(SupplicantRef supp, EAPClientStatus * last_status)
 {
     *last_status = supp->last_status;
     return (supp->state);
 }
 
-void
+PRIVATE_EXTERN void
 Supplicant_set_no_ui(SupplicantRef supp)
 {
     supp->no_ui = TRUE;
@@ -3464,6 +3465,35 @@ eapolclient_log_config_dict(uint32_t flags, CFDictionaryRef d)
     else {
 	eapolclient_log_plist(flags, d);
     }
+    return;
+}
+
+#define SUCCESS_SIZE		(offsetof(EAPOLPacket, body) \
+				 + sizeof(EAPSuccessPacket))
+PRIVATE_EXTERN void
+Supplicant_simulate_success(SupplicantRef supp)
+{
+    uint32_t			buf[roundup(SUCCESS_SIZE, sizeof(uint32_t))];
+    EAPOLPacketRef		eapol_p;
+    EAPOLSocketReceiveData 	rx;
+    EAPPacketRef		success_pkt;
+
+    if (supp->state != kSupplicantStateAuthenticating) {
+	return;
+    }
+    eapolclient_log(kLogFlagBasic,
+		    "Simulating EAP Success packet\n");
+    eapol_p = (EAPOLPacketRef)buf;
+    eapol_p->protocol_version = EAPOL_802_1_X_PROTOCOL_VERSION;
+    eapol_p->packet_type = kEAPOLPacketTypeEAPPacket;
+    EAPOLPacketSetLength(eapol_p, sizeof(EAPSuccessPacket));
+    success_pkt = (EAPPacketRef)eapol_p->body;
+    success_pkt->code = kEAPCodeSuccess;
+    success_pkt->identifier = 0;
+    EAPPacketSetLength(success_pkt, sizeof(EAPSuccessPacket));
+    rx.eapol_p = eapol_p;
+    rx.length = SUCCESS_SIZE;
+    Supplicant_authenticating(supp, kSupplicantEventData, &rx);
     return;
 }
 

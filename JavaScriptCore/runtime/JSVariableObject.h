@@ -44,6 +44,8 @@ namespace JSC {
         friend class JIT;
 
     public:
+        typedef JSNonFinalObject Base;
+
         SymbolTable& symbolTable() const { return *m_symbolTable; }
 
         virtual void putWithAttributes(ExecState*, const Identifier&, JSValue, unsigned attributes) = 0;
@@ -57,6 +59,7 @@ namespace JSC {
         WriteBarrier<Unknown>& registerAt(int index) const { return m_registers[index]; }
 
         WriteBarrier<Unknown>* const * addressOfRegisters() const { return &m_registers; }
+        static size_t offsetOfRegisters() { return OBJECT_OFFSETOF(JSVariableObject, m_registers); }
 
         static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
@@ -64,7 +67,7 @@ namespace JSC {
         }
         
     protected:
-        static const unsigned StructureFlags = OverridesGetPropertyNames | JSObject::StructureFlags;
+        static const unsigned StructureFlags = OverridesGetPropertyNames | JSNonFinalObject::StructureFlags;
 
         JSVariableObject(JSGlobalData& globalData, Structure* structure, SymbolTable* symbolTable, Register* registers)
             : JSNonFinalObject(globalData, structure)

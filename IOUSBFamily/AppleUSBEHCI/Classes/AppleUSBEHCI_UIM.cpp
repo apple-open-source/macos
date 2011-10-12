@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2010 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2011 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -2143,10 +2143,6 @@ AppleUSBEHCI::linkAsyncEndpoint(AppleEHCIQueueHead *CBED)
 		pEDHead->_logicalNext = CBED;
 		pEDHead->SetPhysicalLink(newHorizPtr);
     }
-	if (!_pEHCIRegisters->AsyncListAddr && !_wakingFromHibernation)
-	{
-		USBLog(1, "AppleUSBEHCI[%p]::linkAsyncEndpoint.. AsyncListAddr is NULL and we are not waking from hibernation!!\n", this);
-	}
 }
 
 
@@ -4375,6 +4371,75 @@ AppleUSBEHCI::findBufferRemaining(AppleEHCIQueueHead *pED)
 
 
 
+IOReturn		
+AppleUSBEHCI::ReturnAllOutstandingAsyncIO(void)
+{
+    AppleEHCIQueueHead				*pED;
+    AppleEHCIQueueHead				*pEDBack = NULL, *pEDBack1 = NULL;
+    IOPhysicalAddress				pTDPhys;
+    EHCIGeneralTransferDescriptor 	*pTD;
+	EHCIQueueHeadShared				*pQH;
+	int								loop;
+	
+	USBLog(2, "AppleUSBEHCI[%p]::ReturnAllOutstandingAsyncIO - _AsyncHead(%p) _InactiveAsyncHead(%p) activeIsochTransfers(%d) activeInterruptTransfers(%d)", this, _AsyncHead, _InactiveAsyncHead, (int)_activeIsochTransfers, (int)_activeInterruptTransfers);
+
+	for (loop = 0; loop < 2; loop++)
+	{
+				 
+		// first look through the _inactiveList. should be nothing in there
+		pED = loop ? _AsyncHead : _InactiveAsyncHead;
+		
+		for (; pED != 0; pED = (AppleEHCIQueueHead *)pED->_logicalNext)
+		{
+			USBLog(2, "AppleUSBEHCI[%p]::ReturnAllOutstandingAsyncIO - checking ED [%p] on %s", this, pED, loop ? "AsyncList" : "InactiveAsyncHead");
+			pED->print(7, this);
+			// Need to keep a note of the previous ED for back links. Usually I'd
+			// put a pEDBack = pED at the end of the loop, but there are lots of 
+			// continues in this loop so it was getting skipped (and unlinking the
+			// entire async schedule). These lines get the ED from the previous 
+			// interation in pEDBack.
+			pEDBack = pEDBack1;
+			pEDBack1 = pED;
+			
+			
+			// OHCI gets phys pointer and logicals that, that seems a little complicated, so
+			// I'll get the logical pointer and compare it to the phys. If they're different,
+			// this transaction has only just got to the head and the previous one(s) haven't
+			// been scavenged yet. Assume its not a good candidate for a timeout.
+			
+			// Find the QH
+			pQH = pED->GetSharedLogical();
+			// get the top TD
+			pTDPhys = USBToHostLong(pQH->CurrqTDPtr) & kEHCIEDTDPtrMask;
+			pTD = pED->_qTD;
+			if (!pTD)
+			{
+				USBLog(2, "AppleUSBEHCI[%p]::ReturnAllOutstandingAsyncIO - no TD", this);
+				continue;
+			}
+			
+			if (!pTD->command)
+			{
+				USBLog(2, "AppleUSBEHCI[%p]::ReturnAllOutstandingAsyncIO - found a TD without a command - moving on", this);
+				continue;
+			}
+			
+			if (pTD == pED->_TailTD)
+			{
+				USBLog(2, "AppleUSBEHCI[%p]::ReturnAllOutstandingAsyncIO - ED (%p) - TD is TAIL but there is a command - pTD (%p)", this, pED, pTD);
+				pED->print(5, this);
+			}
+
+			USBLog(2, "AppleUSBEHCI[%p]::ReturnAllOutstandingAsyncIO - Found a TD [%p] on QH [%p] which I will return", this, pTD, pED);
+			pED->print(2, this);
+			ReturnOneTransaction(pTD, pED, pEDBack, kIOReturnNoDevice, true);
+		}	
+	}
+	return kIOReturnSuccess;
+}
+
+
+
 bool
 AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
 {
@@ -4384,10 +4449,10 @@ AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
     EHCIGeneralTransferDescriptor 	*pTD;
 	EHCIQueueHeadShared				*pQH;
 	
-    UInt32 				noDataTimeout;
-    UInt32				completionTimeout;
-    UInt32				rem;
-    UInt32				curFrame = GetFrameNumber32();
+    UInt32							noDataTimeout;
+    UInt32							completionTimeout;
+    UInt32							rem;
+    UInt64							curFrame = GetFrameNumber();
 	
 	if (curFrame == 0)
 	{
@@ -4529,9 +4594,10 @@ AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
 		{
 			// there has been some activity on this TD. update and move on
 			pTD->lastRemaining = rem;
+			pTD->lastFrame = curFrame;
 			continue;
 		}
-		if ((curFrame - pTD->lastFrame) >= noDataTimeout)
+		if ((UInt32)(curFrame - pTD->lastFrame) >= noDataTimeout)
 		{
 			uint32_t	myFlags = USBToHostLong(pED->GetSharedLogical()->flags);
 			
@@ -4570,7 +4636,13 @@ AppleUSBEHCI::UIMCheckForTimeouts(void)
 	
     // If we are not active anymore or if we're in ehciBusStateOff, then don't check for timeouts 
     //
-    if ( isInactive() || !_controllerAvailable || (_myBusState != kUSBBusStateRunning) || _wakingFromHibernation)
+    if ( isInactive() || !_controllerAvailable )
+	{
+		ReturnAllOutstandingAsyncIO();
+		return;
+	}
+	
+	if ((_myBusState != kUSBBusStateRunning) || _wakingFromHibernation )
 	{
 		if (_controlBulkTransactionsOut)
 		{
@@ -4590,9 +4662,12 @@ AppleUSBEHCI::UIMCheckForTimeouts(void)
 		{
 			_asynchScheduleUnsynchCount++;
 			USBLog(6, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD and USBSTS not synched ON (#%d)", this, _asynchScheduleUnsynchCount);
-			if (_asynchScheduleUnsynchCount >= 10)
+			if (!(_asynchScheduleUnsynchCount % 10))
 			{
-				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD and USBSTS not synched ON (#%d)", this, _asynchScheduleUnsynchCount);
+				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD(0x%x) and USBSTS(0x%x) not synched ON (#%d)", this, (int)USBToHostLong(_pEHCIRegisters->USBCMD), (int)USBToHostLong(_pEHCIRegisters->USBSTS), _asynchScheduleUnsynchCount);
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+				showRegisters(1, "UIMCheckForTimeouts");
+#endif
 			}
 		}
 		else
@@ -4604,9 +4679,12 @@ AppleUSBEHCI::UIMCheckForTimeouts(void)
 		{
 			_asynchScheduleUnsynchCount++;
 			USBLog(6, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD and USBSTS not synched OFF (#%d)", this, _asynchScheduleUnsynchCount);
-			if (_asynchScheduleUnsynchCount >= 10)
+			if (!(_asynchScheduleUnsynchCount % 10))
 			{
-				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD and USBSTS not synched OFF (#%d)", this, _asynchScheduleUnsynchCount);
+				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD(0x%x) and USBSTS(0x%x) not synched OFF (#%d)", this, (int)USBToHostLong(_pEHCIRegisters->USBCMD), (int)USBToHostLong(_pEHCIRegisters->USBSTS), _asynchScheduleUnsynchCount);
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+				showRegisters(1, "UIMCheckForTimeouts");
+#endif
 			}
 		}
 		else
@@ -4619,9 +4697,12 @@ AppleUSBEHCI::UIMCheckForTimeouts(void)
 		{
 			_periodicScheduleUnsynchCount++;
 			USBLog(6, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD and USBSTS not synched ON (#%d)", this, _periodicScheduleUnsynchCount);
-			if (_periodicScheduleUnsynchCount >= 10)
+			if (!(_periodicScheduleUnsynchCount % 10))
 			{
-				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD and USBSTS not synched ON (#%d)", this, _periodicScheduleUnsynchCount);
+				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD(0x%x) and USBSTS(0x%x) not synched ON (#%d)", this, (int)USBToHostLong(_pEHCIRegisters->USBCMD), (int)USBToHostLong(_pEHCIRegisters->USBSTS), _periodicScheduleUnsynchCount);
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+				showRegisters(1, "UIMCheckForTimeouts");
+#endif
 			}
 		}
 		else
@@ -4633,9 +4714,12 @@ AppleUSBEHCI::UIMCheckForTimeouts(void)
 		{
 			_periodicScheduleUnsynchCount++;
 			USBLog(6, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD and USBSTS not synched ON (#%d)", this, _periodicScheduleUnsynchCount);
-			if (_periodicScheduleUnsynchCount >= 10)
+			if (!(_periodicScheduleUnsynchCount % 10))
 			{
-				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD and USBSTS not synched ON (#%d)", this, _periodicScheduleUnsynchCount);
+				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD(0x%x) and USBSTS(0x%x) not synched OFF (#%d)", this, (int)USBToHostLong(_pEHCIRegisters->USBCMD), (int)USBToHostLong(_pEHCIRegisters->USBSTS), _periodicScheduleUnsynchCount);
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+				showRegisters(1, "UIMCheckForTimeouts");
+#endif
 			}
 		}
 		else

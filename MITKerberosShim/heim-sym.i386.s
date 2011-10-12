@@ -206,8 +206,8 @@ L012:
 	movl (%edx), %edx
 	jmp *%edx
 
-.globl _heim_krb5_set_password_using_ccache
-_heim_krb5_set_password_using_ccache:
+.globl _heim_krb5_set_password
+_heim_krb5_set_password:
 	pushl	%ebp
 	movl	%esp, %ebp
 	subl	$72, %esp
@@ -218,7 +218,24 @@ popl	%ebp
 	call L013
 L013:
 	popl %edx
-	leal L_fun_krb5_set_password_using_ccache$non_lazy_ptr-"L013"(%edx), %eax
+	leal L_fun_krb5_set_password$non_lazy_ptr-"L013"(%edx), %eax
+	movl (%eax), %edx
+	movl (%edx), %edx
+	jmp *%edx
+
+.globl _heim_krb5_set_password_using_ccache
+_heim_krb5_set_password_using_ccache:
+	pushl	%ebp
+	movl	%esp, %ebp
+	subl	$72, %esp
+	call _heim_load_functions
+	addl	$72, %esp
+	movl	%ebp, %esp
+popl	%ebp
+	call L014
+L014:
+	popl %edx
+	leal L_fun_krb5_set_password_using_ccache$non_lazy_ptr-"L014"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -232,10 +249,10 @@ _heim_krb5_realm_compare:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L014
-L014:
+	call L015
+L015:
 	popl %edx
-	leal L_fun_krb5_realm_compare$non_lazy_ptr-"L014"(%edx), %eax
+	leal L_fun_krb5_realm_compare$non_lazy_ptr-"L015"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -249,10 +266,10 @@ _heim_krb5_get_renewed_creds:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L015
-L015:
+	call L016
+L016:
 	popl %edx
-	leal L_fun_krb5_get_renewed_creds$non_lazy_ptr-"L015"(%edx), %eax
+	leal L_fun_krb5_get_renewed_creds$non_lazy_ptr-"L016"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -266,10 +283,10 @@ _heim_krb5_get_validated_creds:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L016
-L016:
+	call L017
+L017:
 	popl %edx
-	leal L_fun_krb5_get_validated_creds$non_lazy_ptr-"L016"(%edx), %eax
+	leal L_fun_krb5_get_validated_creds$non_lazy_ptr-"L017"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -283,10 +300,10 @@ _heim_krb5_get_init_creds_keytab:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L017
-L017:
+	call L018
+L018:
 	popl %edx
-	leal L_fun_krb5_get_init_creds_keytab$non_lazy_ptr-"L017"(%edx), %eax
+	leal L_fun_krb5_get_init_creds_keytab$non_lazy_ptr-"L018"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -300,10 +317,10 @@ _heim_krb5_prompter_posix:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L018
-L018:
+	call L019
+L019:
 	popl %edx
-	leal L_fun_krb5_prompter_posix$non_lazy_ptr-"L018"(%edx), %eax
+	leal L_fun_krb5_prompter_posix$non_lazy_ptr-"L019"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -317,10 +334,10 @@ _heim_krb5_string_to_deltat:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L019
-L019:
+	call L020
+L020:
 	popl %edx
-	leal L_fun_krb5_string_to_deltat$non_lazy_ptr-"L019"(%edx), %eax
+	leal L_fun_krb5_string_to_deltat$non_lazy_ptr-"L020"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -334,10 +351,10 @@ _heim_krb5_get_all_client_addrs:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L020
-L020:
+	call L021
+L021:
 	popl %edx
-	leal L_fun_krb5_get_all_client_addrs$non_lazy_ptr-"L020"(%edx), %eax
+	leal L_fun_krb5_get_all_client_addrs$non_lazy_ptr-"L021"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -351,10 +368,10 @@ _heim_krb5_kt_get_type:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L021
-L021:
+	call L022
+L022:
 	popl %edx
-	leal L_fun_krb5_kt_get_type$non_lazy_ptr-"L021"(%edx), %eax
+	leal L_fun_krb5_kt_get_type$non_lazy_ptr-"L022"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -368,10 +385,10 @@ _heim_krb5_kt_add_entry:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L022
-L022:
+	call L023
+L023:
 	popl %edx
-	leal L_fun_krb5_kt_add_entry$non_lazy_ptr-"L022"(%edx), %eax
+	leal L_fun_krb5_kt_add_entry$non_lazy_ptr-"L023"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -385,10 +402,10 @@ _heim_krb5_kt_remove_entry:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L023
-L023:
+	call L024
+L024:
 	popl %edx
-	leal L_fun_krb5_kt_remove_entry$non_lazy_ptr-"L023"(%edx), %eax
+	leal L_fun_krb5_kt_remove_entry$non_lazy_ptr-"L024"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -402,10 +419,10 @@ _heim_krb5_mk_req:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L024
-L024:
+	call L025
+L025:
 	popl %edx
-	leal L_fun_krb5_mk_req$non_lazy_ptr-"L024"(%edx), %eax
+	leal L_fun_krb5_mk_req$non_lazy_ptr-"L025"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -419,10 +436,10 @@ _heim_krb5_kt_get_name:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L025
-L025:
+	call L026
+L026:
 	popl %edx
-	leal L_fun_krb5_kt_get_name$non_lazy_ptr-"L025"(%edx), %eax
+	leal L_fun_krb5_kt_get_name$non_lazy_ptr-"L026"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -436,10 +453,10 @@ _heim_krb5_rd_req:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L026
-L026:
+	call L027
+L027:
 	popl %edx
-	leal L_fun_krb5_rd_req$non_lazy_ptr-"L026"(%edx), %eax
+	leal L_fun_krb5_rd_req$non_lazy_ptr-"L027"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -453,10 +470,10 @@ _heim_krb5_free_ticket:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L027
-L027:
+	call L028
+L028:
 	popl %edx
-	leal L_fun_krb5_free_ticket$non_lazy_ptr-"L027"(%edx), %eax
+	leal L_fun_krb5_free_ticket$non_lazy_ptr-"L028"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -470,10 +487,10 @@ _heim_krb5_build_principal_va:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L028
-L028:
+	call L029
+L029:
 	popl %edx
-	leal L_fun_krb5_build_principal_va$non_lazy_ptr-"L028"(%edx), %eax
+	leal L_fun_krb5_build_principal_va$non_lazy_ptr-"L029"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -487,10 +504,10 @@ _heim_krb5_build_principal_va_ext:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L029
-L029:
+	call L030
+L030:
 	popl %edx
-	leal L_fun_krb5_build_principal_va_ext$non_lazy_ptr-"L029"(%edx), %eax
+	leal L_fun_krb5_build_principal_va_ext$non_lazy_ptr-"L030"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -504,10 +521,10 @@ _heim_krb5_cc_cache_match:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L030
-L030:
+	call L031
+L031:
 	popl %edx
-	leal L_fun_krb5_cc_cache_match$non_lazy_ptr-"L030"(%edx), %eax
+	leal L_fun_krb5_cc_cache_match$non_lazy_ptr-"L031"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -521,10 +538,10 @@ _heim_krb5_cc_close:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L031
-L031:
+	call L032
+L032:
 	popl %edx
-	leal L_fun_krb5_cc_close$non_lazy_ptr-"L031"(%edx), %eax
+	leal L_fun_krb5_cc_close$non_lazy_ptr-"L032"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -538,10 +555,10 @@ _heim_krb5_cc_default:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L032
-L032:
+	call L033
+L033:
 	popl %edx
-	leal L_fun_krb5_cc_default$non_lazy_ptr-"L032"(%edx), %eax
+	leal L_fun_krb5_cc_default$non_lazy_ptr-"L033"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -555,10 +572,10 @@ _heim_krb5_cc_get_config:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L033
-L033:
+	call L034
+L034:
 	popl %edx
-	leal L_fun_krb5_cc_get_config$non_lazy_ptr-"L033"(%edx), %eax
+	leal L_fun_krb5_cc_get_config$non_lazy_ptr-"L034"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -572,10 +589,10 @@ _heim_krb5_cc_get_full_name:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L034
-L034:
+	call L035
+L035:
 	popl %edx
-	leal L_fun_krb5_cc_get_full_name$non_lazy_ptr-"L034"(%edx), %eax
+	leal L_fun_krb5_cc_get_full_name$non_lazy_ptr-"L035"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -589,10 +606,10 @@ _heim_krb5_cc_get_name:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L035
-L035:
+	call L036
+L036:
 	popl %edx
-	leal L_fun_krb5_cc_get_name$non_lazy_ptr-"L035"(%edx), %eax
+	leal L_fun_krb5_cc_get_name$non_lazy_ptr-"L036"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -606,10 +623,10 @@ _heim_krb5_cc_get_principal:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L036
-L036:
+	call L037
+L037:
 	popl %edx
-	leal L_fun_krb5_cc_get_principal$non_lazy_ptr-"L036"(%edx), %eax
+	leal L_fun_krb5_cc_get_principal$non_lazy_ptr-"L037"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -623,10 +640,10 @@ _heim_krb5_cc_get_type:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L037
-L037:
+	call L038
+L038:
 	popl %edx
-	leal L_fun_krb5_cc_get_type$non_lazy_ptr-"L037"(%edx), %eax
+	leal L_fun_krb5_cc_get_type$non_lazy_ptr-"L038"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -640,10 +657,10 @@ _heim_krb5_cc_initialize:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L038
-L038:
+	call L039
+L039:
 	popl %edx
-	leal L_fun_krb5_cc_initialize$non_lazy_ptr-"L038"(%edx), %eax
+	leal L_fun_krb5_cc_initialize$non_lazy_ptr-"L039"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -657,10 +674,10 @@ _heim_krb5_cc_move:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L039
-L039:
+	call L040
+L040:
 	popl %edx
-	leal L_fun_krb5_cc_move$non_lazy_ptr-"L039"(%edx), %eax
+	leal L_fun_krb5_cc_move$non_lazy_ptr-"L040"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -674,10 +691,10 @@ _heim_krb5_cc_new_unique:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L040
-L040:
+	call L041
+L041:
 	popl %edx
-	leal L_fun_krb5_cc_new_unique$non_lazy_ptr-"L040"(%edx), %eax
+	leal L_fun_krb5_cc_new_unique$non_lazy_ptr-"L041"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -691,10 +708,10 @@ _heim_krb5_cc_resolve:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L041
-L041:
+	call L042
+L042:
 	popl %edx
-	leal L_fun_krb5_cc_resolve$non_lazy_ptr-"L041"(%edx), %eax
+	leal L_fun_krb5_cc_resolve$non_lazy_ptr-"L042"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -708,10 +725,10 @@ _heim_krb5_cc_store_cred:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L042
-L042:
+	call L043
+L043:
 	popl %edx
-	leal L_fun_krb5_cc_store_cred$non_lazy_ptr-"L042"(%edx), %eax
+	leal L_fun_krb5_cc_store_cred$non_lazy_ptr-"L043"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -725,10 +742,10 @@ _heim_krb5_cc_switch:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L043
-L043:
+	call L044
+L044:
 	popl %edx
-	leal L_fun_krb5_cc_switch$non_lazy_ptr-"L043"(%edx), %eax
+	leal L_fun_krb5_cc_switch$non_lazy_ptr-"L044"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -742,10 +759,10 @@ _heim_krb5_cc_retrieve_cred:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L044
-L044:
+	call L045
+L045:
 	popl %edx
-	leal L_fun_krb5_cc_retrieve_cred$non_lazy_ptr-"L044"(%edx), %eax
+	leal L_fun_krb5_cc_retrieve_cred$non_lazy_ptr-"L045"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -759,10 +776,10 @@ _heim_krb5_cc_remove_cred:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L045
-L045:
+	call L046
+L046:
 	popl %edx
-	leal L_fun_krb5_cc_remove_cred$non_lazy_ptr-"L045"(%edx), %eax
+	leal L_fun_krb5_cc_remove_cred$non_lazy_ptr-"L046"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -776,10 +793,10 @@ _heim_krb5_cc_get_kdc_offset:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L046
-L046:
+	call L047
+L047:
 	popl %edx
-	leal L_fun_krb5_cc_get_kdc_offset$non_lazy_ptr-"L046"(%edx), %eax
+	leal L_fun_krb5_cc_get_kdc_offset$non_lazy_ptr-"L047"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -793,10 +810,10 @@ _heim_krb5_cc_set_kdc_offset:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L047
-L047:
+	call L048
+L048:
 	popl %edx
-	leal L_fun_krb5_cc_set_kdc_offset$non_lazy_ptr-"L047"(%edx), %eax
+	leal L_fun_krb5_cc_set_kdc_offset$non_lazy_ptr-"L048"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -810,10 +827,10 @@ _heim_krb5_cc_next_cred:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L048
-L048:
+	call L049
+L049:
 	popl %edx
-	leal L_fun_krb5_cc_next_cred$non_lazy_ptr-"L048"(%edx), %eax
+	leal L_fun_krb5_cc_next_cred$non_lazy_ptr-"L049"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -827,10 +844,10 @@ _heim_krb5_cccol_last_change_time:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L049
-L049:
+	call L050
+L050:
 	popl %edx
-	leal L_fun_krb5_cccol_last_change_time$non_lazy_ptr-"L049"(%edx), %eax
+	leal L_fun_krb5_cccol_last_change_time$non_lazy_ptr-"L050"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -844,10 +861,10 @@ _heim_krb5_crypto_init:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L050
-L050:
+	call L051
+L051:
 	popl %edx
-	leal L_fun_krb5_crypto_init$non_lazy_ptr-"L050"(%edx), %eax
+	leal L_fun_krb5_crypto_init$non_lazy_ptr-"L051"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -861,10 +878,10 @@ _heim_krb5_crypto_getblocksize:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L051
-L051:
+	call L052
+L052:
 	popl %edx
-	leal L_fun_krb5_crypto_getblocksize$non_lazy_ptr-"L051"(%edx), %eax
+	leal L_fun_krb5_crypto_getblocksize$non_lazy_ptr-"L052"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -878,10 +895,10 @@ _heim_krb5_crypto_destroy:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L052
-L052:
+	call L053
+L053:
 	popl %edx
-	leal L_fun_krb5_crypto_destroy$non_lazy_ptr-"L052"(%edx), %eax
+	leal L_fun_krb5_crypto_destroy$non_lazy_ptr-"L053"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -895,10 +912,10 @@ _heim_krb5_decrypt_ivec:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L053
-L053:
+	call L054
+L054:
 	popl %edx
-	leal L_fun_krb5_decrypt_ivec$non_lazy_ptr-"L053"(%edx), %eax
+	leal L_fun_krb5_decrypt_ivec$non_lazy_ptr-"L054"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -912,10 +929,10 @@ _heim_krb5_encrypt_ivec:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L054
-L054:
+	call L055
+L055:
 	popl %edx
-	leal L_fun_krb5_encrypt_ivec$non_lazy_ptr-"L054"(%edx), %eax
+	leal L_fun_krb5_encrypt_ivec$non_lazy_ptr-"L055"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -929,10 +946,10 @@ _heim_krb5_crypto_getenctype:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L055
-L055:
+	call L056
+L056:
 	popl %edx
-	leal L_fun_krb5_crypto_getenctype$non_lazy_ptr-"L055"(%edx), %eax
+	leal L_fun_krb5_crypto_getenctype$non_lazy_ptr-"L056"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -946,10 +963,10 @@ _heim_krb5_generate_random_keyblock:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L056
-L056:
+	call L057
+L057:
 	popl %edx
-	leal L_fun_krb5_generate_random_keyblock$non_lazy_ptr-"L056"(%edx), %eax
+	leal L_fun_krb5_generate_random_keyblock$non_lazy_ptr-"L057"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -963,10 +980,10 @@ _heim_krb5_get_wrapped_length:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L057
-L057:
+	call L058
+L058:
 	popl %edx
-	leal L_fun_krb5_get_wrapped_length$non_lazy_ptr-"L057"(%edx), %eax
+	leal L_fun_krb5_get_wrapped_length$non_lazy_ptr-"L058"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -980,10 +997,10 @@ _heim_krb5_copy_creds_contents:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L058
-L058:
+	call L059
+L059:
 	popl %edx
-	leal L_fun_krb5_copy_creds_contents$non_lazy_ptr-"L058"(%edx), %eax
+	leal L_fun_krb5_copy_creds_contents$non_lazy_ptr-"L059"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -997,10 +1014,10 @@ _heim_krb5_copy_data:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L059
-L059:
+	call L060
+L060:
 	popl %edx
-	leal L_fun_krb5_copy_data$non_lazy_ptr-"L059"(%edx), %eax
+	leal L_fun_krb5_copy_data$non_lazy_ptr-"L060"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1014,10 +1031,10 @@ _heim_krb5_copy_principal:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L060
-L060:
+	call L061
+L061:
 	popl %edx
-	leal L_fun_krb5_copy_principal$non_lazy_ptr-"L060"(%edx), %eax
+	leal L_fun_krb5_copy_principal$non_lazy_ptr-"L061"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1031,10 +1048,10 @@ _heim_krb5_data_copy:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L061
-L061:
+	call L062
+L062:
 	popl %edx
-	leal L_fun_krb5_data_copy$non_lazy_ptr-"L061"(%edx), %eax
+	leal L_fun_krb5_data_copy$non_lazy_ptr-"L062"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1048,10 +1065,10 @@ _heim_krb5_data_free:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L062
-L062:
+	call L063
+L063:
 	popl %edx
-	leal L_fun_krb5_data_free$non_lazy_ptr-"L062"(%edx), %eax
+	leal L_fun_krb5_data_free$non_lazy_ptr-"L063"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1065,10 +1082,10 @@ _heim_krb5_data_zero:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L063
-L063:
+	call L064
+L064:
 	popl %edx
-	leal L_fun_krb5_data_zero$non_lazy_ptr-"L063"(%edx), %eax
+	leal L_fun_krb5_data_zero$non_lazy_ptr-"L064"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1082,10 +1099,10 @@ _heim_krb5_free_context:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L064
-L064:
+	call L065
+L065:
 	popl %edx
-	leal L_fun_krb5_free_context$non_lazy_ptr-"L064"(%edx), %eax
+	leal L_fun_krb5_free_context$non_lazy_ptr-"L065"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1099,10 +1116,10 @@ _heim_krb5_free_cred_contents:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L065
-L065:
+	call L066
+L066:
 	popl %edx
-	leal L_fun_krb5_free_cred_contents$non_lazy_ptr-"L065"(%edx), %eax
+	leal L_fun_krb5_free_cred_contents$non_lazy_ptr-"L066"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1116,10 +1133,10 @@ _heim_krb5_free_creds:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L066
-L066:
+	call L067
+L067:
 	popl %edx
-	leal L_fun_krb5_free_creds$non_lazy_ptr-"L066"(%edx), %eax
+	leal L_fun_krb5_free_creds$non_lazy_ptr-"L067"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1133,10 +1150,10 @@ _heim_krb5_free_principal:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L067
-L067:
+	call L068
+L068:
 	popl %edx
-	leal L_fun_krb5_free_principal$non_lazy_ptr-"L067"(%edx), %eax
+	leal L_fun_krb5_free_principal$non_lazy_ptr-"L068"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1150,10 +1167,10 @@ _heim_krb5_sname_to_principal:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L068
-L068:
+	call L069
+L069:
 	popl %edx
-	leal L_fun_krb5_sname_to_principal$non_lazy_ptr-"L068"(%edx), %eax
+	leal L_fun_krb5_sname_to_principal$non_lazy_ptr-"L069"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1167,10 +1184,10 @@ _heim_krb5_get_credentials:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L069
-L069:
+	call L070
+L070:
 	popl %edx
-	leal L_fun_krb5_get_credentials$non_lazy_ptr-"L069"(%edx), %eax
+	leal L_fun_krb5_get_credentials$non_lazy_ptr-"L070"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1184,10 +1201,27 @@ _heim_krb5_get_error_string:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L070
-L070:
+	call L071
+L071:
 	popl %edx
-	leal L_fun_krb5_get_error_string$non_lazy_ptr-"L070"(%edx), %eax
+	leal L_fun_krb5_get_error_string$non_lazy_ptr-"L071"(%edx), %eax
+	movl (%eax), %edx
+	movl (%edx), %edx
+	jmp *%edx
+
+.globl _heim_krb5_get_default_principal
+_heim_krb5_get_default_principal:
+	pushl	%ebp
+	movl	%esp, %ebp
+	subl	$72, %esp
+	call _heim_load_functions
+	addl	$72, %esp
+	movl	%ebp, %esp
+popl	%ebp
+	call L072
+L072:
+	popl %edx
+	leal L_fun_krb5_get_default_principal$non_lazy_ptr-"L072"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1201,10 +1235,10 @@ _heim_krb5_get_init_creds_opt_alloc:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L071
-L071:
+	call L073
+L073:
 	popl %edx
-	leal L_fun_krb5_get_init_creds_opt_alloc$non_lazy_ptr-"L071"(%edx), %eax
+	leal L_fun_krb5_get_init_creds_opt_alloc$non_lazy_ptr-"L073"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1218,10 +1252,10 @@ _heim_krb5_get_init_creds_opt_free:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L072
-L072:
+	call L074
+L074:
 	popl %edx
-	leal L_fun_krb5_get_init_creds_opt_free$non_lazy_ptr-"L072"(%edx), %eax
+	leal L_fun_krb5_get_init_creds_opt_free$non_lazy_ptr-"L074"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1235,10 +1269,10 @@ _heim_krb5_get_init_creds_opt_set_canonicalize:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L073
-L073:
+	call L075
+L075:
 	popl %edx
-	leal L_fun_krb5_get_init_creds_opt_set_canonicalize$non_lazy_ptr-"L073"(%edx), %eax
+	leal L_fun_krb5_get_init_creds_opt_set_canonicalize$non_lazy_ptr-"L075"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1252,10 +1286,10 @@ _heim_krb5_get_init_creds_opt_set_forwardable:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L074
-L074:
+	call L076
+L076:
 	popl %edx
-	leal L_fun_krb5_get_init_creds_opt_set_forwardable$non_lazy_ptr-"L074"(%edx), %eax
+	leal L_fun_krb5_get_init_creds_opt_set_forwardable$non_lazy_ptr-"L076"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1269,10 +1303,10 @@ _heim_krb5_get_init_creds_opt_set_proxiable:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L075
-L075:
+	call L077
+L077:
 	popl %edx
-	leal L_fun_krb5_get_init_creds_opt_set_proxiable$non_lazy_ptr-"L075"(%edx), %eax
+	leal L_fun_krb5_get_init_creds_opt_set_proxiable$non_lazy_ptr-"L077"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1286,10 +1320,10 @@ _heim_krb5_get_init_creds_opt_set_renew_life:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L076
-L076:
+	call L078
+L078:
 	popl %edx
-	leal L_fun_krb5_get_init_creds_opt_set_renew_life$non_lazy_ptr-"L076"(%edx), %eax
+	leal L_fun_krb5_get_init_creds_opt_set_renew_life$non_lazy_ptr-"L078"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1303,10 +1337,10 @@ _heim_krb5_get_init_creds_opt_set_tkt_life:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L077
-L077:
+	call L079
+L079:
 	popl %edx
-	leal L_fun_krb5_get_init_creds_opt_set_tkt_life$non_lazy_ptr-"L077"(%edx), %eax
+	leal L_fun_krb5_get_init_creds_opt_set_tkt_life$non_lazy_ptr-"L079"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1320,10 +1354,10 @@ _heim_krb5_get_init_creds_password:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L078
-L078:
+	call L080
+L080:
 	popl %edx
-	leal L_fun_krb5_get_init_creds_password$non_lazy_ptr-"L078"(%edx), %eax
+	leal L_fun_krb5_get_init_creds_password$non_lazy_ptr-"L080"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1337,10 +1371,10 @@ _heim_krb5_get_kdc_cred:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L079
-L079:
+	call L081
+L081:
 	popl %edx
-	leal L_fun_krb5_get_kdc_cred$non_lazy_ptr-"L079"(%edx), %eax
+	leal L_fun_krb5_get_kdc_cred$non_lazy_ptr-"L081"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1354,10 +1388,10 @@ _heim_krb5_get_kdc_sec_offset:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L080
-L080:
+	call L082
+L082:
 	popl %edx
-	leal L_fun_krb5_get_kdc_sec_offset$non_lazy_ptr-"L080"(%edx), %eax
+	leal L_fun_krb5_get_kdc_sec_offset$non_lazy_ptr-"L082"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1371,10 +1405,10 @@ _heim_krb5_init_context:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L081
-L081:
+	call L083
+L083:
 	popl %edx
-	leal L_fun_krb5_init_context$non_lazy_ptr-"L081"(%edx), %eax
+	leal L_fun_krb5_init_context$non_lazy_ptr-"L083"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1388,10 +1422,10 @@ _heim_krb5_make_principal:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L082
-L082:
+	call L084
+L084:
 	popl %edx
-	leal L_fun_krb5_make_principal$non_lazy_ptr-"L082"(%edx), %eax
+	leal L_fun_krb5_make_principal$non_lazy_ptr-"L084"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1405,10 +1439,10 @@ _heim_krb5_parse_name:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L083
-L083:
+	call L085
+L085:
 	popl %edx
-	leal L_fun_krb5_parse_name$non_lazy_ptr-"L083"(%edx), %eax
+	leal L_fun_krb5_parse_name$non_lazy_ptr-"L085"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1422,10 +1456,10 @@ _heim_krb5_principal_compare:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L084
-L084:
+	call L086
+L086:
 	popl %edx
-	leal L_fun_krb5_principal_compare$non_lazy_ptr-"L084"(%edx), %eax
+	leal L_fun_krb5_principal_compare$non_lazy_ptr-"L086"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1439,10 +1473,10 @@ _heim_krb5_principal_get_realm:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L085
-L085:
+	call L087
+L087:
 	popl %edx
-	leal L_fun_krb5_principal_get_realm$non_lazy_ptr-"L085"(%edx), %eax
+	leal L_fun_krb5_principal_get_realm$non_lazy_ptr-"L087"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1456,10 +1490,10 @@ _heim_krb5_timeofday:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L086
-L086:
+	call L088
+L088:
 	popl %edx
-	leal L_fun_krb5_timeofday$non_lazy_ptr-"L086"(%edx), %eax
+	leal L_fun_krb5_timeofday$non_lazy_ptr-"L088"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1473,10 +1507,10 @@ _heim_krb5_unparse_name:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L087
-L087:
+	call L089
+L089:
 	popl %edx
-	leal L_fun_krb5_unparse_name$non_lazy_ptr-"L087"(%edx), %eax
+	leal L_fun_krb5_unparse_name$non_lazy_ptr-"L089"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1490,10 +1524,10 @@ _heim_krb5_us_timeofday:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L088
-L088:
+	call L090
+L090:
 	popl %edx
-	leal L_fun_krb5_us_timeofday$non_lazy_ptr-"L088"(%edx), %eax
+	leal L_fun_krb5_us_timeofday$non_lazy_ptr-"L090"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1507,10 +1541,10 @@ _heim_krb5_kt_start_seq_get:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L089
-L089:
+	call L091
+L091:
 	popl %edx
-	leal L_fun_krb5_kt_start_seq_get$non_lazy_ptr-"L089"(%edx), %eax
+	leal L_fun_krb5_kt_start_seq_get$non_lazy_ptr-"L091"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1524,10 +1558,10 @@ _heim_krb5_kt_end_seq_get:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L090
-L090:
+	call L092
+L092:
 	popl %edx
-	leal L_fun_krb5_kt_end_seq_get$non_lazy_ptr-"L090"(%edx), %eax
+	leal L_fun_krb5_kt_end_seq_get$non_lazy_ptr-"L092"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1541,10 +1575,10 @@ _heim_krb5_xfree:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L091
-L091:
+	call L093
+L093:
 	popl %edx
-	leal L_fun_krb5_xfree$non_lazy_ptr-"L091"(%edx), %eax
+	leal L_fun_krb5_xfree$non_lazy_ptr-"L093"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1558,10 +1592,10 @@ _heim_krb5_kt_next_entry:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L092
-L092:
+	call L094
+L094:
 	popl %edx
-	leal L_fun_krb5_kt_next_entry$non_lazy_ptr-"L092"(%edx), %eax
+	leal L_fun_krb5_kt_next_entry$non_lazy_ptr-"L094"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1575,10 +1609,10 @@ _heim_krb5_kt_free_entry:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L093
-L093:
+	call L095
+L095:
 	popl %edx
-	leal L_fun_krb5_kt_free_entry$non_lazy_ptr-"L093"(%edx), %eax
+	leal L_fun_krb5_kt_free_entry$non_lazy_ptr-"L095"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1592,10 +1626,10 @@ _heim_gsskrb5_extract_authz_data_from_sec_context:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L094
-L094:
+	call L096
+L096:
 	popl %edx
-	leal L_fun_gsskrb5_extract_authz_data_from_sec_context$non_lazy_ptr-"L094"(%edx), %eax
+	leal L_fun_gsskrb5_extract_authz_data_from_sec_context$non_lazy_ptr-"L096"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1609,10 +1643,10 @@ _heim_krb5_sendauth:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L095
-L095:
+	call L097
+L097:
 	popl %edx
-	leal L_fun_krb5_sendauth$non_lazy_ptr-"L095"(%edx), %eax
+	leal L_fun_krb5_sendauth$non_lazy_ptr-"L097"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1626,10 +1660,10 @@ _heim_krb5_free_ap_rep_enc_part:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L096
-L096:
+	call L098
+L098:
 	popl %edx
-	leal L_fun_krb5_free_ap_rep_enc_part$non_lazy_ptr-"L096"(%edx), %eax
+	leal L_fun_krb5_free_ap_rep_enc_part$non_lazy_ptr-"L098"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1643,10 +1677,10 @@ _heim_krb5_free_error:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L097
-L097:
+	call L099
+L099:
 	popl %edx
-	leal L_fun_krb5_free_error$non_lazy_ptr-"L097"(%edx), %eax
+	leal L_fun_krb5_free_error$non_lazy_ptr-"L099"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1660,10 +1694,10 @@ _heim_krb5_recvauth:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L098
-L098:
+	call L0100
+L0100:
 	popl %edx
-	leal L_fun_krb5_recvauth$non_lazy_ptr-"L098"(%edx), %eax
+	leal L_fun_krb5_recvauth$non_lazy_ptr-"L0100"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1677,10 +1711,10 @@ _heim_krb5_recvauth_match_version:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L099
-L099:
+	call L0101
+L0101:
 	popl %edx
-	leal L_fun_krb5_recvauth_match_version$non_lazy_ptr-"L099"(%edx), %eax
+	leal L_fun_krb5_recvauth_match_version$non_lazy_ptr-"L0101"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1694,10 +1728,10 @@ _heim_krb5_mk_priv:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0100
-L0100:
+	call L0102
+L0102:
 	popl %edx
-	leal L_fun_krb5_mk_priv$non_lazy_ptr-"L0100"(%edx), %eax
+	leal L_fun_krb5_mk_priv$non_lazy_ptr-"L0102"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1711,10 +1745,10 @@ _heim_krb5_rd_priv:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0101
-L0101:
+	call L0103
+L0103:
 	popl %edx
-	leal L_fun_krb5_rd_priv$non_lazy_ptr-"L0101"(%edx), %eax
+	leal L_fun_krb5_rd_priv$non_lazy_ptr-"L0103"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1728,10 +1762,10 @@ _heim_krb5_mk_safe:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0102
-L0102:
+	call L0104
+L0104:
 	popl %edx
-	leal L_fun_krb5_mk_safe$non_lazy_ptr-"L0102"(%edx), %eax
+	leal L_fun_krb5_mk_safe$non_lazy_ptr-"L0104"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1745,10 +1779,10 @@ _heim_krb5_rd_safe:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0103
-L0103:
+	call L0105
+L0105:
 	popl %edx
-	leal L_fun_krb5_rd_safe$non_lazy_ptr-"L0103"(%edx), %eax
+	leal L_fun_krb5_rd_safe$non_lazy_ptr-"L0105"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1762,10 +1796,10 @@ _heim_krb5_set_home_dir_access:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0104
-L0104:
+	call L0106
+L0106:
 	popl %edx
-	leal L_fun_krb5_set_home_dir_access$non_lazy_ptr-"L0104"(%edx), %eax
+	leal L_fun_krb5_set_home_dir_access$non_lazy_ptr-"L0106"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1779,10 +1813,10 @@ _heim_krb5_verify_init_creds:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0105
-L0105:
+	call L0107
+L0107:
 	popl %edx
-	leal L_fun_krb5_verify_init_creds$non_lazy_ptr-"L0105"(%edx), %eax
+	leal L_fun_krb5_verify_init_creds$non_lazy_ptr-"L0107"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1796,10 +1830,10 @@ _heim_krb5_verify_init_creds_opt_init:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0106
-L0106:
+	call L0108
+L0108:
 	popl %edx
-	leal L_fun_krb5_verify_init_creds_opt_init$non_lazy_ptr-"L0106"(%edx), %eax
+	leal L_fun_krb5_verify_init_creds_opt_init$non_lazy_ptr-"L0108"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1813,10 +1847,10 @@ _heim_krb5_verify_init_creds_opt_set_ap_req_nofail:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0107
-L0107:
+	call L0109
+L0109:
 	popl %edx
-	leal L_fun_krb5_verify_init_creds_opt_set_ap_req_nofail$non_lazy_ptr-"L0107"(%edx), %eax
+	leal L_fun_krb5_verify_init_creds_opt_set_ap_req_nofail$non_lazy_ptr-"L0109"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1830,10 +1864,10 @@ _heim_krb5_kuserok:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0108
-L0108:
+	call L0110
+L0110:
 	popl %edx
-	leal L_fun_krb5_kuserok$non_lazy_ptr-"L0108"(%edx), %eax
+	leal L_fun_krb5_kuserok$non_lazy_ptr-"L0110"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1847,10 +1881,10 @@ _heim_com_right:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0109
-L0109:
+	call L0111
+L0111:
 	popl %edx
-	leal L_fun_com_right$non_lazy_ptr-"L0109"(%edx), %eax
+	leal L_fun_com_right$non_lazy_ptr-"L0111"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1864,10 +1898,10 @@ _heim_com_right_r:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0110
-L0110:
+	call L0112
+L0112:
 	popl %edx
-	leal L_fun_com_right_r$non_lazy_ptr-"L0110"(%edx), %eax
+	leal L_fun_com_right_r$non_lazy_ptr-"L0112"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1881,10 +1915,44 @@ _heim_gss_import_name:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L0111
-L0111:
+	call L0113
+L0113:
 	popl %edx
-	leal L_fun_gss_import_name$non_lazy_ptr-"L0111"(%edx), %eax
+	leal L_fun_gss_import_name$non_lazy_ptr-"L0113"(%edx), %eax
+	movl (%eax), %edx
+	movl (%edx), %edx
+	jmp *%edx
+
+.globl _heim_krb5_appdefault_boolean
+_heim_krb5_appdefault_boolean:
+	pushl	%ebp
+	movl	%esp, %ebp
+	subl	$72, %esp
+	call _heim_load_functions
+	addl	$72, %esp
+	movl	%ebp, %esp
+popl	%ebp
+	call L0114
+L0114:
+	popl %edx
+	leal L_fun_krb5_appdefault_boolean$non_lazy_ptr-"L0114"(%edx), %eax
+	movl (%eax), %edx
+	movl (%edx), %edx
+	jmp *%edx
+
+.globl _heim_krb5_appdefault_string
+_heim_krb5_appdefault_string:
+	pushl	%ebp
+	movl	%esp, %ebp
+	subl	$72, %esp
+	call _heim_load_functions
+	addl	$72, %esp
+	movl	%ebp, %esp
+popl	%ebp
+	call L0115
+L0115:
+	popl %edx
+	leal L_fun_krb5_appdefault_string$non_lazy_ptr-"L0115"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1901,6 +1969,7 @@ L0111:
 .comm _fun_krb5_free_keyblock,4,2
 .comm _fun_krb5_auth_con_getremotesubkey,4,2
 .comm _fun_krb5_auth_con_getlocalsubkey,4,2
+.comm _fun_krb5_set_password,4,2
 .comm _fun_krb5_set_password_using_ccache,4,2
 .comm _fun_krb5_realm_compare,4,2
 .comm _fun_krb5_get_renewed_creds,4,2
@@ -1959,6 +2028,7 @@ L0111:
 .comm _fun_krb5_sname_to_principal,4,2
 .comm _fun_krb5_get_credentials,4,2
 .comm _fun_krb5_get_error_string,4,2
+.comm _fun_krb5_get_default_principal,4,2
 .comm _fun_krb5_get_init_creds_opt_alloc,4,2
 .comm _fun_krb5_get_init_creds_opt_free,4,2
 .comm _fun_krb5_get_init_creds_opt_set_canonicalize,4,2
@@ -2000,6 +2070,8 @@ L0111:
 .comm _fun_com_right,4,2
 .comm _fun_com_right_r,4,2
 .comm _fun_gss_import_name,4,2
+.comm _fun_krb5_appdefault_boolean,4,2
+.comm _fun_krb5_appdefault_string,4,2
 	.section __IMPORT,__pointers,non_lazy_symbol_pointers
 L_fun_krb5_cc_end_seq_get$non_lazy_ptr:
 	.indirect_symbol _fun_krb5_cc_end_seq_get
@@ -2036,6 +2108,9 @@ L_fun_krb5_auth_con_getremotesubkey$non_lazy_ptr:
 	.long 0
 L_fun_krb5_auth_con_getlocalsubkey$non_lazy_ptr:
 	.indirect_symbol _fun_krb5_auth_con_getlocalsubkey
+	.long 0
+L_fun_krb5_set_password$non_lazy_ptr:
+	.indirect_symbol _fun_krb5_set_password
 	.long 0
 L_fun_krb5_set_password_using_ccache$non_lazy_ptr:
 	.indirect_symbol _fun_krb5_set_password_using_ccache
@@ -2211,6 +2286,9 @@ L_fun_krb5_get_credentials$non_lazy_ptr:
 L_fun_krb5_get_error_string$non_lazy_ptr:
 	.indirect_symbol _fun_krb5_get_error_string
 	.long 0
+L_fun_krb5_get_default_principal$non_lazy_ptr:
+	.indirect_symbol _fun_krb5_get_default_principal
+	.long 0
 L_fun_krb5_get_init_creds_opt_alloc$non_lazy_ptr:
 	.indirect_symbol _fun_krb5_get_init_creds_opt_alloc
 	.long 0
@@ -2333,6 +2411,12 @@ L_fun_com_right_r$non_lazy_ptr:
 	.long 0
 L_fun_gss_import_name$non_lazy_ptr:
 	.indirect_symbol _fun_gss_import_name
+	.long 0
+L_fun_krb5_appdefault_boolean$non_lazy_ptr:
+	.indirect_symbol _fun_krb5_appdefault_boolean
+	.long 0
+L_fun_krb5_appdefault_string$non_lazy_ptr:
+	.indirect_symbol _fun_krb5_appdefault_string
 	.long 0
 	.subsections_via_symbols
 #endif

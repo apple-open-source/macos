@@ -100,7 +100,8 @@ kadm5_ret_t
 _kadm5_set_keys (
 	kadm5_server_context */*context*/,
 	hdb_entry */*ent*/,
-	const char */*password*/);
+	const char */*password*/,
+	krb5_enctype *);
 
 kadm5_ret_t
 _kadm5_set_keys2 (
@@ -120,6 +121,7 @@ kadm5_ret_t
 _kadm5_set_keys_randomly (
 	kadm5_server_context */*context*/,
 	hdb_entry */*ent*/,
+	krb5_enctype *enctypes,
 	krb5_keyblock **/*new_keys*/,
 	int */*n_keys*/);
 
@@ -235,7 +237,8 @@ kadm5_ret_t
 kadm5_c_chpass_principal (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
-	const char */*password*/);
+	const char */*password*/,
+	krb5_enctype *enctypes);
 
 kadm5_ret_t
 kadm5_c_chpass_principal_with_key (
@@ -249,7 +252,8 @@ kadm5_c_create_principal (
 	void */*server_handle*/,
 	kadm5_principal_ent_t /*princ*/,
 	uint32_t /*mask*/,
-	const char */*password*/);
+	const char */*password*/,
+	krb5_enctype *enctypes);
 
 kadm5_ret_t
 kadm5_c_delete_principal (
@@ -354,6 +358,7 @@ kadm5_ret_t
 kadm5_c_randkey_principal (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
+	krb5_enctype *enctypes,
 	krb5_keyblock **/*new_keys*/,
 	int */*n_keys*/);
 
@@ -454,13 +459,15 @@ kadm5_ret_t
 kadm5_s_chpass_principal (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
-	const char */*password*/);
+	const char */*password*/,
+	krb5_enctype *enctypes);
 
 kadm5_ret_t
 kadm5_s_chpass_principal_cond (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
-	const char */*password*/);
+	const char */*password*/,
+	krb5_enctype *enctypes);
 
 kadm5_ret_t
 kadm5_s_chpass_principal_with_key (
@@ -474,7 +481,8 @@ kadm5_s_create_principal (
 	void */*server_handle*/,
 	kadm5_principal_ent_t /*princ*/,
 	uint32_t /*mask*/,
-	const char */*password*/);
+	const char */*password*/,
+	krb5_enctype *enctypes);
 
 kadm5_ret_t
 kadm5_s_create_principal_with_key (
@@ -585,6 +593,7 @@ kadm5_ret_t
 kadm5_s_randkey_principal (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
+	krb5_enctype *enctypes,
 	krb5_keyblock **/*new_keys*/,
 	int */*n_keys*/);
 
@@ -593,5 +602,11 @@ kadm5_s_rename_principal (
 	void */*server_handle*/,
 	krb5_principal /*source*/,
 	krb5_principal /*target*/);
+
+krb5_error_code
+_kadm5_xdr_ret_gacred(krb5_data *data, struct _kadm5_xdr_gacred *gacred);
+
+krb5_error_code
+_kadm5_store_enctypes(krb5_storage *sp, krb5_enctype *enctypes);
 
 #endif /* __kadm5_private_h__ */

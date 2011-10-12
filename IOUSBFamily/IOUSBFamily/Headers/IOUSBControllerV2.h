@@ -82,6 +82,7 @@ protected:
     #define _currentSizeOfIsocCommandPool		_expansionData->_currentSizeOfIsocCommandPool
     #define _controllerSpeed					_expansionData->_controllerSpeed
 	#define _activeIsochTransfers				_expansionData->_activeIsochTransfers
+	#define _activeInterruptTransfers			_expansionData->_activeInterruptTransfers
 
 	// this class's expansion data
 	#define _isochEPList						_v2ExpansionData->_isochEPList

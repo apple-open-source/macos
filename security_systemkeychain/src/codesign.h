@@ -75,8 +75,15 @@ extern Architecture architecture;		// specific binary architecture to process (f
 extern const char *bundleVersion;		// specific version string requested (from a versioned bundle)
 extern bool noMachO;					// force non-MachO operation
 extern bool dryrun;						// do not actually change anything
-extern bool preserveMetadata;			// keep metadata from previous signature (if any)
 extern bool allArchitectures;			// process all architectures in a universal (aka fat) code file
+
+enum {
+    kPreserveIdentifier = 1 << 0,		// preserve signing identifier
+    kPreserveRequirements = 1 << 1,		// preserve internal requirements (including DR)
+    kPreserveEntitlements = 1 << 2,		// preserve entitlements
+    kPreserveResourceRules = 1 << 3,	// preserve resource rules (and thus resources)
+};
+extern int preserveMetadata;			// keep metadata from previous signature (if any)
 
 
 #endif //_H_CODESIGN

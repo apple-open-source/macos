@@ -101,4 +101,4 @@ ExitStatus writePrelinkedSymbols(
 ExitStatus makeDirectoryWithURL(
     CFURLRef dirURL);
 
-#endif
+#endif /* _KERNELCACHE_H_ */

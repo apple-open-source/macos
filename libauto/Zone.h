@@ -99,6 +99,8 @@ namespace Auto {
         uint8_t               _pending_collections[AUTO_ZONE_COLLECT_GLOBAL_MODE_COUNT]; // count of pending collections for each mode
         pthread_mutex_t       _collection_mutex;
         
+        dispatch_source_t     _pressure_source;
+        
         bool                  _compaction_pending;          // true if the compaction timer is armed.
         dispatch_source_t     _compaction_timer;            // resume this timer to trigger in the future.
         dispatch_time_t       _compaction_next_time;        // next allowed time for compaction.

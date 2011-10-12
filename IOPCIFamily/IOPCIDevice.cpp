@@ -96,6 +96,9 @@ static IOPMPowerState powerStates[ kIOPCIDevicePowerStateCount ] = {
 
 bool IOPCIDevice::attach( IOService * provider )
 {
+    if (!super::attach(provider))
+    	return (false);
+
     // initialize superclass variables
     PMinit();
     // register as controlling driver
@@ -111,7 +114,7 @@ bool IOPCIDevice::attach( IOService * provider )
     if (slotNameProperty != NULL)
         changePowerStateToPriv (1);
 #endif
-    return super::attach(provider);
+	return (true);
 }
 
 void IOPCIDevice::detach( IOService * provider )

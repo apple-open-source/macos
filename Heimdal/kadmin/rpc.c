@@ -38,14 +38,32 @@
 #include <gssapi_krb5.h>
 #include <gssapi_spnego.h>
 
-#define CHECK(x)							\
-	do {								\
-		int __r;						\
-		if ((__r = (x))) {					\
-			krb5_errx(dcontext, 1, "Failed (%d) on %s:%d",	\
-			    __r, __FILE__, __LINE__);			\
-		}							\
-	} while(0)
+#define CHECK(x)						\
+    do {							\
+	int __r;						\
+	if ((__r = (x))) {					\
+	    krb5_errx(dcontext, 1, "Failed (%d) on %s:%d",	\
+		      __r, __FILE__, __LINE__);			\
+	}							\
+    } while(0)
+
+#define EXPECT(x,expected)						\
+    do {								\
+	if ((x) != (expected)) {					\
+	    krb5_errx(dcontext, 1,					\
+		      "Got %d, was not the expected %d at %s:%d",	\
+		      x, expected, __FILE__, __LINE__);			\
+	}								\
+    } while(0)
+
+#define EXPECT_EGT(x,expected)				\
+    do {						\
+	if ((x) < (expected)) {				\
+	    krb5_errx(dcontext, 1,			\
+		      "Got %d that is < %d at %s:%d",	\
+		      x, expected, __FILE__, __LINE__);	\
+	}						\
+    } while(0)
 
 static krb5_context dcontext;
 
@@ -59,7 +77,10 @@ static krb5_context dcontext;
 #define KADM_SERVER 2112
 #define VVERSION 2
 #define FLAVOR_GSS 6
-#define FLAVOR_GSS_VERSION 1
+#define 	FLAVOR_GSS_VERSION 1
+#define 	SEQ_WINDOW_SIZE		1
+#define FLAVOR_GSS_OLD 300001
+#define 	FLAVOR_GSS_OLD_MIN_VERSION 3
 
 enum {
     RPG_DATA = 0,
@@ -73,12 +94,12 @@ enum {
 };
 
 /*
-struct chrand_ret {
-	krb5_ui_4 api_version;
-	kadm5_ret_t ret;
-	int n_keys;
-	krb5_keyblock *keys;
-};
+  struct chrand_ret {
+  krb5_ui_4 api_version;
+  kadm5_ret_t ret;
+  int n_keys;
+  krb5_keyblock *keys;
+  };
 */
 
 
@@ -228,14 +249,15 @@ proc_create_principal(kadm5_server_context *context,
     uint32_t version, mask;
     kadm5_principal_ent_rec ent;
     krb5_error_code ret;
-    char *password;
+    char *password, *princ = NULL;
 
     memset(&ent, 0, sizeof(ent));
 
     CHECK(krb5_ret_uint32(in, &version));
-    INSIST(version == VERSION2);
+    EXPECT_EGT(version, VERSION2);
     CHECK(_kadm5_xdr_ret_principal_ent(context->context, in, &ent));
     INSIST(ent.principal != NULL);
+    CHECK(krb5_unparse_name(context->context, ent.principal, &princ));
     CHECK(krb5_ret_uint32(in, &mask));
     CHECK(_kadm5_xdr_ret_string_xdr(in, &password));
 
@@ -249,11 +271,81 @@ proc_create_principal(kadm5_server_context *context,
     ret = kadm5_create_principal(context, &ent, mask, password);
 
  fail:
-    krb5_warn(context->context, ret, "create principal");
+    krb5_warn(context->context, ret, "create principal: %s", princ ? princ : "<noprinc>");
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret)); /* code */
 
     free(password);
+    free(princ);
+    kadm5_free_principal_ent(context, &ent);
+}
+
+/* get array of salt tuples */
+
+static krb5_enctype *
+parse_enctypes(krb5_context context, krb5_storage *in)
+{
+    uint32_t n, num;
+    krb5_enctype *enctypes;
+
+    CHECK(krb5_ret_uint32(in, &num));
+    INSIST(num < 1000);
+
+    if (num == 0)
+	return NULL;
+
+    enctypes = calloc(num + 1, sizeof(enctypes[0]));
+    INSIST(enctypes != NULL);
+
+    for (n = 0; n < num; n++) {
+	int32_t enctype, salttype;
+	CHECK(krb5_ret_int32(in, &enctype));
+	enctypes[n] = (krb5_enctype)enctype;
+	CHECK(krb5_ret_int32(in, &salttype));
+    }
+    enctypes[n] = ENCTYPE_NULL;
+    return enctypes;
+}
+
+static void
+proc_create_principal3(kadm5_server_context *context,
+		       krb5_storage *in,
+		       krb5_storage *out)
+{
+    uint32_t version, mask;
+    kadm5_principal_ent_rec ent;
+    krb5_error_code ret;
+    char *password, *princ = NULL;
+    krb5_enctype *enctypes = NULL;
+
+    memset(&ent, 0, sizeof(ent));
+
+    CHECK(krb5_ret_uint32(in, &version));
+    EXPECT_EGT(version, VERSION2);
+    CHECK(_kadm5_xdr_ret_principal_ent(context->context, in, &ent));
+    INSIST(ent.principal != NULL);
+    CHECK(krb5_unparse_name(context->context, ent.principal, &princ));
+    CHECK(krb5_ret_uint32(in, &mask));
+    enctypes = parse_enctypes(context->context, in);
+    CHECK(_kadm5_xdr_ret_string_xdr(in, &password));
+
+    INSIST(ent.principal);
+
+    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_ADD, ent.principal);
+    if (ret)
+	goto fail;
+
+    ret = kadm5_create_principal2(context, &ent, mask, password, enctypes);
+
+ fail:
+    krb5_warn(context->context, ret, "create principal: %s", princ ? princ : "<noprinc>");
+    CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
+    CHECK(krb5_store_uint32(out, ret)); /* code */
+
+    free(password);
+    free(princ);
+    if (enctypes)
+	free(enctypes);
     kadm5_free_principal_ent(context, &ent);
 }
 
@@ -263,25 +355,28 @@ proc_delete_principal(kadm5_server_context *context,
 		      krb5_storage *out)
 {
     uint32_t version;
-    krb5_principal princ;
+    krb5_principal principal;
     krb5_error_code ret;
+    char *princ = NULL;
 
     CHECK(krb5_ret_uint32(in, &version));
-    INSIST(version == VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &princ));
+    EXPECT_EGT(version, VERSION2);
+    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &principal));
+    CHECK(krb5_unparse_name(context->context, principal, &princ));
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_DELETE, princ);
+    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_DELETE, principal);
     if (ret)
 	goto fail;
 
-    ret = kadm5_delete_principal(context, princ);
+    ret = kadm5_delete_principal(context, principal);
 
  fail:
-    krb5_warn(context->context, ret, "delete principal");
+    krb5_warn(context->context, ret, "delete principal: %s", princ ? princ : "<noprinc>");
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret)); /* code */
 
-    krb5_free_principal(context->context, princ);
+    free(princ);
+    krb5_free_principal(context->context, principal);
 }
 
 static void
@@ -294,7 +389,7 @@ proc_modify_principal(kadm5_server_context *context,
     krb5_error_code ret;
 
     CHECK(krb5_ret_uint32(in, &version));
-    INSIST(version == VERSION2);
+    EXPECT_EGT(version, VERSION2);
     CHECK(_kadm5_xdr_ret_principal_ent(context->context, in, &ent));
     INSIST(ent.principal != NULL);
     CHECK(krb5_ret_uint32(in, &mask));
@@ -320,32 +415,37 @@ proc_get_principal(kadm5_server_context *context,
 		   krb5_storage *out)
 {
     uint32_t version, mask;
-    krb5_principal princ;
+    krb5_principal principal;
     kadm5_principal_ent_rec ent;
     krb5_error_code ret;
+    char *princ = NULL;
 
     memset(&ent, 0, sizeof(ent));
 
     CHECK(krb5_ret_uint32(in, &version));
-    INSIST(version == VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &princ));
+    EXPECT_EGT(version, VERSION2);
+    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &principal));
+    CHECK(krb5_unparse_name(context->context, principal, &princ));
     CHECK(krb5_ret_uint32(in, &mask));
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_GET, princ);
+    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_GET, principal);
     if(ret)
 	goto fail;
 
-    ret = kadm5_get_principal(context, princ, &ent, mask);
+    mask |= KADM5_KVNO | KADM5_PRINCIPAL;
+
+    ret = kadm5_get_principal(context, principal, &ent, mask);
 
  fail:
-    krb5_warn(context->context, ret, "get principal principal");
+    krb5_warn(context->context, ret, "get principal: %s kvno %d",
+	      princ ? princ : "<unknown>", (int)ent.kvno);
 
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret)); /* code */
     if (ret == 0) {
 	CHECK(_kadm5_xdr_store_principal_ent(context->context, out, &ent));
     }
-    krb5_free_principal(context->context, princ);
+    krb5_free_principal(context->context, principal);
     kadm5_free_principal_ent(context, &ent);
 }
 
@@ -355,24 +455,27 @@ proc_chrand_principal_v2(kadm5_server_context *context,
 			 krb5_storage *out)
 {
     krb5_error_code ret;
-    krb5_principal princ;
+    krb5_principal principal;
     uint32_t version;
     krb5_keyblock *new_keys;
     int n_keys;
+    char *princ = NULL;
 
     CHECK(krb5_ret_uint32(in, &version));
-    INSIST(version == VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &princ));
+    EXPECT_EGT(version, VERSION2);
+    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &principal));
+    CHECK(krb5_unparse_name(context->context, principal, &princ));
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_CPW, princ);
+    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_CPW, principal);
     if(ret)
 	goto fail;
 
-    ret = kadm5_randkey_principal(context, princ,
+    ret = kadm5_randkey_principal(context, principal,
 				  &new_keys, &n_keys);
 
  fail:
-    krb5_warn(context->context, ret, "rand key principal");
+    krb5_warn(context->context, ret, "rand key principal v2: %s",
+	      princ ? princ : "<unknown>");
 
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret));
@@ -387,8 +490,62 @@ proc_chrand_principal_v2(kadm5_server_context *context,
 	}
 	free(new_keys);
     }
-    krb5_free_principal(context->context, princ);
+    krb5_free_principal(context->context, principal);
+    if (princ)
+	free(princ);
 }
+
+static void
+proc_chrand_principal_v3(kadm5_server_context *context,
+			 krb5_storage *in, 
+			 krb5_storage *out)
+{
+    krb5_error_code ret;
+    krb5_principal principal;
+    uint32_t version, keepold;
+    krb5_keyblock *new_keys;
+    krb5_enctype *enctypes = NULL;
+    char *princ = NULL;
+    int n_keys;
+
+    CHECK(krb5_ret_uint32(in, &version));
+    EXPECT_EGT(version, VERSION2);
+    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &principal));
+    CHECK(krb5_unparse_name(context->context, principal, &princ));
+    CHECK(krb5_ret_uint32(in, &keepold));
+    enctypes = parse_enctypes(context->context, in);
+
+    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_CPW, principal);
+    if(ret)
+	goto fail;
+
+    ret = kadm5_randkey_principal2(context, principal, enctypes,
+				   &new_keys, &n_keys);
+
+ fail:
+    krb5_warn(context->context, ret, "rand key principal v3: %s",
+	      princ ? princ : "<unknown>");
+
+    CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
+    CHECK(krb5_store_uint32(out, ret));
+    if (ret == 0) {
+	size_t i;
+	CHECK(krb5_store_int32(out, n_keys));
+
+	for(i = 0; i < n_keys; i++){
+	    CHECK(krb5_store_uint32(out, new_keys[i].keytype));
+	    CHECK(_kadm5_xdr_store_data_xdr(out, new_keys[i].keyvalue));
+	    krb5_free_keyblock_contents(context->context, &new_keys[i]);
+	}
+	free(new_keys);
+    }
+    if (enctypes)
+	free(enctypes);
+    krb5_free_principal(context->context, principal);
+    if (princ)
+	free(princ);
+}
+
 
 static void
 proc_init(kadm5_server_context *context,
@@ -399,6 +556,16 @@ proc_init(kadm5_server_context *context,
     CHECK(krb5_store_uint32(out, 0)); /* code */
     CHECK(krb5_store_uint32(out, 0)); /* code */
 }
+
+static void
+proc_get_policy(kadm5_server_context *context,
+		krb5_storage *in,
+		krb5_storage *out)
+{
+    CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
+    CHECK(krb5_store_uint32(out, KADM5_AUTH_GET)); /* code */
+}
+
 
 struct proc {
     char *name;
@@ -411,20 +578,20 @@ struct proc {
     { "rename principal", NULL },
     { "get principal", proc_get_principal },
     { "chpass principal", NULL },
-    { "chrand principal", proc_chrand_principal_v2 },
+    { "chrand principal v2", proc_chrand_principal_v2 },
     { "create policy", NULL },
     { "delete policy", NULL },
     { "modify policy", NULL },
-    { "get policy", NULL },
+    { "get policy", proc_get_policy },
     { "get privs", NULL },
     { "init", proc_init },
     { "get principals", NULL },
     { "get polices", NULL },
     { "setkey principal", NULL },
     { "setkey principal v4", NULL },
-    { "create principal v3", NULL },
+    { "create principal v3", proc_create_principal3 },
     { "chpass principal v3", NULL },
-    { "chrand principal v3", NULL },
+    { "chrand principal v3", proc_chrand_principal_v3 },
     { "setkey principal v3", NULL }
 };
 
@@ -450,9 +617,535 @@ struct gctx {
     krb5_data handle;
     gss_ctx_id_t ctx;
     uint32_t seq_num;
+    uint32_t protocol;
     int done;
     int inprogress;
+    void *server_handle;
+    void (*verify_header)(struct gctx *, struct _kadm5_xdr_call_header *, krb5_data *);
+    void (*handle_protocol)(struct gctx *, struct _kadm5_xdr_call_header *,
+			    krb5_storage *, krb5_storage *);
+    void (*reply)(struct gctx *, krb5_storage *, krb5_storage *);
+
 };
+
+static void
+setup_context(struct gctx *gctx, gss_name_t src_name)
+{
+    kadm5_config_params realm_params;
+    gss_buffer_desc buf;
+    OM_uint32 maj_stat, min_stat, junk;
+    krb5_error_code ret;
+    char *client;
+	    
+    INSIST(gctx->done);
+
+    memset(&realm_params, 0, sizeof(realm_params));
+	    
+    maj_stat = gss_export_name(&min_stat, src_name, &buf);
+    EXPECT(maj_stat, GSS_S_COMPLETE);
+    EXPECT(min_stat, 0);
+	    
+    CHECK(parse_name(buf.value, buf.length, 
+		     GSS_KRB5_MECHANISM, &client));
+    
+    gss_release_buffer(&junk, &buf);
+    
+    krb5_warnx(context, "%s connected", client);
+    
+    ret = kadm5_s_init_with_password_ctx(context,
+					 client,
+					 NULL,
+					 KADM5_ADMIN_SERVICE,
+					 &realm_params,
+					 0, 0,
+					 &gctx->server_handle);
+    EXPECT(ret, 0);
+}
+
+/*
+ * GSS flavor
+ */
+
+static void
+xpcgss_verify_header(struct gctx *gctx, struct _kadm5_xdr_call_header *chdr, krb5_data *header)
+{
+    OM_uint32 maj_stat, min_stat;
+    gss_buffer_desc gin, gout;
+
+    EXPECT(chdr->verf.flavor, gctx->protocol);
+
+    /* from first byte to last of credential */
+    gin.value = header->data;
+    gin.length = header->length;
+    gout.value = chdr->verf.data.data;
+    gout.length = chdr->verf.data.length;
+    
+    maj_stat = gss_verify_mic(&min_stat, gctx->ctx, &gin, &gout, NULL);
+    EXPECT(maj_stat, GSS_S_COMPLETE);
+}
+
+static void
+rpcgss_handle_protocol(struct gctx *gctx,
+		       struct _kadm5_xdr_call_header *chdr,
+		       krb5_storage *msg,
+		       krb5_storage *dreply)
+{
+    OM_uint32 maj_stat, min_stat, junk;
+    gss_buffer_desc gin, gout;
+    struct _kadm5_xdr_gcred gcred;
+
+    memset(&gcred, 0, sizeof(gcred));
+
+    CHECK(_kadm5_xdr_ret_gcred(&chdr->cred.data, &gcred));
+    EXPECT(gcred.version, FLAVOR_GSS_VERSION);
+
+    switch(gcred.proc) {
+    case RPG_DATA: {
+	krb5_data data;
+	int conf_state;
+	uint32_t seq;
+	krb5_storage *sp;
+	
+	EXPECT(gcred.service, rpg_privacy);
+	
+	INSIST(gctx->done);
+	
+	INSIST(krb5_data_cmp(&gcred.handle, &gctx->handle) == 0);
+	
+	CHECK(_kadm5_xdr_ret_data_xdr(msg, &data));
+	
+	gin.value = data.data;
+	gin.length = data.length;
+	
+	maj_stat = gss_unwrap(&min_stat, gctx->ctx, &gin, &gout,
+			      &conf_state, NULL);
+	krb5_data_free(&data);
+	INSIST(maj_stat == GSS_S_COMPLETE);
+	INSIST(conf_state != 0);
+	
+	sp = krb5_storage_from_mem(gout.value, gout.length);
+	INSIST(sp != NULL);
+	
+	CHECK(krb5_ret_uint32(sp, &seq));
+	EXPECT(seq, gcred.seq_num);
+	
+	/*
+	 * Check sequence number
+	 */
+	INSIST(seq > gctx->seq_num);
+	gctx->seq_num = seq;
+	
+	/* 
+	 * If context is setup, priv data have the seq_num stored
+	 * first in the block, so add it here before users data is
+	 * added.
+	 */
+	CHECK(krb5_store_uint32(dreply, gctx->seq_num));
+	
+	if (chdr->proc >= sizeof(procs)/sizeof(procs[0])) {
+	    krb5_warnx(context, "proc number out of array");
+	} else if (procs[chdr->proc].func == NULL) {
+	    krb5_warnx(context, "proc '%s' never implemented", 
+		       procs[chdr->proc].name);
+	} else {
+	    krb5_warnx(context, "proc %s", procs[chdr->proc].name);
+	    INSIST(gctx->server_handle != NULL);
+	    (*procs[chdr->proc].func)(gctx->server_handle, sp, dreply);
+	}
+	krb5_storage_free(sp);
+	gss_release_buffer(&min_stat, &gout);
+	
+	break;
+    }
+    case RPG_INIT:
+	INSIST(gctx->inprogress == 0);
+	INSIST(gctx->ctx == NULL);
+	
+	gctx->inprogress = 1;
+	/* FALL THOUGH */
+    case RPG_CONTINUE_INIT: {
+	gss_name_t src_name = GSS_C_NO_NAME;
+	krb5_data in;
+	
+	INSIST(gctx->inprogress);
+	
+	CHECK(_kadm5_xdr_ret_data_xdr(msg, &in));
+	
+	gin.value = in.data;
+	gin.length = in.length;
+	gout.value = NULL;
+	gout.length = 0;
+	
+	maj_stat = gss_accept_sec_context(&min_stat,
+					  &gctx->ctx, 
+					  GSS_C_NO_CREDENTIAL,
+					  &gin,
+					  GSS_C_NO_CHANNEL_BINDINGS,
+					  &src_name,
+					  NULL,
+					  &gout,
+					  NULL,
+					  NULL,
+					  NULL);
+	if (GSS_ERROR(maj_stat)) {
+	    gss_print_errors(context, maj_stat, min_stat);
+	    krb5_errx(context, 1, "gss error, exit");
+	}
+	if ((maj_stat & GSS_S_CONTINUE_NEEDED) == 0) {
+	    
+	    gctx->done = 1;
+	    gctx->verify_header = xpcgss_verify_header;
+	    
+	    setup_context(gctx, src_name);
+	}
+	
+	INSIST(gctx->ctx != GSS_C_NO_CONTEXT);
+	
+	CHECK(_kadm5_xdr_store_gss_init_res(dreply, gctx->handle,
+					    maj_stat, min_stat, SEQ_WINDOW_SIZE, &gout));
+	if (gout.value)
+	    gss_release_buffer(&junk, &gout);
+	if (src_name)
+	    gss_release_name(&junk, &src_name);
+	
+	break;
+    }
+    case RPG_DESTROY:
+	krb5_errx(context, 1, "client destroyed gss context");
+    default:
+	krb5_errx(context, 1, "client sent unknown gsscode %d", 
+		  (int)gcred.proc);
+    }
+    
+    krb5_data_free(&gcred.handle);
+}
+
+static void
+rpcgss_reply(struct gctx *gctx, krb5_storage *dreply, krb5_storage *reply)
+{
+    uint32_t seqnum = htonl(gctx->seq_num);
+    gss_buffer_desc gin, gout;
+    OM_uint32 maj_stat, min_stat, junk;
+    krb5_data data;
+
+    /*
+     * The first checksum is really the checksum of the
+     * seq_window in the rpc_gss_init_res packet, lets agree
+     * with that.
+     */
+    if (gctx->seq_num == 0)
+	seqnum = htonl(SEQ_WINDOW_SIZE);
+
+    gin.value = &seqnum;
+    gin.length = sizeof(seqnum);
+
+    maj_stat = gss_get_mic(&min_stat, gctx->ctx, 0, &gin, &gout);
+    INSIST(maj_stat == GSS_S_COMPLETE);
+
+    data.data = gout.value;
+    data.length = gout.length;
+
+    CHECK(krb5_store_uint32(reply, FLAVOR_GSS));
+    CHECK(_kadm5_xdr_store_data_xdr(reply, data));
+    gss_release_buffer(&junk, &gout);
+
+    CHECK(krb5_store_uint32(reply, 0)); /* SUCCESS */
+
+    CHECK(krb5_storage_to_data(dreply, &data));
+
+    if (gctx->inprogress) {
+	ssize_t sret;
+	gctx->inprogress = 0;
+	sret = krb5_storage_write(reply, data.data, data.length);
+	INSIST(sret == data.length);
+	krb5_data_free(&data);
+    } else {
+	int conf_state;
+
+	gin.value = data.data;
+	gin.length = data.length;
+		
+	maj_stat = gss_wrap(&min_stat, gctx->ctx, 1, 0,
+			    &gin, &conf_state, &gout);
+	INSIST(maj_stat == GSS_S_COMPLETE);
+	INSIST(conf_state != 0);
+	krb5_data_free(&data);
+	
+	data.data = gout.value;
+	data.length = gout.length;
+	
+	_kadm5_xdr_store_data_xdr(reply, data);
+	gss_release_buffer(&min_stat, &gout);
+    }
+}
+
+
+/*
+ * GSSAPI flavor
+ */
+
+enum {
+    RPGA_INIT = 1,
+    RPGA_CONTINUE_INIT = 2,
+    RPGA_MSG = 3,
+    RPGA_DESTORY = 4
+};
+
+static void
+xpcgssapi_verify_header(struct gctx *gctx, struct _kadm5_xdr_call_header *chdr, krb5_data *header)
+{
+#if 0
+    OM_uint32 maj_stat, min_stat;
+    gss_buffer_desc gin, gout;
+
+    EXPECT(chdr->verf.flavor, gctx->protocol);
+
+    /* from first byte to last of credential */
+    gin.value = header->data;
+    gin.length = header->length;
+    gout.value = chdr->verf.data.data;
+    gout.length = chdr->verf.data.length;
+    
+    maj_stat = gss_verify_mic(&min_stat, gctx->ctx, &gin, &gout, NULL);
+    EXPECT(maj_stat, GSS_S_COMPLETE);
+#endif
+}
+
+static void
+rpcgssapi_handle_protocol(struct gctx *gctx,
+			  struct _kadm5_xdr_call_header *chdr,
+			  krb5_storage *msg,
+			  krb5_storage *dreply)
+{
+    struct _kadm5_xdr_gacred gacred;
+    OM_uint32 maj_stat, min_stat, junk;
+    gss_buffer_desc gin, gout, gseq;
+
+    CHECK(_kadm5_xdr_ret_gacred(&chdr->cred.data, &gacred));
+    gseq.length = 0;
+    gseq.value = NULL;
+
+    if (gctx->done == 0 && chdr->proc == RPGA_INIT) {
+	INSIST(gacred.handle.length == 0);
+	INSIST(gctx->handle.length == 0);
+
+	CHECK(krb5_data_alloc(&gctx->handle, 16));
+	CCRandomCopyBytes(kCCRandomDefault, gctx->handle.data, gctx->handle.length);
+
+    } else {
+	INSIST(gacred.handle.length != 0);
+	INSIST(krb5_data_cmp(&gacred.handle, &gctx->handle) == 0);
+    }
+
+
+    if (gctx->done == 0) {
+	uint32_t version;
+	krb5_data token, out;
+
+	CHECK(krb5_ret_uint32(msg, &version));
+	CHECK(_kadm5_xdr_ret_data_xdr(msg, &token));
+
+	switch (chdr->proc) {
+	case RPGA_INIT:
+	    INSIST(gctx->inprogress == 0);
+	    INSIST(gctx->ctx == NULL);
+	
+	    INSIST(version == 3 || version == 4);
+
+	    gctx->inprogress = 1;
+
+	    /* FALL THOUGH */
+	case RPGA_CONTINUE_INIT: {
+	    gss_name_t src_name = GSS_C_NO_NAME;
+	
+	    INSIST(gctx->inprogress);
+	
+	    gin.value = token.data;
+	    gin.length = token.length;
+	    gout.value = NULL;
+	    gout.length = 0;
+	    
+	    maj_stat = gss_accept_sec_context(&min_stat,
+					      &gctx->ctx, 
+					      GSS_C_NO_CREDENTIAL,
+					      &gin,
+					      GSS_C_NO_CHANNEL_BINDINGS,
+					      &src_name,
+					      NULL,
+					      &gout,
+					      NULL,
+					      NULL,
+					      NULL);
+	    if (GSS_ERROR(maj_stat)) {
+		gss_print_errors(context, maj_stat, min_stat);
+		krb5_errx(context, 1, "gss error, exit");
+	    }
+	    if ((maj_stat & GSS_S_CONTINUE_NEEDED) == 0) {
+		uint32_t netseqnum;
+
+		gctx->done = 1;
+		gctx->verify_header = xpcgssapi_verify_header;
+
+		setup_context(gctx, src_name);
+
+		CCRandomCopyBytes(kCCRandomDefault, 
+				  &gctx->seq_num, sizeof(gctx->seq_num));
+
+		netseqnum = htonl(gctx->seq_num);
+		gin.value = &netseqnum;
+		gin.length = sizeof(netseqnum);
+
+		CHECK(gss_wrap(&junk, gctx->ctx, 0, GSS_C_QOP_DEFAULT, &gin, NULL, &gseq));
+	    }
+
+	    INSIST(gctx->ctx != GSS_C_NO_CONTEXT);
+
+	    /* reply argument */
+
+	    CHECK(krb5_store_uint32(dreply, version));
+	    CHECK(_kadm5_xdr_store_data_xdr(dreply, gctx->handle));
+	    CHECK(krb5_store_uint32(dreply, maj_stat));
+	    CHECK(krb5_store_uint32(dreply, min_stat));
+
+	    out.data = gout.value;
+	    out.length = gout.length;
+	    CHECK(_kadm5_xdr_store_data_xdr(dreply, out));
+
+	    out.data = gseq.value;
+	    out.length = gseq.length;
+	    CHECK(_kadm5_xdr_store_data_xdr(dreply, out));
+
+	    if (gout.value)
+		gss_release_buffer(&junk, &gout);
+	    if (gseq.value)
+		gss_release_buffer(&junk, &gseq);
+	    if (src_name)
+		gss_release_name(&junk, &src_name);
+
+	    break;
+	}
+	default:
+	    krb5_errx(context, 1, "unsupported init message %d", (int)chdr->proc);
+	}
+	krb5_data_free(&token);
+
+    } else if (gacred.auth_msg) {
+	if (chdr->proc == RPGA_MSG)
+	    krb5_warnx(context, "auth message MSG not supported");
+	else if (chdr->proc == RPGA_DESTORY)
+	    krb5_warnx(context, "auth message DESTROY not supported");
+	else
+	    krb5_errx(context, 1, "auth message not supported: %d", (int)chdr->proc);
+    } else {
+	krb5_storage *sp;
+	krb5_data data;
+	int conf_state = 0;
+	uint32_t seq;
+
+	INSIST(gctx->done);
+	
+	CHECK(_kadm5_xdr_ret_data_xdr(msg, &data));
+	
+	gin.value = data.data;
+	gin.length = data.length;
+	
+	maj_stat = gss_unwrap(&min_stat, gctx->ctx, &gin, &gout,
+			      &conf_state, NULL);
+	krb5_data_free(&data);
+	INSIST(maj_stat == GSS_S_COMPLETE);
+	INSIST(conf_state != 0);
+	
+	sp = krb5_storage_from_mem(gout.value, gout.length);
+	INSIST(sp != NULL);
+	
+	CHECK(krb5_ret_uint32(sp, &seq));
+	
+	/*
+	 * Check sequence number
+	 */
+	INSIST(seq == gctx->seq_num + 1);
+	gctx->seq_num = seq + 1;
+	
+	/* 
+	 * If context is setup, priv data have the seq_num stored
+	 * first in the block, so add it here before users data is
+	 * added.
+	 */
+	CHECK(krb5_store_uint32(dreply, gctx->seq_num));
+	
+	if (chdr->proc >= sizeof(procs)/sizeof(procs[0])) {
+	    krb5_warnx(context, "proc number out of array");
+	} else if (procs[chdr->proc].func == NULL) {
+	    krb5_warnx(context, "proc '%s' never implemented", 
+		       procs[chdr->proc].name);
+	} else {
+	    krb5_warnx(context, "proc %s", procs[chdr->proc].name);
+	    INSIST(gctx->server_handle != NULL);
+	    (*procs[chdr->proc].func)(gctx->server_handle, sp, dreply);
+	}
+	krb5_storage_free(sp);
+	gss_release_buffer(&min_stat, &gout);
+    }
+
+    krb5_data_free(&gacred.handle);
+}
+
+static void
+rpcgssapi_reply(struct gctx *gctx, krb5_storage *dreply, krb5_storage *reply)
+{
+    uint32_t seqnum = htonl(gctx->seq_num);
+    gss_buffer_desc gin, gout;
+    OM_uint32 maj_stat, min_stat, junk;
+    krb5_data data;
+
+    gin.value = &seqnum;
+    gin.length = sizeof(seqnum);
+
+    maj_stat = gss_wrap(&min_stat, gctx->ctx, 0, GSS_C_QOP_DEFAULT, &gin, NULL, &gout);
+    INSIST(maj_stat == GSS_S_COMPLETE);
+
+    data.data = gout.value;
+    data.length = gout.length;
+
+    CHECK(krb5_store_uint32(reply, FLAVOR_GSS_OLD));
+    CHECK(_kadm5_xdr_store_data_xdr(reply, data));
+    gss_release_buffer(&junk, &gout);
+
+    CHECK(krb5_store_uint32(reply, 0)); /* SUCCESS */
+
+    CHECK(krb5_storage_to_data(dreply, &data));
+
+    if (gctx->inprogress) {
+	ssize_t sret;
+	gctx->inprogress = 0;
+	sret = krb5_storage_write(reply, data.data, data.length);
+	INSIST(sret == data.length);
+	krb5_data_free(&data);
+    } else {
+	int conf_state;
+
+	gin.value = data.data;
+	gin.length = data.length;
+		
+	maj_stat = gss_wrap(&min_stat, gctx->ctx, 1, 0,
+			    &gin, &conf_state, &gout);
+	INSIST(maj_stat == GSS_S_COMPLETE);
+	INSIST(conf_state != 0);
+	krb5_data_free(&data);
+	
+	data.data = gout.value;
+	data.length = gout.length;
+	
+	_kadm5_xdr_store_data_xdr(reply, data);
+	gss_release_buffer(&min_stat, &gout);
+    }
+}
+
+
+/*
+ *
+ */
+
 
 static int
 process_stream(krb5_context context, 
@@ -461,10 +1154,7 @@ process_stream(krb5_context context,
 {
     krb5_error_code ret;
     krb5_storage *msg, *reply, *dreply;
-    OM_uint32 maj_stat, min_stat;
-    gss_buffer_desc gin, gout;
     struct gctx gctx;
-    void *server_handle = NULL;
 
     memset(&gctx, 0, sizeof(gctx));
 
@@ -480,7 +1170,6 @@ process_stream(krb5_context context,
 
     while (1) {
 	struct _kadm5_xdr_call_header chdr;
-	struct _kadm5_xdr_gcred gcred;
 	uint32_t mtype;
 	krb5_data headercopy;
 
@@ -490,7 +1179,6 @@ process_stream(krb5_context context,
 
 	krb5_data_zero(&headercopy);
 	memset(&chdr, 0, sizeof(chdr));
-	memset(&gcred, 0, sizeof(gcred));
 
 	/*
 	 * This is very icky to handle the the auto-detection between
@@ -560,168 +1248,37 @@ process_stream(krb5_context context,
 	CHECK(copyheader(msg, &headercopy));
 	CHECK(_kadm5_xdr_ret_auth_opaque(msg, &chdr.verf));
 
-	INSIST(chdr.rpcvers == RPC_VERSION);
-	INSIST(chdr.prog == KADM_SERVER);
-	INSIST(chdr.vers == VVERSION);
-	INSIST(chdr.cred.flavor == FLAVOR_GSS);
+	EXPECT(chdr.rpcvers, RPC_VERSION);
+	EXPECT(chdr.prog, KADM_SERVER);
+	EXPECT(chdr.vers, VVERSION);
+	if (gctx.protocol == 0) {
+	    gctx.protocol = chdr.cred.flavor;
 
-	CHECK(_kadm5_xdr_ret_gcred(&chdr.cred.data, &gcred));
+	    INSIST(gctx.handle_protocol == NULL);
 
-	INSIST(gcred.version == FLAVOR_GSS_VERSION);
-
-	if (gctx.done) {
-	    INSIST(chdr.verf.flavor == FLAVOR_GSS);
-
-	    /* from first byte to last of credential */
-	    gin.value = headercopy.data;
-	    gin.length = headercopy.length;
-	    gout.value = chdr.verf.data.data;
-	    gout.length = chdr.verf.data.length;
-
-	    maj_stat = gss_verify_mic(&min_stat, gctx.ctx, &gin, &gout, NULL);
-	    INSIST(maj_stat == GSS_S_COMPLETE);
-	}
-
-	switch(gcred.proc) {
-	case RPG_DATA: {
-	    krb5_data data;
-	    int conf_state;
-	    uint32_t seq;
-	    krb5_storage *sp;
-
-	    INSIST(gcred.service == rpg_privacy);
-
-	    INSIST(gctx.done);
-
-	    INSIST(krb5_data_cmp(&gcred.handle, &gctx.handle) == 0);
-	    
-	    CHECK(_kadm5_xdr_ret_data_xdr(msg, &data));
-
-	    gin.value = data.data;
-	    gin.length = data.length;
-
-	    maj_stat = gss_unwrap(&min_stat, gctx.ctx, &gin, &gout,
-				  &conf_state, NULL);
-	    krb5_data_free(&data);
-	    INSIST(maj_stat == GSS_S_COMPLETE);
-	    INSIST(conf_state != 0);
-
-	    sp = krb5_storage_from_mem(gout.value, gout.length);
-	    INSIST(sp != NULL);
-
-	    CHECK(krb5_ret_uint32(sp, &seq));
-	    INSIST (seq == gcred.seq_num);
-
-	    /*
-	     * Check sequence number
-	     */
-	    INSIST(seq > gctx.seq_num);
-	    gctx.seq_num = seq;
-
-	    /* 
-	     * If context is setup, priv data have the seq_num stored
-	     * first in the block, so add it here before users data is
-	     * added.
-	     */
-	    CHECK(krb5_store_uint32(dreply, gctx.seq_num));
-
-	    if (chdr.proc >= sizeof(procs)/sizeof(procs[0])) {
-		krb5_warnx(context, "proc number out of array");
-	    } else if (procs[chdr.proc].func == NULL) {
-		krb5_warnx(context, "proc '%s' never implemented", 
-			  procs[chdr.proc].name);
-	    } else {
-		krb5_warnx(context, "proc %s", procs[chdr.proc].name);
-		INSIST(server_handle != NULL);
-		(*procs[chdr.proc].func)(server_handle, sp, dreply);
-	    }
-	    krb5_storage_free(sp);
-	    gss_release_buffer(&min_stat, &gout);
-
-	    break;
-	}
-	case RPG_INIT:
-	    INSIST(gctx.inprogress == 0);
-	    INSIST(gctx.ctx == NULL);
-
-	    gctx.inprogress = 1;
-	    /* FALL THOUGH */
-	case RPG_CONTINUE_INIT: {
-	    gss_name_t src_name = GSS_C_NO_NAME;
-	    krb5_data in;
-
-	    INSIST(gctx.inprogress);
-
-	    CHECK(_kadm5_xdr_ret_data_xdr(msg, &in));
-
-	    gin.value = in.data;
-	    gin.length = in.length;
-	    gout.value = NULL;
-	    gout.length = 0;
-
-	    maj_stat = gss_accept_sec_context(&min_stat,
-					      &gctx.ctx, 
-					      GSS_C_NO_CREDENTIAL,
-					      &gin,
-					      GSS_C_NO_CHANNEL_BINDINGS,
-					      &src_name,
-					      NULL,
-					      &gout,
-					      NULL,
-					      NULL,
-					      NULL);
-	    if (GSS_ERROR(maj_stat)) {
-		gss_print_errors(context, maj_stat, min_stat);
-		krb5_errx(context, 1, "gss error, exit");
-	    }
-	    if ((maj_stat & GSS_S_CONTINUE_NEEDED) == 0) {
-		kadm5_config_params realm_params;
-		gss_buffer_desc buf;
-		char *client;
-
-		gctx.done = 1;
-		
-		memset(&realm_params, 0, sizeof(realm_params));
-
-		maj_stat = gss_export_name(&min_stat, src_name, &buf);
-		INSIST(maj_stat == GSS_S_COMPLETE);
-
-		CHECK(parse_name(buf.value, buf.length, 
-				 GSS_KRB5_MECHANISM, &client));
-
-		gss_release_buffer(&min_stat, &buf);
-
-		krb5_warnx(context, "%s connected", client);
-
-		ret = kadm5_s_init_with_password_ctx(context,
-						     client,
-						     NULL,
-						     KADM5_ADMIN_SERVICE,
-						     &realm_params,
-						     0, 0,
-						     &server_handle);
-		INSIST(ret == 0);
+	    switch(gctx.protocol) {
+	    case FLAVOR_GSS:
+		gctx.handle_protocol = rpcgss_handle_protocol;
+		gctx.reply = rpcgss_reply;
+		break;
+	    case FLAVOR_GSS_OLD:
+		gctx.handle_protocol = rpcgssapi_handle_protocol;
+		gctx.reply = rpcgssapi_reply;
+		break;
+	    default:
+		krb5_errx(context, 0, "unsupported protocol version: %d", (int)gctx.protocol);
 	    }
 
-	    INSIST(gctx.ctx != GSS_C_NO_CONTEXT);
-
-	    CHECK(_kadm5_xdr_store_gss_init_res(dreply, gctx.handle, 
-				     maj_stat, min_stat, 1, &gout));
-	    if (gout.value)
-		gss_release_buffer(&min_stat, &gout);
-	    if (src_name)
-		gss_release_name(&min_stat, &src_name);
-
-	    break;
-	}
-	case RPG_DESTROY:
-	    krb5_errx(context, 1, "client destroyed gss context");
-	default:
-	    krb5_errx(context, 1, "client sent unknown gsscode %d", 
-		      (int)gcred.proc);
+	} else {
+	    EXPECT(chdr.cred.flavor, gctx.protocol);
 	}
 
-	krb5_data_free(&gcred.handle);
+	if (gctx.verify_header)
+	    gctx.verify_header(&gctx, &chdr, &headercopy);
+
+	gctx.handle_protocol(&gctx, &chdr, msg, dreply);
+
+
 	krb5_data_free(&chdr.cred.data);
 	krb5_data_free(&chdr.verf.data);
 	krb5_data_free(&headercopy);
@@ -741,52 +1298,10 @@ process_stream(krb5_context context,
 	    CHECK(krb5_storage_to_data(dreply, &data));
 	    INSIST(krb5_storage_write(reply, data.data, data.length) == data.length);
 	    krb5_data_free(&data);
-
 	} else {
-	    uint32_t seqnum = htonl(gctx.seq_num);
-	    krb5_data data;
+	    INSIST(gctx.reply != NULL);
 
-	    gin.value = &seqnum;
-	    gin.length = sizeof(seqnum);
-
-	    maj_stat = gss_get_mic(&min_stat, gctx.ctx, 0, &gin, &gout);
-	    INSIST(maj_stat == GSS_S_COMPLETE);
-
-	    data.data = gout.value;
-	    data.length = gout.length;
-
-	    CHECK(krb5_store_uint32(reply, FLAVOR_GSS));
-	    CHECK(_kadm5_xdr_store_data_xdr(reply, data));
-	    gss_release_buffer(&min_stat, &gout);
-
-	    CHECK(krb5_store_uint32(reply, 0)); /* SUCCESS */
-
-	    CHECK(krb5_storage_to_data(dreply, &data));
-
-	    if (gctx.inprogress) {
-		ssize_t sret;
-		gctx.inprogress = 0;
-		sret = krb5_storage_write(reply, data.data, data.length);
-		INSIST(sret == data.length);
-		krb5_data_free(&data);
-	    } else {
-		int conf_state;
-
-		gin.value = data.data;
-		gin.length = data.length;
-		
-		maj_stat = gss_wrap(&min_stat, gctx.ctx, 1, 0,
-				    &gin, &conf_state, &gout);
-		INSIST(maj_stat == GSS_S_COMPLETE);
-		INSIST(conf_state != 0);
-		krb5_data_free(&data);
-		
-		data.data = gout.value;
-		data.length = gout.length;
-		
-		_kadm5_xdr_store_data_xdr(reply, data);
-		gss_release_buffer(&min_stat, &gout);
-	    }
+	    gctx.reply(&gctx, dreply, reply);
 	}
 
 	{

@@ -21,7 +21,7 @@ diff -Naur roundcubemail-0.5/program/include/rcmail.php roundcubemail/program/in
    }
  
  
-@@ -1172,7 +1178,13 @@
+@@ -1170,7 +1176,13 @@
       */
      $clear = pack("a*H2", $clear, "80");
  
@@ -36,7 +36,7 @@ diff -Naur roundcubemail-0.5/program/include/rcmail.php roundcubemail/program/in
          ($td = mcrypt_module_open(MCRYPT_TripleDES, "", MCRYPT_MODE_CBC, "")))
      {
        $iv = $this->create_iv(mcrypt_enc_get_iv_size($td));
-@@ -1217,7 +1229,14 @@
+@@ -1215,7 +1227,14 @@
  
      $cipher = $base64 ? base64_decode($cipher) : $cipher;
  
@@ -52,7 +52,7 @@ diff -Naur roundcubemail-0.5/program/include/rcmail.php roundcubemail/program/in
          ($td = mcrypt_module_open(MCRYPT_TripleDES, "", MCRYPT_MODE_CBC, "")))
      {
        $iv_size = mcrypt_enc_get_iv_size($td);
-@@ -1322,6 +1341,25 @@
+@@ -1320,6 +1339,25 @@
      setcookie($name, $value, $exp, $cookie['path'], $cookie['domain'],
        rcube_https_check(), true);
    }

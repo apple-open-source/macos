@@ -462,10 +462,15 @@ EOF
 
 	# Start/Stop and Load/Unload, using source volume's service state
 	$ichat_disabled = &get_service_state;
+	my $source_service_mode = qx(${PLISTBUDDY} -c "Print :serviceMode" "${g_source_root}${g_bundle_config_path}");
+	chomp($source_service_mode);
 
 	if (($ichat_disabled_orig eq "false") && ($ichat_disabled eq "true")) {
-		&log_message("restore_and_set_state: Starting iChat Server service");
-		&start_stop_ichat("start");
+		# for migration from 10.6, if the service was only enabled for Notification, don't start up 
+		if (! (${SRV_MINOR} eq "6" && $source_service_mode eq "NOTIFICATION")) {
+			&log_message("restore_and_set_state: Starting iChat Server service");
+			&start_stop_ichat("start");
+		}
 	}
 
 	if ($FUNC_LOG) {printf("restore_and_set_state := E\n");}

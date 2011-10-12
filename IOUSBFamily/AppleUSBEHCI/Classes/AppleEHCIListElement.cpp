@@ -253,6 +253,7 @@ AppleEHCIIsochTransferDescriptor::mungeEHCIStatus(UInt32 status, UInt16 *transfe
 	
 	if ( (status & kEHCI_ITDStatus_Active) != 0)
 	{
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameListBits, (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), 0, 0, 8);
 		return(kIOUSBNotSent1Err);
 	}
 	else if ( (status & kEHCI_ITDStatus_BuffErr) != 0)
@@ -464,6 +465,7 @@ AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 	
     if ((statFlags & kEHCIsiTDStatStatusActive) && !_isDummySITD)
     {
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameListBits, (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), 0, 0, 7);
 		frStatus = kIOUSBNotSent2Err;
     }
     else if (statFlags & kEHCIsiTDStatStatusERR)

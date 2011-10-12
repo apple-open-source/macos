@@ -29,7 +29,12 @@ namespace JSC {
 
     class StringConstructor : public InternalFunction {
     public:
-        StringConstructor(ExecState*, JSGlobalObject*, Structure*, StringPrototype*);
+        typedef InternalFunction Base;
+
+        static StringConstructor* create(ExecState* exec, JSGlobalObject* globalObject , Structure* structure, StringPrototype* strPrototype)
+        {
+            return new (allocateCell<StringConstructor>(*exec->heap())) StringConstructor(exec, globalObject, structure, strPrototype);
+        }
 
         static const ClassInfo s_info;
 
@@ -42,6 +47,7 @@ namespace JSC {
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | InternalFunction::StructureFlags;
 
     private:
+        StringConstructor(ExecState*, JSGlobalObject*, Structure*, StringPrototype*);
         virtual ConstructType getConstructData(ConstructData&);
         virtual CallType getCallData(CallData&);
 

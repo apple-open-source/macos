@@ -36,10 +36,19 @@ namespace JSC {
     // for a property.
     class GetterSetter : public JSCell {
         friend class JIT;
-    public:
+
+    private:        
         GetterSetter(ExecState* exec)
             : JSCell(exec->globalData(), exec->globalData().getterSetterStructure.get())
         {
+        }
+
+    public:
+        typedef JSCell Base;
+
+        static GetterSetter* create(ExecState* exec)
+        {
+            return new (allocateCell<GetterSetter>(*exec->heap())) GetterSetter(exec);
         }
 
         virtual void visitChildren(SlotVisitor&);

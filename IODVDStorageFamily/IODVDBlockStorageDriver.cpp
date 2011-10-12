@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -217,19 +217,19 @@ IODVDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
                 break;
             case kDVDMediaTypeHDROM:
                 description = kIODVDMediaTypeHDROM;
-                picture = "HD DVD.icns";
+                picture = "DVD.icns";
                 break;
             case kDVDMediaTypeHDRAM:
                 description = kIODVDMediaTypeHDRAM;
-                picture = "HD DVD-RAM.icns";
+                picture = "DVD-RAM.icns";
                 break;
             case kDVDMediaTypeHDR:
                 description = kIODVDMediaTypeHDR;
-                picture = "HD DVD-R.icns";
+                picture = "DVD-R.icns";
                 break;
             case kDVDMediaTypeHDRW:
                 description = kIODVDMediaTypeHDRW;
-                picture = "HD DVD-RW.icns";
+                picture = "DVD-RW.icns";
                 break;
         }
 

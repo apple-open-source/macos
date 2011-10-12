@@ -358,6 +358,8 @@ gss_aapl_initial_cred(const gss_name_t desired_name,
 	CFStringRef password, usage;
 	gss_cred_usage_t cred_usage = GSS_C_INITIATE;
 
+	HEIM_WARN_BLOCKING("gss_aapl_initial_cred", warn_once);
+
 	if (error)
 	    *error = NULL;
 

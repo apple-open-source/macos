@@ -31,8 +31,13 @@ namespace JSC {
 
     class NativeErrorConstructor : public InternalFunction {
     public:
-        NativeErrorConstructor(ExecState*, JSGlobalObject*, Structure*, Structure* prototypeStructure, const UString&);
+        typedef InternalFunction Base;
 
+        static NativeErrorConstructor* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, Structure* prototypeStructure, const UString& nameAndMessage)
+        {
+            return new (allocateCell<NativeErrorConstructor>(*exec->heap())) NativeErrorConstructor(exec, globalObject, structure, prototypeStructure, nameAndMessage);
+        }
+        
         static const ClassInfo s_info;
 
         static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
@@ -43,6 +48,7 @@ namespace JSC {
         Structure* errorStructure() { return m_errorStructure.get(); }
 
     private:
+        NativeErrorConstructor(ExecState*, JSGlobalObject*, Structure*, Structure* prototypeStructure, const UString&);
         static const unsigned StructureFlags = OverridesVisitChildren | InternalFunction::StructureFlags;
         virtual ConstructType getConstructData(ConstructData&);
         virtual CallType getCallData(CallData&);

@@ -1175,6 +1175,8 @@ krb5_get_credentials_with_flags(krb5_context context,
 	if(options & KRB5_GC_CACHED)
 	    krb5_cc_remove_cred(context, ccache, 0, res_creds);
 
+	krb5_free_cred_contents(context, res_creds);
+
     } else if(ret != KRB5_CC_NOTFOUND) {
         free(res_creds);
         return ret;

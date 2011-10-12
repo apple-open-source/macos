@@ -1001,9 +1001,6 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
 		DEBG1("W", " idleFor(%d)\n", idleFor);
 
         clock_interval_to_deadline(idleFor, kMillisecondScale, &fIdleUntil);
-
-        if (getPowerState() > 3)
-            changePowerStateToPriv(3);
         if (getPowerState() > 1)
             changePowerStateToPriv(1);
         return (kIOReturnSuccess);

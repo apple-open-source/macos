@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.6.6
+VERSION = 2.6.7
 
 PWD := $(shell pwd)
 ifndef DSTROOT

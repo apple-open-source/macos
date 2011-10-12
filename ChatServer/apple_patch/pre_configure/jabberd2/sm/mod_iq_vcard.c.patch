@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/sm/mod_iq_vcard.c	2011-02-23 08:24:34.000000000 -0800
-+++ ./jabberd2/sm/mod_iq_vcard.c	2011-02-24 16:25:21.000000000 -0800
+--- /tmp/jabberd-2.2.14/sm/mod_iq_vcard.c	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/sm/mod_iq_vcard.c	2011-06-22 20:13:00.000000000 -0700
 @@ -208,6 +208,9 @@ static mod_ret_t _iq_vcard_in_sess(mod_i
  
      /* get */

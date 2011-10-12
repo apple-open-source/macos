@@ -42,7 +42,9 @@ namespace JSC {
         friend class JIT;
 
     public:
-        static StructureChain* create(JSGlobalData& globalData, Structure* head) { return new (&globalData) StructureChain(globalData, globalData.structureChainStructure.get(), head); }
+        typedef JSCell Base;
+
+        static StructureChain* create(JSGlobalData& globalData, Structure* head) { return new (allocateCell<StructureChain>(globalData.heap)) StructureChain(globalData, globalData.structureChainStructure.get(), head); }
         WriteBarrier<Structure>* head() { return m_vector.get(); }
         void visitChildren(SlotVisitor&);
 

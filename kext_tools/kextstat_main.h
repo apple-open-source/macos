@@ -113,4 +113,4 @@ CFComparisonResult compareNumbers(
 
 static void usage(UsageLevel usageLevel);
 
-#endif
+#endif /* _KEXTSTAT_MAIN_H */

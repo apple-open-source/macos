@@ -90,7 +90,13 @@ public:
 
         if (!m_pushedStyleSelector)
             return;
+
+        // This tells us that our pushed style selector is in a bad state,
+        // so we should just bail out in that scenario.
         ASSERT(m_pushedStyleSelector == m_parent->document()->styleSelector());
+        if (m_pushedStyleSelector != m_parent->document()->styleSelector())
+            return;
+
         m_pushedStyleSelector->popParent(m_parent); 
     }
 
@@ -207,14 +213,8 @@ PassRefPtr<Element> Element::cloneElementWithoutAttributesAndChildren() const
     return document()->createElement(tagQName(), false);
 }
 
-void Element::copyNonAttributeProperties(const Element* source)
+void Element::copyNonAttributeProperties(const Element*)
 {
-    ShadowRoot* sourceShadow = source->shadowRoot();
-    removeShadowRoot();
-    if (sourceShadow) {
-        ShadowRoot* clonedShadow = ensureShadowRoot();
-        sourceShadow->cloneChildNodes(clonedShadow);
-    }
 }
 
 void Element::removeAttribute(const QualifiedName& name, ExceptionCode& ec)
@@ -1093,8 +1093,11 @@ void Element::recalcStyle(StyleChange change)
     bool hasIndirectAdjacentRules = currentStyle && currentStyle->childrenAffectedByForwardPositionalRules();
 
     if ((change > NoChange || needsStyleRecalc())) {
-        if (hasRareData())
-            rareData()->resetComputedStyle();
+        if (hasRareData()) {
+            ElementRareData* data = rareData();
+            data->resetComputedStyle();
+            data->m_styleAffectedByEmpty = false;
+        }
     }
     if (hasParentStyle && (change >= Inherit || needsStyleRecalc())) {
         RefPtr<RenderStyle> newStyle = document()->styleSelector()->styleForElement(this);
@@ -1242,10 +1245,10 @@ bool Element::childTypeAllowed(NodeType type) const
 
 static void checkForEmptyStyleChange(Element* element, RenderStyle* style)
 {
-    if (!style)
+    if (!style && !element->styleAffectedByEmpty())
         return;
 
-    if (style->affectedByEmpty() && (!style->emptyState() || element->hasChildNodes()))
+    if (!style || (style->affectedByEmpty() && (!style->emptyState() || element->hasChildNodes())))
         element->setNeedsStyleRecalc();
 }
 
@@ -1687,6 +1690,17 @@ RenderStyle* Element::computedStyle(PseudoId pseudoElementSpecifier)
     if (!data->m_computedStyle)
         data->m_computedStyle = document()->styleForElementIgnoringPendingStylesheets(this);
     return pseudoElementSpecifier ? data->m_computedStyle->getCachedPseudoStyle(pseudoElementSpecifier) : data->m_computedStyle.get();
+}
+
+void Element::setStyleAffectedByEmpty()
+{
+    ElementRareData* data = ensureRareData();
+    data->m_styleAffectedByEmpty = true;
+}
+
+bool Element::styleAffectedByEmpty() const
+{
+    return hasRareData() && rareData()->m_styleAffectedByEmpty;
 }
 
 AtomicString Element::computeInheritedLanguage() const

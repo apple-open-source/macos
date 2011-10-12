@@ -5508,7 +5508,7 @@ CollectTraceEHCIInterrupts	( kd_buf tracepoint )
 			} 
 			else
 			{
-				log(info, "EHCI", "Primary Interrupt", parg1, "enabledInterrupts 0x%8.08x activeInterrupts 0x%8.08x, Frame: %d, microframe: %d", arg2, arg3, (arg4 >> 3), (arg4 && 0x7) );
+				log(info, "EHCI", "Primary Interrupt", parg1, "enabledInterrupts 0x%8.08x activeInterrupts 0x%8.08x", arg2, arg3 );
 			}
 			break;
 			
@@ -5544,6 +5544,14 @@ CollectTraceEHCIInterrupts	( kd_buf tracepoint )
 			else if (arg4 == 6)
 			{
 				log(info, "EHCI", "kTPEHCIUpdateFrameListBits", parg1, "TTErr");
+			}
+			else if (arg4 == 7)
+			{
+				log(info, "EHCI", "kTPEHCIUpdateFrameListBits", parg1, "kIOUSBNotSent2Err");
+			}
+			else if (arg4 == 8)
+			{
+				log(info, "EHCI", "kTPEHCIUpdateFrameListBits", parg1, "kIOUSBNotSent1Err");
 			}
 			break;
 			

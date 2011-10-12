@@ -1757,6 +1757,8 @@ kcm_op_do_ntlm(krb5_context context,
     if (ret)
 	goto error;
 
+    kcm_log(10, "NTLM AUTH with cred %s\\%s", domain, user);
+
     c = find_ntlm_cred(KCM_NTLM_CRED, user, domain, client);
     if (c == NULL) {
 	ret = EINVAL;

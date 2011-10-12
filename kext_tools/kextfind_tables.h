@@ -223,4 +223,4 @@ extern struct querySetup reportCallbackList[];
     { &kPredCharPrintExecutable[1],        no_argument, &longopt, kLongOptQueryPredicate },
 
 
-#endif
+#endif /* _KEXTFIND_TABLES_H_ */

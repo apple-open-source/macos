@@ -10,7 +10,7 @@ case $version in
    11[A-Z]*)
 	arch='-arch i386 -arch x86_64 -arch ppc'
 	projects="MITKerberosShim"
-        release="Barolo"
+        release="Lion"
 	;;
    *) echo "unknown build $version";
 esac
@@ -34,5 +34,3 @@ done
 
 echo "done"
 echo "Roots: $roots"
-
-scp $roots lha@public.apple.com:Public

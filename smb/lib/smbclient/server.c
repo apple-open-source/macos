@@ -687,6 +687,11 @@ SMBGetServerProperties(
 	smb_get_vc_properties(hContext);
     vc_flags = ((struct smb_ctx *)hContext)->ct_vc_flags;
 	
+
+	if (((struct smb_ctx *)hContext)->prefs.workAroundEMCPanic) {
+		properties->internalFlags |= kWorkAroundEMCPanic;
+	}
+	
     if (vc_flags & SMBV_GUEST_ACCESS) {
         properties->authType = kSMBAuthTypeGuest;
     } else if (vc_flags & SMBV_ANONYMOUS_ACCESS) {

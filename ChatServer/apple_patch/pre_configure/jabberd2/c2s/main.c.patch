@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/c2s/main.c	2011-02-23 08:24:34.000000000 -0800
-+++ ./jabberd2/c2s/main.c	2011-05-26 13:21:43.000000000 -0700
+--- /tmp/jabberd-2.2.14/c2s/main.c	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/c2s/main.c	2011-06-22 20:13:00.000000000 -0700
 @@ -25,6 +25,7 @@
  static sig_atomic_t c2s_shutdown = 0;
  sig_atomic_t c2s_lost_router = 0;

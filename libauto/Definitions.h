@@ -66,8 +66,6 @@ extern "C" malloc_zone_t *aux_zone;
 extern "C" const char *auto_prelude(void);
 
 
-extern "C" char *__crashreporter_info__;
-
 
 namespace Auto {
 

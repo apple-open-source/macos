@@ -57,10 +57,13 @@ win32-*: DEFINES += _HAS_TR1=0
 
 DEFINES += BUILDING_JavaScriptCore BUILDING_WTF
 
-# CONFIG += text_breaking_with_icu
-
-contains (CONFIG, text_breaking_with_icu) {
-    DEFINES += WTF_USE_QT_ICU_TEXT_BREAKING=1
+contains(CONFIG, use_system_icu) {
+    DEFINES += WTF_USE_ICU_UNICODE=1
+    DEFINES -= WTF_USE_QT4_UNICODE
+    LIBS += -licuuc -licui18n
+} else {
+    DEFINES += WTF_USE_QT4_UNICODE=1
+    DEFINES -= WTF_USE_ICU_UNICODE
 }
 
 wince* {
@@ -73,7 +76,7 @@ defineTest(prependJavaScriptCoreLib) {
     # Argument is the relative path to JavaScriptCore.pro's qmake output
     pathToJavaScriptCoreOutput = $$ARGS/$$JAVASCRIPTCORE_DESTDIR
 
-    win32-msvc*|wince* {
+    win32-msvc*|wince*|win32-icc {
         LIBS = -l$$JAVASCRIPTCORE_TARGET $$LIBS
         LIBS = -L$$pathToJavaScriptCoreOutput $$LIBS
         POST_TARGETDEPS += $${pathToJavaScriptCoreOutput}$${QMAKE_DIR_SEP}$${JAVASCRIPTCORE_TARGET}.lib
@@ -99,6 +102,7 @@ defineTest(prependJavaScriptCoreLib) {
     # The compromise we have to accept by disabling explicitlib is to drop support to link QtWebKit and QtScript
     # statically in applications (which isn't used often because, among other things, of licensing obstacles).
     CONFIG -= explicitlib
+    CONFIG -= staticlib
 
     export(QMAKE_LIBDIR)
     export(LIBS)

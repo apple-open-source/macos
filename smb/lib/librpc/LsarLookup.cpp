@@ -256,17 +256,22 @@ NTSTATUS GetAccountNameSID(WCHAR * ServerName, PRPC_UNICODE_STRING AccountName,
 
 static 
 NTSTATUS GetAccountName(WCHAR * ServerName, PRPC_UNICODE_STRING *UserName, 
-						PRPC_UNICODE_STRING *DomainName, rpc_binding *binding)
+						PRPC_UNICODE_STRING *DomainName, rpc_binding *binding, 
+						bool workAroundEMCPanic)
 {
-#pragma unused(ServerName)
     NTSTATUS nt_status = STATUS_SUCCESS;
     error_status_t rpc_status = rpc_s_ok;
 	
 	*UserName = NULL;
 	*DomainName = NULL;	
 	DCETHREAD_TRY
-		nt_status = LsarGetUserName(binding->get(), NULL, UserName, 
+	if (workAroundEMCPanic) {
+		nt_status = LsarGetUserName(binding->get(), ServerName, UserName, 
 									DomainName, &rpc_status);
+	} else {
+		nt_status = LsarGetUserName(binding->get(), NULL, UserName, 
+									DomainName, &rpc_status);		
+	}
 	DCETHREAD_CATCH_ALL(exc)
 		rpc_status = rpc_exception_status(exc);
 	DCETHREAD_ENDTRY
@@ -283,7 +288,8 @@ NTSTATUS GetAccountName(WCHAR * ServerName, PRPC_UNICODE_STRING *UserName,
 	return 0;
 }
 
-NTSTATUS GetNetworkAccountSID(const char *ServerName, char **account, char **domain, ntsid_t **ntsid)
+NTSTATUS GetNetworkAccountSID(const char *ServerName, char **account, char **domain, 
+							  ntsid_t **ntsid, bool workAroundEMCPanic)
 {
 	CFStringRef FullyQualifiedRef = NULL;
 	PRPC_UNICODE_STRING AccountName = NULL;
@@ -307,7 +313,8 @@ NTSTATUS GetNetworkAccountSID(const char *ServerName, char **account, char **dom
 	
     rpc_ss_swap_client_alloc_free_ex(&allocator, &allocator);
 	
-	nt_status = GetAccountName(UTF16ServerName, &AccountName, &DomainName, &binding);
+	nt_status = GetAccountName(UTF16ServerName, &AccountName, &DomainName, &binding, 
+							   workAroundEMCPanic);
 	/* Some servers will return success, but they won't return the user name.  */
 	if (!AccountName && (NT_SUCCESS(nt_status))) {
         SMBLogInfo("Server return a NULL account name", ASL_LEVEL_DEBUG);

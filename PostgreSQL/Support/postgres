@@ -1,0 +1,14 @@
+#!/usr/bin/ruby
+
+# Wrapper script for postgres; waits for dataPath to be mounted before proceeding
+
+dataPathArgIndicatorIndex = ARGV.index("-D")
+
+if !dataPathArgIndicatorIndex.nil?
+        dataPathArg = ARGV[dataPathArgIndicatorIndex + 1]
+        system("/bin/wait4path", dataPathArg) unless dataPathArg.nil?
+end
+
+nargv = ["/usr/bin/postgres_real", ARGV].flatten
+exec(*nargv)
+exit(0)

@@ -277,6 +277,8 @@ install-extras : install-open-source-files lib_cleanup
 	$(_v) $(CHMOD) 04750 "$(DSTROOT)$(LIBEXECDIR)/$(DELIVERABLE)/deliver"
 	$(_v) $(INSTALL_SCRIPT) "$(SRCROOT)/$(TOOL_DIR)/update-fts-index.pl" \
 			"$(DSTROOT)$(LIBEXECDIR)/$(DELIVERABLE)/update-fts-index.pl"
+	$(_v) $(INSTALL_SCRIPT) "$(SRCROOT)/$(TOOL_DIR)/mail_preflight" \
+			"$(DSTROOT)$(LIBEXECDIR)/$(DELIVERABLE)/mail_preflight"
 	@echo "WARNING: B&I overrides the perms, owner, and group for everything under /Library; see <rdar://problem/8389433>"
 	$(_v) $(INSTALL) -d -m 775 -o _dovecot -g mail $(DSTROOT)/Library/Server/Mail/Data/mail
 	$(_v) $(INSTALL) -d -m 775 -o _dovecot -g mail $(DSTROOT)/Library/Server/Mail/Data/rules

@@ -203,7 +203,7 @@ static int test_accountname_sid(const char *url)
 		return errno;
 	}
 
-	status = GetNetworkAccountSID(properties.serverName, &AccountName, &DomainName, &sid);
+	status = GetNetworkAccountSID(properties.serverName, &AccountName, &DomainName, &sid, TRUE);
 	if (!NT_SUCCESS(status)) {
 		if (verbose)
 			fprintf(stdout, "GetNetworkAccountSID failed %d\n", errno);

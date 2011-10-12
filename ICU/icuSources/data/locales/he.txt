@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2011 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/he.xml
@@ -12,8 +12,7 @@
 he{
     AuxExemplarCharacters{
         "[\u05BD\u05C4\u200E\u200F \u05B0 \u05B1 \u05B2 \u05B3 \u05B4 \u05B5 \u05B6 "
-        "\u05B7 \u05B8 \u05B9 \u05BB \u05C2 \u05C1 \u05BC \u05BF ־ ׳ ״ a b c d e f g "
-        "h i j k l m n o p q r s t u v w x y z]"
+        "\u05B7 \u05B8 \u05B9 \u05BB \u05C2 \u05C1 \u05BC \u05BF ־ ׳ ״]"
     }
     ExemplarCharacters{"[א ב ג ד ה ו ז ח ט י כ ך ל מ ם נ ן ס ע פ ף צ ץ ק ר ש ת]"}
     ExemplarCharactersCurrency{"[a b c d e f g h i j k l m n o p q r s t u v w x y z]"}
@@ -43,7 +42,7 @@ he{
             }
         }
     }
-    Version{"2.0.48.46"}
+    Version{"2.0.58.79"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -67,12 +66,11 @@ he{
             }
             availableFormats{
                 EEEd{"EEE ה-d"}
-                Ed{"E ה-d"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
                 M{"L"}
-                MEd{"E, M-d"}
+                MEd{"E, d/M"}
                 MMM{"LLL"}
                 MMMEd{"E, d בMMM"}
                 MMMMEd{"E, d בMMMM"}
@@ -86,11 +84,13 @@ he{
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
                 y{"y"}
-                yM{"M.yyyy"}
-                yMEd{"EEE, d.M.yyyy"}
+                yM{"M/y"}
+                yMEd{"EEE, d/M/y"}
                 yMMM{"MMM y"}
                 yMMMEd{"EEE, d בMMM y"}
                 yMMMM{"MMMM y"}
+                yMMMd{"d בMMM y"}
+                yMd{"d/M/y"}
                 yQ{"yyyy Q"}
                 yQQQ{"y QQQ"}
                 yyMM{"MM/yy"}
@@ -110,6 +110,15 @@ he{
                         "יום ה׳",
                         "יום ו׳",
                         "שבת",
+                    }
+                    narrow{
+                        "א",
+                        "ב",
+                        "ג",
+                        "ד",
+                        "ה",
+                        "ו",
+                        "ש",
                     }
                     wide{
                         "יום ראשון",
@@ -149,11 +158,9 @@ he{
                     relative{
                         "-1"{"אתמול"}
                         "-2"{"שלשום"}
-                        "-3"{"לפני שלושה ימים"}
                         "0"{"היום"}
                         "1"{"מחר"}
                         "2"{"מחרתיים"}
-                        "3"{"בעוד שלושה ימים"}
                     }
                 }
                 dayperiod{
@@ -170,24 +177,42 @@ he{
                 }
                 month{
                     dn{"חודש"}
+                    relative{
+                        "-1"{"חודש שעבר"}
+                        "0"{"החודש"}
+                        "1"{"חודש הבא"}
+                    }
                 }
                 second{
                     dn{"שנייה"}
                 }
                 week{
                     dn{"שבוע"}
+                    relative{
+                        "-1"{"שבוע שעבר"}
+                        "0"{"השבוע"}
+                        "1"{"שבוע הבא"}
+                    }
                 }
                 weekday{
                     dn{"יום בשבוע"}
                 }
                 year{
                     dn{"שנה"}
+                    relative{
+                        "-1"{"שנה שעברה"}
+                        "0"{"השנה"}
+                        "1"{"שנה הבאה"}
+                    }
                 }
                 zone{
                     dn{"אזור"}
                 }
             }
             intervalFormats{
+                H{
+                    a{"H-‏H"}
+                }
                 M{
                     M{"M–M"}
                 }
@@ -276,7 +301,7 @@ he{
                     abbreviated{
                         "ינו",
                         "פבר",
-                        "מרס",
+                        "מרץ",
                         "אפר",
                         "מאי",
                         "יונ",
@@ -287,10 +312,24 @@ he{
                         "נוב",
                         "דצמ",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
                     wide{
                         "ינואר",
                         "פברואר",
-                        "מרס",
+                        "מרץ",
                         "אפריל",
                         "מאי",
                         "יוני",
@@ -306,7 +345,7 @@ he{
                     abbreviated{
                         "ינו׳",
                         "פבר׳",
-                        "מרס",
+                        "מרץ",
                         "אפר׳",
                         "מאי",
                         "יונ׳",
@@ -321,6 +360,12 @@ he{
             }
             quarters{
                 format{
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
                     wide{
                         "רבעון 1",
                         "רבעון 2",
@@ -368,6 +413,22 @@ he{
             }
             monthNames{
                 format{
+                    narrow{
+                        "תש",
+                        "חש",
+                        "כס",
+                        "טב",
+                        "שב",
+                        "אא",
+                        "אד",
+                        "ני",
+                        "אי",
+                        "סי",
+                        "תמ",
+                        "אב",
+                        "אל",
+                        "א2",
+                    }
                     wide{
                         "תשרי",
                         "חשון",
@@ -385,9 +446,60 @@ he{
                         "אדר ב׳",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "תש",
+                        "חש",
+                        "כס",
+                        "טב",
+                        "שב",
+                        "אא",
+                        "אד",
+                        "ני",
+                        "אי",
+                        "סי",
+                        "תמ",
+                        "אב",
+                        "אל",
+                        "א2",
+                    }
+                }
             }
         }
         islamic{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, d בMMMM y",
+                "d בMMMM y",
+                "d בMMM yyyy",
+                "dd/MM/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                EEEd{"EEE ה-d"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                MEd{"E, d/M"}
+                MMMEd{"E, d בMMM"}
+                MMMd{"d בMMM"}
+                Md{"d/M"}
+                h{"h a"}
+                yM{"M/yyyy"}
+                yMEd{"EEE, d/M/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"EEE, d בMMM y"}
+                yMMMd{"d בMMM y"}
+                yMd{"d/M/y"}
+                yQ{"Q yyyy"}
+                yQQQ{"QQQ y"}
+            }
             eras{
                 abbreviated{
                     "שנת היג׳רה",
@@ -665,7 +777,14 @@ he{
         characters{"right-to-left"}
         lines{"top-to-bottom"}
     }
+    listPattern{
+        standard{
+            2{"{0} ו-{1}"}
+            end{"{0} ו-{1}"}
+        }
+    }
     measurementSystemNames{
+        UK{"אימפריאלי"}
         US{"ארה״ב"}
         metric{"מטרי"}
     }

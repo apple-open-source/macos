@@ -725,7 +725,7 @@ od_authenticate(void *ctx,
 
 
     ntp.user = ntq->loginUserName;
-    ntp.domain = ntq->loginDomainName;
+    ntp.domain = ntlmDomain;
     
     ntp.success = 1;
     response(response_ctx, &ntp);

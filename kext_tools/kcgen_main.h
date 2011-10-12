@@ -226,4 +226,4 @@ ExitStatus compressPrelinkedKernel(
 
 void usage(UsageLevel usageLevel);
 
-#endif
+#endif /* _KCGEN_MAIN_H */

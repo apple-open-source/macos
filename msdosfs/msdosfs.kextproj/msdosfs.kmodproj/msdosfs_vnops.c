@@ -1941,10 +1941,10 @@ int msdosfs_vnop_readdir(struct vnop_readdir_args *ap)
 			}
 			if (offset == 0) {
 				strlcpy(buf_name, ".", max_name);
-				outbytes = 2;
+				outbytes = 1;
 			} else {
 				strlcpy(buf_name, "..", max_name);
-				outbytes = 3;
+				outbytes = 2;
 			}
 			buf_reclen = msdosfs_dirbuf_size(&buf, outbytes, ap->a_flags);
 			if (uio_resid(uio) < buf_reclen)

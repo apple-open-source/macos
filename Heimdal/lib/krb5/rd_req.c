@@ -462,7 +462,7 @@ krb5_verify_ap_req2(krb5_context context,
     if (ret)
 	goto out;
 
-    ac->keytype = ETYPE_NULL;
+    ac->keytype = (krb5_keytype)ETYPE_NULL;
 
     if (etypes.val) {
 	int i;

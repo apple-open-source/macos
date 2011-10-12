@@ -139,6 +139,9 @@ $(OBJROOT)/$(PROJECT):
 	    echo '#' > $$i; \
 	done && \
 	echo > $(PROJECT)/Lib/test/nullcert.pem
+	@set -x && \
+	cd '$(OBJROOT)/$(PROJECT)' && \
+	patch -p0 -i $(FIX)/2.7.2-security-fixes.patch
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
 
 install: installpython installextras

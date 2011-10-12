@@ -34,6 +34,7 @@
 #include <gssapi.h>
 
 struct _gss_name;
+struct _gss_cred;
 
 typedef OM_uint32 _gss_acquire_cred_t
 	      (OM_uint32 *,            /* minor_status */
@@ -492,6 +493,8 @@ void		_gss_mg_log(int, const char *, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3));
 void		_gss_mg_log_name(int, struct _gss_name *, gss_OID, const char *, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5));
+void		_gss_mg_log_cred(int level, struct _gss_cred *name, const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4));
 
 
 

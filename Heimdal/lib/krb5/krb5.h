@@ -736,6 +736,7 @@ typedef struct _krb5_get_init_creds_opt krb5_get_init_creds_opt;
 typedef struct _krb5_verify_init_creds_opt {
     krb5_flags flags;
     int ap_req_nofail;
+    const char *service;
 } krb5_verify_init_creds_opt;
 
 #define KRB5_VERIFY_INIT_CREDS_OPT_AP_REQ_NOFAIL	0x0001

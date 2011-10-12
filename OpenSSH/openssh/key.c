@@ -851,6 +851,8 @@ key_ssh_name(const Key *k)
 		return "ssh-rsa-cert-v01@openssh.com";
 	case KEY_DSA_CERT:
 		return "ssh-dss-cert-v01@openssh.com";
+	case KEY_NULL:
+		return "null";
 	}
 	return "ssh-unknown";
 }
@@ -1020,6 +1022,8 @@ key_type_from_name(char *name)
 		return KEY_RSA_CERT;
 	} else if (strcmp(name, "ssh-dss-cert-v01@openssh.com") == 0) {
 		return KEY_DSA_CERT;
+	} else if (strcmp(name, "null") == 0) {
+		return KEY_NULL;
 	}
 	debug2("key_type_from_name: unknown key type '%s'", name);
 	return KEY_UNSPEC;

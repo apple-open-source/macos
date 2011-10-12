@@ -34,6 +34,7 @@
 struct _gss_context {
 	gssapi_mech_interface	gc_mech;
 	gss_ctx_id_t		gc_ctx;
+	gss_cred_id_t		gc_replaced_cred;
 };
 
 void
@@ -46,3 +47,6 @@ _gss_mg_get_error(const gss_OID, OM_uint32, gss_buffer_t);
 CFTypeRef
 _gss_mg_get_key(CFStringRef domain, CFStringRef key);
 #endif
+
+void
+_gss_load_plugins(void);

@@ -248,21 +248,31 @@ IOReturn IOFWWorkLoop::sleep(void *token)
 
 IOReturn IOFWWorkLoop::wake(void *token)
 {
+#if 0
     if( fSleepToken != token ) 
 	{
         DEBUGLOG( "IOFWWorkLoop::wake: wrong token: %p<->%p\n", token, fSleepToken );
         return kIOReturnError;
     }
+#endif
 	
-    IORecursiveLockLock( gateLock );
-	
-    fSleepToken = NULL;
-	
-	// delete any event sources that were removed during sleep
-	fRemoveSourceDeferredSet->flushCollection();
-	
-	// wake up waiting threads
-    wakeupGate( token, false );
-    
+	if( fSleepToken )
+	{
+		IORecursiveLockLock( gateLock );
+		
+		void * the_token = fSleepToken;
+		fSleepToken = NULL;
+		
+		// delete any event sources that were removed during sleep
+		fRemoveSourceDeferredSet->flushCollection();
+		
+		// wake up waiting threads
+		wakeupGate( the_token, false );
+    }
+	else 
+	{
+		closeGate();
+	}
+
 	return kIOReturnSuccess;
 }

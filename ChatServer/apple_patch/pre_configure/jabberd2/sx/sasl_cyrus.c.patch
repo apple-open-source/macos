@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/sx/sasl_cyrus.c	2011-02-23 08:24:34.000000000 -0800
-+++ ./jabberd2/sx/sasl_cyrus.c	2011-03-01 15:35:40.000000000 -0800
+--- /tmp/jabberd-2.2.14/sx/sasl_cyrus.c	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/sx/sasl_cyrus.c	2011-06-22 20:13:00.000000000 -0700
 @@ -20,11 +20,17 @@
  
  /* SASL authentication handler */

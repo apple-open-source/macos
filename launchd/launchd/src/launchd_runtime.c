@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 24912 $";
+static const char *const __rcs_file_version__ = "$Revision: 25122 $";
 
 #include "config.h"
 #include "launchd_runtime.h"
@@ -78,7 +78,7 @@ static const char *const __rcs_file_version__ = "$Revision: 24912 $";
 
 #if !TARGET_OS_EMBEDDED
 #include "domainServer.h"
-#endif
+#endif /* !TARGET_OS_EMBEDDED */
 #include "eventsServer.h"
 
 static mach_port_t ipc_port_set;
@@ -557,9 +557,19 @@ x_handle_kqueue(mach_port_t junk __attribute__((unused)), integer_t fd)
 					log_kevent_struct(LOG_EMERG, &kev[0], i);
 				}
 #else
-				runtime_ktrace(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_START, kevi->ident, kevi->filter, kevi->fflags);
-				(*((kq_callback *)kevi->udata))(kevi->udata, kevi);
-				runtime_ktrace0(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_END);
+				struct job_check_s {
+					kq_callback kqc;
+				};
+
+				struct job_check_s *check = kevi->udata;
+				if (check && check->kqc) {
+					runtime_ktrace(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_START, kevi->ident, kevi->filter, kevi->fflags);
+					(*((kq_callback *)kevi->udata))(kevi->udata, kevi);
+					runtime_ktrace0(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_END);
+				} else {
+					runtime_syslog(LOG_ERR, "The following kevent had invalid context data. Please file a bug with the following information:");
+					log_kevent_struct(LOG_EMERG, &kev[0], i);
+				}
 #endif
 			}
 		}
@@ -1119,7 +1129,7 @@ launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_re
 				}
 #else
 				(void)xpc_events_server(&bufRequest->Head, &bufReply->Head);
-#endif
+#endif /* !TARGET_OS_EMBEDDED */
 			}
 		}
 

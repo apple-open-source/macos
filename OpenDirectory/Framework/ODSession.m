@@ -39,9 +39,9 @@ NSString *const ODSessionProxyPassword = @"ProxyPassword";
 @end
 
 @implementation NSODSession
-CF_CLASSIMPLEMENTATION(ODSession)
 extern Boolean _CFIsDeallocating(CFTypeRef);
 extern CFTypeRef _CFTryRetain(CFTypeRef);
+CF_CLASSIMPLEMENTATION(ODSession)
 - (BOOL)_isDeallocating { return _CFIsDeallocating((CFTypeRef)self); }
 - (BOOL)_tryRetain { return _CFTryRetain((CFTypeRef)self) != NULL; }
 @end

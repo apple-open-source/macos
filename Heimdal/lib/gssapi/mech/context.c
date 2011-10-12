@@ -362,3 +362,52 @@ _gss_mg_log_name(int level, struct _gss_name *name, gss_OID mech_type, const cha
     }
 
 }
+
+void
+_gss_mg_log_cred(int level, struct _gss_cred *cred, const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4))
+{
+    struct _gss_mechanism_cred *mc;
+    char *str;
+    va_list ap;
+
+    if (!_gss_mg_log_level(level))
+        return;
+
+    va_start(ap, fmt);
+    vasprintf(&str, fmt, ap);
+    va_end(ap);
+
+    if (cred) {
+	SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
+	    _gss_mg_log(1, "%s: %s", str, mc->gmc_mech->gm_name);
+	}
+    } else {
+	_gss_mg_log(1, "%s: GSS_C_NO_CREDENTIAL", str);
+    }
+    free(str);
+}
+
+static const char *paths[] = {
+    "/Library/KerberosPlugins/GSSAPI",
+    "/System/Library/KerberosPlugins/GSSAPI",
+    NULL
+};
+
+static void
+load_plugins(void *ptr)
+{
+    krb5_context context;
+    if (krb5_init_context(&context))
+	return;
+    _krb5_load_plugins(context, "gss", paths);
+    krb5_free_context(context);
+}
+	
+
+void
+_gss_load_plugins(void)
+{
+    static heim_base_once_t once = HEIM_BASE_ONCE_INIT;
+    heim_base_once_f(&once, NULL, load_plugins);
+}

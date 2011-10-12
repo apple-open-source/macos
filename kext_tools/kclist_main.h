@@ -70,4 +70,4 @@ void printKextInfo(CFDictionaryRef kextPlist);
 
 void usage(UsageLevel usageLevel);
 
-#endif
+#endif /* _KCLIST_MAIN_H */

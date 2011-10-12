@@ -989,7 +989,7 @@ IOReturn IOHIDLibUserClient::addElementToQueue(IOHIDEventQueue * queue, IOHIDEle
 	return ret;
 }
 	// remove an element from a queue
-IOReturn IOHIDLibUserClient::_removeElementFromQueue (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments)
+IOReturn IOHIDLibUserClient::_removeElementFromQueue (IOHIDLibUserClient * target, void * reference __unused, IOExternalMethodArguments * arguments)
 {
 	return target->removeElementFromQueue(target->getQueueForToken(arguments->scalarInput[0]), (IOHIDElementCookie)arguments->scalarInput[1], &(arguments->scalarOutput[0]));
 }
@@ -1010,7 +1010,7 @@ IOReturn IOHIDLibUserClient::removeElementFromQueue (IOHIDEventQueue * queue, IO
 	return ret;
 }
 	// Check to see if a queue has an element
-IOReturn IOHIDLibUserClient::_queueHasElement (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments)
+IOReturn IOHIDLibUserClient::_queueHasElement (IOHIDLibUserClient * target, void * reference __unused, IOExternalMethodArguments * arguments)
 {
 	return target->queueHasElement(target->getQueueForToken(arguments->scalarInput[0]), (IOHIDElementCookie)arguments->scalarInput[1], &(arguments->scalarOutput[0]));
 }
@@ -1031,7 +1031,7 @@ IOReturn IOHIDLibUserClient::queueHasElement (IOHIDEventQueue * queue, IOHIDElem
 	return ret;
 }
 	// start a queue
-IOReturn IOHIDLibUserClient::_startQueue (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments)
+IOReturn IOHIDLibUserClient::_startQueue (IOHIDLibUserClient * target, void * reference __unused, IOExternalMethodArguments * arguments)
 {
 	return target->startQueue(target->getQueueForToken(arguments->scalarInput[0]));
 }
@@ -1039,13 +1039,17 @@ IOReturn IOHIDLibUserClient::_startQueue (IOHIDLibUserClient * target, void * re
 IOReturn IOHIDLibUserClient::startQueue (IOHIDEventQueue * queue)
 {
 	// start the queue
-	queue->start();
-
-	return kIOReturnSuccess;
+    if (queue) {
+        queue->start();
+        return kIOReturnSuccess;
+    }
+    else {
+        return kIOReturnBadArgument;
+    }
 }
 
 	// stop a queue
-IOReturn IOHIDLibUserClient::_stopQueue (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments)
+IOReturn IOHIDLibUserClient::_stopQueue (IOHIDLibUserClient * target, void * reference __unused, IOExternalMethodArguments * arguments)
 {
 	return target->stopQueue(target->getQueueForToken(arguments->scalarInput[0]));
 }
@@ -1053,9 +1057,13 @@ IOReturn IOHIDLibUserClient::_stopQueue (IOHIDLibUserClient * target, void * ref
 IOReturn IOHIDLibUserClient::stopQueue (IOHIDEventQueue * queue)
 {
 	// stop the queue
-	queue->stop();
-
-	return kIOReturnSuccess;
+    if (queue) {
+        queue->stop();
+        return kIOReturnSuccess;
+    }
+    else {
+        return kIOReturnBadArgument;
+    }
 }
 
 	// update the feature element value

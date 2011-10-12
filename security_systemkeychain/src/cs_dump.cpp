@@ -207,7 +207,7 @@ void dump(const char *target)
 
 	if (entitlements) {
 		CFDataRef data = CFDataRef(CFDictionaryGetValue(api, kSecCodeInfoEntitlements));
-		if (entitlements[0] == ':') {
+		if (data && entitlements[0] == ':') {
 			static const unsigned headerSize = sizeof(BlobCore);
 			CFRef<CFDataRef> cleanData = CFDataCreateWithBytesNoCopy(NULL, CFDataGetBytePtr(data) + headerSize, CFDataGetLength(data) - headerSize, kCFAllocatorNull);
 			writeData(cleanData, entitlements+1, "a");

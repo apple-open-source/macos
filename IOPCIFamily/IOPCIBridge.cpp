@@ -1020,6 +1020,14 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
             device->configWrite16(device->reserved->expressConfig + 0x10,
             						(1 << 4) | device->savedConfig[kIOPCIConfigShadowXPress + 1]);
 		}
+		if (kIOPCIConfigShadowSleepReset & configShadow(device)->flags)
+		{
+			UInt16 bridgeControl;
+			bridgeControl = device->configRead16(kPCI2PCIBridgeControl);
+			device->configWrite16(kPCI2PCIBridgeControl, bridgeControl | 0x40);
+			IOSleep(10);
+			device->configWrite16(kPCI2PCIBridgeControl, bridgeControl);
+		}
     }
     for (i = 0; i < device->reserved->msiBlockSize; i++)
         device->savedConfig[kIOPCIConfigShadowMSI + i] 
@@ -2798,6 +2806,10 @@ IOReturn IOPCI2PCIBridge::saveDeviceState(IOPCIDevice * device,
 		configShadow(bridgeDevice)->flags |= kIOPCIConfigShadowSleepLinkDisable;
 	else
 		configShadow(bridgeDevice)->flags &= ~kIOPCIConfigShadowSleepLinkDisable;
+    if (device->getProperty(kIOPMPCISleepResetKey))
+		configShadow(bridgeDevice)->flags |= kIOPCIConfigShadowSleepReset;
+	else
+		configShadow(bridgeDevice)->flags &= ~kIOPCIConfigShadowSleepReset;
 
 	return super::saveDeviceState(device, options);
 }

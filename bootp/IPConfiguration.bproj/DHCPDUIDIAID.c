@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -267,7 +267,7 @@ DHCPDUIDGet(interface_list_t * interfaces)
 		break;
 	    default:
 		if (if_with_linkaddr_p == NULL
-		    && if_link_length(if_p) > 0) {
+		    && if_link_length(scan) > 0) {
 		    if_with_linkaddr_p = scan;
 		}
 		continue;

@@ -185,7 +185,8 @@ void RenderBlock::destroy()
                         childBox->remove();
                 }
             }
-        }
+        } else if (parent())
+            parent()->dirtyLinesFromChangedChild(this);
     }
 
     m_lineBoxes.deleteLineBoxes(renderArena());
@@ -219,6 +220,9 @@ void RenderBlock::styleWillChange(StyleDifference diff, const RenderStyle* newSt
             if (cb->isRenderBlock())
                 toRenderBlock(cb)->removePositionedObjects(this);
         }
+
+        if (containsFloats() && !isFloating() && !isPositioned() && (newStyle->position() == AbsolutePosition || newStyle->position() == FixedPosition))
+            markAllDescendantsWithFloatsForLayout();
     }
 
     RenderBox::styleWillChange(diff, newStyle);
@@ -262,12 +266,33 @@ void RenderBlock::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
     }
 
     // After our style changed, if we lose our ability to propagate floats into next sibling
-    // blocks, then we need to mark our descendants with floats for layout and clear all floats
-    // from next sibling blocks that exist in our floating objects list. See bug 56299.
+    // blocks, then we need to find the top most parent containing that overhanging float and
+    // then mark its descendants with floats for layout and clear all floats from its next
+    // sibling blocks that exist in our floating objects list. See bug 56299 and 62875.
     bool canPropagateFloatIntoSibling = !isFloatingOrPositioned() && !avoidsFloats();
     if (diff == StyleDifferenceLayout && s_canPropagateFloatIntoSibling && !canPropagateFloatIntoSibling && hasOverhangingFloats()) {
-        markAllDescendantsWithFloatsForLayout();
-        markSiblingsWithFloatsForLayout();
+        RenderBlock* parentBlock = this;
+        FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
+        FloatingObjectSetIterator end = floatingObjectSet.end();
+
+        for (RenderObject* curr = parent(); curr && !curr->isRenderView(); curr = curr->parent()) {
+            if (curr->isRenderBlock()) {
+                RenderBlock* currBlock = toRenderBlock(curr);
+
+                if (currBlock->hasOverhangingFloats()) {
+                    for (FloatingObjectSetIterator it = floatingObjectSet.begin(); it != end; ++it) {
+                        RenderBox* renderer = (*it)->renderer();
+                        if (currBlock->hasOverhangingFloat(renderer)) {
+                            parentBlock = currBlock;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+              
+        parentBlock->markAllDescendantsWithFloatsForLayout();
+        parentBlock->markSiblingsWithFloatsForLayout();
     }
 }
 
@@ -1665,10 +1690,10 @@ int RenderBlock::collapseMargins(RenderBox* child, MarginInfo& marginInfo)
     
     // If margins would pull us past the top of the next page, then we need to pull back and pretend like the margins
     // collapsed into the page edge.
-    bool paginated = view()->layoutState()->isPaginated();
-    if (paginated && logicalTop > beforeCollapseLogicalTop) {
+    LayoutState* layoutState = view()->layoutState();
+    if (layoutState->isPaginated() && layoutState->pageLogicalHeight() && logicalTop > beforeCollapseLogicalTop) {
         int oldLogicalTop = logicalTop;
-        logicalTop = min(logicalTop, nextPageLogicalTop(beforeCollapseLogicalTop));
+        logicalTop = min(logicalTop, nextPageLogicalTopExcludingBoundaryPoint(beforeCollapseLogicalTop));
         setLogicalHeight(logicalHeight() + (logicalTop - oldLogicalTop));
     }
     return logicalTop;
@@ -1732,17 +1757,16 @@ int RenderBlock::estimateLogicalTopPosition(RenderBox* child, const MarginInfo& 
         int childMarginBefore = child->selfNeedsLayout() ? marginBeforeForChild(child) : collapsedMarginBeforeForChild(child);
         logicalTopEstimate += max(marginInfo.margin(), childMarginBefore);
     }
-    
-    bool paginated = view()->layoutState()->isPaginated();
 
     // Adjust logicalTopEstimate down to the next page if the margins are so large that we don't fit on the current
     // page.
-    if (paginated && logicalTopEstimate > logicalHeight())
-        logicalTopEstimate = min(logicalTopEstimate, nextPageLogicalTop(logicalHeight()));
+    LayoutState* layoutState = view()->layoutState();
+    if (layoutState->isPaginated() && layoutState->pageLogicalHeight() && logicalTopEstimate > logicalHeight())
+        logicalTopEstimate = min(logicalTopEstimate, nextPageLogicalTopExcludingBoundaryPoint(logicalHeight()));
 
     logicalTopEstimate += getClearDelta(child, logicalTopEstimate);
     
-    if (paginated) {
+    if (layoutState->isPaginated()) {
         // If the object has a page or column break value of "before", then we should shift to the top of the next page.
         logicalTopEstimate = applyBeforeBreak(child, logicalTopEstimate);
     
@@ -3740,6 +3764,19 @@ int RenderBlock::addOverhangingFloats(RenderBlock* child, int logicalLeftOffset,
         }
     }
     return lowestFloatLogicalBottom;
+}
+
+bool RenderBlock::hasOverhangingFloat(RenderBox* renderer)
+{
+    if (!m_floatingObjects || hasColumns() || !parent())
+        return false;
+
+    FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
+    FloatingObjectSetIterator it = floatingObjectSet.find<RenderBox*, FloatingObjectHashTranslator>(renderer);
+    if (it == floatingObjectSet.end())
+        return false;
+
+    return logicalBottomForFloat(*it) > logicalHeight();
 }
 
 void RenderBlock::addIntrudingFloats(RenderBlock* prev, int logicalLeftOffset, int logicalTopOffset)
@@ -5950,7 +5987,21 @@ RenderBlock* RenderBlock::createAnonymousColumnSpanBlock() const
     return newBox;
 }
 
-int RenderBlock::nextPageLogicalTop(int logicalOffset) const
+int RenderBlock::nextPageLogicalTopExcludingBoundaryPoint(int logicalOffset) const
+{
+    LayoutState* layoutState = view()->layoutState();
+    if (!layoutState->m_pageLogicalHeight)
+        return logicalOffset;
+    
+    // The logicalOffset is in our coordinate space.  We can add in our pushed offset.
+    int pageLogicalHeight = layoutState->m_pageLogicalHeight;
+    IntSize delta = layoutState->m_layoutOffset - layoutState->m_pageOffset;
+    int offset = isHorizontalWritingMode() ? delta.height() : delta.width();
+    int remainingLogicalHeight = (pageLogicalHeight - (offset + logicalOffset) % pageLogicalHeight) % pageLogicalHeight;
+    return logicalOffset + (remainingLogicalHeight ? remainingLogicalHeight : pageLogicalHeight);
+}
+
+int RenderBlock::nextPageLogicalTopIncludingBoundaryPoint(int logicalOffset) const
 {
     LayoutState* layoutState = view()->layoutState();
     if (!layoutState->m_pageLogicalHeight)
@@ -5987,7 +6038,7 @@ int RenderBlock::applyBeforeBreak(RenderBox* child, int logicalOffset)
     if (checkBeforeAlways && inNormalFlow(child)) {
         if (checkColumnBreaks)
             view()->layoutState()->addForcedColumnBreak(logicalOffset);
-        return nextPageLogicalTop(logicalOffset);
+        return nextPageLogicalTopIncludingBoundaryPoint(logicalOffset);
     }
     return logicalOffset;
 }
@@ -6002,14 +6053,14 @@ int RenderBlock::applyAfterBreak(RenderBox* child, int logicalOffset, MarginInfo
         marginInfo.setMarginAfterQuirk(true); // Cause margins to be discarded for any following content.
         if (checkColumnBreaks)
             view()->layoutState()->addForcedColumnBreak(logicalOffset);
-        return nextPageLogicalTop(logicalOffset);
+        return nextPageLogicalTopIncludingBoundaryPoint(logicalOffset);
     }
     return logicalOffset;
 }
 
 int RenderBlock::adjustForUnsplittableChild(RenderBox* child, int logicalOffset, bool includeMargins)
 {
-    bool isUnsplittable = child->isReplaced() || child->scrollsOverflow();
+    bool isUnsplittable = child->isReplaced() || child->scrollsOverflow() || child->style()->columnBreakInside() == PBAVOID;
     if (!isUnsplittable)
         return logicalOffset;
     int childLogicalHeight = logicalHeightForChild(child) + (includeMargins ? marginBeforeForChild(child) + marginAfterForChild(child) : 0);

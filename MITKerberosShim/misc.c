@@ -775,3 +775,59 @@ krb5_kuserok (mit_krb5_context context,
     LOG_ENTRY();
     return heim_krb5_kuserok(HC(context), p->heim, luser);
 }
+
+void KRB5_CALLCONV
+krb5_appdefault_string(mit_krb5_context context,
+		       const char *appname,  
+		       const mit_krb5_data *realm,
+		       const char *option,
+		       const char *default_value,
+		       char ** ret_value)
+{
+    char *hrealm;
+
+    *ret_value = (char *)default_value;
+
+    if (realm->length > 5000)
+	return;
+
+    hrealm = mshim_malloc(realm->length + 1);
+    memcpy(hrealm, realm->data, realm->length);
+    hrealm[realm->length] = '\0';
+
+    (void)heim_krb5_appdefault_string(HC(context),
+				      appname,
+				      hrealm,
+				      option,
+				      default_value,
+				      ret_value);
+    free(hrealm);
+}
+
+void KRB5_CALLCONV
+krb5_appdefault_boolean(mit_krb5_context context,
+			const char *appname,  
+			const mit_krb5_data *realm,
+			const char *option,
+			int default_value,
+			int *ret_value)
+{
+    char *hrealm;
+
+    *ret_value = default_value;
+
+    if (realm->length > 5000)
+	return;
+
+    hrealm = mshim_malloc(realm->length + 1);
+    memcpy(hrealm, realm->data, realm->length);
+    hrealm[realm->length] = '\0';
+    
+    (void)heim_krb5_appdefault_boolean(HC(context),
+				       appname,
+				       hrealm,
+				       option,
+				       default_value,
+				       ret_value);
+    free(hrealm);
+}

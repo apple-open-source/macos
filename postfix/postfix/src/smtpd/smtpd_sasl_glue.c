@@ -442,6 +442,29 @@ static void print_cf_error ( CFErrorRef in_cf_err_ref, const char *in_user_name,
 	msg_error( "user %s: %s", in_user_name, in_default_str );
 } /* print_cf_error */
 
+/* ------------------------------------------------------------------
+	- validate_digest ()
+   ------------------------------------------------------------------ */
+
+static int validate_digest ( const char *in_digest )
+{
+	const char *p = in_digest;
+
+	if ( !in_digest || !strlen(in_digest) ) {
+		msg_error( "null or zero length digest detected" );
+		return 0;
+	}
+
+	for (; *p != '\0'; p++) {
+		if (isxdigit(*p))
+			continue;
+		else {
+			msg_error( "invalid character (%c) detected in digest: %s", *p, in_digest );
+			return 0;
+		}
+	}
+ 	return 1;
+}
 
 /* -----------------------------------------------------------------
 	- get_random_chars
@@ -673,26 +696,30 @@ static char *do_auth_cram_md5 ( SMTPD_STATE *state, const char *in_method )
 		return( "501 Authentication failed: malformed initial response" );
 	}
 
+	/* pointer to digest */
 	/* get the user name */
 	char *resp_ptr = STR(vs_base64);
-	char *ptr = strchr( resp_ptr, ' ' );
-	if ( ptr != NULL ) {
-		/* copy user name */
-		int len = ptr - resp_ptr;
-		vs_user = vstring_strncpy( vs_user, resp_ptr, len );
+	char *digest = strrchr(resp_ptr, ' ');
+	if (digest) {
+		vs_user = vstring_strncpy( vs_user, resp_ptr, (digest - resp_ptr) );
+		digest++;
+	} else {
+		msg_error( "Malformed response to: AUTH CRAM-MD5: missing digest" );
+		return( "501 Authentication failed: malformed initial response" );
+	}
 
-		/* move past the space */
-		ptr++;
-		if ( ptr != NULL ) {
-			/* validate the response */
-			if ( od_validate_response( STR(vs_user), STR(vs_chal), ptr, kDSStdAuthCRAM_MD5 ) == eAOD_no_error ) {
-				state->sasl_username = mystrdup( STR(vs_user) );
-				state->sasl_method = mystrdup( in_method );
+	/* check for valid digest */
+	if (!validate_digest(digest)) {
+		msg_error( "Malformed response to: AUTH CRAM-MD5: invalid digest" );
+		return( "501 Authentication failed: malformed initial response" );
+	}
+	/* validate the response */
+	if ( od_validate_response( STR(vs_user), STR(vs_chal), digest, kDSStdAuthCRAM_MD5 ) == eAOD_no_error ) {
+		state->sasl_username = mystrdup( STR(vs_user) );
+		state->sasl_method = mystrdup( in_method );
 
-				send_server_event(eAuthSuccess, state->name, state->addr);
-				return( NULL );
-			}
-		}
+		send_server_event(eAuthSuccess, state->name, state->addr);
+		return( NULL );
 	}
 
 	send_server_event(eAuthFailure, state->name, state->addr);

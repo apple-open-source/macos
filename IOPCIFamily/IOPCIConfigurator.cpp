@@ -301,13 +301,14 @@ bool CLASS::createRoot(void)
 	cpuPhysBits = cpuid_info()->cpuid_address_bits_physical;
 	start = (1ULL << cpuPhysBits) - PFM64_SIZE;
     size  = PFM64_SIZE;
-	IOLog("PFM64 0x%llx, 0x%llx\n", start, size);
-
-    range = IOPCIRangeAlloc();
-    IOPCIRangeInit(range, kIOPCIResourceTypeMemory, start, size, 1);
-    range->size = range->proposedSize;
-    root->ranges[kIOPCIRangeBridgeMemory] = range;
-
+	IOLog("PFM64 (%d cpu) 0x%llx, 0x%llx\n", cpuPhysBits, start, size);
+	if (cpuPhysBits > 32)
+	{
+		range = IOPCIRangeAlloc();
+		IOPCIRangeInit(range, kIOPCIResourceTypeMemory, start, size, 1);
+		range->size = range->proposedSize;
+		root->ranges[kIOPCIRangeBridgeMemory] = range;
+	}
     root->deviceState |= kPCIDeviceStateScanned | kPCIDeviceStateConfigurationDone;
 
     fRoot = root;
@@ -482,18 +483,22 @@ void CLASS::constructAddressingProperties(IOPCIConfigEntry * device, OSDictionar
         regData.physLo   = 0;
         regData.lengthHi = (range->size >> 32ULL);
         regData.lengthLo = range->size;
-
         if (i <= kIOPCIRangeExpansionROM)
         {
             regData.physHi.s.registerNum = barRegisters[i];
-            regProp->appendBytes(&regData, sizeof(regData));
             if (range->start)
             {
-                regData.physHi.s.reloc = 1;
-                regData.physMid = (range->start >> 32ULL);
-                regData.physLo  = range->start;
-                assignedProp->appendBytes(&regData, sizeof(regData));
+				IOPCIPhysicalAddress assignedData;
+				assignedData = regData;
+                assignedData.physHi.s.reloc = 1;
+                assignedData.physMid = (range->start >> 32ULL);
+                assignedData.physLo  = range->start;
+                assignedProp->appendBytes(&assignedData, sizeof(assignedData));
             }
+			// reg gets requested length
+			regData.lengthHi             = (range->proposedSize >> 32ULL);
+			regData.lengthLo             = range->proposedSize;
+            regProp->appendBytes(&regData, sizeof(regData));
         }
         else
         {
@@ -1770,25 +1775,16 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
             continue;
         }
 
+        range = device->ranges[barNum];
 #if 0
-//if (size < (256*1024*1024)) clean64 = false;
-
-        if ((0x8235104c == configRead32(device, kIOPCIConfigVendorID))
-         && (0x10 == barOffset))
-        { size = 1024*1024*1024; }
-
-		if (device->space.s.busNum > 7)
+		if ((0x8760105a == configRead32(device->space, kIOPCIConfigVendorID))
+		 && (0x20 == barOffset))
 		{
-			if ((0x16b414e4 == configRead32(device, kIOPCIConfigVendorID))
-			 && (0x10 == barOffset))
-			{ size = 0x400000; clean64 = false; type = kIOPCIResourceTypeMemory; }
-			if ((0x16b414e4 == configRead32(device, kIOPCIConfigVendorID))
-			 && (0x18 == barOffset))
-			{ size = 0x1000; clean64 = false; type = kIOPCIResourceTypeMemory; }
+			IOPCIRangeInit(range, type, start, 0xc000, size);
 		}
+		else
 #endif
 
-        range = device->ranges[barNum];
         IOPCIRangeInit(range, type, start, size, size);
         range->minAddress = minBARAddressDefault[type];
         if (clean64)
@@ -2536,7 +2532,8 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
 				if (ok)
 					continue;
 
-				canRelocate = (kIOPCIConfiguratorBoot & fFlags);
+				canRelocate = (!((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) & childRange->flags)
+							 && (kIOPCIConfiguratorBoot & fFlags));
 				canRelocate |= (0 != (kIOPCIRangeFlagRelocatable & childRange->flags));
 				canRelocate |= (!childRange->nextSubRange);
 

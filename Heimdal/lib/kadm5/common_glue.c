@@ -42,7 +42,16 @@ kadm5_chpass_principal(void *server_handle,
 		       krb5_principal princ,
 		       const char *password)
 {
-    return __CALL(chpass_principal, (server_handle, princ, password));
+    return kadm5_chpass_principal2(server_handle, princ, password, NULL);
+}
+
+kadm5_ret_t
+kadm5_chpass_principal2(void *server_handle,
+			krb5_principal princ,
+			const char *password,
+			krb5_enctype *enctypes)
+{
+    return __CALL(chpass_principal, (server_handle, princ, password, enctypes));
 }
 
 kadm5_ret_t
@@ -61,7 +70,17 @@ kadm5_create_principal(void *server_handle,
 		       uint32_t mask,
 		       const char *password)
 {
-    return __CALL(create_principal, (server_handle, princ, mask, password));
+    return kadm5_create_principal2(server_handle, princ, mask, password, NULL);
+}
+
+kadm5_ret_t
+kadm5_create_principal2(void *server_handle,
+			kadm5_principal_ent_t princ,
+			uint32_t mask,
+			const char *password,
+			krb5_enctype *enctypes)
+{
+    return __CALL(create_principal, (server_handle, princ, mask, password, enctypes));
 }
 
 kadm5_ret_t
@@ -106,7 +125,17 @@ kadm5_randkey_principal(void *server_handle,
 			krb5_keyblock **new_keys,
 			int *n_keys)
 {
-    return __CALL(randkey_principal, (server_handle, princ, new_keys, n_keys));
+    return kadm5_randkey_principal2(server_handle, princ, NULL, new_keys, n_keys);
+}
+
+kadm5_ret_t
+kadm5_randkey_principal2(void *server_handle,
+			 krb5_principal princ,
+			 krb5_enctype *enctypes,
+			 krb5_keyblock **new_keys,
+			 int *n_keys)
+{
+    return __CALL(randkey_principal, (server_handle, princ, enctypes, new_keys, n_keys));
 }
 
 kadm5_ret_t

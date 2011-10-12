@@ -1,7 +1,7 @@
 <?php
 
 $rcmail_config['include_host_config'] = true;
-$rcmail_config['default_host'] = '%n';
+$rcmail_config['default_host'] = 'tls://%n';
 $rcmail_config['smtp_server'] = '%h';
 $rcmail_config['smtp_user'] = '%u';
 $rcmail_config['smtp_pass'] = '%p';

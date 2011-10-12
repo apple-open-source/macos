@@ -23,3 +23,4 @@ heim_dict_copy_value
 heim_dict_add_value
 heim_dict_delete_key
 heim_dict_iterate
+heim_warn_blocking

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2004, 2007, 2010  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2007, 2010, 2011  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -14,17 +14,30 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: clean.sh,v 1.5.476.2 2010-05-27 23:49:55 tbox Exp $
+# $Id: clean.sh,v 1.5.476.2.44.2 2011-06-06 23:46:30 tbox Exp $
 
 rm -f random.data
 rm -f ns*/named.run
+rm -f ns1/K*
+rm -f ns1/dsset-*
+rm -f ns1/*.signed
+rm -f ns1/signer.err
+rm -f ns1/root.db
+rm -f ns2/K*
+rm -f ns2/dlvset-*
+rm -f ns2/dsset-*
+rm -f ns2/*.signed
+rm -f ns2/*.pre
+rm -f ns2/signer.err
+rm -f ns2/druz.db
 rm -f ns3/K*
 rm -f ns3/*.db
 rm -f ns3/*.signed
 rm -f ns3/dlvset-*
 rm -f ns3/dsset-*
 rm -f ns3/keyset-*
-rm -f ns3/trusted.conf ns5/trusted.conf
+rm -f ns1/trusted.conf ns5/trusted.conf
+rm -f ns3/trusted-dlv.conf ns5/trusted-dlv.conf
 rm -f ns3/signer.err
 rm -f ns6/K*
 rm -f ns6/*.db

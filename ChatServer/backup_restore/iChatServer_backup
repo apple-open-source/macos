@@ -188,12 +188,30 @@ sub Backup()
 	   	unlink("$jabberDataTmpDir/$sqlFilePath");
         qx(rm -Rf $jabberDataTmpDir);
 
-		&_log($OUTPUT_PROGRESS, "Backing up data files", 100);
-
+		push(@MasterFilesList, "iChatServer.data.tar.gz");
 		&_log($OUTPUT_VERBOSE, "Backed up database to $dataTarPath\n");
 
-#		push(@MasterFilesList, $dataTarPath);
-		push(@MasterFilesList, "iChatServer.data.tar.gz");
+		my $roomsDirPath = qx(${PBUDDY} -c \"Print :RoomsDataDirectory:\" $SBS_CONF/$ServiceConf);
+		chomp($roomsDirPath);
+		my $roomsLogDirPath = qx(${PBUDDY} -c \"Print :RoomsLogDataDirectory:\" $SBS_CONF/$ServiceConf);
+		chomp($roomsLogDirPath);
+		if ($roomsDirPath ne "") {
+			chdir($origCWD);
+			my $roomsDataTarPath = $SBS_PATH."/"."iChatServer_Rooms.data.tar.gz";
+			if ($VERBOSE) {
+				$cmd = "$TAR --ignore-failed-read -cpvzf \"$roomsDataTarPath\" \"$roomsDirPath\" \"$roomsLogDirPath\"";
+				print "Executing command: $cmd\n";
+			} else {
+				$cmd = "$TAR --ignore-failed-read -cpzf \"$roomsDataTarPath\" \"$roomsDirPath\" \"$roomsLogDirPath\"";
+			}
+			system($cmd);
+			chdir($origCWD);
+			push(@MasterFilesList, "iChatServer_Rooms.data.tar.gz");
+			&_log($OUTPUT_VERBOSE, "Backed up database to $roomsDataTarPath\n");
+		}
+
+		&_log($OUTPUT_PROGRESS, "Backing up data files", 100);
+
 	}
 
 	CreateBrowsePlist();
@@ -280,11 +298,16 @@ sub Size()
 		qx(echo ".dump" | $SQLITE $sqliteDbPath > \"$jabberDataTmpDir/$sqlFilePath\");
 
 		my $dataTarPath = "$jabberDataTmpDir/iChatServer_data_backup_tmp.tar.gz";
+		my $roomsDirPath = qx(${PBUDDY} -c \"Print :RoomsDataDirectory:\" $SBS_CONF/$ServiceConf);
+		chomp($roomsDirPath);
+		my $roomsLogDirPath = qx(${PBUDDY} -c \"Print :RoomsLogDataDirectory:\" $SBS_CONF/$ServiceConf);
+		chomp($roomsLogDirPath);
+
 		if ($VERBOSE) {
-			$cmd = "$TAR -cvzf \"$dataTarPath\" \"$jabberDataTmpDir/$sqlFilePath\"";
+			$cmd = "$TAR --ignore-failed-read -cvzf \"$dataTarPath\" \"$jabberDataTmpDir/$sqlFilePath\" \"$roomsDirPath\" \"$roomsLogDirPath\"";
 			&_log($OUTPUT_PRINT, "Executing command: $cmd\n");
 		} else {
-			$cmd = "$TAR -czf \"$dataTarPath\" \"$jabberDataTmpDir/$sqlFilePath\"";
+			$cmd = "$TAR --ignore-failed-read -czf \"$dataTarPath\" \"$jabberDataTmpDir/$sqlFilePath\" \"$roomsDirPath\" \"$roomsLogDirPath\"";
 		}
 		system($cmd);
 		my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat($dataTarPath);

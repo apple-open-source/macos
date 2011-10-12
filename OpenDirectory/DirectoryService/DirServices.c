@@ -2403,9 +2403,8 @@ dsCreateRecordAndOpen(tDirNodeReference inNodeRef, tDataNodePtr inRecType, tData
 	if (record != NULL) {
 		if (outRecRef != NULL) {
 			(*outRecRef) = _add_reference(record);
-		} else {
-			safe_cfrelease_null(record);
 		}
+		safe_cfrelease_null(record);
 
 		status = eDSNoErr;
 	} else {

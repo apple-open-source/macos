@@ -4,6 +4,8 @@
 <dict>
 	<key>Label</key>
 	<string>com.apple.ocspd</string>
+	<key>InitGroups</key>
+	<false/>
 	<key>MachServices</key>
 	<dict>
 		<key>com.apple.ocspd</key>

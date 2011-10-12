@@ -52,9 +52,19 @@
 #define CFReleaseNull(CF) { CFTypeRef _cf = (CF); \
 	if (_cf) { (CF) = NULL; CFRelease(_cf); } }
 
-extern Mutex gCRLWriteLock;
-extern Mutex gCRLFetchLock;
-extern char *gCRLFileName;
+extern Mutex gParamsLock;
+extern Mutex gFileWriteLock;
+extern Mutex gListLock;
+extern CFMutableArrayRef gDownloadList;
+extern CFMutableDictionaryRef gIssuersDict;
+
+extern bool crlSignatureValid(
+	const char *crlFileName,
+	const char *issuersFileName,
+	const char *updateFileName,
+	const char *revokedFileName);
+
+extern int crlCheckCachePath();
 
 #pragma mark ----- async HTTP -----
 
@@ -477,6 +487,13 @@ CSSM_RETURN ocspdHttpPost(
 		goto cleanup;
 	}
 
+	/* specify automatic redirect handling */
+	if(!CFReadStreamSetProperty(httpContext->stream,
+		kCFStreamPropertyHTTPShouldAutoredirect, kCFBooleanTrue)) {
+		ocspdErrorLog("ocspdHttpPost: error setting autoredirect property\n");
+		/* this error is non-fatal; keep going */
+	}
+
 	/* set up possible proxy info */
 	proxyDict = SCDynamicStoreCopyProxies(NULL);
 	if(proxyDict) {
@@ -803,6 +820,13 @@ static CSSM_RETURN httpFetch(
 		goto cleanup;
 	}
 
+	/* specify automatic redirect handling */
+	if(!CFReadStreamSetProperty(httpContext->stream,
+		kCFStreamPropertyHTTPShouldAutoredirect, kCFBooleanTrue)) {
+		ocspdErrorLog("httpFetch: error setting autoredirect property\n");
+		/* this error is non-fatal; keep going */
+	}
+
 	/* set up possible proxy info */
 	proxyDict = SCDynamicStoreCopyProxies(NULL);
 	if(proxyDict) {
@@ -913,6 +937,7 @@ CSSM_RETURN ocspdFinishNetFetch(
 	if(!fetchParams) {
 		return crtn;
 	}
+	StLock<Mutex> _(gParamsLock); /* lock before accessing parameters */
 	if(fetchParams->result != CSSM_OK) {
 		ocspdErrorLog("ocspdFinishNetFetch: CRL not found on net");
 		crtn = fetchParams->result;
@@ -924,7 +949,8 @@ CSSM_RETURN ocspdFinishNetFetch(
 	else if(fetchParams->fetched.Length > CRL_MAX_DATA_LENGTH) {
 		if (fetchParams->fetched.Data) {
 			/* Write oversize CRL data to file */
-			StLock<Mutex> w_(gCRLWriteLock);
+			StLock<Mutex> w_(gFileWriteLock);
+			crlCheckCachePath();
 			int rtn = writeFile(fetchParams->outFile, fetchParams->fetched.Data,
 				fetchParams->fetched.Length);
 			if(rtn) {
@@ -953,33 +979,152 @@ void ocspdNetFetchAsync(
 {
 	async_fetch_t *params = (async_fetch_t *)context;
 	ocspdCrlDebug("ocspdNetFetchAsync with context %p", context);
+	CSSM_RETURN crtn = 0;
+	CFStringRef fileNameStr = NULL;
+	CFStringRef pemNameStr = NULL;
+	CFAbsoluteTime fetchTime, verifyTime;
+	CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
+	Boolean downloadInProgress = false;
+	Boolean isCRL = false;
 
-	params->finished = 0;
-	{
-		StLock<Mutex> f_(gCRLFetchLock);
-
-		params->result = ocspdNetFetch(*(params->alloc),
-			params->url, params->lfType, params->fetched);
-
-		params->result = ocspdFinishNetFetch(params);
-
-		StLock<Mutex> w_(gCRLWriteLock);
-		gCRLFileName = NULL; /* no longer downloading a CRL */
-	}
-	params->finished = 1;
-
-	if(params->freeOnDone) {
-		/* caller does not expect a reply; we must clean up everything. */
-		if(params->url.Data) {
-			free(params->url.Data);
+	if(params) {
+		StLock<Mutex> _(gParamsLock); /* lock before accessing parameters */
+		params->finished = 0;
+		isCRL = (params->lfType == LT_Crl);
+		if(params->crlNames.pemFile) {
+			pemNameStr = CFStringCreateWithCString(kCFAllocatorDefault,
+				params->crlNames.pemFile, kCFStringEncodingUTF8);
 		}
 		if(params->outFile) {
-			free(params->outFile);
+			fileNameStr = CFStringCreateWithCString(kCFAllocatorDefault,
+				params->outFile, kCFStringEncodingUTF8);
 		}
-		if(params->fetched.Data) {
-			(*(params->alloc)).free(params->fetched.Data);
+		if(fileNameStr) {
+			/* make sure we aren't already downloading this file */
+			StLock<Mutex> _(gListLock); /* lock before examining list */
+			if(gDownloadList == NULL) {
+				gDownloadList = CFArrayCreateMutable(kCFAllocatorDefault,
+					0, &kCFTypeArrayCallBacks);
+				crtn = (gDownloadList) ? crtn : CSSMERR_TP_INTERNAL_ERROR;
+				params->result = crtn;
+			}
+			if(!crtn) {
+				downloadInProgress = CFArrayContainsValue(gDownloadList,
+					CFRangeMake(0, CFArrayGetCount(gDownloadList)), fileNameStr);
+				if(!downloadInProgress) {
+					/* add this filename to the global list which tells other
+					 * callers of the crlStatus MIG function that we are
+					 * already downloading this file.
+					 */
+					CFArrayAppendValue(gDownloadList, fileNameStr);
+				} else {
+					/* already downloading; indicate "busy, try later" status */
+					crtn = CSSMERR_APPLETP_NETWORK_FAILURE;
+					params->result = crtn;
+				}
+			}
 		}
-		free(params);
+	}
+
+	if(params && !crtn && !downloadInProgress) {
+		/* fetch data into buffer */
+		crtn = ocspdNetFetch(*(params->alloc),
+			params->url, params->lfType, params->fetched);
+		{
+			StLock<Mutex> _(gParamsLock);
+			params->result = crtn;
+		}
+		/* write data to file */
+		crtn = ocspdFinishNetFetch(params);
+		{
+			StLock<Mutex> _(gParamsLock);
+			params->result = crtn;
+		}
+		fetchTime = CFAbsoluteTimeGetCurrent() - startTime;
+		ocspdCrlDebug("%f seconds to download file", fetchTime);
+
+		if(isCRL) {
+			/* write issuers to .pem file */
+			StLock<Mutex> _(gListLock); /* lock before examining list */
+			CFDataRef issuersData = NULL;
+			if(gIssuersDict) {
+				issuersData = (CFDataRef)CFDictionaryGetValue(gIssuersDict,
+					pemNameStr);
+			} else {
+				ocspdCrlDebug("No issuers available for %s",
+					params->crlNames.pemFile);
+			}
+			if(issuersData) {
+				StLock<Mutex> _(gFileWriteLock); /* obtain lock before writing */
+				crlCheckCachePath();
+				int rtn = writeFile(params->crlNames.pemFile,
+					(const unsigned char *)CFDataGetBytePtr(issuersData),
+					CFDataGetLength(issuersData));
+				if(rtn) {
+					ocspdErrorLog("Error %d writing %s\n",
+						rtn, params->crlNames.pemFile);
+				}
+				else if(chmod(params->crlNames.pemFile, 0644)) {
+					ocspdErrorLog("ocsp_server_crlStatus: chmod error %d for %s",
+						errno, params->crlNames.pemFile);
+				}
+			}
+		}
+
+		if(isCRL) {
+			/* validate CRL signature (creates .update and .revoked files) */
+			crlSignatureValid(params->crlNames.crlFile,
+				params->crlNames.pemFile,
+				params->crlNames.updateFile,
+				params->crlNames.revokedFile);
+			verifyTime = ( CFAbsoluteTimeGetCurrent() - startTime ) - fetchTime;
+			ocspdCrlDebug("%f seconds to validate CRL", verifyTime);
+		}
+
+		if(fileNameStr) {
+			/* all finished downloading, so remove filename from global list */
+			StLock<Mutex> _(gListLock);
+			CFIndex idx =  CFArrayGetFirstIndexOfValue(gDownloadList,
+				CFRangeMake(0, CFArrayGetCount(gDownloadList)), fileNameStr);
+			if(idx >= 0) {
+				CFArrayRemoveValueAtIndex(gDownloadList, idx);
+			}
+		}
+	}
+
+	if(params) {
+		StLock<Mutex> _(gParamsLock);
+		params->finished = 1;
+
+		if(params->freeOnDone) {
+			/* caller does not expect a reply; we must clean up everything. */
+			if(params->url.Data) {
+				free(params->url.Data);
+			}
+			if(params->outFile) {
+				free(params->outFile);
+			}
+			if(params->crlNames.crlFile) {
+				free(params->crlNames.crlFile);
+			}
+			if(params->crlNames.pemFile) {
+				free(params->crlNames.pemFile);
+			}
+			if(params->crlNames.updateFile) {
+				free(params->crlNames.updateFile);
+			}
+			if(params->crlNames.revokedFile) {
+				free(params->crlNames.revokedFile);
+			}
+			if(params->fetched.Data) {
+				(*(params->alloc)).free(params->fetched.Data);
+			}
+			free(params);
+		}
+	}
+
+	if(fileNameStr) {
+		CFRelease(fileNameStr);
 	}
 }
 

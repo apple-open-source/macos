@@ -974,7 +974,7 @@
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 55009;
+				CURRENT_PROJECT_VERSION = 55016;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,
@@ -1028,7 +1028,7 @@
 				);
 				COPY_PHASE_STRIP = "(null)";
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 55009;
+				CURRENT_PROJECT_VERSION = 55016;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
@@ -1079,7 +1079,7 @@
 				BUILD_VARIANTS = normal;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 55009;
+				CURRENT_PROJECT_VERSION = 55016;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,
@@ -1133,7 +1133,7 @@
 				);
 				COPY_PHASE_STRIP = "(null)";
 				CSSM_HEADERS = "";
-				CURRENT_PROJECT_VERSION = 55009;
+				CURRENT_PROJECT_VERSION = 55016;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,

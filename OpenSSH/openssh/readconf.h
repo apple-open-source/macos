@@ -51,6 +51,7 @@ typedef struct {
 	int	gss_trust_dns;		/* Trust DNS for GSS canonicalization */
 	int	gss_renewal_rekey;	/* Credential renewal forces rekey */
 	char    *gss_client_identity;   /* Principal to initiate GSSAPI with */
+	char    *gss_server_identity;   /* GSSAPI target principal */
 	int     password_authentication;	/* Try password
 						 * authentication. */
 	int     kbd_interactive_authentication; /* Try keyboard-interactive auth. */

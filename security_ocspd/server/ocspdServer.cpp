@@ -53,17 +53,26 @@
  * and letting it complete in the background. */
 #define CRL_MAX_DOWNLOAD_WAIT	3.0
 
-/* Maximum CRL length to consider putting in the cache db (128KB) */
+/* Maximum CRL length to consider putting in the cache db (128KB);
+ * larger CRLs will be written to individual files. */
 #define CRL_MAX_DATA_LENGTH (1024*128)
 
-/* Lock while a CRL file is being written (short-term) */
-Mutex gCRLWriteLock;
+/* Lock while a shared parameters struct is being read or updated */
+Mutex gParamsLock;
 
-/* Lock while a CRL file is being downloaded (long-term) */
-Mutex gCRLFetchLock;
+/* Lock while a file is being written */
+Mutex gFileWriteLock;
 
-/* File currently downloading (must hold both locks to change this value) */
-char *gCRLFileName;
+/* Lock while shared lists are being read or updated */
+Mutex gListLock;
+
+/* Global list of files being downloaded */
+CFMutableArrayRef gDownloadList = NULL;
+
+/* Global dictionary of CRL issuers */
+CFMutableDictionaryRef gIssuersDict = NULL;
+
+const char *gCrlPath = "/var/db/crls/";
 
 
 #pragma mark ----- OCSP utilities -----
@@ -146,6 +155,117 @@ static SecAsn1OCSPDReply *ocspdHandleReq(
 
 
 #pragma mark ----- CRL utilities -----
+
+/*
+ * Create specified directory, including intermediate directories.
+ */
+static int
+_mkpath_np(char *path, mode_t omode)
+{
+	char *apath = NULL;
+	unsigned int depth = 0;
+	mode_t chmod_mode = 0;
+	int retval = 0;
+	int old_errno = errno;
+
+	/* Try the trivial case first. */
+	if (0 == mkdir(path, omode)) {
+		goto mkpath_exit;
+	}
+
+	/* Anything other than an ENOENT indicates an error that we need to
+	 * send back to the caller.  ENOENT indicates that we need to try a
+	 * lower level.
+	 */
+	if (errno != ENOENT) {
+		retval = errno;
+		goto mkpath_exit;
+	}
+
+	apath = strdup(path);
+	if (apath == NULL) {
+		retval = ENOMEM;
+		goto mkpath_exit;
+	}
+
+	while (1) {
+		/* Increase our depth and try making that directory */
+		char *s = strrchr(apath, '/');
+		if (!s) {
+			/* We should never hit this under normal circumstances,
+			 * but it can occur due to really unfortunate timing
+			 */
+			retval = ENOENT;
+			goto mkpath_exit;
+		}
+		*s = '\0';
+		depth++;
+
+		if (0 == mkdir(apath, S_IRWXU | S_IRWXG | S_IRWXO)) {
+			/* Found our starting point */
+
+			/* POSIX 1003.2:
+			 * For each dir operand that does not name an existing
+			 * directory, effects equivalent to those cased by the
+			 * following command shall occcur:
+			 *
+			 * mkdir -p -m $(umask -S),u+wx $(dirname dir) &&
+			 *    mkdir [-m mode] dir
+			 */
+
+			struct stat dirstat;
+			if (-1 == stat(apath, &dirstat)) {
+				/* Really unfortunate timing ... */
+				retval = ENOENT;
+				goto mkpath_exit;
+			}
+
+			if ((dirstat.st_mode & (S_IWUSR | S_IXUSR)) != (S_IWUSR | S_IXUSR)) {
+			        chmod_mode = dirstat.st_mode | S_IWUSR | S_IXUSR;
+				if (-1 == chmod(apath, chmod_mode)) {
+					/* Really unfortunate timing ... */
+					retval = ENOENT;
+					goto mkpath_exit;
+				}
+			}
+			break;
+		}
+		if (errno != ENOENT) {
+			retval = errno;
+			goto mkpath_exit;
+		}
+	}
+
+	while (depth > 1) {
+		/* Decrease our depth and make that directory */
+		char *s = strrchr(apath, '\0');
+		*s = '/';
+		depth--;
+
+		if (-1 == mkdir(apath, S_IRWXU | S_IRWXG | S_IRWXO)) {
+			retval = errno;
+			goto mkpath_exit;
+		}
+
+		if (chmod_mode) {
+			if (-1 == chmod(apath, chmod_mode)) {
+				/* Really unfortunate timing ... */
+				retval = ENOENT;
+				goto mkpath_exit;
+			}
+		}
+	}
+
+	if (-1 == mkdir(path, omode)) {
+		retval = errno;
+	}
+
+mkpath_exit:
+	free(apath);
+
+	errno = old_errno;
+	return retval;
+}
 
 /*
  * Generate and malloc a CRL filename given a lookup key,
@@ -396,6 +516,14 @@ bool crlSerialNumberRevoked(
 	return revoked;
 }
 
+/*
+ * Attempt to create the CRL cache path if it doesn't exist.
+ */
+int crlCheckCachePath()
+{
+	return _mkpath_np((char*)gCrlPath, 0755);
+}
+
 
 #pragma mark ----- Mig-referenced OCSP routines -----
 
@@ -625,79 +753,105 @@ kern_return_t ocsp_server_crlStatus (
     mach_msg_type_number_t crl_urlCnt)
 {
 	ServerActivity();
-    kern_return_t krtn;
-    size_t dataLen = (crl_issuerCnt) ? crl_issuerCnt : crl_urlCnt;
-    unsigned char *dataPtr = (unsigned char *)((crl_issuerCnt) ? crl_issuer : crl_url);
-    if(!dataLen || !dataPtr) {
-        return CSSMERR_TP_INTERNAL_ERROR;
-    }
-    char *crlFileName = crlGenerateFileName(dataPtr, dataLen, "/var/db/crls/", ".crl");
-    if(!crlFileName) {
-        return CSSMERR_TP_INTERNAL_ERROR;
-    }
+	kern_return_t krtn;
+	struct stat sb;
+	size_t dataLen = (crl_issuerCnt) ? crl_issuerCnt : crl_urlCnt;
+	unsigned char *dataPtr = (unsigned char *)((crl_issuerCnt) ? crl_issuer : crl_url);
+	if(!dataLen || !dataPtr) {
+		return CSSMERR_TP_INTERNAL_ERROR;
+	}
+	bool crlValid = false;
+	crl_names_t names;
+	names.crlFile = crlGenerateFileName(dataPtr, dataLen, gCrlPath, ".crl");
+	names.pemFile = crlGenerateFileName(dataPtr, dataLen, gCrlPath, ".pem");
+	names.updateFile = crlGenerateFileName(dataPtr, dataLen, gCrlPath, ".update");
+	names.revokedFile = crlGenerateFileName(dataPtr, dataLen, gCrlPath, ".revoked");
+	if(!names.crlFile || !names.pemFile || !names.updateFile || !names.revokedFile) {
+		krtn = CSSMERR_TP_INTERNAL_ERROR;
+		goto crlStatus_cleanup;
+	}
 
 	/* Are we currently downloading this CRL? */
 	{
-		StLock<Mutex> w_(gCRLWriteLock); /* lock before examining filename */
-		if(gCRLFileName && !strncmp(gCRLFileName, crlFileName, strlen(crlFileName))) {
-			free(crlFileName);
-			return CSSMERR_APPLETP_NETWORK_FAILURE; /* busy! */
+		StLock<Mutex> _(gListLock); /* lock before examining lists */
+		if(gDownloadList == NULL) {
+			gDownloadList = CFArrayCreateMutable(kCFAllocatorDefault,
+				0, &kCFTypeArrayCallBacks);
+			if(!gDownloadList) {
+				krtn = CSSMERR_TP_INTERNAL_ERROR; /* can't continue */
+				goto crlStatus_cleanup;
+			}
+		}
+		Boolean downloadInProgress = false;
+		CFStringRef crlNameStr = CFStringCreateWithCString(kCFAllocatorDefault,
+			names.crlFile, kCFStringEncodingUTF8);
+		if(crlNameStr) {
+			downloadInProgress = CFArrayContainsValue(gDownloadList,
+				CFRangeMake(0, CFArrayGetCount(gDownloadList)), crlNameStr);
+			CFRelease(crlNameStr);
+		}
+		if(downloadInProgress) {
+			krtn = CSSMERR_APPLETP_NETWORK_FAILURE; /* busy, download not yet complete! */
+			goto crlStatus_cleanup;
+		}
+
+		/* Add issuers to dictionary, so we can find them later */
+		if(gIssuersDict == NULL) {
+			gIssuersDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+				&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			if(!gIssuersDict) {
+				krtn = CSSMERR_TP_INTERNAL_ERROR; /* can't continue */
+				goto crlStatus_cleanup;
+			}
+		}
+		if(cert_issuers != NULL && cert_issuersCnt > 0) {
+			CFStringRef pemNameStr = CFStringCreateWithCString(kCFAllocatorDefault,
+				names.pemFile, kCFStringEncodingUTF8);
+			if(pemNameStr) {
+				CFDataRef pemData = CFDataCreate(kCFAllocatorDefault,
+					(const UInt8 *)cert_issuers, (CFIndex)cert_issuersCnt);
+				if(pemData) {
+					CFDictionarySetValue(gIssuersDict, pemNameStr, pemData);
+					CFRelease(pemData);
+				}
+				CFRelease(pemNameStr);
+			}
 		}
 	}
 
-    /* Check whether the file is present */
-    struct stat sb;
-    if(stat(crlFileName, &sb) != 0) {
-		free(crlFileName);
-		return CSSMERR_APPLETP_CRL_NOT_FOUND;
-	}
-
-	char *issuersFileName = crlGenerateFileName(dataPtr, dataLen,
-		"/var/db/crls/", ".pem");
-    char *updateFileName = crlGenerateFileName(dataPtr, dataLen,
-		"/var/db/crls/", ".update");
-    char *revokedFileName = crlGenerateFileName(dataPtr, dataLen,
-		"/var/db/crls/", ".revoked");
-	if(!issuersFileName || !updateFileName || !revokedFileName) {
-		return CSSMERR_TP_INTERNAL_ERROR;
+	/* Check whether the CRL file is present */
+	if(stat(names.crlFile, &sb) != 0) {
+		/* Note that returning "not found" will trigger a subsequent call
+		 * to crlFetch, which will first look for the CRL in our cache
+		 * before attempting to fetch it from the network. */
+		krtn = CSSMERR_APPLETP_CRL_NOT_FOUND;
+		goto crlStatus_cleanup;
 	}
 
 	/* Check whether we have previously validated the CRL, and if so, whether
 	 * the nextUpdate date has passed.
 	 */
-	bool crlValid = false;
-    if(stat(updateFileName, &sb) == 0) {
-		if(!crlUpdateValid(updateFileName) || stat(revokedFileName, &sb) != 0) {
+	if(stat(names.updateFile, &sb) == 0) {
+		if(!crlUpdateValid(names.updateFile) ||
+			!(stat(names.revokedFile, &sb) == 0)) {
 			/* Remove invalid files and bail out */
-			remove(updateFileName);
-			remove(revokedFileName);
-			remove(issuersFileName);
-			remove(crlFileName);
-			free(updateFileName);
-			free(revokedFileName);
-			free(issuersFileName);
-			free(crlFileName);
-			return CSSMERR_APPLETP_CRL_NOT_FOUND;
+			StLock<Mutex> _(gFileWriteLock);
+			remove(names.updateFile);
+			remove(names.revokedFile);
+			remove(names.pemFile);
+			remove(names.crlFile);
+
+			krtn = CSSMERR_APPLETP_CRL_NOT_FOUND;
+			goto crlStatus_cleanup;
 		}
 		crlValid = true;
-	}
-
-	if(!crlValid) {
-		/* validate CRL signature (creates .update and .revoked files) */
-		writeFile(issuersFileName, (const unsigned char *)cert_issuers, cert_issuersCnt);
-		if(chmod(issuersFileName, 0644)) {
-			ocspdErrorLog("ocsp_server_crlStatus: chmod error %d for %s",
-				errno, issuersFileName);
-		}
-		crlValid = crlSignatureValid(crlFileName,
-			issuersFileName, updateFileName, revokedFileName);
 	}
 
 	if(crlValid) {
 		char *serialStr = crlPrintableStringWithData((unsigned char*)serial_number,
 			serial_numberCnt);
 		if(serialStr) {
-			if(crlSerialNumberRevoked(revokedFileName, serialStr)) {
+			if(crlSerialNumberRevoked(names.revokedFile, serialStr)) {
 				krtn = CSSMERR_TP_CERT_REVOKED;
 				ocspdCrlDebug("crlSignatureValid: found revoked serial number %s\n",
 					serialStr);
@@ -714,13 +868,15 @@ kern_return_t ocsp_server_crlStatus (
 		}
 	}
 	else {
+		/* CRL file isn't present or isn't valid; need to download it */
 		krtn = CSSMERR_APPLETP_CRL_NOT_FOUND;
 	}
 
-	free(updateFileName);
-	free(revokedFileName);
-	free(issuersFileName);
-	free(crlFileName);
+crlStatus_cleanup:
+	if(names.updateFile) free(names.updateFile);
+	if(names.revokedFile) free(names.revokedFile);
+	if(names.pemFile) free(names.pemFile);
+	if(names.crlFile) free(names.crlFile);
 
 	return krtn;
 }
@@ -811,21 +967,16 @@ kern_return_t ocsp_server_crlFetch (
 	fetchParams->url.Length = urlData.Length;
 	memmove(fetchParams->url.Data, urlData.Data, urlData.Length);
 	fetchParams->lfType = LT_Crl;
-	fetchParams->outFile = crlGenerateFileName(dataPtr, dataLen,
-		"/var/db/crls/", ".crl");
-	fetchParams->freeOnDone = 0;
-	fetchParams->finished = 0;
+	fetchParams->outFile = crlGenerateFileName(dataPtr, dataLen, gCrlPath, ".crl");
+	fetchParams->crlNames.crlFile = crlGenerateFileName(dataPtr, dataLen,
+		gCrlPath, ".crl");
+	fetchParams->crlNames.pemFile = crlGenerateFileName(dataPtr, dataLen,
+		gCrlPath, ".pem");
+	fetchParams->crlNames.updateFile = crlGenerateFileName(dataPtr, dataLen,
+		gCrlPath, ".update");
+	fetchParams->crlNames.revokedFile = crlGenerateFileName(dataPtr, dataLen,
+		gCrlPath, ".revoked");
 
-	/* ready to start this download.
-	 * wait for concurrent CRL downloads to complete, then post this filename to
-	 * the global which tells other callers of the crlStatus MIG function
-	 * that we are already downloading this CRL.
-	 */
-	{
-		StLock<Mutex> f_(gCRLFetchLock); /* other downloads must be finished */
-		StLock<Mutex> w_(gCRLWriteLock); /* lock before modifying filename */
-		gCRLFileName = fetchParams->outFile;
-	}
 	crtn = ocspdStartNetFetch(fetchParams);
 
 	if(!crtn) {
@@ -835,12 +986,14 @@ kern_return_t ocsp_server_crlFetch (
 			(void)CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, TRUE);
 			CFAbsoluteTime curTime = CFAbsoluteTimeGetCurrent();
 			if (curTime > stopTime) {
-				/* fetchParams are now dead to us; other thread will clean up. */
-				/* FIXME: need a mutex for this; in the worst case, we'll leak */
-				fetchParams->freeOnDone = 1;
-				ocspdCrlDebug("ocsp_server_crlFetch reached wait timeout (%f seconds)",
-					CRL_MAX_DOWNLOAD_WAIT);
-				return CSSMERR_APPLETP_NETWORK_FAILURE;
+				StLock<Mutex> _(gParamsLock);
+				if(!fetchParams->finished) {
+					/* fetchParams are now dead to us; other thread will clean up */
+					fetchParams->freeOnDone = 1;
+					ocspdCrlDebug("ocsp_server_crlFetch waited for %f seconds",
+						CRL_MAX_DOWNLOAD_WAIT);
+					return CSSMERR_APPLETP_NETWORK_FAILURE;
+				}
 			}
 		}
 		/* we finished the download and can provide data right away */
@@ -853,9 +1006,27 @@ kern_return_t ocsp_server_crlFetch (
 		}
 	}
 
-	if(fetchParams->url.Data) free(fetchParams->url.Data);
-	if(fetchParams->outFile) free(fetchParams->outFile);
+	/* clean up allocations */
+	if(fetchParams->url.Data) {
+		free(fetchParams->url.Data);
+	}
+	if(fetchParams->outFile) {
+		free(fetchParams->outFile);
+	}
+	if(fetchParams->crlNames.crlFile) {
+		free(fetchParams->crlNames.crlFile);
+	}
+	if(fetchParams->crlNames.pemFile) {
+		free(fetchParams->crlNames.pemFile);
+	}
+	if(fetchParams->crlNames.updateFile) {
+		free(fetchParams->crlNames.updateFile);
+	}
+	if(fetchParams->crlNames.revokedFile) {
+		free(fetchParams->crlNames.revokedFile);
+	}
 	free(fetchParams);
+
 	if(crlData.Data == NULL || crlData.Length == 0) {
 		ocspdCrlDebug("ocsp_server_crlFetch will not cache (length=%lu, data=%p)",
 			crlData.Length, crlData.Data);

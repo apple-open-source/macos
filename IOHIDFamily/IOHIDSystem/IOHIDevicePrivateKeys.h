@@ -27,7 +27,8 @@ enum {
     kAccelMouse                 = 0x0001,
     kAccelScroll                = 0x0002,
     kAbsoluteConvertMouse       = 0x0004,
-    kAccelScrollConvertPointer  = 0x0008
+    kAccelScrollConvertPointer  = 0x0008,
+    kAccelNoScrollAcceleration  = 0x0010
 };
 
 enum {

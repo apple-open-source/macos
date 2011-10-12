@@ -50,7 +50,6 @@
 #include "monitor.h"
 #include "roaming.h"
 
-#define KEX_COOKIE_LEN	16
 #ifdef GSSAPI
 #include "ssh-gss.h"
 #endif

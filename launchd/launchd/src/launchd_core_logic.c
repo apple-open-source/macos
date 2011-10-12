@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 24984 $";
+static const char *const __rcs_file_version__ = "$Revision: 25247 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -80,6 +80,7 @@ static const char *const __rcs_file_version__ = "$Revision: 24984 $";
 #include <System/sys/spawn.h>
 #include <spawn.h>
 #include <time.h>
+#include <libinfo.h>
 
 #include <libproc.h>
 #include <malloc/malloc.h>
@@ -95,6 +96,7 @@ static const char *const __rcs_file_version__ = "$Revision: 24984 $";
 #if TARGET_OS_EMBEDDED
 #include <sys/kern_memorystatus.h>
 #else
+extern int gL1CacheEnabled;
 /* To make my life easier. */
 typedef struct jetsam_priority_entry {
 	pid_t pid;
@@ -133,7 +135,7 @@ enum {
 #if !TARGET_OS_EMBEDDED
 #include "domainServer.h"
 #include "init.h"
-#endif
+#endif /* !TARGET_OS_EMBEDDED */
 #include "eventsServer.h"
 
 #ifndef POSIX_SPAWN_OSX_TALAPP_START
@@ -219,7 +221,7 @@ static void machservice_resetport(job_t j, struct machservice *ms);
 static struct machservice *machservice_new(job_t j, const char *name, mach_port_t *serviceport, bool pid_local);
 #ifndef __LAUNCH_DISABLE_XPC_SUPPORT__
 static struct machservice *machservice_new_alias(job_t aj, struct machservice *orig);
-#endif
+#endif /* __LAUNCH_DISABLE_XPC_SUPPORT__ */
 static void machservice_ignore(job_t j, struct machservice *ms);
 static void machservice_watch(job_t j, struct machservice *ms);
 static void machservice_delete(job_t j, struct machservice *, bool port_died);
@@ -447,7 +449,7 @@ struct jobmgr_s {
 static jobmgr_t _s_xpc_system_domain;
 static LIST_HEAD(, jobmgr_s) _s_xpc_user_domains;
 static LIST_HEAD(, jobmgr_s) _s_xpc_session_domains;
-#endif
+#endif /* __LAUNCH_DISABLE_XPC_SUPPORT__ */
 
 #define jobmgr_assumes(jm, e)	\
 	(unlikely(!(e)) ? jobmgr_log_bug(jm, __LINE__), false : true)
@@ -458,7 +460,7 @@ static jobmgr_t jobmgr_new_xpc_singleton_domain(jobmgr_t jm, name_t name);
 static jobmgr_t jobmgr_find_xpc_per_user_domain(jobmgr_t jm, uid_t uid);
 static jobmgr_t jobmgr_find_xpc_per_session_domain(jobmgr_t jm, au_asid_t asid);
 static job_t xpc_domain_import_service(jobmgr_t jm, launch_data_t pload);
-#endif
+#endif /* __LAUNCH_DISABLE_XPC_SUPPORT__ */
 static job_t jobmgr_import2(jobmgr_t jm, launch_data_t pload);
 static jobmgr_t jobmgr_parent(jobmgr_t jm);
 static jobmgr_t jobmgr_do_garbage_collection(jobmgr_t jm);
@@ -695,7 +697,7 @@ static job_t job_new_anonymous(jobmgr_t jm, pid_t anonpid) __attribute__((malloc
 static job_t job_new(jobmgr_t jm, const char *label, const char *prog, const char *const *argv) __attribute__((malloc, nonnull(1,2), warn_unused_result));
 #ifndef __LAUNCH_DISABLE_XPC_SUPPORT__
 static job_t job_new_alias(jobmgr_t jm, job_t src);
-#endif
+#endif /* __LAUNCH_DISABLE_XPC_SUPPORT__ */
 static job_t job_new_via_mach_init(job_t j, const char *cmd, uid_t uid, bool ond) __attribute__((malloc, nonnull, warn_unused_result));
 static job_t job_new_subjob(job_t j, uuid_t identifier);
 static void job_kill(job_t j);
@@ -1154,7 +1156,7 @@ jobmgr_remove(jobmgr_t jm)
 			(void)jobmgr_assumes(jm, kr == KERN_SUCCESS);
 		}
 	}
-#endif
+#endif /* !TARGET_OS_EMBEDDED */
 	if (jm->req_ctx) {
 		(void)jobmgr_assumes(jm, vm_deallocate(mach_task_self(), jm->req_ctx, jm->req_ctx_sz) == KERN_SUCCESS);
 	}
@@ -1425,16 +1427,9 @@ job_remove(job_t j)
 	if (j->shutdown_monitor) {
 		_s_shutdown_monitor = NULL;
 	}
-	if (j->workaround9359725) {
-		/* We may have forcibly removed this job by simulating an exit. If this
-		 * is the case, we don't want to hear about these events anymore, lest
-		 * we get a stale context pointer and crash trying to dereference it.
-		 */
-		kevent_mod((uintptr_t)j->p, EVFILT_PROC, EV_DELETE, 0, 0, NULL);
-	}
-	
+
 	kevent_mod((uintptr_t)j, EVFILT_TIMER, EV_DELETE, 0, 0, NULL);
-	
+
 	LIST_REMOVE(j, sle);
 	LIST_REMOVE(j, label_hash_sle);
 
@@ -1446,6 +1441,7 @@ job_remove(job_t j)
 	
 	job_log(j, LOG_DEBUG, "Removed");
 
+	j->kqjob_callback = (kq_callback)0x8badf00d;
 	free(j);
 }
 
@@ -2046,7 +2042,7 @@ job_new_alias(jobmgr_t jm, job_t src)
 
 	return j;
 }
-#endif
+#endif /* __LAUNCH_DISABLE_XPC_SUPPORT__ */
 
 job_t 
 job_import(launch_data_t pload)
@@ -2284,7 +2280,7 @@ job_import_string(job_t j, const char *key, const char *value)
 			else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_IOSAPP) == 0) {
 				j->pstype = POSIX_SPAWN_IOS_APP_START;
 			}
-#endif
+#endif /* TARGET_OS_EMBEDDED */
 			else {
 				job_log(j, LOG_ERR, "Unknown value for key %s: %s", key, value);
 			}
@@ -3898,6 +3894,28 @@ job_callback_timer(job_t j, void *ident)
 				(void)job_assumes(j, host_reboot(mach_host_self(), HOST_REBOOT_DEBUGGER) == KERN_SUCCESS);
 			}
 
+			/* We've simulated the exit, so we have to cancel the kevent for
+			 * this job, otherwise we may get a kevent later down the road that
+			 * has a stale context pointer (if we've removed the job). Or worse,
+			 * it'll corrupt our data structures if the job still exists or the
+			 * allocation was recycled.
+			 *
+			 * If the failing process had a tracer attached to it, we need to
+			 * remove out NOTE_EXIT for that tracer too, otherwise the same
+			 * thing might happen.
+			 *
+			 * Note that, if we're not shutting down, this will result in a
+			 * zombie process just hanging around forever. But if the process
+			 * didn't exit after receiving SIGKILL, odds are it would've just
+			 * stuck around forever anyway.
+			 *
+			 * See <rdar://problem/9481630>.
+			 */
+			kevent_mod((uintptr_t)j->p, EVFILT_PROC, EV_DELETE, 0, 0, NULL);
+			if (j->tracing_pid) {
+				kevent_mod((uintptr_t)j->tracing_pid, EVFILT_PROC, EV_DELETE, 0, 0, NULL);
+			}
+
 			struct kevent bogus_exit;
 			EV_SET(&bogus_exit, j->p, EVFILT_PROC, 0, NOTE_EXIT, 0, 0);
 			jobmgr_callback(j->mgr, &bogus_exit);
@@ -4448,6 +4466,67 @@ out:
 	free(pids);
 }
 
+static struct passwd *
+job_getpwnam(job_t j, const char *name)
+{
+    /*
+     * methodology for system daemons
+     *
+     * first lookup user record without any opendirectoryd interaction,
+     * we don't know what interprocess dependencies might be in flight.
+     * if that fails, we re-enable opendirectoryd interaction and 
+     * re-issue the lookup.  We have to disable the libinfo L1 cache
+     * otherwise libinfo will return the negative cache entry on the retry
+     */
+    
+#if !TARGET_OS_EMBEDDED
+    struct passwd *pw = NULL;
+    
+    if (pid1_magic && j->mgr == root_jobmgr) {
+        si_search_module_set_flags("ds", 1 /* SEARCH_MODULE_FLAG_DISABLED */);
+        gL1CacheEnabled = false;
+        
+        pw = getpwnam(name);
+
+        si_search_module_set_flags("ds", 0);
+    }
+    
+    if (pw == NULL) {
+        pw = getpwnam(name);
+    }
+    
+    return pw;
+#else
+    return getpwnam(name);
+#endif
+}
+
+static struct group *
+job_getgrnam(job_t j, const char *name)
+{
+#if !TARGET_OS_EMBEDDED
+    struct group *gr = NULL;
+
+    if (pid1_magic && j->mgr == root_jobmgr) {
+        si_search_module_set_flags("ds", 1 /* SEARCH_MODULE_FLAG_DISABLED */);
+        gL1CacheEnabled = false;
+
+        gr = getgrnam(name);
+
+        si_search_module_set_flags("ds", 0);
+    }
+
+    if (gr == NULL) {
+        gr = getgrnam(name);
+    }
+
+    return gr;
+#else
+#pragma unused (j)
+    return getgrnam(name);
+#endif
+}
+
 void
 job_postfork_test_user(job_t j)
 {
@@ -4469,7 +4548,7 @@ job_postfork_test_user(job_t j)
 		goto out_bad;
 	}
 
-	if ((pwe = getpwnam(user_env_var)) == NULL) {
+	if ((pwe = job_getpwnam(j, user_env_var)) == NULL) {
 		job_log(j, LOG_ERR, "The account \"%s\" has been deleted out from under us!", user_env_var);
 		goto out_bad;
 	}
@@ -4543,7 +4622,7 @@ job_postfork_become_user(job_t j)
 	}
 
 	if (j->username) {
-		if ((pwe = getpwnam(j->username)) == NULL) {
+		if ((pwe = job_getpwnam(j, j->username)) == NULL) {
 			job_log(j, LOG_ERR, "getpwnam(\"%s\") failed", j->username);
 			_exit(EXIT_FAILURE);
 		}
@@ -4587,7 +4666,7 @@ job_postfork_become_user(job_t j)
 	if (j->groupname) {
 		struct group *gre;
 
-		if (unlikely((gre = getgrnam(j->groupname)) == NULL)) {
+		if (unlikely((gre = job_getgrnam(j, j->groupname)) == NULL)) {
 			job_log(j, LOG_ERR, "getgrnam(\"%s\") failed", j->groupname);
 			_exit(EXIT_FAILURE);
 		}
@@ -5958,7 +6037,7 @@ machservice_new_alias(job_t j, struct machservice *orig)
 
 	return ms;
 }
-#endif
+#endif /* __LAUNCH_DISABLE_XPC_SUPPORT__ */
 
 bootstrap_status_t
 machservice_status(struct machservice *ms)
@@ -6138,6 +6217,9 @@ jobmgr_do_garbage_collection(jobmgr_t jm)
 		jobmgr_log(jm, LOG_DEBUG, "No submanagers left.");
 	} else {
 		jobmgr_log(jm, LOG_DEBUG, "Still have submanagers.");
+		SLIST_FOREACH(jmi, &jm->submgrs, sle) {
+			jobmgr_log(jm, LOG_DEBUG, "Submanager: %s", jmi->name);
+		}
 	}
 
 	size_t actives = 0;
@@ -6578,7 +6660,7 @@ jobmgr_find_xpc_per_session_domain(jobmgr_t jm, au_asid_t asid)
 
 	return jmi;
 }
-#endif
+#endif /* __LAUNCH_DISABLE_XPC_SUPPORT__ */
 
 job_t
 jobmgr_init_session(jobmgr_t jm, const char *session_type, bool sflag)
@@ -8693,6 +8775,10 @@ job_mig_parent(job_t j, mach_port_t srp, mach_port_t *parentport)
 kern_return_t
 job_mig_get_root_bootstrap(job_t j, mach_port_t *rootbsp)
 {
+	if (!j) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
 	if (inherited_bootstrap_port == MACH_PORT_NULL) {
 		*rootbsp = root_jobmgr->jm_port;
 		(void)job_assumes(j, launchd_mport_make_send(root_jobmgr->jm_port) == KERN_SUCCESS);
@@ -8922,6 +9008,10 @@ out_bad:
 kern_return_t
 job_mig_transaction_count_for_pid(job_t j, pid_t p, int32_t *cnt, boolean_t *condemned)
 {
+	if (!j) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
 	kern_return_t kr = KERN_FAILURE;
 	struct ldcred *ldc = runtime_get_caller_creds();
 	if ((ldc->euid != geteuid()) && (ldc->euid != 0)) {
@@ -8973,6 +9063,10 @@ job_mig_pid_is_managed(job_t j __attribute__((unused)), pid_t p, boolean_t *mana
 kern_return_t
 job_mig_port_for_label(job_t j __attribute__((unused)), name_t label, mach_port_t *mp)
 {
+	if (!j) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
 	struct ldcred *ldc = runtime_get_caller_creds();
 	kern_return_t kr = BOOTSTRAP_NOT_PRIVILEGED;
 
@@ -9005,6 +9099,10 @@ job_mig_port_for_label(job_t j __attribute__((unused)), name_t label, mach_port_
 kern_return_t
 job_mig_set_security_session(job_t j, uuid_t uuid, mach_port_t asport)
 {
+	if (!j) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
 	uuid_string_t uuid_str;
 	uuid_unparse(uuid, uuid_str);
 	job_log(j, LOG_DEBUG, "Setting session %u for UUID %s...", asport, uuid_str);
@@ -9210,6 +9308,10 @@ out:
 kern_return_t
 job_mig_init_session(job_t j, name_t session_type, mach_port_t asport)
 {
+	if (!j) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
 	job_t j2;
 	
 	kern_return_t kr = BOOTSTRAP_NO_MEMORY;
@@ -9262,6 +9364,10 @@ job_mig_switch_to_session(job_t j, mach_port_t requestor_port, name_t session_na
 	if (!jobmgr_assumes(root_jobmgr, j != NULL)) {
 		jobmgr_log(root_jobmgr, LOG_ERR, "%s() called with NULL job: PID %d", __func__, ldc->pid);
 		return BOOTSTRAP_NO_MEMORY;
+	}
+
+	if (j->mgr->shutting_down) {
+		return BOOTSTRAP_UNKNOWN_SERVICE;
 	}
 
 	job_log(j, LOG_DEBUG, "Job wants to move to %s session.", session_name);
@@ -9492,6 +9598,9 @@ job_mig_subset(job_t j, mach_port_t requestorport, mach_port_t *subsetportp)
 	if (!launchd_assumes(j != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;
 	}
+	if (j->mgr->shutting_down) {
+		return BOOTSTRAP_UNKNOWN_SERVICE;
+	}
 
 	jmr = j->mgr;
 
@@ -9612,8 +9721,12 @@ xpc_domain_import2(job_t j, mach_port_t reqport, mach_port_t dport)
 		job_log(j, LOG_ERR, "XPC domains may only reside in PID 1.");
 		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
-	if (!MACH_PORT_VALID(reqport)) {
+	if (!j || !MACH_PORT_VALID(reqport)) {
 		return BOOTSTRAP_UNKNOWN_SERVICE;
+	}
+	if (root_jobmgr->shutting_down) {
+		jobmgr_log(root_jobmgr, LOG_ERR, "Attempt to create new domain while shutting down.");
+		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
 
 	kern_return_t kr = BOOTSTRAP_NO_MEMORY;
@@ -9816,7 +9929,7 @@ xpc_domain_get_service_name(job_t j, event_name_t name)
 	(void)strlcpy(name, ms->name, sizeof(event_name_t));
 	return BOOTSTRAP_SUCCESS;
 }
-#endif
+#endif /* __LAUNCH_DISABLE_XPC_SUPPORT__ */
 
 kern_return_t
 xpc_events_get_channel_name(job_t j __attribute__((unused)), event_name_t stream __attribute__((unused)), uint64_t token __attribute__((unused)), event_name_t name __attribute__((unused)))
@@ -9919,7 +10032,7 @@ xpc_events_find_channel(job_t j, event_name_t stream, mach_port_t *p)
 			msi->event_channel = true;
 			*p = sp;
 
-			machservice_watch(j, msi);
+			(void)job_dispatch(j, false);
 		} else {
 			errno = BOOTSTRAP_NO_MEMORY;
 		}
@@ -10239,7 +10352,7 @@ job_mig_event_source_check_in(job_t j, name_t name, mach_port_t ping_port, vm_of
 kern_return_t
 job_mig_event_set_state(job_t j, name_t name, uint64_t token, boolean_t state)
 {
-	if (!j->event_monitor) {
+	if (!j || !j->event_monitor) {
 		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
 	
@@ -10272,7 +10385,7 @@ jobmgr_init(bool sflag)
 	_s_xpc_system_domain->req_asid = g_audit_session;
 	_s_xpc_system_domain->req_asport = g_audit_session_port;
 	_s_xpc_system_domain->shortdesc = "system";
-#endif
+#endif /* __LAUNCH_DISABLE_XPC_SUPPORT__ */
 	if (pid1_magic) {
 		root_jobmgr->monitor_shutdown = true;
 	}

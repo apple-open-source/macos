@@ -174,7 +174,7 @@ build_type2_packet(OM_uint32 *minor_status,
 
     }
 
-    if (c->ti.servername) {
+    if (c->ti.domainname) {
 	struct ntlm_buf d;
 
 	ret = heim_ntlm_encode_targetinfo(&c->ti, 1, &d);
@@ -194,7 +194,7 @@ build_type2_packet(OM_uint32 *minor_status,
     }
 
     type2.targetinfo = c->targetinfo;
-    type2.targetname = c->ti.servername;
+    type2.targetname = c->ti.domainname;
 
     ret = heim_ntlm_encode_type2(&type2, &data);
     if (ret) {

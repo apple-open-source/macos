@@ -44,11 +44,10 @@
 
 namespace JSC {
 
-    class MarkStack;
     class PropertyNameArray;
     class PropertyNameArrayData;
     class StructureChain;
-    typedef MarkStack SlotVisitor;
+    class SlotVisitor;
 
     struct ClassInfo;
 
@@ -60,11 +59,14 @@ namespace JSC {
     class Structure : public JSCell {
     public:
         friend class StructureTransitionTable;
+
+        typedef JSCell Base;
+
         static Structure* create(JSGlobalData& globalData, JSValue prototype, const TypeInfo& typeInfo, unsigned anonymousSlotCount, const ClassInfo* classInfo)
         {
             ASSERT(globalData.structureStructure);
             ASSERT(classInfo);
-            return new (&globalData) Structure(globalData, prototype, typeInfo, anonymousSlotCount, classInfo);
+            return new (allocateCell<Structure>(globalData.heap)) Structure(globalData, prototype, typeInfo, anonymousSlotCount, classInfo);
         }
 
         static void dumpStatistics();
@@ -113,6 +115,7 @@ namespace JSC {
         bool isUsingInlineStorage() const;
 
         size_t get(JSGlobalData&, const Identifier& propertyName);
+        size_t get(JSGlobalData&, const UString& name);
         size_t get(JSGlobalData&, StringImpl* propertyName, unsigned& attributes, JSCell*& specificValue);
         size_t get(JSGlobalData& globalData, const Identifier& propertyName, unsigned& attributes, JSCell*& specificValue)
         {
@@ -158,7 +161,7 @@ namespace JSC {
         static Structure* createStructure(JSGlobalData& globalData)
         {
             ASSERT(!globalData.structureStructure);
-            return new (&globalData) Structure(globalData);
+            return new (allocateCell<Structure>(globalData.heap)) Structure(globalData);
         }
         
         static JS_EXPORTDATA const ClassInfo s_info;
@@ -171,7 +174,7 @@ namespace JSC {
         static Structure* create(JSGlobalData& globalData, const Structure* structure)
         {
             ASSERT(globalData.structureStructure);
-            return new (&globalData) Structure(globalData, structure);
+            return new (allocateCell<Structure>(globalData.heap)) Structure(globalData, structure);
         }
         
         typedef enum { 
@@ -266,6 +269,18 @@ namespace JSC {
         return entry ? entry->offset : notFound;
     }
 
+    inline size_t Structure::get(JSGlobalData& globalData, const UString& name)
+    {
+        ASSERT(structure()->classInfo() == &s_info);
+        materializePropertyMapIfNecessary(globalData);
+        if (!m_propertyTable)
+            return notFound;
+
+        PropertyMapEntry* entry = m_propertyTable->findWithString(name.impl()).first;
+        ASSERT(!entry || entry->offset >= m_anonymousSlotCount);
+        return entry ? entry->offset : notFound;
+    }
+
     inline bool JSCell::isObject() const
     {
         return m_structure->typeInfo().type() == ObjectType;
@@ -285,25 +300,13 @@ namespace JSC {
 #endif
     }
 
-    inline Structure* JSCell::createDummyStructure(JSGlobalData& globalData)
-    {
-        return Structure::create(globalData, jsNull(), TypeInfo(UnspecifiedType), AnonymousSlotCount, &s_dummyCellInfo);
-    }
-
-    inline bool JSValue::needsThisConversion() const
-    {
-        if (UNLIKELY(!isCell()))
-            return true;
-        return asCell()->structure()->typeInfo().needsThisConversion();
-    }
-
     ALWAYS_INLINE void MarkStack::internalAppend(JSCell* cell)
     {
         ASSERT(!m_isCheckingForDefaultMarkViolation);
         ASSERT(cell);
         if (Heap::testAndSetMarked(cell))
             return;
-        if (cell->structure()->typeInfo().type() >= CompoundType)
+        if (cell->structure() && cell->structure()->typeInfo().type() >= CompoundType)
             m_values.append(cell);
     }
 

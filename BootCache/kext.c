@@ -555,6 +555,7 @@ static int	BC_close(dev_t dev, int flags, int devtype, struct proc *p);
 static int	BC_terminate_readahead(void);
 static int	BC_terminate_cache(void);
 static int	BC_terminate_history(void);
+static void	BC_terminate_cache_async(void);
 static void	BC_check_handlers(void);
 static void	BC_next_valid_range(struct BC_cache_mount *cm, struct BC_cache_extent *ce, uint32_t from, 
 								uint32_t *nextpage, uint32_t *nextoffset, uint32_t *nextlength);
@@ -2254,9 +2255,8 @@ bypass:
 				 */
 				debug("hit rate below threshold (0 hits in the last %u lookups)",
 					  BC_cache->c_num_ios_since_last_hit);
-				if (BC_terminate_cache()) {
-					message("could not terminate cache on bad hitrate");
-				}
+				//rdar://9858070 Do this asynchronously to avoid deadlocks
+				BC_terminate_cache_async();
 			}
 		}
 	}
@@ -2401,6 +2401,31 @@ BC_terminate_readahead(void)
 	UNLOCK_READERS();
 	
 	return(0);
+}
+
+static void
+BC_terminate_cache_thread(void *param0, wait_result_t param1)
+{
+	if (BC_terminate_cache()) {
+		message("could not terminate cache on bad hitrate");
+	}
+}
+
+/*
+ * Start up an auxilliary thread to stop the cache so we avoid potential deadlocks
+ */
+static void
+BC_terminate_cache_async(void)
+{
+	int error;
+	thread_t rthread;
+
+	debug("Kicking off thread to terminate cache");
+	if ((error = kernel_thread_start(BC_terminate_cache_thread, NULL, &rthread)) == KERN_SUCCESS) {
+		thread_deallocate(rthread);
+	} else {
+		message("Unable to start thread to terminate cache");
+	}
 }
 
 /*

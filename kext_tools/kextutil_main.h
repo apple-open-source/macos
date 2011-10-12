@@ -254,4 +254,4 @@ kern_return_t kextmanager_unlock_kextload(
     mach_port_t server,
     mach_port_t client);
 
-#endif
+#endif /* _KEXTUTIL_MAIN_H */

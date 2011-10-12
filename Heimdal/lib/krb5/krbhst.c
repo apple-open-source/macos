@@ -532,17 +532,49 @@ fallback_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
  */
 
 static krb5_error_code
-add_locate(void *ctx, int type, struct sockaddr *addr)
+add_plugin_host(struct krb5_krbhst_data *kd,
+		const char *host,
+		const char *port,
+		int portnum,
+		int proto)
 {
     struct krb5_krbhst_info *hi;
-    struct krb5_krbhst_data *kd = ctx;
-    char host[NI_MAXHOST], port[NI_MAXSERV];
     struct addrinfo hints, *ai;
-    socklen_t socklen;
     size_t hostlen;
     int ret;
 
+    make_hints(&hints, proto);
+    ret = getaddrinfo(host, port, &hints, &ai);
+    if (ret)
+	return 0;
+
+    hostlen = strlen(host);
+
+    hi = calloc(1, sizeof(*hi) + hostlen);
+    if(hi == NULL)
+	return ENOMEM;
+
+    hi->proto = proto;
+    hi->port  = hi->def_port = portnum;
+    hi->ai    = ai;
+    memmove(hi->hostname, host, hostlen);
+    hi->hostname[hostlen] = '\0';
+    append_host_hostinfo(kd, hi);
+
+    return 0;
+}
+
+static krb5_error_code
+add_locate(void *ctx, int type, struct sockaddr *addr)
+{
+    struct krb5_krbhst_data *kd = ctx;
+    char host[NI_MAXHOST], port[NI_MAXSERV];
+    socklen_t socklen;
+    krb5_error_code ret;
+    int proto, portnum;
+
     socklen = socket_sockaddr_size(addr);
+    portnum = socket_get_port(addr);
 
     ret = getnameinfo(addr, socklen, host, sizeof(host), port, sizeof(port),
 		      NI_NUMERICHOST|NI_NUMERICSERV);
@@ -554,23 +586,25 @@ add_locate(void *ctx, int type, struct sockaddr *addr)
     else if (atoi(port) == 0)
 	snprintf(port, sizeof(port), "%d", krbhst_get_default_port(kd));
 
-    make_hints(&hints, krbhst_get_default_proto(kd));
-    ret = getaddrinfo(host, port, &hints, &ai);
+    proto = krbhst_get_default_proto(kd);
+
+    ret = add_plugin_host(kd, host, port, portnum, proto);
     if (ret)
-	return 0;
+	return ret;
 
-    hostlen = strlen(host);
+    /*
+     * This is really kind of broken and should be solved a different
+     * way, some sites block UDP, and we don't, in the general case,
+     * fall back to TCP, that should also be done. But since that
+     * should require us to invert the whole "find kdc" stack, let put
+     * this in for now. 
+     */
 
-    hi = calloc(1, sizeof(*hi) + hostlen);
-    if(hi == NULL)
-	return ENOMEM;
-
-    hi->proto = krbhst_get_default_proto(kd);
-    hi->port  = hi->def_port = socket_get_port(addr);
-    hi->ai    = ai;
-    memmove(hi->hostname, host, hostlen);
-    hi->hostname[hostlen] = '\0';
-    append_host_hostinfo(kd, hi);
+    if (proto == KRB5_KRBHST_UDP) {
+	ret = add_plugin_host(kd, host, port, portnum, KRB5_KRBHST_TCP);
+	if (ret)
+	    return ret;
+    }
 
     return 0;
 }

@@ -1145,8 +1145,24 @@ static int AuthenticateWithDictionary(struct smb_ctx *ctx, CFDictionaryRef authI
 	
 	smb_session_reset_security(ctx);
 	
+	/*
+	 * LHA reqested we do it this way, may want to change this in the future. The
+	 * serverIsDomainController flag means we were passed in an AD Domain name but
+	 * we connected to one of domain controllers. We are being passed down the 
+	 * AD domain name, but if we used that name kerberos may fail. If we put 
+	 * the domain controller name into to targe name, then this should always
+	 * work. In the future I think we should pass the domain controllers up to
+	 * and let Helimdal use it.
+	 */
+	if (ctx->serverIsDomainController) {
+		error = MakeTarget(ctx, NULL, GSSD_HOSTBASED);
+		
+	} else {
+		error = MakeTarget(ctx, serverPrincipal, serverNameType);
+		
+	}
+	
 	/* We always create a target name if we are doing extended security. */
-	error = MakeTarget(ctx, serverPrincipal, serverNameType);
 	if (error)
 		return (error);
 	
@@ -1718,7 +1734,7 @@ WeAreDone:
  * First we reolsve the name, once we have it resolved then we are done.
  */
 static int 
-smb_connect(struct smb_ctx *ctx, int forceNewSession, Boolean loopBackAllowed)
+smb_connect_one(struct smb_ctx *ctx, int forceNewSession, Boolean loopBackAllowed)
 {
 	CFMutableArrayRef addressArray = NULL;
 	struct connectAddress *conn  = NULL;
@@ -1815,6 +1831,186 @@ done:
 	return error;
 }
 
+/*
+ * In the future I would like to move the open directory code to its own file,
+ * but since this is going into a software update lets leave it here for now.
+ */
+
+#include <OpenDirectory/OpenDirectory.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <opendirectory/adtypes.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+
+/*
+ * Make the call to the AD Plugin to get a list of the domain controllers, if any.
+ */
+CF_RETURNS_RETAINED
+static CFArrayRef
+smb_dc_lookup(ODNodeRef nodeRef, CFStringRef lookupName)
+{
+    CFDataRef name = CFStringCreateExternalRepresentation(kCFAllocatorDefault, lookupName, kCFStringEncodingUTF8, 0);
+    CFArrayRef result = NULL;
+    CFDataRef response;
+	
+	if (!name) {
+		return NULL;
+	}
+	response = ODNodeCustomCall(nodeRef, eODCustomCallActiveDirectoryDCsForName, name, NULL);
+    if (response) {
+        CFPropertyListRef plist = CFPropertyListCreateWithData(kCFAllocatorDefault, response, kCFPropertyListImmutable, NULL, NULL);
+        if (plist != NULL) {
+            if (CFArrayGetTypeID() == CFGetTypeID(plist)) {
+                result = CFRetain(plist);
+            }
+            CFRelease(plist);
+        }
+    }
+	CFRelease(name);
+    return result;
+}
+
+/*
+ * The server name could be an AD Domain Name, in that case we really need to 
+ * connect to one of domain controllers. The old code would just use DNS, but 
+ * not all AD enviroments are configure to have the AD Domain Name resolve to
+ * the domain controllers. So now lets ask the AD plugin for help. If this is 
+ * an AD Domain Name that we are bound to then the AD plugin will return the list
+ * of domain controllers for that domain. If not bound or if this name is not
+ * part of the AD domain then the plugin will return NULL.
+ */
+CF_RETURNS_RETAINED
+static CFArrayRef
+smb_resolve_domain(CFStringRef serverNameRef)
+{
+    CFArrayRef result = NULL;
+	ODNodeRef nodeRef = NULL;
+	SCDynamicStoreRef store = NULL;
+	CFDictionaryRef dict = NULL;
+	CFStringRef nodename = NULL;	
+	
+	/* Just to be safe should never happen */
+	if (!serverNameRef) {
+		return NULL;
+	}
+
+	store = SCDynamicStoreCreate(kCFAllocatorDefault, NULL, NULL, NULL);
+	if (!store) {
+		return NULL;
+	}
+	
+	/* If SCDynamicStoreCopyValue returns null then we are not bound to AD */
+	dict = SCDynamicStoreCopyValue(store, CFSTR("com.apple.opendirectoryd.ActiveDirectory"));
+	if (dict != NULL) {
+		nodename = CFDictionaryGetValue(dict, CFSTR("NodeName"));
+		if (!nodename) {
+			smb_log_info("%s: Failed to obtain the AD node?", ASL_LEVEL_DEBUG, __FUNCTION__);					
+		}
+	} else {
+		smb_log_info("%s: We are not bound to AD", ASL_LEVEL_DEBUG, __FUNCTION__);			
+	}
+	
+	if (nodename) {
+		/* Open the the AD Plugin Node */
+		nodeRef = ODNodeCreateWithName(kCFAllocatorDefault, kODSessionDefault, nodename, NULL);
+		if (nodeRef) {
+			/* attempt to get the list of domain controllers */
+			result = smb_dc_lookup(nodeRef, serverNameRef);
+		}
+	}
+
+	if (nodeRef) {
+		CFRelease(nodeRef);
+	}
+	if (dict) {
+		CFRelease(dict);
+	}
+	if (store) {
+		CFRelease(store);
+	}
+	return result;
+}
+
+/* 
+ * Helper routine that will set the server name field to the domain controller
+ * name, but doesn't replace ctx->serverNameRef. The ctx->serverNameRef is the
+ * name the user typed in and should never be replaced.
+ */
+static int
+smb_set_server_name_to_dc(struct smb_ctx *ctx, CFStringRef dcNameRef)
+{
+	CFIndex maxlen;
+	
+	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(dcNameRef), kCFStringEncodingUTF8) + 1;
+	if (ctx->serverName)
+		free(ctx->serverName);
+	ctx->serverName = malloc(maxlen);
+	if (!ctx->serverName) {
+		return ENOMEM;
+	}
+	CFStringGetCString(dcNameRef, ctx->serverName, maxlen, kCFStringEncodingUTF8);
+	smb_log_info("%s: Setting serverName to %s", ASL_LEVEL_DEBUG, __FUNCTION__, ctx->serverName);	
+	return 0;
+}
+
+static int 
+smb_connect(struct smb_ctx *ctx, int forceNewSession, Boolean loopBackAllowed)
+{
+	int error = EHOSTUNREACH;
+	CFArrayRef dcArrayRef = smb_resolve_domain(ctx->serverNameRef);
+	CFIndex numItems = (dcArrayRef) ? CFArrayGetCount(dcArrayRef) : 0;
+	
+	ctx->serverIsDomainController = FALSE;
+	/*
+	 * Did we get a list of domain controllers, then attempt to connect to one
+	 * of them, otherwise just use the server name passed in.
+	 */
+	if (dcArrayRef && numItems) {
+		CFIndex ii;
+		char *hold_serverName = ctx->serverName;
+		
+		smb_log_info("%s: AD return %ld domain controllers.", ASL_LEVEL_DEBUG, __FUNCTION__, numItems);	
+		ctx->serverName = NULL;
+		
+		for (ii = 0; ii < numItems && error; ii++) {
+			CFStringRef dc = CFArrayGetValueAtIndex(dcArrayRef, ii);
+			
+			if (dc) {
+				error = smb_set_server_name_to_dc(ctx, dc);
+				if (!error) {
+					ctx->ct_flags &= ~(SMBCF_CONNECTED | SMBCF_RESOLVED);
+					error = smb_connect_one(ctx, forceNewSession, loopBackAllowed);
+					smb_log_info("%s: Connecting to domain controller %s %s", 
+								 ASL_LEVEL_DEBUG, __FUNCTION__, ctx->serverName, 
+								 (error) ? "FAILED" : "SUCCEED");	
+				}
+			} else {
+				smb_log_info("%s: We have a NULL domain controller entry?", ASL_LEVEL_ERR, __FUNCTION__);	
+				error = EHOSTUNREACH;
+			}
+		} 
+		if (error) {
+			if (ctx->serverName) {
+				free(ctx->serverName);
+			}
+			ctx->serverName = hold_serverName;
+			/* Everything failed should we fallback? */
+			ctx->ct_flags &= ~(SMBCF_CONNECTED | SMBCF_RESOLVED);
+			error = smb_connect_one(ctx, forceNewSession, loopBackAllowed);
+			smb_log_info("%s: Connecting to all the domain controller failed! Connecting to %s %s", 
+						 ASL_LEVEL_DEBUG, __FUNCTION__, ctx->serverName, 
+						 (error) ? "FAILED" : "SUCCEED");	
+		} else {
+			ctx->serverIsDomainController = TRUE;			
+			free(hold_serverName);
+		}
+	} else {
+		error = smb_connect_one(ctx, forceNewSession, loopBackAllowed);
+	}
+	if (dcArrayRef) {
+		CFRelease(dcArrayRef);
+	}
+	return error;
+}
 /*
  * Common code used by both  smb_get_server_info and smb_open_session. 
  */
@@ -2777,8 +2973,9 @@ void smb_ctx_done(void *inRef)
 	if (ctx->mechDict) {
 		CFRelease(ctx->mechDict);
 		ctx->mechDict = NULL;
-	}	
+	}
 	pthread_mutex_unlock(&ctx->ctx_mutex);
 	pthread_mutex_destroy(&ctx->ctx_mutex);
 	free(ctx);
 }
+

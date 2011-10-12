@@ -39,7 +39,7 @@
 #if !TARGET_OS_EMBEDDED
 #include <bsm/audit.h>
 #include <bsm/audit_session.h>
-#endif
+#endif // !TARGET_OS_EMBEDDED
 
 #include "launch.h"
 
@@ -206,7 +206,7 @@ int main(int argc __attribute__((unused)), char *argv[])
 					syslog(LOG_NOTICE, "%s: Setting Audit Session ID failed: %d", prog, errno);
 				}
 			}
-#endif
+#endif // !TARGET_OS_EMBEDDED
 			fcntl(r, F_SETFL, 0);
 			fcntl(r, F_SETFD, 1);
 			dup2(r, STDIN_FILENO);

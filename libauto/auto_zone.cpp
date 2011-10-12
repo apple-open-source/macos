@@ -703,6 +703,10 @@ auto_zone_t *auto_zone_from_pointer(void *pointer) {
     return (zone && zone->introspect == &auto_zone_introspect) ? zone : NULL;
 }
 
+static void * volatile queues[__PTK_FRAMEWORK_GC_KEY9-__PTK_FRAMEWORK_GC_KEY0+1];
+static void * volatile pressure_sources[__PTK_FRAMEWORK_GC_KEY9-__PTK_FRAMEWORK_GC_KEY0+1];
+static void * volatile compaction_timers[__PTK_FRAMEWORK_GC_KEY9-__PTK_FRAMEWORK_GC_KEY0+1];
+
 // there can be several autonomous auto_zone's running, in theory at least.
 auto_zone_t *auto_zone_create(const char *name) {
     aux_init();
@@ -818,13 +822,13 @@ auto_zone_t *auto_zone_create(const char *name) {
 #if TARGET_OS_IPHONE
 #       warning no memory pressure dispatch source on iOS
 #else
-        dispatch_source_t pressure_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_VM, 0, DISPATCH_VM_PRESSURE, azone->_collection_queue);
-        if (pressure_source != NULL) {
-            dispatch_source_set_event_handler(pressure_source, ^{
+        azone->_pressure_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_VM, 0, DISPATCH_VM_PRESSURE, azone->_collection_queue);
+        if (azone->_pressure_source != NULL) {
+            dispatch_source_set_event_handler(azone->_pressure_source, ^{
                 Zone *zone = (Zone *)dispatch_get_context(dispatch_get_current_queue());
                 zone->purge_free_space();
             });
-            dispatch_resume(pressure_source);
+            dispatch_resume(azone->_pressure_source);
         }
 #endif
     }
@@ -842,6 +846,15 @@ auto_zone_t *auto_zone_create(const char *name) {
     }
     
     if (!gc_zone) gc_zone = (auto_zone_t *)azone;   // cache first one for debugging, monitoring
+    
+    // Work around an idiosynchrocy with leaks. These dispatch objects will be reported as leaks because the
+    // zone structure is not (and cannot be) scanned by leaks. Since we only support a small number of zones
+    // just store these objects in global memory where leaks will find them to suppress the leak report.
+    // In practice these are never deallocated anyway, as we don't support freeing an auto zone.
+    queues[key-__PTK_FRAMEWORK_GC_KEY0] = azone->_collection_queue;
+    pressure_sources[key-__PTK_FRAMEWORK_GC_KEY0] = azone->_pressure_source;
+    compaction_timers[key-__PTK_FRAMEWORK_GC_KEY0] = azone->_compaction_timer;
+
     return (auto_zone_t*)azone;
 }
 

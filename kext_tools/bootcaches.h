@@ -73,7 +73,6 @@
 #define kBCCSFDELanguagesPref       CFSTR("LanguagesPref")  // .Global...
 #define kBCCSFDELocalizedResourcesCache CFSTR("LocalizedResourcesCache")
 
-
 typedef enum {
     kMkextCRCError = -1,
     kMkextCRCFound = 0,
@@ -177,8 +176,7 @@ int rebuild_loccache(struct bootCaches *caches);
 void _daDone(DADiskRef disk, DADissenterRef dissenter, void *ctx);
 int updateMount(mountpoint_t mount, uint32_t mntgoal);
 
-
 pid_t launch_rebuild_all(char * rootPath, Boolean force, Boolean wait);
 
-#endif
+#endif /* __BOOTCACHES_H__ */
 

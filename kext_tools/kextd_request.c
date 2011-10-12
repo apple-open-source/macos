@@ -55,10 +55,6 @@
 
 #include "bootcaches.h"
 
-
-#define setCrashLogMessage(m)
-
-
 #define CRASH_INFO_KERNEL_KEXT_LOAD      "kernel kext load request: id %s"
 #define CRASH_INFO_KERNEL_KEXT_RESOURCE  "kext resource request: %s from id %s"
 #define CRASH_INFO_USER_KEXT_LOAD        "user kext load request: %s"

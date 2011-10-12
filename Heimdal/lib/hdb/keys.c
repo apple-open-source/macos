@@ -253,9 +253,10 @@ add_enctype_to_key_set(Key **key_set, size_t *nkeyset,
 
 krb5_error_code
 hdb_generate_key_set(krb5_context context, krb5_principal principal,
+		     krb5_enctype *enctypes,
 		     Key **ret_key_set, size_t *nkeyset, int no_salt)
 {
-    char **ktypes, **kp;
+    char **ktypes = NULL, **kp;
     krb5_error_code ret;
     Key *k, *key_set;
     int i, j;
@@ -266,21 +267,33 @@ hdb_generate_key_set(krb5_context context, krb5_principal principal,
 	NULL
     };
 
+    *ret_key_set = key_set = NULL;
+    *nkeyset = 0;
+
+    if (enctypes) {
+	size_t n;
+	for (n = 0; enctypes[n]; n++) {
+	    ret = add_enctype_to_key_set(&key_set, nkeyset, enctypes[n], NULL);
+	    if (ret)
+		goto out;
+	}
+	*ret_key_set = key_set;
+
+	return 0;
+    }
+
     ktypes = krb5_config_get_strings(context, NULL, "kadmin",
 				     "default_keys", NULL);
     if (ktypes == NULL)
 	ktypes = default_keytypes;
-
-    *ret_key_set = key_set = NULL;
-    *nkeyset = 0;
 
     ret = 0;
 
     for(kp = ktypes; kp && *kp; kp++) {
 	const char *p;
 	krb5_salt salt;
-	krb5_enctype *enctypes;
-	size_t num_enctypes;
+	krb5_enctype *etypes;
+	size_t num_etypes;
 
 	p = *kp;
 	/* check alias */
@@ -296,20 +309,20 @@ hdb_generate_key_set(krb5_context context, krb5_principal principal,
 	memset(&salt, 0, sizeof(salt));
 
 	ret = parse_key_set(context, p,
-			    &enctypes, &num_enctypes, &salt, principal);
+			    &etypes, &num_etypes, &salt, principal);
 	if (ret) {
 	    krb5_warn(context, ret, "bad value for default_keys `%s'", *kp);
 	    ret = 0;
 	    continue;
 	}
 
-	for (i = 0; i < num_enctypes; i++) {
+	for (i = 0; i < num_etypes; i++) {
 	    /* find duplicates */
 	    for (j = 0; j < *nkeyset; j++) {
 
 		k = &key_set[j];
 
-		if (k->key.keytype == enctypes[i]) {
+		if (k->key.keytype == etypes[i]) {
 		    if (no_salt)
 			break;
 		    if (k->salt == NULL && salt.salttype == KRB5_PW_SALT)
@@ -323,23 +336,23 @@ hdb_generate_key_set(krb5_context context, krb5_principal principal,
 	    }
 	    /* not a duplicate, lets add it */
 	    if (j == *nkeyset) {
-		ret = add_enctype_to_key_set(&key_set, nkeyset, enctypes[i],
+		ret = add_enctype_to_key_set(&key_set, nkeyset, etypes[i],
 					     no_salt ? NULL : &salt);
 		if (ret) {
-		    free(enctypes);
+		    free(etypes);
 		    krb5_free_salt(context, salt);
 		    goto out;
 		}
 	    }
 	}
-	free(enctypes);
+	free(etypes);
 	krb5_free_salt(context, salt);
     }
 
     *ret_key_set = key_set;
 
  out:
-    if (ktypes != default_keytypes)
+    if (ktypes && ktypes != default_keytypes)
 	krb5_config_free_strings(ktypes);
 
     if (ret) {
@@ -363,22 +376,30 @@ krb5_error_code
 hdb_generate_key_set_password(krb5_context context,
 			      krb5_principal principal,
 			      const char *password,
+			      krb5_enctype *enctypes,
 			      Key **keys, size_t *num_keys)
 {
     krb5_error_code ret;
     int i;
 
-    ret = hdb_generate_key_set(context, principal,
-				keys, num_keys, 0);
+    *keys = NULL;
+    *num_keys = 0;
+
+    ret = hdb_generate_key_set(context, principal, enctypes,
+			       keys, num_keys, 0);
     if (ret)
 	return ret;
 
     for (i = 0; i < (*num_keys); i++) {
 	krb5_salt salt;
 
-	salt.salttype = (*keys)[i].salt->type;
-	salt.saltvalue.length = (*keys)[i].salt->salt.length;
-	salt.saltvalue.data = (*keys)[i].salt->salt.data;
+	if ((*keys)[i].salt) {
+	    salt.salttype = (*keys)[i].salt->type;
+	    salt.saltvalue.length = (*keys)[i].salt->salt.length;
+	    salt.saltvalue.data = (*keys)[i].salt->salt.data;
+	} else {
+	    memset(&salt, 0, sizeof(salt));
+	}
 
 	ret = krb5_string_to_key_salt (context,
 				       (*keys)[i].key.keytype,

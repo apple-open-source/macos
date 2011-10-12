@@ -38,6 +38,8 @@ fun_krb5_auth_con_getremotesubkey = dlsym(hf, "krb5_auth_con_getremotesubkey");
 if (!fun_krb5_auth_con_getremotesubkey) { syslog(LOG_ERR, "krb5_auth_con_getremotesubkey failed loading"); }
 fun_krb5_auth_con_getlocalsubkey = dlsym(hf, "krb5_auth_con_getlocalsubkey");
 if (!fun_krb5_auth_con_getlocalsubkey) { syslog(LOG_ERR, "krb5_auth_con_getlocalsubkey failed loading"); }
+fun_krb5_set_password = dlsym(hf, "krb5_set_password");
+if (!fun_krb5_set_password) { syslog(LOG_ERR, "krb5_set_password failed loading"); }
 fun_krb5_set_password_using_ccache = dlsym(hf, "krb5_set_password_using_ccache");
 if (!fun_krb5_set_password_using_ccache) { syslog(LOG_ERR, "krb5_set_password_using_ccache failed loading"); }
 fun_krb5_realm_compare = dlsym(hf, "krb5_realm_compare");
@@ -154,6 +156,8 @@ fun_krb5_get_credentials = dlsym(hf, "krb5_get_credentials");
 if (!fun_krb5_get_credentials) { syslog(LOG_ERR, "krb5_get_credentials failed loading"); }
 fun_krb5_get_error_string = dlsym(hf, "krb5_get_error_string");
 if (!fun_krb5_get_error_string) { syslog(LOG_ERR, "krb5_get_error_string failed loading"); }
+fun_krb5_get_default_principal = dlsym(hf, "krb5_get_default_principal");
+if (!fun_krb5_get_default_principal) { syslog(LOG_ERR, "krb5_get_default_principal failed loading"); }
 fun_krb5_get_init_creds_opt_alloc = dlsym(hf, "krb5_get_init_creds_opt_alloc");
 if (!fun_krb5_get_init_creds_opt_alloc) { syslog(LOG_ERR, "krb5_get_init_creds_opt_alloc failed loading"); }
 fun_krb5_get_init_creds_opt_free = dlsym(hf, "krb5_get_init_creds_opt_free");
@@ -236,6 +240,10 @@ fun_com_right_r = dlsym(hf, "com_right_r");
 if (!fun_com_right_r) { syslog(LOG_ERR, "com_right_r failed loading"); }
 fun_gss_import_name = dlsym(gf, "gss_import_name");
 if (!fun_gss_import_name) { syslog(LOG_ERR, "gss_import_name failed loading"); }
+fun_krb5_appdefault_boolean = dlsym(hf, "krb5_appdefault_boolean");
+if (!fun_krb5_appdefault_boolean) { syslog(LOG_ERR, "krb5_appdefault_boolean failed loading"); }
+fun_krb5_appdefault_string = dlsym(hf, "krb5_appdefault_string");
+if (!fun_krb5_appdefault_string) { syslog(LOG_ERR, "krb5_appdefault_string failed loading"); }
 fun_gss_accept_sec_context = dlsym(gf, "gss_accept_sec_context");
 if (!fun_gss_accept_sec_context) { syslog(LOG_ERR, "gss_accept_sec_context failed loading"); }
 fun_gss_acquire_cred = dlsym(gf, "gss_acquire_cred");

@@ -27,12 +27,12 @@
 //===========================================================================
 boolean_t IOHIDSystemCursorHelper::init()
 {   
-    location.fromInt(0, 0);
-    locationDelta.fromInt(0, 0);
-    locationDeltaPosting.fromInt(0, 0);
-    locationDeltaAccumulated.fromInt(0, 0);
-    screenLocation.fromInt(0, 0);
-    expectedCountValue.fromInt(0);
+    location.fromIntFloor(0, 0);
+    locationDelta.fromIntFloor(0, 0);
+    locationDeltaPosting.fromIntFloor(0, 0);
+    locationDeltaAccumulated.fromIntFloor(0, 0);
+    screenLocation.fromIntFloor(0, 0);
+    expectedCountValue.fromIntFloor(0);
     eventCount = 0; 
     eventCountPosting = 0; 
     overdueTime = 0;
@@ -44,7 +44,7 @@ boolean_t IOHIDSystemCursorHelper::init()
 void IOHIDSystemCursorHelper::startPosting()
 {
     locationDeltaPosting = locationDeltaAccumulated;
-    locationDeltaAccumulated.fromInt(0, 0);
+    locationDeltaAccumulated.fromIntFloor(0, 0);
     eventCountPosting = eventCount;
     eventCount = 0;
 }
@@ -75,19 +75,19 @@ void IOHIDSystemCursorHelper::updateScreenLocation(IOGBounds *desktop,
                 if ((screenWidth == desktopWidth) && (screenHeight == desktopHeight)) {
                     // translation only
                     screenLocation = location;
-                    screenLocation += scratch.fromInt(screen->minx - desktop->minx, 
-                                                      screen->miny - desktop->miny);
+                    screenLocation += scratch.fromIntFloor(screen->minx - desktop->minx, 
+                                                           screen->miny - desktop->miny);
                 }
                 else {
                     // full transform
                     IOFixed64 x_scale;
                     IOFixed64 y_scale;
-                    x_scale.fromInt(screenWidth) /= desktopWidth;
-                    y_scale.fromInt(screenHeight) /= desktopHeight;
+                    x_scale.fromIntFloor(screenWidth) /= desktopWidth;
+                    y_scale.fromIntFloor(screenHeight) /= desktopHeight;
                     screenLocation = location;
-                    screenLocation -= scratch.fromInt(desktop->minx, desktop->miny);
+                    screenLocation -= scratch.fromIntFloor(desktop->minx, desktop->miny);
                     screenLocation *= scratch.fromFixed64(x_scale, y_scale);
-                    screenLocation += scratch.fromInt(screen->minx, screen->miny);
+                    screenLocation += scratch.fromIntFloor(screen->minx, screen->miny);
                 }
             }
         }
@@ -109,7 +109,7 @@ void IOHIDSystemCursorHelper::applyPostingDelta()
     eventCountPosting = 0;
     location += locationDeltaPosting;
     locationDelta += locationDeltaPosting;
-    locationDeltaPosting.fromInt(0, 0);
+    locationDeltaPosting.fromIntFloor(0, 0);
 }
 
 

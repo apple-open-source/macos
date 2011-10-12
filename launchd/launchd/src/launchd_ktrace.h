@@ -34,4 +34,4 @@ void runtime_ktrace1(runtime_ktrace_code_t code);
 void runtime_ktrace0(runtime_ktrace_code_t code);
 void runtime_ktrace(runtime_ktrace_code_t code, long a, long b, long c);
 
-#endif
+#endif /* __LAUNCHD_KTRACE_H__ */

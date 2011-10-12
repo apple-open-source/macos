@@ -102,7 +102,7 @@ public:
 	UInt16									_pollingRate;							// converted polling rate in frames for FS/LS and uFrames for HS
 	USBPhysicalAddress32					_inactiveTD;							// For inactive detection
 	IOPhysicalAddress						_lastSeenTD;							// For inactive QH detection
-	UInt32									_lastSeenFrame;							// Also for inactive detection
+	UInt64									_lastSeenFrame;							// Also for inactive detection
 	UInt32									_numTDs;								// For more intelligent broken queue detection
 };
 

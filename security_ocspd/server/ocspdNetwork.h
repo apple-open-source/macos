@@ -75,11 +75,19 @@ CSSM_RETURN ocspdNetFetch(
 
 /* Fetch cert or CRL from net asynchronously */
 
+typedef struct crl_names_t {
+	char *				crlFile;
+	char *				pemFile;
+	char *				updateFile;
+	char *				revokedFile;
+} crl_names_t;
+
 typedef struct async_fetch_t {
 	Allocator			*alloc;		// IN: set by caller; used to alloc fetched data
 	CSSM_DATA			url;		// IN: mallocd by caller, struct owner must free
 	char *				outFile;	// IN: mallocd by caller, struct owner must free
 	LF_Type				lfType;		// IN: resource type to fetch
+	crl_names_t			crlNames;	// IN: mallocd by caller, struct owner must free
 	int					finished;	// 1 when download is finished
 	int					freeOnDone;	// 1 if async function should own & free this struct
 	CSSM_RETURN			result;		// OUT: error result if download did not complete

@@ -28,9 +28,9 @@
 @interface NSODContext : ODContext
 @end
 @implementation NSODContext
-CF_CLASSIMPLEMENTATION(ODContext)
 extern Boolean _CFIsDeallocating(CFTypeRef);
 extern CFTypeRef _CFTryRetain(CFTypeRef);
+CF_CLASSIMPLEMENTATION(ODContext)
 - (BOOL)_isDeallocating { return _CFIsDeallocating((CFTypeRef)self); }
 - (BOOL)_tryRetain { return _CFTryRetain((CFTypeRef)self) != NULL; }
 @end

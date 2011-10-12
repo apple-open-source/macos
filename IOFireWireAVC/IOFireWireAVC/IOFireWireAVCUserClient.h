@@ -128,6 +128,8 @@ public:
 	virtual IOReturn ReleaseAVCAsyncCommand(UInt32 commandHandle);
 	virtual void HandleUCAsyncCommandCallback(IOFireWireAVCUserClientAsyncCommand *pUCAsyncCommand);
 	virtual IOReturn ReinitAVCAsyncCommand(UInt32 commandHandle, const UInt8 *pCommandBytes, UInt32 len);
+
+	virtual bool requestTerminate( IOService * provider, IOOptionBits options );
 };
 
 #endif // _IOKIT_IOFIREWIREAVCUSERCLIENT_H

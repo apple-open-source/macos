@@ -1,6 +1,6 @@
---- roundcubemail-0.5.1/program/steps/mail/func.inc	2011-02-09 02:51:50.000000000 -0800
-+++ roundcubemail/program/steps/mail/func.inc	2011-02-09 16:23:48.000000000 -0800
-@@ -683,7 +683,8 @@
+--- roundcubemail-0.5.3/program/steps/mail/func.inc	2011-06-02 05:36:32.000000000 -0700
++++ roundcubemail/program/steps/mail/func.inc	2011-06-08 16:20:41.000000000 -0700
+@@ -684,7 +684,8 @@
    else if ($data['type'] == 'enriched') {
      $part->ctype_secondary = 'html';
      require_once('lib/enriched.inc');

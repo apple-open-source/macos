@@ -75,4 +75,4 @@ int scopyitem(int srcvolfd, const char *src, int dstvolfd, const char *dst);
 
 #define copyfile()              // #error use scopyfile
 
-#endif
+#endif // STRICT_SAFETY

@@ -81,7 +81,8 @@ sub Verify()
 	my $failureCount = 0;
 	my $omittedCount = 0;
 	my $imagePath = $BigList{"-path"};
-	my $OPT = $BigList{"-opt"};
+#	my $OPT = $BigList{"-opt"};
+	my $OPT = "all";	# not accepted or passed in by ServerBackup
 	my $diffFilePath = "$tmpPath/iChatServer_verify_diff_tmp";
 	my $storedFileDir = "$tmpPath/iChatServer_restored_for_verify";
 	my $restoredSqlFile = "iChatServer_data_backup.sql";
@@ -141,6 +142,15 @@ sub Verify()
 			qx($TAR -xzf \"$imagePath/$imageTarFile\");
 			chdir($origCWD);
 			last FINDDATA;
+		}
+	}
+	FINDROOMSDATA: foreach my $imageTarFile (@imageTarFiles) {
+		if ($imageTarFile =~ /iChatServer_Rooms.data.tar.gz$/) {
+			my $origCWD = $ENV{PWD};
+			chdir($storedFileDir);
+			qx($TAR -xzf \"$imagePath/$imageTarFile\");
+			chdir($origCWD);
+			last FINDROOMSDATA;
 		}
 	}
 
@@ -206,8 +216,17 @@ sub Verify()
 		open(DIR, ".");
 		my @files = <DIR>;
 		closedir(DIR);
+
+		my $roomsDirPath = qx(${PBUDDY} -c \"Print :RoomsDataDirectory:\" $SBS_CONF/$ServiceConf);
+		chomp($roomsDirPath);
+		my $roomsLogDirPath = qx(${PBUDDY} -c \"Print :RoomsLogDataDirectory:\" $SBS_CONF/$ServiceConf);
+		chomp($roomsLogDirPath);
+
 		if (! -e "$storedFileDir/$restoredSqlFile") {
 			&_log($OUTPUT_VERBOSE, "VERIFICATION FAILURE: Could not find original .sql file for database comparison");
+			$failureCount++;
+		} elsif (! -e "$storedFileDir/$roomsDirPath") {
+			&_log($OUTPUT_VERBOSE, "VERIFICATION FAILURE: Could not find original Rooms data directory for comparison");
 			$failureCount++;
 		} else {
 			qx(echo ".dump" | $SQLITE $sqliteDbPath > $tmpPath/$newSqlFile);
@@ -222,9 +241,41 @@ sub Verify()
 				&_log($OUTPUT_VERBOSE, "VERIFICATION FAILURE: Backed up database does not match current database\n");
 				$failureCount++;    
 			}
+
+			qx($DIFF -rq "$storedFileDir/$roomsDirPath" "$tmpPath/$roomsDirPath" &> "$diffFilePath");
+			open(DIFF, "<$diffFilePath");
+			@diffLines = <DIFF>;
+			close(DIFF); 
+			chomp(@diffLines);
+			if ($diffLines[0] eq "") {
+				$successCount++;     
+			} else {
+				&_log($OUTPUT_VERBOSE, "VERIFICATION FAILURE: Backed up Rooms data directory does not match current directory\n");
+				$failureCount++;    
+			}
+
+			qx($DIFF -rq "$storedFileDir/$roomsLogDirPath" "$tmpPath/$roomsLogDirPath" &> "$diffFilePath");
+			open(DIFF, "<$diffFilePath");
+			@diffLines = <DIFF>;
+			close(DIFF); 
+			chomp(@diffLines);
+			if ($diffLines[0] eq "") {
+				$successCount++;     
+			} else {
+				&_log($OUTPUT_VERBOSE, "VERIFICATION FAILURE: Backed up Rooms data directory does not match current directory\n");
+				$failureCount++;    
+			}
 		}
 		unlink($diffFilePath);
 		unlink("$tmpPath/$newSqlFile");
+		my @pathComponents = split(/\//, $roomsDirPath);
+		if ($pathComponents[0] ne "") {
+			qx($RM -rf "$tmpPath/$pathComponents[0]");
+		}
+		@pathComponents = split(/\//, $roomsLogDirPath);
+		if ($pathComponents[0] ne "") {
+			qx($RM -rf "$tmpPath/$pathComponents[0]");
+		}
 		qx($RM -rf \"$storedFileDir\");
 		chdir($origCWD);
 	}

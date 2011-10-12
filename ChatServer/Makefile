@@ -69,7 +69,7 @@ JABBERD_BIN_DIR=usr/libexec/jabberd
 TOOLS_DIR=tools
 OPENSOURCE_PKG_DIR=opensource_pkgs
 JABBERD_PATCH_TOOL=$(TOOLS_DIR)/patch_jabberd.pl
-JABBERD_DIST_TAR=$(OPENSOURCE_PKG_DIR)/jabberd-2.2.13.tar.bz2
+JABBERD_DIST_TAR=$(OPENSOURCE_PKG_DIR)/jabberd-2.2.14.tar.bz2
 PATCH_DIR=apple_patch
 PATCH_DIR_PRECONF=$(PATCH_DIR)/pre_configure
 PATCH_DIR_POSTCONF=$(PATCH_DIR)/post_configure
@@ -359,7 +359,7 @@ od_auth/clean:
 # JABBERD2 MODULE
 #-------------------------------
 #
-JABBERD2_VERSION	= jabberd-2.2.13
+JABBERD2_VERSION	= jabberd-2.2.14
 JABBERD2_SAVE	= jabberd2-save
 JABBERD2_NAME	= jabberd2
 

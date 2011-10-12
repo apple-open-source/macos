@@ -1265,6 +1265,7 @@ enum {
 #define kIODisplayPowerStateKey       			"dsyp"
 
 #define kIODisplayControllerIDKey				"IODisplayControllerID"
+#define kIODisplayCapabilityStringKey       	"IODisplayCapabilityString"
 
 #define kIODisplayRedGammaScaleKey      "rgsc"
 #define kIODisplayGreenGammaScaleKey    "ggsc"

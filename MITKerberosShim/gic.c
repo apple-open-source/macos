@@ -50,7 +50,8 @@ krb5_get_init_creds_opt_set_process_last_req(mit_krb5_context context,
 					     mit_krb5_gic_process_last_req req,
 					     void *ctx)
 {
-    /* XXX need to implement this, its will be require for Lion 
+    LOG_ENTRY();
+    /* XXX need to implement this, its will be require for Lion
        some time later */
     return 0;
 }

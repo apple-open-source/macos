@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2011 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/el.xml
@@ -12,7 +12,9 @@
 el{
     AuxExemplarCharacters{"[]"}
     ExemplarCharacters{"[α ά β γ δ ε έ ζ η ή θ ι ί ϊ ΐ κ λ μ ν ξ ο ό π ρ σ ς τ υ ύ ϋ ΰ φ χ ψ ω ώ]"}
+    ExemplarCharactersCurrency{"[α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω]"}
     ExemplarCharactersIndex{"[Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω]"}
+    ExemplarCharactersPunctuation{"[\- ‐ – — , ; \: ! . … \" ( ) \[ \] @ * / \\ \& §]"}
     LocaleScript{
         "Grek",
     }
@@ -20,6 +22,7 @@ el{
         latn{
             patterns{
                 currencyFormat{"#,##0.00 ¤"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
             }
             symbols{
@@ -36,7 +39,7 @@ el{
             }
         }
     }
-    Version{"2.0.50.96"}
+    Version{"2.0.58.79"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -53,6 +56,22 @@ el{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E d"}
+                Gy{"y G"}
+                MEd{"EEE, d/M"}
+                MMM{"LLL"}
+                MMMEd{"EEE, d MMM"}
+                MMMd{"d MMM"}
+                Md{"d/M"}
+                y{"y G"}
+                yM{"M/y"}
+                yMEd{"EEE, d/M/y"}
+                yMMM{"LLL, y G"}
+                yMMMEd{"EEE, d MMM, y G"}
+                yMMMd{"d MMM, y G"}
+                yMd{"d/M/y"}
             }
         }
         gregorian{
@@ -82,6 +101,7 @@ el{
                 HHmm{"HH:mm"}
                 HHmmss{"HH:mm:ss"}
                 Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
                 M{"L"}
                 MEd{"E, d/M"}
                 MMM{"LLL"}
@@ -93,6 +113,8 @@ el{
                 MMdd{"dd/MM"}
                 Md{"d/M"}
                 d{"d"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
                 y{"y"}
@@ -100,6 +122,8 @@ el{
                 yMEd{"EEE, d/M/yyyy"}
                 yMMM{"LLL y"}
                 yMMMEd{"EEE, d MMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/yyyy"}
                 yQ{"y Q"}
                 yQQQ{"y QQQ"}
                 yyMM{"MM/yy"}
@@ -121,6 +145,15 @@ el{
                         "Παρ",
                         "Σαβ",
                     }
+                    narrow{
+                        "Κ",
+                        "Δ",
+                        "Τ",
+                        "Τ",
+                        "Π",
+                        "Π",
+                        "Σ",
+                    }
                     wide{
                         "Κυριακή",
                         "Δευτέρα",
@@ -132,6 +165,15 @@ el{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Κυρ",
+                        "Δευ",
+                        "Τρί",
+                        "Τετ",
+                        "Πέμ",
+                        "Παρ",
+                        "Σάβ",
+                    }
                     narrow{
                         "Κ",
                         "Δ",
@@ -140,6 +182,15 @@ el{
                         "Π",
                         "Π",
                         "Σ",
+                    }
+                    wide{
+                        "Κυριακή",
+                        "Δευτέρα",
+                        "Τρίτη",
+                        "Τετάρτη",
+                        "Πέμπτη",
+                        "Παρασκευή",
+                        "Σάββατο",
                     }
                 }
             }
@@ -176,18 +227,33 @@ el{
                 }
                 month{
                     dn{"Μήνας"}
+                    relative{
+                        "-1"{"Προηγούμενος μήνας"}
+                        "0"{"Τρέχων μήνας"}
+                        "1"{"Επόμενος μήνας"}
+                    }
                 }
                 second{
                     dn{"Δευτερόλεπτο"}
                 }
                 week{
                     dn{"Εβδομάδα"}
+                    relative{
+                        "-1"{"Προηγούμενη εβδομάδα"}
+                        "0"{"Αυτήν την εβδομάδα"}
+                        "1"{"Επόμενη εβδομάδα"}
+                    }
                 }
                 weekday{
                     dn{"Ημέρα εβδομάδας"}
                 }
                 year{
                     dn{"Έτος"}
+                    relative{
+                        "-1"{"Προηγούμενο έτος"}
+                        "0"{"Φέτος"}
+                        "1"{"Επόμενο έτος"}
+                    }
                 }
                 zone{
                     dn{"Ζώνη"}
@@ -207,9 +273,6 @@ el{
                 MMMEd{
                     M{"E, dd MMM - E, dd MMM"}
                     d{"E, dd - E, dd MMM"}
-                }
-                MMMM{
-                    M{"LLLL-LLLL"}
                 }
                 MMMd{
                     M{"dd MMM - dd MMM"}
@@ -293,6 +356,20 @@ el{
                         "Νοε",
                         "Δεκ",
                     }
+                    narrow{
+                        "Ι",
+                        "Φ",
+                        "Μ",
+                        "Α",
+                        "Μ",
+                        "Ι",
+                        "Ι",
+                        "Α",
+                        "Σ",
+                        "Ο",
+                        "Ν",
+                        "Δ",
+                    }
                     wide{
                         "Ιανουαρίου",
                         "Φεβρουαρίου",
@@ -309,6 +386,20 @@ el{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Ιαν",
+                        "Φεβ",
+                        "Μάρ",
+                        "Απρ",
+                        "Μάι",
+                        "Ιούν",
+                        "Ιούλ",
+                        "Αυγ",
+                        "Σεπ",
+                        "Οκτ",
+                        "Νοέ",
+                        "Δεκ",
+                    }
                     narrow{
                         "Ι",
                         "Φ",
@@ -341,6 +432,26 @@ el{
             }
             quarters{
                 format{
+                    abbreviated{
+                        "Τ1",
+                        "Τ2",
+                        "Τ3",
+                        "Τ4",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
+                    wide{
+                        "1ο τρίμηνο",
+                        "2ο τρίμηνο",
+                        "3ο τρίμηνο",
+                        "4ο τρίμηνο",
+                    }
+                }
+                stand-alone{
                     abbreviated{
                         "Τ1",
                         "Τ2",
@@ -381,11 +492,20 @@ el{
             }
             availableFormats{
                 Ed{"E d"}
+                Gy{"y G"}
+                MEd{"E, d/M"}
+                MMM{"LLL"}
                 MMMEd{"E, d MMM"}
-                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
                 Md{"d/M"}
+                y{"y G"}
+                yyyy{"y G"}
                 yyyyM{"MM/yy GGGGG"}
+                yyyyMEd{"E, dd/MM/yy GGGGG"}
                 yyyyMMM{"LLL yy GGGGG"}
+                yyyyMMMEd{"E, d MMM, y G"}
+                yyyyMMMd{"d MMM, y G"}
+                yyyyMd{"dd/MM/yy GGGGG"}
                 yyyyQ{"yy GGGGG Q"}
             }
         }
@@ -407,15 +527,20 @@ el{
             }
             availableFormats{
                 Ed{"E d"}
+                Gy{"y G"}
                 MEd{"E, d/M"}
+                MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMd{"d MMM"}
                 Md{"d/M"}
+                y{"y G"}
                 yyyy{"y G"}
                 yyyyM{"M/y G"}
                 yyyyMEd{"EEE, d/M/y G"}
                 yyyyMMM{"LLL, y G"}
                 yyyyMMMEd{"EEE, d MMM, y G"}
+                yyyyMMMd{"d MMM, y G"}
+                yyyyMd{"d/M/y G"}
                 yyyyQ{"y G Q"}
                 yyyyQQQ{"QQQ y G"}
             }
@@ -440,10 +565,41 @@ el{
         }
     }
     measurementSystemNames{
+        UK{"Βρετανικό"}
         US{"Αγγλοσαξωνικό"}
         metric{"Μετρικό"}
     }
     units{
+        day{
+            one{"{0} ημέρα"}
+            other{"{0} ημέρες"}
+        }
+        hour{
+            one{"{0} ώρα"}
+            other{"{0} ώρες"}
+        }
+        minute{
+            one{"{0} λεπτό"}
+            other{"{0} λεπτά"}
+        }
+        month{
+            one{"{0} μήνας"}
+            other{"{0} μήνες"}
+        }
+        second{
+            one{"{0} δευτερόλεπτο"}
+            other{"{0} δευτερόλεπτα"}
+        }
+        week{
+            one{"{0} εβδομάδα"}
+            other{"{0} εβδομάδες"}
+        }
+        year{
+            one{"{0} έτος"}
+            other{"{0} έτη"}
+        }
+    }
+    unitsShort{
         day{
             one{"{0} ημέρα"}
             other{"{0} ημέρες"}

@@ -95,9 +95,9 @@ __operation_callback(ODQueryRef query, CFArrayRef results, CFErrorRef error, voi
 @interface NSODQuery : ODQuery
 @end
 @implementation NSODQuery
-CF_CLASSIMPLEMENTATION(ODQuery)
 extern Boolean _CFIsDeallocating(CFTypeRef);
 extern CFTypeRef _CFTryRetain(CFTypeRef);
+CF_CLASSIMPLEMENTATION(ODQuery)
 - (BOOL)_isDeallocating { return _CFIsDeallocating((CFTypeRef)self); }
 - (BOOL)_tryRetain { return _CFTryRetain((CFTypeRef)self) != NULL; }
 @end

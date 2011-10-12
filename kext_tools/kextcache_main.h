@@ -104,7 +104,7 @@ enum {
 #define kOptSystemMkext           'e'
 #if !NO_BOOT_ROOT
 #define kOptForce                 'f'
-#endif
+#endif /* !NO_BOOT_ROOT */
 
 // xxx - do we want a longopt for this?
 #define kOptLowPriorityFork       'F'
@@ -125,7 +125,7 @@ enum {
 #if !NO_BOOT_ROOT
 #define kOptUpdate                'u'
 #define kOptCheckUpdate           'U'
-#endif
+#endif /* !NO_BOOT_ROOT */
 // 'v' in kext_tools_util.h
 #define kOptNoAuthentication      'z'
 
@@ -153,7 +153,7 @@ enum {
 #define kOptChars                ":a:b:c:efFhkK:lLm:nNqrsStu:U:vz"
 #else
 #define kOptChars                ":a:b:c:eFhkK:lLm:nNqrsStvz"
-#endif
+#endif /* !NO_BOOT_ROOT */
 /* Some options are now obsolete:
  *     -F (fork)
  *     -k (update plist cache)
@@ -204,14 +204,14 @@ struct option sOptInfo[] = {
     { kOptNameForce,                 no_argument,        NULL,     kOptForce },
     { kOptNameInstaller,             no_argument,        &longopt, kLongOptInstaller },
     { kOptNameCachesOnly,            no_argument,        &longopt, kLongOptCachesOnly },
-#endif
+#endif /* !NO_BOOT_ROOT */
 
     { kOptNameNoAuthentication,      no_argument,        NULL,     kOptNoAuthentication },
     { kOptNameTests,                 no_argument,        NULL,     kOptTests },
 
 #if !NO_BOOT_ROOT
     { NULL,                          required_argument,  NULL,     kOptCheckUpdate },
-#endif
+#endif /* !NO_BOOT_ROOT */
     { NULL,                          no_argument,        NULL,     kOptLowPriorityFork },
 
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
@@ -373,4 +373,4 @@ ExitStatus compressPrelinkedKernel(
 
 void usage(UsageLevel usageLevel);
 
-#endif
+#endif /* _KEXTCACHE_MAIN_H */

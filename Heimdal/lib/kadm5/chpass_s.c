@@ -39,6 +39,7 @@ static kadm5_ret_t
 change(void *server_handle,
        krb5_principal princ,
        const char *password,
+       krb5_enctype *enctypes,
        int cond)
 {
     kadm5_server_context *context = server_handle;
@@ -79,7 +80,7 @@ change(void *server_handle,
 	ent.entry.keys.len = 0;
 	ent.entry.keys.val = NULL;
 	
-	ret = _kadm5_set_keys(context, &ent.entry, password);
+	ret = _kadm5_set_keys(context, &ent.entry, password, enctypes);
 	if(ret) {
 	    _kadm5_free_keys (context->context, num_keys, keys);
 	    goto out2;
@@ -137,9 +138,10 @@ out:
 kadm5_ret_t
 kadm5_s_chpass_principal_cond(void *server_handle,
 			      krb5_principal princ,
-			      const char *password)
+			      const char *password,
+			      krb5_enctype *enctypes)
 {
-    return change (server_handle, princ, password, 1);
+    return change (server_handle, princ, password, enctypes, 1);
 }
 
 /*
@@ -149,9 +151,10 @@ kadm5_s_chpass_principal_cond(void *server_handle,
 kadm5_ret_t
 kadm5_s_chpass_principal(void *server_handle,
 			 krb5_principal princ,
-			 const char *password)
+			 const char *password,
+			 krb5_enctype *enctypes)
 {
-    return change (server_handle, princ, password, 0);
+    return change (server_handle, princ, password, enctypes, 0);
 }
 
 /*

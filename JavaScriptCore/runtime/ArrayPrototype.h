@@ -27,9 +27,17 @@
 namespace JSC {
 
     class ArrayPrototype : public JSArray {
-    public:
-        explicit ArrayPrototype(JSGlobalObject*, Structure*);
+    private:
+        ArrayPrototype(JSGlobalObject*, Structure*);
 
+    public:
+        typedef JSArray Base;
+
+        static ArrayPrototype* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
+        {
+            return new (allocateCell<ArrayPrototype>(*exec->heap())) ArrayPrototype(globalObject, structure);
+        }
+        
         bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 

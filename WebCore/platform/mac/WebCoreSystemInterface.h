@@ -70,6 +70,7 @@ typedef struct _NSRect NSRect;
 @class AVAsset;
 @class NSArray;
 @class NSButtonCell;
+@class NSCursor;
 @class NSData;
 @class NSDate;
 @class NSEvent;
@@ -91,6 +92,7 @@ typedef struct _NSRect NSRect;
 class AVAsset;
 class NSArray;
 class NSButtonCell;
+class NSCursor;
 class NSData;
 class NSDate;
 class NSEvent;
@@ -209,7 +211,9 @@ extern int (*wkGetNSEventMomentumPhase)(NSEvent *);
 #endif
 
 extern CTLineRef (*wkCreateCTLineWithUniCharProvider)(const UniChar* (*provide)(CFIndex stringIndex, CFIndex* charCount, CFDictionaryRef* attributes, void*), void (*dispose)(const UniChar* chars, void*), void*);
+
 #if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+
 extern CTTypesetterRef (*wkCreateCTTypesetterWithUniCharProviderAndOptions)(const UniChar* (*provide)(CFIndex stringIndex, CFIndex* charCount, CFDictionaryRef* attributes, void*), void (*dispose)(const UniChar* chars, void*), void*, CFDictionaryRef options);
 
 extern CGContextRef (*wkIOSurfaceContextCreate)(IOSurfaceRef surface, unsigned width, unsigned height, CGColorSpaceRef colorSpace);
@@ -221,6 +225,7 @@ typedef struct __WKScrollbarPainterController *WKScrollbarPainterControllerRef;
 extern WKScrollbarPainterRef (*wkMakeScrollbarPainter)(int controlSize, bool isHorizontal);
 extern WKScrollbarPainterRef (*wkMakeScrollbarReplacementPainter)(WKScrollbarPainterRef oldPainter, int newStyle, int controlSize, bool isHorizontal);
 extern void (*wkScrollbarPainterSetDelegate)(WKScrollbarPainterRef, id scrollbarPainterDelegate);
+extern void (*wkScrollbarPainterSetEnabled)(WKScrollbarPainterRef, bool enabled);
 extern void (*wkScrollbarPainterPaint)(WKScrollbarPainterRef, bool enabled, double value, CGFloat proportion, CGRect frameRect);
 extern void (*wkScrollbarPainterForceFlashScrollers)(WKScrollbarPainterControllerRef);
 extern int (*wkScrollbarThickness)(int controlSize);
@@ -268,6 +273,9 @@ extern bool (*wkExecutableWasLinkedOnOrBeforeSnowLeopard)(void);
 extern CFStringRef (*wkCopyDefaultSearchProviderDisplayName)(void);
 
 extern NSURL *(*wkAVAssetResolvedURL)(AVAsset*);
+
+extern NSCursor *(*wkCursor)(const char*);
+
 #endif
 
 extern void (*wkUnregisterUniqueIdForElement)(id element);
@@ -288,6 +296,7 @@ extern NSURLRequest* (*wkCopyRequestWithStorageSession)(CFURLStorageSessionRef, 
 typedef struct OpaqueCFHTTPCookieStorage* CFHTTPCookieStorageRef;
 extern CFHTTPCookieStorageRef (*wkCopyHTTPCookieStorage)(CFURLStorageSessionRef);
 extern unsigned (*wkGetHTTPCookieAcceptPolicy)(CFHTTPCookieStorageRef);
+extern void (*wkSetHTTPCookieAcceptPolicy)(CFHTTPCookieStorageRef, unsigned);
 extern NSArray *(*wkHTTPCookiesForURL)(CFHTTPCookieStorageRef, NSURL *);
 extern void (*wkSetHTTPCookiesForURL)(CFHTTPCookieStorageRef, NSArray *, NSURL *, NSURL *);
 extern void (*wkDeleteHTTPCookie)(CFHTTPCookieStorageRef, NSHTTPCookie *);

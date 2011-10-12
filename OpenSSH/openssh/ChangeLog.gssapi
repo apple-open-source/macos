@@ -1,10 +1,20 @@
+20110101
+  - Finally update for OpenSSH 5.6p1
+  - Add GSSAPIServerIdentity option from Jim Basney
+ 
+20100308
+  - [ Makefile.in, key.c, key.h ]
+    Updates for OpenSSH 5.4p1
+  - [ servconf.c ]
+    Include GSSAPI options in the sshd -T configuration dump, and flag
+    some older configuration options as being unsupported. Thanks to Colin 
+    Watson.
+  -
+
 20100124
   - [ sshconnect2.c ]
     Adapt to deal with additional element in Authmethod structure. Thanks to
-    Colin Wilson
-  - [ clientloop.c ]
-    Protect credentials updated code with suitable #ifdefs. Thanks to Colin
-    Wilson
+    Colin Watson
 
 20090615
   - [ gss-genr.c gss-serv.c kexgssc.c kexgsss.c monitor.c sshconnect2.c

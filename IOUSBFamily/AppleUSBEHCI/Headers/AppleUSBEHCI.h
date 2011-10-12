@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2010 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -97,7 +97,7 @@ struct EHCIGeneralTransferDescriptor
     USBPhysicalAddress32					pPhysical;
     EHCIGeneralTransferDescriptorPtr		pLogicalNext;
     void*									logicalBuffer;			// used for UnlockMemory
-	UInt32									lastFrame;				// the lower 32 bits the last time we checked this TD
+	UInt64									lastFrame;				// the frame the last time we checked for a timeout
     UInt32									lastRemaining;			//the "remaining" count the last time we checked
     UInt32									tdSize;					//the total bytes to be transferred by this TD. For statistics only
     UInt32									flagsAtError;			// the flags word the last time this stopped with an error
@@ -433,10 +433,12 @@ public:
     virtual bool		start( IOService * provider );
     virtual void 		stop( IOService * provider );
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
+	virtual unsigned long	maxCapabilityForDomainState ( IOPMPowerFlags domainState );
 	virtual IOReturn	powerStateDidChangeTo ( IOPMPowerFlags, unsigned long, IOService* );
 	virtual void		powerChangeDone ( unsigned long fromState );
 	virtual bool		willTerminate(IOService * provider, IOOptionBits options);
 	virtual bool		didTerminate( IOService * provider, IOOptionBits options, bool * defer );
+    virtual bool		finalize(IOOptionBits options);
     virtual void		free();
 	
 	
@@ -658,6 +660,8 @@ public:
     IOReturn		DisablePeriodicSchedule(bool waitForOFF);
 	
     bool 			CheckEDListForTimeouts(AppleEHCIQueueHead *head);
+	IOReturn		ReturnAllOutstandingAsyncIO(void);
+	
     void			GetNumberOfPorts(UInt8 *numPorts);
 
 	virtual IOUSBControllerIsochEndpoint*			AllocateIsochEP();

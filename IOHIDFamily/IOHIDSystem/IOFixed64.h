@@ -85,8 +85,13 @@ public:
         return IOFixed(value);
     }
     
-    IOFixed64& fromInt(SInt64 x) {
+    IOFixed64& fromIntFloor(SInt64 x) {
         value = (x * 65536LL);
+        return *this;
+    }
+    
+    IOFixed64& fromIntCeiling(SInt64 x) {
+        value = (x * 65536LL) + 65535LL;
         return *this;
     }
     

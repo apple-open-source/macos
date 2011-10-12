@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.2.13/mio/mio_kqueue.h	2011-02-23 08:24:35.000000000 -0800
-+++ ./jabberd2/mio/mio_kqueue.h	2011-02-24 16:25:21.000000000 -0800
+--- /tmp/jabberd-2.2.14/mio/mio_kqueue.h	2011-05-31 15:11:38.000000000 -0700
++++ ./jabberd2/mio/mio_kqueue.h	2011-06-22 20:13:00.000000000 -0700
 @@ -1,160 +1,151 @@
 -/*
 - * jabberd - Jabber Open Source Server

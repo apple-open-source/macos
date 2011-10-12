@@ -101,6 +101,16 @@ enum
 	kSCSIPortIdentifierDataSize = 8
 };
 
+// Used by power manager to figure out what states we support
+// The default implementation supports two basic states: ON and OFF
+// ON state means the device can be used on this transport layer
+// OFF means the device cannot receive any I/O on this transport layer
+static IOPMPowerState sPowerStates[kSCSIProtocolLayerNumDefaultStates] =
+{
+	{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 1, (IOPMDeviceUsable | IOPMMaxPerformance), IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
+};
+
 
 #if 0
 #pragma mark -
@@ -410,6 +420,40 @@ IOSCSIParallelInterfaceDevice::requestProbe ( IOOptionBits options )
 	
 }
 
+//-----------------------------------------------------------------------------
+// InitializePowerManagement - 	Register the driver with our policy-maker
+//								(also in the same class).			[PROTECTED]
+//-----------------------------------------------------------------------------
+
+void		
+IOSCSIParallelInterfaceDevice::InitializePowerManagement ( IOService * provider )
+{
+	
+	PMinit ( );
+	
+	temporaryPowerClampOn ( );
+    
+	provider->joinPMtree ( this );
+	
+	// Call makeUsable here to tell the power manager to put us in our
+	// highest power state when we call registerPowerDriver().
+	makeUsable ( );
+	
+	fPowerManagementInitialized = true;
+
+	fCurrentPowerState = kSCSIProtocolLayerPowerStateOn;
+		
+	// Register this piece with power management as the "policy maker"
+	// i.e. the thing that controls power management for the protocol layer
+	registerPowerDriver ( this, sPowerStates, kSCSIProtocolLayerNumDefaultStates );
+	
+	// make sure we default to on state
+	changePowerStateTo ( kSCSIProtocolLayerPowerStateOn );    
+	
+	fCurrentPowerState = kSCSIProtocolLayerPowerStateOn;
+	fProposedPowerState = kSCSIProtocolLayerPowerStateOn;	
+					
+}
 
 #if 0
 #pragma mark -
@@ -1154,7 +1198,11 @@ IOSCSIParallelInterfaceDevice::SendSCSICommand (
 	
 	SetTargetIdentifier ( parallelTask, fTargetIdentifier );
 	SetDevice ( parallelTask, this );
+    
+	// Do the 2-way association, so that we can reference the SCSITask from
+	// SCSIParallelTask and vice-versa.
 	SetSCSITaskIdentifier ( parallelTask, request );
+	SetProtocolLayerReference ( request, parallelTask );
 	
 	// Set the Parallel SCSI transfer features.	
 	for ( UInt32 index = 0; index < kSCSIParallelFeature_TotalFeatureCount; index++ )
@@ -1210,7 +1258,18 @@ IOSCSIParallelInterfaceDevice::SendSCSICommand (
 		// Release the SCSI Parallel Task object
 		FreeSCSIParallelTask ( parallelTask );
 		
-		CommandCompleted ( request, *serviceResponse, *taskStatus );
+		// Since we are completing the command IOSCSIProtocolServices
+		// should not process the command any more
+		*serviceResponse = kSCSIServiceResponse_Request_In_Process;
+		
+		if ( isInactive ( ) == true )
+		{
+			
+			*taskStatus = kSCSITaskStatus_DeviceNotPresent;
+			
+		}
+		
+		CommandCompleted ( request, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE, *taskStatus );
 		
 	}
 	

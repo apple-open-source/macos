@@ -343,7 +343,7 @@ krb5_auth_con_generatelocalsubkey(krb5_context context,
     krb5_keyblock *subkey;
 
     ret = krb5_generate_subkey_extended (context, key,
-					 auth_context->keytype,
+					 (krb5_enctype)auth_context->keytype,
 					 &subkey);
     if(ret)
 	return ret;

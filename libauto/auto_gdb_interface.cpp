@@ -349,6 +349,9 @@ namespace Auto {
                 case kRetainedReference:
                     node->_is_retained = 1;
                     break;
+                case kAssociativeReference:
+                    // slot points into the associations table.
+                    slot = (void**)info.object();
                 default:
                     // otherwise, this is a reference that comes from a slot in memory.
                     Node *slotNode = nodeForSlot(info, slot);
@@ -423,6 +426,12 @@ namespace Auto {
                     if (slotNode->_is_retained) {
                         addPath(paths, slotNode);
                     } else if (considerThreadLocalGarbage && slotNode->_is_thread_local) {
+                        addPath(paths, slotNode);
+                    }
+                    break;
+                case auto_memory_block_association:
+                    // include associations with non-blocks as roots.
+                    if (!_zone->is_block(slotNode->_address)) {
                         addPath(paths, slotNode);
                     }
                     break;

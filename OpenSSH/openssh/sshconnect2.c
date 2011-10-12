@@ -198,7 +198,11 @@ ssh_kex2(char *host, struct sockaddr *hostaddr)
 		kex->gss_deleg_creds = options.gss_deleg_creds;
 		kex->gss_trust_dns = options.gss_trust_dns;
 		kex->gss_client = options.gss_client_identity;
-		kex->gss_host = gss_host;
+		if (options.gss_server_identity) {
+			kex->gss_host = options.gss_server_identity;
+		} else {
+			kex->gss_host = gss_host;
+		}
 	}
 #endif
 
@@ -625,7 +629,9 @@ userauth_gssapi(Authctxt *authctxt)
 	int ok = 0;
 	const char *gss_host;
 
-	if (options.gss_trust_dns)
+	if (options.gss_server_identity)
+		gss_host = options.gss_server_identity;
+	else if (options.gss_trust_dns)
 		gss_host = get_canonical_hostname(1);
 	else
 		gss_host = authctxt->host;

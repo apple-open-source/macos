@@ -119,7 +119,7 @@ kcm_ccache_resolve_by_uuid(krb5_context context,
     HEIMDAL_MUTEX_lock(&ccache_mutex);
 
     TAILQ_FOREACH(p, &ccache_head, members) {
-	if (memcmp(p->uuid, uuid, sizeof(uuid)) == 0) {
+	if (memcmp(p->uuid, uuid, sizeof(kcmuuid_t)) == 0) {
 	    ret = 0;
 	    break;
 	}

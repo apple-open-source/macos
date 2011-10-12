@@ -43,6 +43,7 @@ RCSID("$Id$");
 kadm5_ret_t
 kadm5_s_randkey_principal(void *server_handle,
 			  krb5_principal princ,
+			  krb5_enctype *enctypes,
 			  krb5_keyblock **new_keys,
 			  int *n_keys)
 {
@@ -61,6 +62,7 @@ kadm5_s_randkey_principal(void *server_handle,
 
     ret = _kadm5_set_keys_randomly (context,
 				    &ent.entry,
+				    enctypes,
 				    new_keys,
 				    n_keys);
     if (ret)

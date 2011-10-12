@@ -27,8 +27,13 @@ namespace JSC {
 
     class BooleanPrototype : public BooleanObject {
     public:
-        BooleanPrototype(ExecState*, JSGlobalObject*, Structure*);
+        typedef BooleanObject Base;
 
+        static BooleanPrototype* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
+        {
+            return new (allocateCell<BooleanPrototype>(*exec->heap())) BooleanPrototype(exec, globalObject, structure);
+        }
+        
         static const ClassInfo s_info;
 
         static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
@@ -41,6 +46,7 @@ namespace JSC {
         static const unsigned AnonymousSlotCount = BooleanObject::AnonymousSlotCount + 1;
 
     private:
+        BooleanPrototype(ExecState*, JSGlobalObject*, Structure*);
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
     };

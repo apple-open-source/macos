@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <xpc/xpc.h>
+#include <xpc/private.h>
 #include <syslog.h>
 #include <sys/param.h>
 #include <sandbox.h>

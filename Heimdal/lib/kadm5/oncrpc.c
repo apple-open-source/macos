@@ -199,6 +199,26 @@ _kadm5_xdr_ret_gss_init_res(krb5_storage *sp, krb5_data *handle,
 
 
 krb5_error_code
+_kadm5_xdr_ret_gacred(krb5_data *data, struct _kadm5_xdr_gacred *gacred)
+{
+    krb5_storage *sp;
+
+    memset(gacred, 0, sizeof(*gacred));
+
+    sp = krb5_storage_from_data(data);
+    INSIST(sp != NULL);
+
+    CHECK(krb5_ret_uint32(sp, &gacred->version));
+    CHECK(krb5_ret_uint32(sp, &gacred->auth_msg));
+    CHECK(_kadm5_xdr_ret_data_xdr(sp, &gacred->handle));
+
+    krb5_storage_free(sp);
+
+    return 0;
+}
+
+
+krb5_error_code
 _kadm5_xdr_store_string_xdr(krb5_storage *sp, const char *str)
 {
     krb5_data c;

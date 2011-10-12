@@ -12,7 +12,7 @@ Project         = roundcubemail
 ProjectName     = WebmailServer
 UserType        = Administrator
 ToolType        = Commands
-Submission      = 10
+Submission      = 11
 
 # Project installation tree
 PROJECT_DIR=$(SHAREDIR)/webmail
@@ -40,9 +40,9 @@ SETUP_DIR=$(NSLIBRARYDIR)/ServerSetup/CommonExtras/PostgreSQLExtras
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 0.5.2
+AEP_Version	= 0.5.3
 AEP_Patches	= editor.patch key.patch locstrings.patch \
-			identity.patch anti_XSS.patch
+			identity.patch anti_XSS.patch IPv6.patch
 #AEP_ConfigDir	= $(PROJECT_DIR)/config
 # Disable all the GNU options because this project doesn't use any configure or a Makefile
 GnuNoConfigure = YES

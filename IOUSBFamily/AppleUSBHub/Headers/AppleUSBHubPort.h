@@ -25,6 +25,8 @@
 #ifndef _IOKIT_APPLEUSBHUBPORT_H
 #define _IOKIT_APPLEUSBHUBPORT_H
 
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
+
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
@@ -194,6 +196,7 @@ protected:
     void							DisplayOverCurrentNotice(bool individual);
 	void							EnablePowerAfterOvercurrent();
 	bool							HasExpressCardCantWake();
+
 	// Accessors
     AppleUSBHub *					GetHub()					{ return _hub; }
     bool							IsCaptive()					{ return _captive; }

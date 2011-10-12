@@ -1307,26 +1307,37 @@ ldap_int_select( LDAP *ld, struct timeval *timeout )
 
 	tryagain:
 
-		/* If there are no fds left don't call poll(2).	 No fds and an
-		 * infinite timeout will result in a hang.
-		 * If there are still fds, but we're no longer watching the
-		 * pipe, that's another good reason to bail.
-		 */
-		 if ( LDAP_BOOL_GET(&ld->ld_options, LDAP_BOOL_ASYNC_RESULTS) &&
-		      ( sip->si_nfds == 0 || sip->si_fds[sip->si_pipe_fd_idx_in_poll].fd == -1 ) )
-		 {
-			 Debug( LDAP_DEBUG_ASYNC, "ldap_int_select: %s\n",
-                                sip->si_nfds == 0 ? "no fds being watched" : "pipe not being watched",
-                                0, 0 );
+                if ( LDAP_BOOL_GET(&ld->ld_options, LDAP_BOOL_ASYNC_RESULTS)) {
 
-			 /* If we're not even watching the select pipe, then
-			  * close it.  We're going to return an errno that will
-			  * cause the async thread to exit anyway.
-			  */
-			 ldap_int_close_select_pipe( sip );
+                        /* Clear any fd's that got an error last time.  If we
+                         * don't we'll just spin.
+                         */
+                        int i;
+                        for ( i = 0;  i < sip->si_maxfd; i++ ) { 
+                                if ( sip->si_fds[i].revents & (POLLERR|POLLHUP|POLLNVAL) ) {
+                                    ldap_int_mark_select_clear( sip, sip->si_fds[i].fd );
+                                }
+                        }
 
-			 errno = EPIPE;
-			 return -1;
+                        /* If there are no fds left don't call poll(2).  No fds and an
+                         * infinite timeout will result in a hang.
+                         * If there are still fds, but we're no longer watching the
+                         * pipe, that's another good reason to bail.
+                         */
+                        if ( sip->si_nfds == 0 || sip->si_fds[sip->si_pipe_fd_idx_in_poll].fd == -1 ) {
+                                Debug( LDAP_DEBUG_ASYNC, "ldap_int_select: %s\n",
+                                       sip->si_nfds == 0 ? "no fds being watched" : "pipe not being watched",
+                                       0, 0 );
+
+                                /* If we're not even watching the select pipe, then
+                                 * close it.  We're going to return an errno that will
+                                 * cause the async thread to exit anyway.
+                                 */
+                                ldap_int_close_select_pipe( sip );
+
+                                errno = EPIPE;
+                                return -1;
+                        }
 		}
 
 		/* There are still fds being watched... */
@@ -1336,42 +1347,17 @@ ldap_int_select( LDAP *ld, struct timeval *timeout )
 
 #ifdef __APPLE__
 		if ( LDAP_BOOL_GET(&ld->ld_options, LDAP_BOOL_ASYNC_RESULTS) ) {
-			if (rc > 0)
+			if ( rc > 0 )
 			{
-				/* Handle any updates. */
-				if ( sip->si_fds[sip->si_pipe_fd_idx_in_poll].revents & POLLIN ) {
-                                        Debug( LDAP_DEBUG_ASYNC, "ldap_int_select: got update on pipe, rc = %d\n", rc, 0, 0 );
-					ldap_int_handle_select_updates( sip );
-					--rc; /* don't count updates */
-
-					/* If this is the only reason we woke
-					 * go back to poll.
-					 */
-					if ( rc == 0 ) goto tryagain;
-				}
-
-				/* Check if any of the fds were closed while in
-				 * poll.  Updates via the pipe will catch some
-				 * of these, but poll returns POLLNVAL before
-				 * POLLIN.  So we can see closed fds before we
-				 * get a chance to read the update from the pipe
-				 * (happens if we're not in poll when the update
-				 * comes in and the fd is closed).
-				 */
-				int back_to_poll = 0;
-				int i;
-				for ( i = 0; i < sip->si_maxfd; i++ ) {
-					if ( sip->si_fds[i].revents & (POLLHUP|POLLERR|POLLNVAL) ) {
-						Debug( LDAP_DEBUG_ASYNC,
-						       "ldap_int_select: fd %d was closed while in poll()\n",
-						       sip->si_fds[i].fd, 0, 0 );
-
-						// Just remove the fd from pollfds.
-						ldap_int_mark_select_clear( sip, sip->si_fds[i].fd );
-						back_to_poll = 1;
-					}
-				}
-				if (back_to_poll) goto tryagain;
+                                /* Handle updates on the pipe.  If it's the only
+                                 * activity, then go back to the top.
+                                 */
+                                if ( sip->si_fds[sip->si_pipe_fd_idx_in_poll].revents & POLLIN ) {
+                                        ldap_int_handle_select_updates( sip );
+                                        if ( rc == 1 ) {
+                                                goto tryagain;
+                                        }
+                                }
 			}
 		}
 #endif /* __APPLE__ */

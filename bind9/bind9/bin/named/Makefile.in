@@ -129,7 +129,6 @@ config.@O@: config.c bind.keys.h
 		-c ${srcdir}/config.c
 
 named@EXEEXT@: ${OBJS} ${UOBJS} ${DEPLIBS}
-	export MAKE_SYMTABLE="yes"; \
 	export BASEOBJS="${OBJS} ${UOBJS}"; \
 	${FINALBUILDCMD}
 

@@ -225,8 +225,10 @@ void ImageLoader::notifyFinished(CachedResource* resource)
     if (m_firedLoad)
         return;
 
-    if (resource->wasCanceled())
+    if (resource->wasCanceled()) {
+        m_firedLoad = true;
         return;
+    }
 
     loadEventSender().dispatchEventSoon(this);
 }
@@ -286,7 +288,9 @@ void ImageLoader::dispatchPendingBeforeLoadEvent()
         m_image->removeClient(this);
         m_image = 0;
     }
+
     loadEventSender().cancelEvent(this);
+    m_firedLoad = true;
     
     if (m_element->hasTagName(HTMLNames::objectTag))
         static_cast<HTMLObjectElement*>(m_element)->renderFallbackContent();

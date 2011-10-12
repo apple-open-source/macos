@@ -31,21 +31,21 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-12-10</string>
+		<string>2011-07-29</string>
 		<key>OpenSourceLicense</key>
 		<string>FreeType</string>
 		<key>OpenSourceMD5</key>
-		<string>b3e2b6e2f1c3e0dffa1fd2a0f848b671</string>
+		<string>5e6510613f612809d2d7862592b92ab7</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>FreeType 2</string>
 		<key>OpenSourceSHA1</key>
-		<string>1d136cbc51c67b212c91ba04dc5db797f35e64e6</string>
+		<string>9d874398118c805478e81d80449dc4aa5a40b6f2</string>
 		<key>OpenSourceURL</key>
-		<string>http://cdnetworks-us-2.dl.sourceforge.net/project/freetype/freetype2/2.4.4/freetype-2.4.4.tar.bz2</string>
+		<string>http://cdnetworks-us-2.dl.sourceforge.net/project/freetype/freetype2/2.4.6/freetype-2.4.6.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>2.4.4</string>
+		<string>2.4.6</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freetype.org/freetype2/index.html</string>
 	</dict>
@@ -71,21 +71,21 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-04-08</string>
+		<string>2011-07-29</string>
 		<key>OpenSourceLicense</key>
 		<string>libpng</string>
 		<key>OpenSourceMD5</key>
-		<string>31d448eb93a1646359a23f1b23434ab3</string>
+		<string>dea4d1fd671160424923e92ff0cdda78</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>libpng</string>
 		<key>OpenSourceSHA1</key>
-		<string>71c30b9b23169a2dac5b0a77954d9d91f8d944fe</string>
+		<string>3ff340169a74b40b299b491009f210bf5b312475</string>
 		<key>OpenSourceURL</key>
-		<string>http://prdownloads.sourceforge.net/libpng/libpng-1.5.2.tar.gz?download</string>
+		<string>http://prdownloads.sourceforge.net/libpng/libpng-1.5.4.tar.gz?download</string>
 		<key>OpenSourceVersion</key>
-		<string>1.5.2</string>
+		<string>1.5.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.libpng.org/</string>
 	</dict>
@@ -111,21 +111,21 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-04-08</string>
+		<string>2011-07-29</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceMD5</key>
-		<string>fcdf078e715f44b77f13bac721ad63ce</string>
+		<string>3a9c3402063c8163de6e419ddc8d96e7</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>xdebug</string>
 		<key>OpenSourceSHA1</key>
-		<string>286d994b8552d779cd36b7505d0790d8447c2bdd</string>
+		<string>d2b9b5db43ffc26bed2a731bf50b78e8f5d05dd1</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.xdebug.org/files/xdebug-2.1.1.tgz</string>
+		<string>http://www.xdebug.org/files/xdebug-2.1.2.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.1.1</string>
+		<string>2.1.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.xdebug.org/</string>
 	</dict>

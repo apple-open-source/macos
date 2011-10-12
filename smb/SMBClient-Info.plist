@@ -13,14 +13,14 @@
 	<key>CFBundleName</key>
 	<string>SMBClient</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7</string>
+	<string>1.7.1</string>
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7</string>
+	<string>1.7.1</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2009-2010 Apple Inc. All rights reserved.</string>
+	<string>Copyright © 2009-2011 Apple Inc. All rights reserved.</string>
 </dict>
 </plist>

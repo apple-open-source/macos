@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2010 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2011 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -268,17 +268,14 @@ AppleUSBEHCI::ResumeUSBBus()
 		USBCmd |= 1 << kEHCICMDIntThresholdOffset;						// Interrupt every micro frame as needed (4745296)
 
 		// same with Async Park Mode
-		if (_errataBits & kErrataDisableAsynchronousParkMode)
-		{
-			// get rid of the count as well as the enable bit
-			USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
-			
-			// this would allow a different count if we stayed enabled
-			// USBCmd |= (2 << kEHCICMDAsyncParkModeCountMaskPhase);
-			
-			// this line will eliminate park mode completely
-			USBCmd &= ~kEHCICMDAsyncParkModeEnable;
-		}
+		// get rid of the count as well as the enable bit
+		//USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
+		
+		// this would allow a different count if we stayed enabled
+		// USBCmd |= (2 << kEHCICMDAsyncParkModeCountMaskPhase);
+		
+		// this line will eliminate park mode completely
+		//USBCmd &= ~kEHCICMDAsyncParkModeEnable;
 		USBCmd |= kEHCICMDRunStop;
 		
 		USBLog(5, "AppleUSBEHCI[%p]::ResumeUSBBus - initial restart - USBCMD is <%p> will be <%p>",  this, (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBCmd);
@@ -678,46 +675,67 @@ AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 IOReturn
 AppleUSBEHCI::ResetControllerState(void)
 {
-	int			i;
+	int				i;
+	UInt32			asyncListAddr = _pEHCIRegisters->AsyncListAddr;				// it is OK to read this in HC order endian-wise
 
-	USBTrace( kUSBTEHCI, kTPEHCIResetControllerState, (uintptr_t)this, 0, 0, 0);
-	USBLog(5, "AppleUSBEHCI[%p]::ResetControllerState - powering down USB - _pEHCIRegisters(%p) _pEHCICapRegisters(%p) PCIConfigCommand(%p)",  this, _pEHCIRegisters, _pEHCICapRegisters, (void*)_device->configRead16(kIOPCIConfigCommand));
-	showRegisters(2, "+ResetControllerState");
+	if (asyncListAddr == kEHCIInvalidRegisterValue)
+	{
+		_controllerAvailable = false;
+		USBLog(1, "AppleUSBEHCI[%p]::ResetControllerState - registers have gone invalid", this);
+	}
+	else
+	{
+		USBTrace( kUSBTEHCI, kTPEHCIResetControllerState, (uintptr_t)this, 0, 0, 0);
+		USBLog(5, "AppleUSBEHCI[%p]::ResetControllerState - powering down USB - _pEHCIRegisters(%p) _pEHCICapRegisters(%p) PCIConfigCommand(%p)",  this, _pEHCIRegisters, _pEHCICapRegisters, (void*)_device->configRead16(kIOPCIConfigCommand));
+		showRegisters(2, "+ResetControllerState");
 
-	// interrupts were disabled in the superclass
-	// stop the controller
-	_pEHCIRegisters->USBCMD = 0;  			// this sets r/s to stop
-	IOSync();
-	
-	_myBusState = kUSBBusStateReset;
-	for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit); i++)
-		IOSleep(1);
-	if (i >= 100)
-	{
-		USBError(1, "AppleUSBEHCI[%p]::ResetControllerState - could not get chip to halt within 100 ms",  this);
-		return kIOReturnInternalError;
-	}
-	
+		// interrupts were disabled in the superclass
+		// stop the controller
+		_pEHCIRegisters->USBCMD = 0;  			// this sets r/s to stop
+		IOSync();
+		
+		_myBusState = kUSBBusStateReset;
+		
+		// if USBSTS comes back 0xffffffff, this loop will drop out because the halted bit will be set
+		for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit); i++)
+			IOSleep(1);
+		
+		if (i >= 100)
+		{
+			USBError(1, "AppleUSBEHCI[%p]::ResetControllerState - could not get chip to halt within 100 ms",  this);
+			return kIOReturnInternalError;
+		}
+		
 
-	// make sure to save the old base registers
-	if (_pEHCIRegisters->AsyncListAddr)
-	{
-		_savedAsyncListAddr = _pEHCIRegisters->AsyncListAddr;
-		USBLog(5, "AppleUSBEHCI[%p]::ResetControllerState - got _savedAsyncListAddr(%p)",  this, (void*)_savedAsyncListAddr);
+		asyncListAddr = _pEHCIRegisters->AsyncListAddr;
+		if (asyncListAddr == kEHCIInvalidRegisterValue)
+		{
+			_controllerAvailable = false;
+			USBLog(1, "AppleUSBEHCI[%p]::ResetControllerState - registers have gone invalid", this);
+		}
+		else
+		{
+				// make sure to save the old base registers
+			if (asyncListAddr)
+			{
+				_savedAsyncListAddr = asyncListAddr;
+				USBLog(5, "AppleUSBEHCI[%p]::ResetControllerState - got _savedAsyncListAddr(%p)",  this, (void*)_savedAsyncListAddr);
+			}
+			
+			_pEHCIRegisters->PeriodicListBase = 0;		// no periodic list as yet
+			_pEHCIRegisters->AsyncListAddr = 0;			// no async list as yet
+			IOSync();
+			
+			USBLog(5, "AppleUSBEHCI[%p]::ResetControllerState - reseting saved status for %d root hub ports",  this, (int)_rootHubNumPorts);
+			for (i=0; i < _rootHubNumPorts; i++)
+			{
+				_rhPrevStatus[i] = 0;
+			}
+			_uimInitialized = false;
+			
+			showRegisters(2, "-ResetControllerState");
+		}
 	}
-	
-	_pEHCIRegisters->PeriodicListBase = 0;		// no periodic list as yet
-	_pEHCIRegisters->AsyncListAddr = 0;			// no async list as yet
-	IOSync();
-	
-	USBLog(5, "AppleUSBEHCI[%p]::ResetControllerState - reseting saved status for %d root hub ports",  this, (int)_rootHubNumPorts);
-	for (i=0; i < _rootHubNumPorts; i++)
-	{
-		_rhPrevStatus[i] = 0;
-	}
-	_uimInitialized = false;
-	
-	showRegisters(2, "-ResetControllerState");
 	return kIOReturnSuccess;
 }
 
@@ -785,17 +803,14 @@ AppleUSBEHCI::RestartControllerFromReset(void)
 	USBCmd &= ~kEHCICMDIntThresholdMask;
 	USBCmd |= 1 << kEHCICMDIntThresholdOffset;						// Interrupt every micro frame as needed (4745296)
 
-	if (_errataBits & kErrataDisableAsynchronousParkMode)
-	{
 		// get rid of the count as well as the enable bit
-		USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
+		//USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
 		
 		// this would allow a different count if we stayed enabled
 		// USBCmd |= (2 << kEHCICMDAsyncParkModeCountMaskPhase);
 		
 		// this line will eliminate park mode completely
-		USBCmd &= ~kEHCICMDAsyncParkModeEnable;
-	}
+		//USBCmd &= ~kEHCICMDAsyncParkModeEnable;
 	
 	_pEHCIRegisters->USBCMD = HostToUSBLong(USBCmd);				// start your engines
 	
@@ -912,8 +927,8 @@ AppleUSBEHCI::EnableInterruptsFromController(bool enable)
 	{
 		if ((_errataBits & kErrataMissingPortChangeInt) && _portChangeInterrupt)
 		{
-			UInt32  sts = USBToHostLong(_pEHCIRegisters->USBSTS);
-			UInt32  intr = USBToHostLong(_pEHCIRegisters->USBIntr);
+			UInt32					sts = USBToHostLong(_pEHCIRegisters->USBSTS);
+			UInt32					intr = USBToHostLong(_pEHCIRegisters->USBIntr);
 			
 			if (!(intr & kEHCIPortChangeIntBit))					// make sure interrupt is currently masked out
 			{
@@ -949,6 +964,36 @@ AppleUSBEHCI::EnableInterruptsFromController(bool enable)
 		_filterInterruptSource->signalInterrupt();
 		
 	return kIOReturnSuccess;
+}
+
+
+unsigned long
+AppleUSBEHCI::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
+{
+	unsigned long ret = super::maxCapabilityForDomainState(domainState);
+	
+	// trying to make this a limited thing for EHCI only
+	// if we are on a Thunderbolt system and we are not already waking from hibernation and we are waking up from sleep, but the ConfigFlag got cleared
+	// then we need to do a wake from hibernation
+	if (_v3ExpansionData->_onThunderbolt && !_wakingFromHibernation && (_myPowerState == kUSBPowerStateSleep) && (ret > kUSBPowerStateSleep))
+	{
+		UInt32	configFlag = USBToHostLong(_pEHCIRegisters->ConfigFlag);
+		if (configFlag == kEHCIInvalidRegisterValue)
+		{
+			_controllerAvailable = false;
+			USBLog(1, "AppleUSBEHCI[%p]::maxCapabilityForDomainState - registers have gone invalid", this);
+		}
+		else if (configFlag != kEHCIPortRoutingBit)
+		{
+			USBError(1, "EHCI: Thunderbolt controller appears to have been reset - going into wake from hibernation PortSC[0](0x%x)", (int)USBToHostLong(_pEHCIRegisters->PortSC[0]));
+			ResetControllerState();
+			EnableAllEndpoints(true);
+			_wakingFromHibernation = true;
+			ret = kUSBPowerStateOff;
+		}
+	}
+	
+	return ret;
 }
 
 
@@ -996,23 +1041,32 @@ AppleUSBEHCI::powerChangeDone ( unsigned long fromState)
 		USBLog(2, "AppleUSBEHCI[%p]::powerChangeDone - _wakingFromHibernation - _savedAsyncListAddr(%p) AsyncListAddr(%p) _AsyncHead(%p)", this, (void*)USBToHostLong(_savedAsyncListAddr), (void*)_pEHCIRegisters->AsyncListAddr, _AsyncHead);		
 		_savedAsyncListAddr = _pEHCIRegisters->AsyncListAddr;
 		// at this point, we expect _savedAsyncListAddr to be NULL, since when we are waking from hibernation the AsyncListAddr should be NULL (see the end of ResetControllerState)
-		if (_savedAsyncListAddr)
+		if (_savedAsyncListAddr == kEHCIInvalidRegisterValue)
 		{
-			USBLog(1, "AppleUSBEHCI[%p]::powerChangeDone - _savedAsyncListAddr is NOT NULL (%p) - UNEXPECTED", this, (void*)_savedAsyncListAddr);
+			_controllerAvailable = false;
+			USBLog(1, "AppleUSBEHCI[%p]::powerChangeDone - registers have gone invalid", this);
 			_savedAsyncListAddr = 0;
 		}
-		if (_AsyncHead)						// if all of the endpoints have not been aborted yet, then we need to throw them away
+		else
 		{
-			AppleEHCIQueueHead		*pQH = _AsyncHead;
-			USBError(1, "AppleUSBEHCI[%p]::powerChangeDone - waking from hibernation with some queue heads on the queue. UNEXPECTED", this);
-			while (pQH)
+			if (_savedAsyncListAddr)
 			{
-				UInt32					flags = USBToHostLong(pQH->GetSharedLogical()->flags);
-				
-				USBLog(1, "AppleUSBEHCI[%p]::powerChangeDone - pQH(%p) ADDR(%d) EP(%d) DIR(%d) being throw away", this, pQH, (int)(flags & kEHCIEDFlags_FA), (int)((flags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase), (int)pQH->_direction);
-				pQH = OSDynamicCast(AppleEHCIQueueHead, pQH->_logicalNext);
+				USBLog(1, "AppleUSBEHCI[%p]::powerChangeDone - _savedAsyncListAddr is NOT NULL (%p) - UNEXPECTED", this, (void*)_savedAsyncListAddr);
+				_savedAsyncListAddr = 0;
 			}
-			_AsyncHead = NULL;
+			if (_AsyncHead)						// if all of the endpoints have not been aborted yet, then we need to throw them away
+			{
+				AppleEHCIQueueHead		*pQH = _AsyncHead;
+				USBError(1, "AppleUSBEHCI[%p]::powerChangeDone - waking from hibernation with some queue heads on the queue. UNEXPECTED", this);
+				while (pQH)
+				{
+					UInt32					flags = USBToHostLong(pQH->GetSharedLogical()->flags);
+					
+					USBLog(1, "AppleUSBEHCI[%p]::powerChangeDone - pQH(%p) ADDR(%d) EP(%d) DIR(%d) being throw away", this, pQH, (int)(flags & kEHCIEDFlags_FA), (int)((flags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase), (int)pQH->_direction);
+					pQH = OSDynamicCast(AppleEHCIQueueHead, pQH->_logicalNext);
+				}
+				_AsyncHead = NULL;
+			}
 		}
 	}
 	if (_controllerAvailable)

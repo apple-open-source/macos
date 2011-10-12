@@ -22,7 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "IOHIDEventDriver.h"
+#include <IOKit/hidevent/IOHIDEventDriver.h>
 #include "IOHIDInterface.h"
 #include "IOHIDKeys.h"
 #include "IOHIDTypes.h"

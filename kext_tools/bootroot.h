@@ -248,4 +248,4 @@ OSStatus BRRestoreSystemBootRoot(CFURLRef sysVolRoot);
 }
 #endif
 
-#endif
+#endif // BOOTROOT_H

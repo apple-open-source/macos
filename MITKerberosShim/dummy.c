@@ -35,10 +35,23 @@
 
 #include <Heimdal/krb5_err.h>
 #include <errno.h>
+#include <inttypes.h>
 
 #include <asl.h>
 #include <syslog.h>
 #include <stdlib.h>
+
+/* 
+ * errors copied here since pulling in <GSS/gssapi.h> also pulls in
+ * rewrite macros that make other functions below no have the right
+ * name
+ */
+#define GSS_C_ROUTINE_ERROR_OFFSET 16
+
+#define GSS_S_FAILURE (((uint32_t) 13ul) << GSS_C_ROUTINE_ERROR_OFFSET)
+#define GSS_S_NO_CONTEXT (((uint32_t) 8ul) << GSS_C_ROUTINE_ERROR_OFFSET)
+#define GSS_S_UNAVAILABLE (((uint32_t) 16ul) << GSS_C_ROUTINE_ERROR_OFFSET)
+#define KRB5_CC_READONLY (-1765328138L)
 
 void
 mshim_log_function_missing(const char *func)
@@ -85,13 +98,13 @@ dummy(cc_shutdown, 0);
 dummy(cc_store, 0);
 dummy(encode_krb5_as_req, 0);
 dummy(gss_krb5_ui, 0);
-dummy(gss_str_to_oid, 0);
+dummy(gss_str_to_oid, GSS_S_FAILURE);
 dummy(krb5_get_krbhst, KRB5_REALM_UNKNOWN);
 dummy(krb5_free_krbhst, 0);
-dummy(gss_krb5_get_tkt_flags, 0);
-dummy(gss_sign, 0);
-dummy(gss_inquire_mechs_for_name, 0);
-dummy(gss_verify, 0);
+dummy(gss_krb5_get_tkt_flags, GSS_S_NO_CONTEXT);
+dummy(gss_sign, GSS_S_UNAVAILABLE);
+dummy(gss_inquire_mechs_for_name, GSS_S_FAILURE);
+dummy(gss_verify, GSS_S_UNAVAILABLE);
 dummy(kim_ccache_compare, 0);
 dummy(kim_ccache_copy, 0);
 dummy(kim_ccache_create_from_client_identity, 0);
@@ -230,26 +243,24 @@ dummy(kim_string_compare, 0);
 dummy(kim_string_copy, 0);
 dummy(kim_string_create_for_last_error, 0);
 dummy(kim_string_free, 0);
-dummy(krb524_convert_creds_kdc, 0);
-dummy(krb5_425_conv_principal, 0);
-dummy(krb5_524_conv_principal, 0);
-dummy(krb5_524_convert_creds, 0);
+dummy(krb524_convert_creds_kdc, ENOMEM);
+dummy(krb5_425_conv_principal, ENOMEM);
+dummy(krb5_524_conv_principal, ENOMEM);
+dummy(krb5_524_convert_creds, ENOMEM);
 dummy(krb5_address_compare, 0);
 dummy(krb5_address_order, 0);
 dummy(krb5_address_search, 0);
 dummy(krb5_aname_to_localname, 0);
-dummy(krb5_appdefault_boolean, 0);
-dummy(krb5_appdefault_string, 0);
 dummy(krb5_auth_con_get_checksum_func, 0);
-dummy(krb5_auth_con_getrecvsubkey, 0);
-dummy(krb5_auth_con_getsendsubkey, 0);
+dummy(krb5_auth_con_getrecvsubkey, ENOMEM);
+dummy(krb5_auth_con_getsendsubkey, ENOMEM);
 dummy(krb5_auth_con_initivector, 0);
 dummy(krb5_auth_con_set_checksum_func, 0);
 dummy(krb5_auth_con_setrecvsubkey, 0);
 dummy(krb5_auth_con_setsendsubkey, 0);
 dummy(krb5_auth_con_setuseruserkey, 0);
-dummy(krb5_build_principal_alloc_va, 0);
-dummy(krb5_build_principal_va, 0);
+dummy(krb5_build_principal_alloc_va, ENOMEM);
+dummy(krb5_build_principal_va, ENOMEM);
 dummy(krb5_c_block_size, 0);
 dummy(krb5_c_checksum_length, 0);
 dummy(krb5_c_enctype_compare, 0);
@@ -269,10 +280,10 @@ dummy(krb5_c_valid_cksumtype, 0);
 dummy(krb5_c_valid_enctype, 0);
 dummy(krb5_c_verify_checksum, 0);
 dummy(krb5_calculate_checksum, 0);
-dummy(krb5_cc_copy_creds, 0);
+dummy(krb5_cc_copy_creds, KRB5_CC_NOMEM);
 dummy(krb5_cc_last_change_time, 0);
 dummy(krb5_cc_lock, 0);
-dummy(krb5_cc_move, 0);
+dummy(krb5_cc_move, KRB5_CC_READONLY);
 dummy(krb5_cc_remove_cred, 0);
 dummy(krb5_cc_set_config, 0);
 dummy(krb5_cc_set_flags, 0);
@@ -302,8 +313,8 @@ dummy(krb5_free_cksumtypes, 0);
 dummy(krb5_free_config_files, 0);
 dummy(krb5_free_tgt_creds, 0);
 dummy(krb5_fwd_tgt_creds, 0);
-dummy(krb5_get_credentials_renew, 0);
-dummy(krb5_get_credentials_validate, 0);
+dummy(krb5_get_credentials_renew, ENOMEM);
+dummy(krb5_get_credentials_validate, ENOMEM);
 dummy(krb5_get_default_config_files, 0);
 dummy(krb5_get_in_tkt, KRB5_KT_NOTFOUND);
 dummy(krb5_get_in_tkt_with_keytab, KRB5_KT_NOTFOUND);
@@ -322,50 +333,49 @@ quietdummy(krb5_ipc_client_set_target_uid, 0);
 dummy(krb5_is_config_principal, 0);
 dummy(krb5_is_referral_realm, 0);
 dummy(krb5_is_thread_safe, 0);
-dummy(krb5_mk_1cred, 0);
-dummy(krb5_mk_error, 0);
-dummy(krb5_mk_ncred, 0);
-dummy(krb5_mk_rep, 0);
+dummy(krb5_mk_1cred, ENOMEM);
+dummy(krb5_mk_error, ENOMEM);
+dummy(krb5_mk_ncred, ENOMEM);
+dummy(krb5_mk_rep, ENOMEM);
 dummy(krb5_parse_name_flags, 0);
-dummy(krb5_pkinit_get_client_cert, 0);
-dummy(krb5_pkinit_get_client_cert_db, 0);
-dummy(krb5_pkinit_get_kdc_cert, 0);
-dummy(krb5_pkinit_get_kdc_cert_db, 0);
+dummy(krb5_pkinit_get_client_cert, ENOMEM);
+dummy(krb5_pkinit_get_client_cert_db, ENOMEM);
+dummy(krb5_pkinit_get_kdc_cert, ENOMEM);
+dummy(krb5_pkinit_get_kdc_cert_db, ENOMEM);
 dummy(krb5_pkinit_have_client_cert, 0);
 dummy(krb5_pkinit_release_cert, 0);
 dummy(krb5_pkinit_release_cert_db, 0);
-dummy(krb5_pkinit_set_client_cert, 0);
+dummy(krb5_pkinit_set_client_cert, ENOMEM);
 dummy(krb5_process_key, 0);
 dummy(krb5_random_key, 0);
-dummy(krb5_rd_cred, 0);
-dummy(krb5_rd_error, 0);
-dummy(krb5_rd_rep, 0);
+dummy(krb5_rd_cred, ENOMEM);
+dummy(krb5_rd_error, ENOMEM);
+dummy(krb5_rd_rep, ENOMEM);
 dummy(krb5_read_password, 0);
 dummy(krb5_salttype_to_string, 0);
 dummy(krb5_server_decrypt_ticket_keytab, 0);
-dummy(krb5_set_password, 0);
 dummy(krb5_set_principal_realm, 0);
 dummy(krb5_string_to_cksumtype, 0);
 dummy(krb5_string_to_enctype, 0);
 dummy(krb5_string_to_salttype, 0);
 dummy(krb5_timestamp_to_sfstring, 0);
 dummy(krb5_timestamp_to_string, 0);
-dummy(krb5_unparse_name_ext, 0);
-dummy(krb5_unparse_name_flags, 0);
-dummy(krb5_unparse_name_flags_ext, 0);
+dummy(krb5_unparse_name_ext, ENOMEM);
+dummy(krb5_unparse_name_flags, ENOMEM);
+dummy(krb5_unparse_name_flags_ext, ENOMEM);
 dummy(krb5_verify_checksum, 0);
-dummy(krb5int_accessor, 0);
+dummy(krb5int_accessor, KRB5_OBSOLETE_FN);
 dummy(krb5int_freeaddrinfo, 0);
 dummy(krb5int_gai_strerror, 0);
 dummy(krb5int_getaddrinfo, 0);
 dummy(krb5int_gmt_mktime, 0);
-dummy(krb5int_init_context_kdc, 0);
-dummy(krb5int_pkinit_auth_pack_decode, 0);
-dummy(krb5int_pkinit_create_cms_msg, 0);
-dummy(krb5int_pkinit_pa_pk_as_rep_encode, 0);
-dummy(krb5int_pkinit_pa_pk_as_req_decode, 0);
-dummy(krb5int_pkinit_parse_cms_msg, 0);
-dummy(krb5int_pkinit_reply_key_pack_encode, 0);
+dummy(krb5int_init_context_kdc, ENOMEM);
+dummy(krb5int_pkinit_auth_pack_decode, ENOMEM);
+dummy(krb5int_pkinit_create_cms_msg, ENOMEM);
+dummy(krb5int_pkinit_pa_pk_as_rep_encode, ENOMEM);
+dummy(krb5int_pkinit_pa_pk_as_req_decode, ENOMEM);
+dummy(krb5int_pkinit_parse_cms_msg, ENOMEM);
+dummy(krb5int_pkinit_reply_key_pack_encode, ENOMEM);
 dummy(remove_error_table, 0);
 dummy(__KerberosInternal_krb5int_sendtokdc_debug_handler, 0);
 

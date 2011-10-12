@@ -113,6 +113,10 @@ void NotificationPort::receive (const MachPlusPlus::Message &msg)
 	SegmentOffsetType length;
 	UnavailableReason ur;
 
+    StLock<Mutex> lock (gNotificationLock ());
+		
+    EventListenerList& eventList = gEventListeners();
+
 	// extract all messages from the buffer, and route them on their way...
 	while (mClient->ReadMessage (buffer, length, ur))
 	{
@@ -123,16 +127,8 @@ void NotificationPort::receive (const MachPlusPlus::Message &msg)
 		SecurityServer::NotificationEvent event = (SecurityServer::NotificationEvent) OSSwapBigToHostInt32 (*ptr++);
 		CssmData data ((u_int8_t*) ptr, buffer + length - (u_int8_t*) ptr);
 
-		EventListenerList tempList;
-		
-		// once we have figured out what the event is, send it on its way
-		{
-			StLock<Mutex> lock (gNotificationLock ());
-			tempList = gEventListeners();
-		}
-		
-		EventListenerList::iterator it = tempList.begin ();
-		while (it != tempList.end ())
+		EventListenerList::iterator it = eventList.begin ();
+		while (it != eventList.end ())
 		{
 			try
 			{
@@ -198,19 +194,11 @@ static void InitializeNotifications ()
 
 
 
-//
-// Constructing an EventListener immediately enables it for event reception.
-//
 EventListener::EventListener (NotificationDomain domain, NotificationMask eventMask)
 	: mDomain (domain), mMask (eventMask)
 {
-	StLock<Mutex> lock (gNotificationLock ());
-
 	// make sure that notifications are turned on.
 	InitializeNotifications ();
-	
-	// add this to the global list of notifications
-	gEventListeners().push_back (this);
 }
 
 
@@ -230,6 +218,22 @@ EventListener::~EventListener ()
 		gEventListeners ().erase (it);
 	}
 }
+
+
+
+// get rid of the pure virtual
+void EventListener::consume(NotificationDomain, NotificationEvent, const Security::CssmData&)
+{
+}
+
+
+
+void EventListener::FinishedInitialization(EventListener *eventListener)
+{
+	StLock<Mutex> lock (gNotificationLock ());
+	gEventListeners().push_back (eventListener);
+}
+
 
 
 } // end namespace SecurityServer

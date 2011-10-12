@@ -442,4 +442,4 @@ Boolean evalExec(
     void * user_data,
     QEQueryError * error);
 
-#endif
+#endif /* _KEXTFIND_QUERY_H_ */

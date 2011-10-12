@@ -169,4 +169,4 @@ Boolean readSystemKextPropertyValues(
 
 extern char * createUTF8CStringForCFString(CFStringRef aString);
 
-#endif
+#endif /* _KEXT_TOOLS_UTIL_H */

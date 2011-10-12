@@ -239,7 +239,7 @@ int main(int argc, char * const * argv)
 finish:
 #ifndef NO_CFUserNotification
     stopMonitoringConsoleUser();
-#endif
+#endif /* ifndef NO_CFUserNotification */
 
     kextd_stop_volwatch();    // no-op if watch_volumes not called
     
@@ -550,7 +550,7 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
     if (result != EX_OK) {
         goto finish;
     }
-#endif
+#endif /* ifndef NO_CFUserNotification */
 
     signal(SIGHUP,  handleSignal);
     signal(SIGTERM, handleSignal);
@@ -793,7 +793,7 @@ void rescanExtensions(void)
 
 #ifndef NO_CFUserNotification
     resetUserNotifications(/* dismissAlert */ false);
-#endif
+#endif /* ifndef NO_CFUserNotification */
 
     releaseExtensions(/* timer */ NULL, /* context */ NULL);
     readExtensions();

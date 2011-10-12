@@ -678,6 +678,9 @@ static void profile_free_file_data(prf_data_t data)
 errcode_t profile_close_file(prf_file_t prf)
 {
 	errcode_t	retval;
+
+	if (prf == NULL)
+		return 0;
 	
 	retval = profile_flush_file(prf);
 	if (retval)

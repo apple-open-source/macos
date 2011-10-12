@@ -44,29 +44,19 @@ verify_common (krb5_context context,
 	       krb5_creds *cred)
 {
     krb5_error_code ret;
-    krb5_principal server;
     krb5_verify_init_creds_opt vopt;
     krb5_ccache id;
 
-    if (server_principal == NULL) {
-	ret = krb5_sname_to_principal (context, NULL, service, KRB5_NT_SRV_HST,
-				       &server);
-	if(ret)
-	    return ret;
-    } else
-	server = server_principal;
-
     krb5_verify_init_creds_opt_init(&vopt);
     krb5_verify_init_creds_opt_set_ap_req_nofail(&vopt, secure);
+    krb5_verify_init_creds_opt_set_service(&vopt, service);
 
     ret = krb5_verify_init_creds(context,
 				 cred,
-				 server,
+				 server_principal,
 				 keytab,
 				 NULL,
 				 &vopt);
-    if (server_principal == NULL)
-	krb5_free_principal(context, server);
     if(ret)
 	return ret;
     if(ccache == NULL)

@@ -217,6 +217,8 @@ struct IOPCIPhysicalAddress {
 #define kIOPMPCIConfigSpaceVolatileKey  "IOPMPCIConfigSpaceVolatile"
 // property to disable express link on sleep
 #define kIOPMPCISleepLinkDisableKey     "IOPMPCISleepLinkDisable"
+// property to reset secondary bus on sleep
+#define kIOPMPCISleepResetKey           "IOPMPCISleepReset"
 
 // pci express link status
 #define kIOPCIExpressLinkStatusKey       "IOPCIExpressLinkStatus"

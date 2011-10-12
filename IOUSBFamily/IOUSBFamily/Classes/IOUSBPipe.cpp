@@ -374,7 +374,8 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
         return kIOReturnSuccess;
 	}
 	
-	// Make sure our device doesn't go away
+	// Make sure we don't go away and our device doesn't go away
+	retain();
 	_DEVICE->retain();
 	
     err = _controller->ClearPipeStall(_address, &_endpoint);
@@ -397,40 +398,45 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 		// just send a message to all the clients of our parent.  The hub driver will be the only one that
 		// should do anything with that message.
 		//
-		if ( (_DEVICE != NULL) && (_DEVICE->_expansionData->_usbPlaneParent ) )
+		if ( _expansionData && _DEVICE && _DEVICE->_expansionData && _DEVICE->_expansionData->_usbPlaneParent )
 		{
 			IOUSBHubPortClearTTParam	params;
 			UInt8						deviceAddress;		//<<0
 			UInt8						endpointNum;		//<<8
 			UInt8						endpointType;		//<<16 // As split transaction. 00 Control, 10 Bulk
 			UInt8						in;					//<<24 // Direction, 1 = IN, 0 = OUT};
+			IOUSBDevice *				usbParent = _DEVICE->_expansionData->_usbPlaneParent;
 			
-			params.portNumber = _DEVICE->_expansionData->_portNumber;
-			deviceAddress = _DEVICE->GetAddress();
-			endpointNum = _endpoint.number;
-			if (_endpoint.transferType == kUSBControl)
+			if (usbParent)
 			{
-				endpointType = 0;	// As split transaction. 00 Control, 10 Bulk
-				in = 0;				// Direction, 1 = IN, 0 = OUT, not used for control
-			}
-			else
-			{
-				endpointType = 2;		// As split transaction. 00 Control, 10 Bulk
-				if (_endpoint.direction == kUSBIn)
+				usbParent->retain();
+				params.portNumber = _DEVICE->_expansionData->_portNumber;
+				deviceAddress = _DEVICE->GetAddress();
+				endpointNum = _endpoint.number;
+				if (_endpoint.transferType == kUSBControl)
 				{
-					in = 1;			// Direction, 1 = IN, 0 = OUT, not used for control
+					endpointType = 0;	// As split transaction. 00 Control, 10 Bulk
+					in = 0;				// Direction, 1 = IN, 0 = OUT, not used for control
 				}
 				else
 				{
-					in = 0;
+					endpointType = 2;		// As split transaction. 00 Control, 10 Bulk
+					if (_endpoint.direction == kUSBIn)
+					{
+						in = 1;			// Direction, 1 = IN, 0 = OUT, not used for control
+					}
+					else
+					{
+						in = 0;
+					}
 				}
+				params.options = deviceAddress + (endpointNum <<8) + (endpointType << 16) + (in << 24);
+				
+				
+				USBLog(6, "IOUSBPipe[%p]::ClearPipeStall  calling device messageClients (kIOUSBMessageHubPortClearTT) with options: 0x%x", this, (uint32_t)params.options);
+				(void) usbParent->messageClients(kIOUSBMessageHubPortClearTT, &params, sizeof(params));
+				usbParent->release();
 			}
-			params.options = deviceAddress + (endpointNum <<8) + (endpointType << 16) + (in << 24);
-			
-			USBLog(6, "IOUSBPipe[%p]::ClearPipeStall  calling device messageClients (kIOUSBMessageHubPortClearTT) with options: 0x%x", this, (uint32_t)params.options);
-			_DEVICE->_expansionData->_usbPlaneParent->retain();
-			(void) _DEVICE->_expansionData->_usbPlaneParent->messageClients(kIOUSBMessageHubPortClearTT, &params, sizeof(params));
-			_DEVICE->_expansionData->_usbPlaneParent->release();
 		}
     }
     else
@@ -463,6 +469,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
     }
 	
 	_DEVICE->release();
+	release();
 
     return err;
 }

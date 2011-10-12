@@ -147,7 +147,8 @@ kadm5_ret_t
 kadm5_s_create_principal(void *server_handle,
 			 kadm5_principal_ent_t princ,
 			 uint32_t mask,
-			 const char *password)
+			 const char *password,
+			 krb5_enctype *enctypes)
 {
     kadm5_ret_t ret;
     hdb_entry_ex ent;
@@ -169,7 +170,7 @@ kadm5_s_create_principal(void *server_handle,
     ent.entry.keys.len = 0;
     ent.entry.keys.val = NULL;
 
-    ret = _kadm5_set_keys(context, &ent.entry, password);
+    ret = _kadm5_set_keys(context, &ent.entry, password, NULL);
     if (ret)
 	goto out;
 

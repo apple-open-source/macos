@@ -29,7 +29,6 @@
 #include "Completion.h"
 #include "CallFrame.h"
 #include "JSCell.h"
-#include "MarkStack.h"
 #include "PropertySlot.h"
 #include "PutPropertySlot.h"
 #include "ScopeChain.h"
@@ -49,6 +48,7 @@ namespace JSC {
     
     class HashEntry;
     class InternalFunction;
+    class MarkedBlock;
     class PropertyDescriptor;
     class PropertyNameArray;
     class Structure;
@@ -76,9 +76,12 @@ namespace JSC {
         friend class BatchedTransitionOptimizer;
         friend class JIT;
         friend class JSCell;
+        friend class MarkedBlock;
         friend void setUpStaticFunctionSlot(ExecState* exec, const HashEntry* entry, JSObject* thisObj, const Identifier& propertyName, PropertySlot& slot);
 
     public:
+        typedef JSCell Base;
+
         virtual void visitChildren(SlotVisitor&);
         ALWAYS_INLINE void visitChildrenDirect(SlotVisitor&);
 
@@ -221,6 +224,11 @@ namespace JSC {
         void allocatePropertyStorage(size_t oldSize, size_t newSize);
         bool isUsingInlineStorage() const { return static_cast<const void*>(m_propertyStorage) == static_cast<const void*>(this + 1); }
 
+        void* addressOfPropertyAtOffset(size_t offset)
+        {
+            return static_cast<void*>(&m_propertyStorage[offset]);
+        }
+
         static const unsigned baseExternalStorageCapacity = 16;
 
         void flattenDictionaryObject(JSGlobalData& globalData)
@@ -245,7 +253,9 @@ namespace JSC {
         }
 
         static size_t offsetOfInlineStorage();
-        
+        static size_t offsetOfPropertyStorage();
+        static size_t offsetOfInheritorID();
+
         static JS_EXPORTDATA const ClassInfo s_info;
 
     protected:
@@ -324,6 +334,8 @@ COMPILE_ASSERT((JSFinalObject_inlineStorageCapacity >= JSNonFinalObject_inlineSt
         friend class JSObject;
 
     public:
+        typedef JSObject Base;
+
         static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
             return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
@@ -352,9 +364,16 @@ COMPILE_ASSERT((JSFinalObject_inlineStorageCapacity >= JSNonFinalObject_inlineSt
         friend class JSObject;
 
     public:
+        typedef JSObject Base;
+
+        explicit JSFinalObject(VPtrStealingHackType)
+            : JSObject(VPtrStealingHack, m_inlineStorage)
+        {
+        }
+        
         static JSFinalObject* create(ExecState* exec, Structure* structure)
         {
-            return new (exec) JSFinalObject(exec->globalData(), structure);
+            return new (allocateCell<JSFinalObject>(*exec->heap())) JSFinalObject(exec->globalData(), structure);
         }
 
         static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
@@ -379,6 +398,16 @@ inline size_t JSObject::offsetOfInlineStorage()
 {
     ASSERT(OBJECT_OFFSETOF(JSFinalObject, m_inlineStorage) == OBJECT_OFFSETOF(JSNonFinalObject, m_inlineStorage));
     return OBJECT_OFFSETOF(JSFinalObject, m_inlineStorage);
+}
+
+inline size_t JSObject::offsetOfPropertyStorage()
+{
+    return OBJECT_OFFSETOF(JSObject, m_propertyStorage);
+}
+
+inline size_t JSObject::offsetOfInheritorID()
+{
+    return OBJECT_OFFSETOF(JSObject, m_inheritorID);
 }
 
 inline JSObject* constructEmptyObject(ExecState* exec, Structure* structure)
@@ -446,6 +475,7 @@ inline void JSObject::setPrototype(JSGlobalData& globalData, JSValue prototype)
 
 inline void JSObject::setStructure(JSGlobalData& globalData, Structure* structure)
 {
+    ASSERT(structure->typeInfo().overridesVisitChildren() == m_structure->typeInfo().overridesVisitChildren());
     m_structure.set(globalData, this, structure);
 }
 
@@ -510,6 +540,22 @@ ALWAYS_INLINE bool JSCell::fastGetOwnPropertySlot(ExecState* exec, const Identif
     if (!structure()->typeInfo().overridesGetOwnPropertySlot())
         return asObject(this)->inlineGetOwnPropertySlot(exec, propertyName, slot);
     return getOwnPropertySlot(exec, propertyName, slot);
+}
+
+// Fast call to get a property where we may not yet have converted the string to an
+// identifier. The first time we perform a property access with a given string, try
+// performing the property map lookup without forming an identifier. We detect this
+// case by checking whether the hash has yet been set for this string.
+ALWAYS_INLINE JSValue JSCell::fastGetOwnProperty(ExecState* exec, const UString& name)
+{
+    if (!m_structure->typeInfo().overridesGetOwnPropertySlot() && !m_structure->hasGetterSetterProperties()) {
+        size_t offset = name.impl()->hasHash()
+            ? m_structure->get(exec->globalData(), Identifier(exec, name))
+            : m_structure->get(exec->globalData(), name);
+        if (offset != WTF::notFound)
+            return asObject(this)->locationForOffset(offset)->get();
+    }
+    return JSValue();
 }
 
 // It may seem crazy to inline a function this large but it makes a big difference
@@ -587,7 +633,7 @@ inline bool JSObject::putDirectInternal(JSGlobalData& globalData, const Identifi
             return true;
         }
 
-        if (!isExtensible())
+        if (checkReadOnly && !isExtensible())
             return false;
 
         size_t currentCapacity = m_structure->propertyStorageCapacity();
@@ -651,7 +697,7 @@ inline bool JSObject::putDirectInternal(JSGlobalData& globalData, const Identifi
         return true;
     }
 
-    if (!isExtensible())
+    if (checkReadOnly && !isExtensible())
         return false;
 
     Structure* structure = Structure::addPropertyTransition(globalData, m_structure.get(), propertyName, attributes, specificFunction, offset);

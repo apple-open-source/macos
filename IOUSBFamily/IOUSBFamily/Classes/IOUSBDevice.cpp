@@ -91,7 +91,7 @@ extern "C" {
 #define _DO_PORT_REENUMERATE_THREAD		_expansionData->_doPortReEnumerateThread
 
 
-#define kNotifyTimerDelay			60000	// in milliseconds = 30 seconds
+#define kNotifyTimerDelay			60000	// in milliseconds = 60 seconds
 #define kUserLoginDelay				20000	// in milliseconds = 20 seconds
 #define kMaxTimeToWaitForReset		20000   // in milliseconds = 10 seconds
 #define kMaxTimeToWaitForSuspend	20000   // in milliseconds = 20 seconds
@@ -2045,7 +2045,7 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
 	
     if (err)
     {
-        USBLog(1,"%s[%p]: error setting config. err=0x%x", getName(), this, err);
+        USBLog(1,"%s[%p]::SetConfiguration  failed SET_CONFIG with error 0x%x (%s)", getName(), this, err, USBStringFromReturn(err));
 		USBTrace( kUSBTDevice,  kTPDeviceSetConfiguration, (uintptr_t)this, err, request.bmRequestType, request.wValue );
 		return err;
     }
@@ -2754,7 +2754,7 @@ IOUSBDevice::_GetConfiguration(OSObject *target, void *arg0,  __unused void *arg
 	
     if (err)
     {
-        USBLog(1,"%s[%p]: error getting config. err=0x%x", me->getName(), me, err);
+        USBLog(1,"%s[%p]::_GetConfiguration  failed GET_CONFIG with error 0x%x (%s)", me->getName(), me, err, USBStringFromReturn(err));
 		USBTrace( kUSBTDevice, kTPDeviceGetConfiguration, (uintptr_t)me, err, request.bmRequestType, 0);
     }
 	
@@ -3642,24 +3642,12 @@ IOUSBDevice::_ReEnumerateDevice(OSObject *target, void *arg0, __unused void *arg
     }
 
     // Since we are going to re-enumerate the device, all drivers and interfaces will be
-    // terminated, so we don't need to make this device synchronous.  In fact, we want it
-    // async, because this device will go away. We do clear our lock when we finish processing the re-enumeration in the callout thread.
+    // terminated, so we don't need to make this call synchronous.  In fact, we want it
+    // async, because this device will go away.
     //
 	USBLog(6, "%s[%p]::_ReEnumerateDevice for port %d, options 0x%x", me->getName(), me, (uint32_t)me->_PORT_NUMBER, (uint32_t)*options );
 	USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, *options, 4 );
 
-    if( me->_pipeZero) 
-    {
-        me->_pipeZero->Abort();
-		me->_pipeZero->ClosePipe();
-        me->_pipeZero->release();
-        me->_pipeZero = NULL;
-    }
-	
-    // Remove any interfaces and their drivers
-    //
-    me->TerminateInterfaces(true);
-	
 	if( me->_HUBPARENT )
 	{
 		me->retain();

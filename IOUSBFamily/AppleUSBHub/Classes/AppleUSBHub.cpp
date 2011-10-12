@@ -474,7 +474,7 @@ AppleUSBHub::stop(IOService * provider)
     USBLog(6, "AppleUSBHub[%p]::stop - calling PMstop", this);
 	PMstop();
 	
-    USBLog(6, "AppleUSBHub[%p]::stop - calling super::stop", this);
+    USBLog(6, "AppleUSBHub[%p]::stop - calling super::stop - retainCount(%d)", this, getRetainCount());
 
     super::stop(provider);
 }
@@ -758,6 +758,7 @@ AppleUSBHub::didTerminate( IOService * provider, IOOptionBits options, bool * de
 		USBLog(5, "AppleUSBHub[%p]::didTerminate - _device(%p) - setting needToClose - _outstandingIO(%d) _powerStateChangingTo(%d)", this, _device, (int)_outstandingIO, (int)_powerStateChangingTo);
 		_needToClose = true;
     }
+    USBLog(6, "AppleUSBHub[%p]::didTerminate isInactive = %d - retainCount(%d) - calling superclass", this, isInactive(), getRetainCount());
     return super::didTerminate(provider, options, defer);
 }
 
@@ -766,7 +767,7 @@ AppleUSBHub::didTerminate( IOService * provider, IOOptionBits options, bool * de
 bool
 AppleUSBHub::terminate( IOOptionBits options )
 {
-    USBLog(3, "AppleUSBHub[%p]::terminate isInactive = %d", this, isInactive());
+    USBLog(6, "AppleUSBHub[%p]::terminate isInactive = %d - retainCount(%d)", this, isInactive(), getRetainCount());
     return super::terminate(options);
 }
 
@@ -774,6 +775,7 @@ AppleUSBHub::terminate( IOOptionBits options )
 void
 AppleUSBHub::free( void )
 {
+	USBLog(6, "AppleUSBHub[%p]::free", this);
 	if (_timerSource)
     {
         _timerSource->release();
@@ -4224,7 +4226,7 @@ AppleUSBHub::WaitForPortResumes( )
 								if (nextPort && (nextPort->_portPMState == usbHPPMS_pm_suspended))
 								{
 									// reissue the command which was issued earlier and apparently didn't stick
-									USBLog(1, "AppleUSBHub[%p]::WaitForPortResumes - since port %d is now done, issuing the resume for port %d", this, portNum, nextIndex+1);
+									USBLog(3, "AppleUSBHub[%p]::WaitForPortResumes - since port %d is now done, issuing the resume for port %d", this, portNum, nextIndex+1);
 									kr = nextPort->SuspendPort(false, false);					
 									if (kr)
 									{

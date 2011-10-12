@@ -99,6 +99,7 @@ ModuleNexus<CallbackMaker> gCallbackMaker;
 
 CCallbackMgr::CCallbackMgr() : EventListener (kNotificationDomainDatabase, kNotificationAllEvents)
 {
+    EventListener::FinishedInitialization(this);
 }
 
 CCallbackMgr::~CCallbackMgr()

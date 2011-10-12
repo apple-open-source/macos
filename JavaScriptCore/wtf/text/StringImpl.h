@@ -61,6 +61,7 @@ enum TextCaseSensitivity { TextCaseSensitive, TextCaseInsensitive };
 typedef OwnFastMallocPtr<const UChar> SharableUChar;
 typedef CrossThreadRefCounted<SharableUChar> SharedUChar;
 typedef bool (*CharacterMatchFunctionPtr)(UChar);
+typedef bool (*IsWhiteSpaceFunctionPtr)(UChar);
 
 class StringImpl : public StringImplBase {
     friend struct JSC::IdentifierCStringTranslator;
@@ -237,6 +238,7 @@ public:
 
     unsigned hash() const { if (!m_hash) m_hash = StringHasher::computeHash(m_data, m_length); return m_hash; }
     unsigned existingHash() const { ASSERT(m_hash); return m_hash; }
+    bool hasHash() const { return m_hash; }
 
     ALWAYS_INLINE void deref() { m_refCountAndFlags -= s_refCountIncrement; if (!(m_refCountAndFlags & (s_refCountMask | s_refCountFlagStatic))) delete this; }
     ALWAYS_INLINE bool hasOneRef() const { return (m_refCountAndFlags & (s_refCountMask | s_refCountFlagStatic)) == s_refCountIncrement; }
@@ -290,7 +292,9 @@ public:
     PassRefPtr<StringImpl> foldCase();
 
     PassRefPtr<StringImpl> stripWhiteSpace();
+    PassRefPtr<StringImpl> stripWhiteSpace(IsWhiteSpaceFunctionPtr);
     PassRefPtr<StringImpl> simplifyWhiteSpace();
+    PassRefPtr<StringImpl> simplifyWhiteSpace(IsWhiteSpaceFunctionPtr);
 
     PassRefPtr<StringImpl> removeCharacters(CharacterMatchFunctionPtr);
 
@@ -330,6 +334,9 @@ private:
     
     BufferOwnership bufferOwnership() const { return static_cast<BufferOwnership>(m_refCountAndFlags & s_refCountMaskBufferOwnership); }
     bool isStatic() const { return m_refCountAndFlags & s_refCountFlagStatic; }
+    template <class UCharPredicate> PassRefPtr<StringImpl> stripMatchedCharacters(UCharPredicate);
+    template <class UCharPredicate> PassRefPtr<StringImpl> simplifyMatchedCharactersToSpace(UCharPredicate);
+
     const UChar* m_data;
     union {
         void* m_buffer;

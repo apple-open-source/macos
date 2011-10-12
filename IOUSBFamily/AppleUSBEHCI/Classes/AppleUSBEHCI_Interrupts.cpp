@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2011 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -62,9 +62,13 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 		//
 		if ( ++_errors.hostSystemError == (UInt32) (1L << _errors.displayed) )
 		{
-			USBLog(1, "AppleUSBEHCI[%p]::PollInterrupts - Host System Error Occurred - not restarted",  this);
+			showRegisters(1, "Host System Error");
+			USBLog(1, "AppleUSBEHCI[%p]::PollInterrupts - Host System Error Occurred (fatal PCI error) - not restarted - USBCMD(0x%x) USBSTS(0x%x)",  this, USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS));
 			USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts , (uintptr_t)this, _errors.displayed, 0, 1 );
 			_errors.displayed++;
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+			panic("AppleUSBEHCI[%p] - Host System Error! This is a hardware/PCI error!! USBCMD(0x%x) USBSTS(0x%x)\n", this, USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS));
+#endif
 		}
     }
 	
@@ -202,6 +206,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
     
     register UInt32			activeInterrupts;
     register UInt32			enabledInterrupts;
+	UInt32					statusClearBits = 0;
     Boolean					needSignal = false;
     uint64_t				timeStamp;
     
@@ -227,18 +232,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 
     if (activeInterrupts != 0)
     {		
-		UInt32			frindex;
-
-		// get the frame index (if possible) so that we can stamp our Tracepoint but will also bail if it has gone away
-		frindex = USBToHostLong(_pEHCIRegisters->FRIndex);
-		if (frindex == kEHCIInvalidRegisterValue)
-		{
-			// we got disconnected
-			_controllerAvailable = false;
-			return false;
-		}
-		
-		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPrimaryInterruptFilter, (uintptr_t)this, enabledInterrupts, activeInterrupts, (_frameNumber << 3) + frindex );
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPrimaryInterruptFilter, (uintptr_t)this, enabledInterrupts, activeInterrupts, 0 );
 
 		// One of our 6 interrupts fired.  Process the ones which need to be processed at primary int time
         //
@@ -248,6 +242,16 @@ AppleUSBEHCI::FilterInterrupt(int index)
         if (activeInterrupts & kEHCIFrListRolloverIntBit)
         {
 			uint64_t		tempTime;
+			UInt32			frindex;
+			
+			// get the frame index (if possible) so that we can stamp our Tracepoint but will also bail if it has gone away
+			frindex = USBToHostLong(_pEHCIRegisters->FRIndex);
+			if (frindex == kEHCIInvalidRegisterValue)
+			{
+				// we got disconnected
+				_controllerAvailable = false;
+				return false;
+			}
 			
 			// NOTE: This code depends upon the fact that we do not change the Frame List Size
 			// in the USBCMD register. If the frame list size changes, then this code needs to change
@@ -259,56 +263,31 @@ AppleUSBEHCI::FilterInterrupt(int index)
 			_tempAnchorTime = *(AbsoluteTime*)&tempTime;
 			_frameRolloverInterrupt = kEHCIFrListRolloverIntBit;
 		
-			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIFrListRolloverIntBit);			// clear the interrupt
-            IOSync();
+			statusClearBits |= kEHCIFrListRolloverIntBit;
         }
 		// at the moment, let the secondary interrupt handler get these by signaling
         if (activeInterrupts & kEHCIAAEIntBit)
 		{
 			_asyncAdvanceInterrupt = kEHCIAAEIntBit;
-			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIAAEIntBit);				// clear the interrupt
-            IOSync();
+			statusClearBits |= kEHCIAAEIntBit;
 			needSignal = true;
 		}
         if (activeInterrupts & kEHCIHostErrorIntBit)
 		{
 			_hostErrorInterrupt = kEHCIHostErrorIntBit;
-			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIHostErrorIntBit);				// clear the interrupt
-            IOSync();
+			statusClearBits |= kEHCIHostErrorIntBit;
 			needSignal = true;
 		}
         if (activeInterrupts & kEHCIPortChangeIntBit)
 		{
 			_portChangeInterrupt = kEHCIPortChangeIntBit;
-			// _pEHCIRegisters->USBIntr = _pEHCIRegisters->USBIntr & ~HostToUSBLong(kEHCIPortChangeIntBit);	// disable for now
-			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIPortChangeIntBit);									// clear the interrupt
-            IOSync();
-			if (_errataBits & kErrataNECIncompleteWrite)
-			{
-				UInt32		newValue = 0, count = 0;
-				newValue = USBToHostLong(_pEHCIRegisters->USBSTS);											// this bit SHOULD now be cleared
-				while ((count++ < 10) && (newValue & kEHCIPortChangeIntBit))
-				{
-					if (newValue == kEHCIInvalidRegisterValue)
-					{
-						// we got disconnected
-						_controllerAvailable = false;
-						return false;
-					}
-					// can't log in the FilterInterrupt routine
-					// USBError(1, "EHCI driver: FilterInterrupt - PCD bit not sticking. Retrying.");
-					_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIPortChangeIntBit);							// clear the bit again
-					IOSync();
-					newValue = USBToHostLong(_pEHCIRegisters->USBSTS);
-				}
-			}
+			statusClearBits |= kEHCIPortChangeIntBit;
 			needSignal = true;
 		}
         if (activeInterrupts & kEHCIErrorIntBit)
 		{
 			_errorInterrupt = kEHCIErrorIntBit;
-			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIErrorIntBit);				// clear the interrupt
-            IOSync();
+			statusClearBits |= kEHCIErrorIntBit;
 			needSignal = true;
 		}
         if (activeInterrupts & kEHCICompleteIntBit)
@@ -318,14 +297,26 @@ AppleUSBEHCI::FilterInterrupt(int index)
             //
 			timeStamp = mach_absolute_time();
 
-			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCICompleteIntBit);			// clear the interrupt
-            IOSync();
+			statusClearBits |= kEHCICompleteIntBit;
 			needSignal = true;
+			
+			// 9385815 - it appears that on some PCIe buses we need to read from a register over the bus AFTER we clear the bits
+			// since we are about to read the USBCMD register in the if statement, we go ahead and write to the STS register
+			// before we do that
+			if (!_inAbortIsochEP)
+			{
+				_pEHCIRegisters->USBSTS = HostToUSBLong(statusClearBits);							// clear the bit again
+				IOSync();
+				statusClearBits = 0;
+			}
 			
 			// we need to check the periodic list to see if there are any Isoch TDs which need to come off
 			// and potentially have their frame lists updated (for Low Latency) we will place them in reverse
 			// order on a "done queue" which will be looked at by the isoch scavanger
 			// only do this if the periodic schedule is enabled
+			
+			// ***** WARNING WARNING WARNING *****
+			// Do not switch terms 2 and 3 of this if statement, or you may reintroduce 9385815
 			if (!_inAbortIsochEP && (_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDPeriodicEnable)) && (_outSlot < kEHCIPeriodicListEntries))
 			{
 				IOUSBControllerIsochListElement *cachedHead;
@@ -481,6 +472,18 @@ AppleUSBEHCI::FilterInterrupt(int index)
 		}
     }
 	
+	if (statusClearBits)
+	{
+		UInt32		usbsts;
+		
+		_pEHCIRegisters->USBSTS = HostToUSBLong(statusClearBits);							// clear the bit again
+		IOSync();
+		
+		// 9385815 - if we didn't do this earlier, we need to read over the PCIe bus at least once after we write the bits to clear the status
+		usbsts = USBToHostLong(_pEHCIRegisters->USBSTS);
+		
+	}
+
     // We will return false from this filter routine, but will indicate that there the action routine should be called by calling _filterInterruptSource->signalInterrupt(). 
     // This is needed because IOKit will disable interrupts for a level interrupt after the filter interrupt is run, until the action interrupt is called.  We want to be
     // able to have our filter interrupt routine called before the action routine runs, if needed.  That is what will enable low latency isoch transfers to work, as when the

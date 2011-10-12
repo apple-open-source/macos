@@ -85,4 +85,4 @@ typedef struct SystemStarterIPCMessage {
 #define kIPCConfigSettingVerboseFlag	CFSTR("VerboseFlag")
 #define kIPCConfigSettingNetworkUp	CFSTR("NetworkUp")
 
-#endif
+#endif /* _SYSTEM_STARTER_IPC_H */

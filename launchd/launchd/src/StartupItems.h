@@ -112,4 +112,4 @@ void StartupItemSetStatus(CFMutableDictionaryRef aStatusDict, CFMutableDictionar
  */
 bool StartupItemSecurityCheck(const char *aPath);
 
-#endif
+#endif /* _StartupItems_H_ */

@@ -74,6 +74,7 @@
 		451711FF10C97D510027078B /* server.c in Sources */ = {isa = PBXBuildFile; fileRef = D6516B060F17F8C8003A80A8 /* server.c */; };
 		451720011152F3F300F83C4A /* smb_preferences.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 45171FF01152F2C900F83C4A /* smb_preferences.h */; };
 		451F0B2010BB11AE00F5DAEE /* netfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 451F0B1E10BB11AE00F5DAEE /* netfs.c */; };
+		452AC8F713CA50A000BF25BE /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 452AC8F613CA50A000BF25BE /* OpenDirectory.framework */; };
 		452C67120AF9924D003AC608 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5A268BB02242ABA01CA2BBA /* CoreFoundation.framework */; };
 		45329A7409E2283700B4975E /* mount_smbfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D8D3005009680437F000001 /* mount_smbfs.c */; };
 		45329A7609E2283700B4975E /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5A268BB02242ABA01CA2BBA /* CoreFoundation.framework */; settings = {ATTRIBUTES = (Required, ); }; };
@@ -557,6 +558,7 @@
 		45171FF01152F2C900F83C4A /* smb_preferences.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = smb_preferences.h; sourceTree = "<group>"; };
 		451F0B1E10BB11AE00F5DAEE /* netfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = netfs.c; path = smbclient/netfs.c; sourceTree = "<group>"; };
 		451F0B1F10BB11AE00F5DAEE /* smbclient_netfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = smbclient_netfs.h; path = smbclient/smbclient_netfs.h; sourceTree = "<group>"; };
+		452AC8F613CA50A000BF25BE /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = ../../../../../../../../../Volumes/11A509/System/Library/Frameworks/OpenDirectory.framework; sourceTree = "<group>"; };
 		45313D25109B43AF00BFF3B4 /* smbclient.exports */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = smbclient.exports; path = smbclient/smbclient.exports; sourceTree = "<group>"; };
 		45329A8009E2283700B4975E /* mount_smbfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_smbfs; sourceTree = BUILT_PRODUCTS_DIR; };
 		45329CD809E23B4200B4975E /* libsmb.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsmb.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -786,6 +788,7 @@
 				D6516DE40F18194B003A80A8 /* CoreFoundation.framework in Frameworks */,
 				D6516DF00F181A7D003A80A8 /* CoreServices.framework in Frameworks */,
 				454CB1141209BC82001B286F /* NetFS.framework in Frameworks */,
+				452AC8F713CA50A000BF25BE /* OpenDirectory.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1051,6 +1054,7 @@
 		456C8C110ADD6B1D005890B8 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				452AC8F613CA50A000BF25BE /* OpenDirectory.framework */,
 				458C9BC41154322D005AE5D6 /* SystemConfiguration.framework */,
 				4590548B10DBEDD500128D34 /* DCERPC.framework */,
 				4503A284105B040B00B1FEBB /* SMBClient.framework */,
@@ -3278,6 +3282,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					/Volumes/11A509/System/Library/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -3341,6 +3346,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					/Volumes/11A509/System/Library/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;

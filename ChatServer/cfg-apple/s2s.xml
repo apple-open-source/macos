@@ -84,8 +84,13 @@
 
     <!-- Multihomed machines (with more than one interface and IP address)
          need to specify outgoing S2S connections interface/address.
-         If not set, the <ip> section address above is used. -->
-    <origin>0.0.0.0</origin>
+         If not set, the <ip> section address above is used.
+         APPLE: specify multiple origin IP addrs to add support for both
+         IPv4 and IPv6 connections. -->
+    <origins>
+        <ip>::</ip>
+        <ip>0.0.0.0</ip>
+    </origins>
 
     <!-- Secret used to generate dialback keys. If you have more than
          one s2s instance configured, make sure that this is the same on

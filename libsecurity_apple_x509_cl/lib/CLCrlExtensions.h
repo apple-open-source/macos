@@ -40,7 +40,7 @@ extern "C" {
  */
 getItemFieldFcn getFieldCrlNumber, getFieldDeltaCrl;
 setItemFieldFcn setFieldCrlNumber;
-freeFieldFcn freeFieldIssuingDistPoint, freeFieldOidOrData;
+freeFieldFcn freeFieldIssuingDistPoint, freeFieldOidOrData, freeFieldCrlDistributionPoints;
 
 #ifdef	__cplusplus
 }

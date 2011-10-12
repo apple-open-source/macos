@@ -4,15 +4,15 @@
         <key>OpenSourceProject</key>
         <string>jabberd2</string>
         <key>OpenSourceVersion</key>
-        <string>2.2.13</string>
+        <string>2.2.14</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://jabberd2.xiaoka.com/</string>
+        <string>http://codex.xiaoka.com/wiki/jabberd2:start</string>
         <key>OpenSourceURL</key>
-        <string>http://codex.xiaoka.com/pub/jabberd2/releases/jabberd-2.2.13.tar.bz2</string>
+        <string>http://codex.xiaoka.com/pub/jabberd2/releases/jabberd-2.2.14.tar.bz2</string>
         <key>OpenSourceSHA1</key>
-        <string>31bc6babbf5105dbb2927f46d6033c98aaa99371</string>
+        <string>419319cf8a9ec188b50c349033567977a97d0d72</string>
         <key>OpenSourceImportDate</key>
-        <string>2011-02-24</string>
+        <string>2011-06-22</string>
         <key>OpenSourceModifications</key>
         <array>
             <string>A number of patches to add functionality and customize for OS X Server deployment</string>

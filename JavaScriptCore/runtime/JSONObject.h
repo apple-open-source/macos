@@ -34,8 +34,13 @@ namespace JSC {
 
     class JSONObject : public JSObjectWithGlobalObject {
     public:
-        JSONObject(JSGlobalObject*, Structure*);
+        typedef JSObjectWithGlobalObject Base;
 
+        static JSONObject* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
+        {
+            return new (allocateCell<JSONObject>(*exec->heap())) JSONObject(globalObject, structure);
+        }
+        
         static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
             return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
@@ -47,6 +52,7 @@ namespace JSC {
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | JSObject::StructureFlags;
 
     private:
+        JSONObject(JSGlobalObject*, Structure*);
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 

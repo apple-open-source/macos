@@ -1,5 +1,5 @@
 #include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
-PRODUCT_NAME = libnotify
+PRODUCT_NAME = libsystem_notify
 PRODUCT_NAME[sdk=iphonesimulator*] = libnotify_sim
 INSTALL_PATH = /usr/lib/system
 INSTALL_PATH[sdk=iphonesimulator*] = $(SDKROOT)/usr/lib/system

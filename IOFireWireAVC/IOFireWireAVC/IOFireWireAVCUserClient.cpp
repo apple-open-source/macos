@@ -297,6 +297,7 @@ IOReturn IOFireWireAVCUserClient::clientClose( void )
     if( fOpened )
     {
         fOpened = false;
+		fUnit->close(this);
     }
     
 	fStarted = false;
@@ -1097,3 +1098,21 @@ void AVCUserClientAsyncCommandCallback(void *pRefCon, IOFireWireAVCAsynchronousC
 	pUCAsyncCommand->pUserClient->HandleUCAsyncCommandCallback(pUCAsyncCommand);
 }
 
+// requestTerminate
+//
+//
+
+bool IOFireWireAVCUserClient::requestTerminate( IOService * provider, IOOptionBits options )
+{
+	// don't let this go inactive while its open, else the close can't be sent from the user app
+	
+//	kprintf( "IOFireWireAVCUserClient::requestTerminate\n" );
+	if( fOpened )
+	{
+		return false;
+	}
+	else
+	{
+		return IOService::requestTerminate(provider, options);
+	}
+}

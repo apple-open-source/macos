@@ -53,6 +53,7 @@
 #include "verify_cert.h"
 #include "authz.h"
 #include "display_error_code.h"
+#include "createFVMaster.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -570,6 +571,14 @@ const command commands[] =
 	  "The error can be in decimal or hex, e.g. 1234 or 0x1234. Multiple "
 	  "errors can be separated by spaces.",
 	  "Display a descriptive message for the given error code(s)." },
+
+	{ "create-filevaultmaster-keychain", keychain_createMFV,
+	  "[-p password] [keychain name]\n"
+	  "    -p       Use \"password\" as the password for the keychain being created\n"
+      "    -s  Specify the keysize in bits (default 2048; 1024 & 4096 are allowed)\n"
+	  "By default the keychain will be created in ~/Library/Keychains/\n",
+      "Create a keychain containing a key pair for FileVault recovery use."
+      },
 
 	{}
 };

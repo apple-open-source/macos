@@ -365,5 +365,5 @@ compress_lzss(u_int8_t *dst, u_int32_t dstlen, u_int8_t *src, u_int32_t srcLen)
     return dst;
 }
 
-#endif
+#endif /* !KERNEL */
 

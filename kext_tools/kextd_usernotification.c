@@ -442,4 +442,4 @@ void _notificationDismissed(
     return;
 }
 
-#endif
+#endif /* ifndef NO_CFUserNotification */

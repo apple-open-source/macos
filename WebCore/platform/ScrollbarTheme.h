@@ -42,6 +42,8 @@ public:
     ScrollbarTheme() { }
     virtual ~ScrollbarTheme() {};
 
+    virtual void updateEnabledState(Scrollbar*) { };
+
     virtual bool paint(Scrollbar*, GraphicsContext*, const IntRect& /*damageRect*/) { return false; }
     virtual ScrollbarPart hitTest(Scrollbar*, const PlatformMouseEvent&) { return NoPart; }
     
@@ -51,6 +53,7 @@ public:
 
     virtual bool supportsControlTints() const { return false; }
     virtual bool usesOverlayScrollbars() const { return false; }
+    virtual void updateScrollbarOverlayStyle(Scrollbar*) { }
 
     virtual void themeChanged() {}
     

@@ -121,6 +121,7 @@ my $g_source_type		= "";
 my $g_source_version	= "";	# This is the version number of the old system
 								# passed into us by Server Assistant.
 								# [10.5.x, 10.6.x, and potentially 10.7.x]
+my $g_source_uuid		= "";
 my $g_target_root		= "";
 my $g_language			= "en";	# Should be Tier-0 only in iso format
 								# [en, fr, de, ja], we default this to English, en.
@@ -1912,6 +1913,7 @@ sub update_master_cf ()
 	my $tlsmgr = 0;
 	my $skip_line = 0;
 	my $skip_comment = 0;
+	my $update_deliver = 0;
 
 	open( MASTER_CF, "<${g_target_root}" . "/private/etc/postfix/master.cf" ) or die "can't open ${g_target_root}" . "/private/etc/postfix/master.cf: $!";
 	open (MASTER_CF_OUT, ">${g_target_root}" . "/private/etc/postfix/master.cf.out" ) or die "can't open ${g_target_root}" . "/private/etc/postfix/master.cf.out: $!";
@@ -1974,6 +1976,46 @@ sub update_master_cf ()
 				print MASTER_CF_OUT "${a_line}";
 				print MASTER_CF_OUT "\n";
 			}
+		}
+		elsif (substr($a_line, 0, 7) eq "dovecot")
+		{
+			# update deliver to dovecot-lda
+			$update_deliver = 1;
+			print MASTER_CF_OUT "${a_line}";
+			print MASTER_CF_OUT "\n";
+		}
+		elsif ( $update_deliver == 1 )
+		{
+			# skip comments
+			my $line = $a_line;
+			$line =~ s/^\s+//;
+			if (index($line, "#") == 0) {
+				print MASTER_CF_OUT "$a_line\n";
+				next;
+			}
+
+			# remove -n and/or -s options
+			$line = $a_line;
+			$line =~ s/-[ns] //g;
+			$line =~ s/[ \t]-[ns]//g;
+
+			# skip valid settins that are not the deliver path
+			if ((index($line, " ") == 0 || index($line, "\t") == 0) && (index($line, "/dovecot/deliver") == -1)) {
+				print MASTER_CF_OUT "$line\n";
+				next;
+			}
+
+			# this is the line we care about
+			if ((index($line, "/dovecot/deliver")) > 0) {
+				# change deliver to dovecot-lda
+				$line =~ s/deliver/dovecot-lda/;
+		
+				print MASTER_CF_OUT "$line\n";
+				next;
+			}
+
+			print MASTER_CF_OUT "$line\n";
+			$update_deliver = 0;
 		}
 		elsif ( !("${a_line}" eq "") )
 		{
@@ -2524,7 +2566,9 @@ sub do_migration()
 	}
 
 	if ( !("${g_source_root}" eq "/Previous System") ) {
-		$g_postfix_root = $g_source_root; }
+		$g_postfix_root = $g_source_root;
+		$g_source_uuid = uuidof($g_source_root);
+	}
 
 	## set migration plist info
 	if ( path_exists(${g_migration_plist}) ) {
@@ -2536,6 +2580,9 @@ sub do_migration()
 	qx( ${PLIST_BUDDY} -c 'Add :sourceVersion string ${g_source_version}' ${g_migration_plist} );
 	qx( ${PLIST_BUDDY} -c 'Add :sourceRoot string ${g_source_root}' ${g_migration_plist} );
 	qx( ${PLIST_BUDDY} -c 'Add :targetRoot string ${g_target_root}' ${g_migration_plist} );
+
+	qx( ${PLIST_BUDDY} -c 'Add :sourceUUID string ${g_source_uuid}' ${g_migration_plist} )
+		if $g_source_uuid ne "";
 
 	# enable migration launchd plist
 	qx( ${PLIST_BUDDY} -c 'Set :Disabled bool false' ${g_migration_ld_plist} );
@@ -2878,3 +2925,21 @@ sub do_migration()
 	print LOG_FILE "Mail Migration Complete: $end_time" . "\n";
 	print LOG_FILE "-------------------------------------------------------------\n";
 } # do_migration
+
+sub uuidof
+{
+	my $volume = shift;
+
+	my $uuid = "";
+	if (defined($volume) && $volume ne "" && -e $volume) {
+		my @infos = qx(/usr/sbin/diskutil info "$volume");
+		for (@infos) {
+			if (/\s*Volume UUID:\s*([0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})/) {
+				$uuid = $1;
+				last;
+			}
+		}
+	}
+
+	return $uuid;
+}

@@ -35,7 +35,12 @@ class ObjcInstance;
 
 class ObjCRuntimeObject : public RuntimeObject {
 public:
-    ObjCRuntimeObject(ExecState*, JSGlobalObject*, PassRefPtr<ObjcInstance>);
+    static ObjCRuntimeObject* create(ExecState* exec, JSGlobalObject* globalObject, PassRefPtr<ObjcInstance> inst)
+    {
+        Structure* structure = WebCore::deprecatedGetDOMStructure<ObjCRuntimeObject>(exec);
+        return new (allocateCell<ObjCRuntimeObject>(*exec->heap())) ObjCRuntimeObject(exec, globalObject, inst, structure);
+    }
+
     virtual ~ObjCRuntimeObject();
 
     ObjcInstance* getInternalObjCInstance() const;
@@ -46,6 +51,9 @@ public:
     {
         return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
+
+private:
+    ObjCRuntimeObject(ExecState*, JSGlobalObject*, PassRefPtr<ObjcInstance>, Structure*);
 };
 
 }

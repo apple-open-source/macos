@@ -3,208 +3,6 @@
 	Contains:	The controller tying the various agents together
 	Version:	1.0
 	Copyright:	© 2002-2011 by Apple Computer, Inc., all rights reserved.
-
-	File Ownership:
-
-		DRI:				Matthias Neeracher    x43683
-
-	Writers:
-
-		(MN)	Matthias Neeracher
-
-	Change History (most recent first):
-
-		$Log: MBCController.mm,v $
-		Revision 1.63  2011/04/29 16:39:03  neerache
-		<rdar://problem/9347429>
-		
-		Revision 1.62  2011/04/11 16:57:18  neerache
-		<rdar://problem/9250894>
-		
-		Revision 1.61  2011/04/11 16:52:21  neerache
-		<rdar://problem/9221126>
-		
-		Revision 1.60  2011/03/12 23:43:53  neerache
-		<rdar://problem/9079430>
-		
-		Revision 1.59  2010/10/08 17:40:53  neerache
-		<rdar://problem/8518971>
-		
-		Revision 1.58  2010/10/08 00:15:36  neerache
-		Tweak window background
-		
-		Revision 1.57  2010/10/07 23:07:02  neerache
-		<rdar://problem/8352405>
-		
-		Revision 1.56  2010/09/23 01:53:08  neerache
-		<rdar://problem/8466764>
-		
-		Revision 1.55  2010/09/17 18:53:14  neerache
-		<rdar://problem/6703689>
-		
-		Revision 1.54  2010/08/10 21:15:00  neerache
-		<rdar://problem/8248582>
-		
-		Revision 1.53  2010/08/10 20:24:42  neerache
-		<rdar://problem/7305670>
-		
-		Revision 1.52  2010/07/01 20:38:32  neerache
-		Document workaround for  <rdar://problem/7811808>
-		
-		Revision 1.51  2010/06/29 19:35:07  neerache
-		<rdar://problem/7925965>
-		
-		Revision 1.50  2010/06/24 23:35:03  neerache
-		<rdar://problem/8117658>
-		
-		Revision 1.49  2010/04/24 01:57:10  neerache
-		<rdar://problem/7641028>
-		
-		Revision 1.48  2010/01/18 19:20:38  neerache
-		<rdar://problem/7297328>
-		
-		Revision 1.47  2008/11/20 23:13:11  neerache
-		<rdar://problem/5937079>
-		<rdar://problem/6328581>
-		
-		Revision 1.46  2008/10/24 22:21:06  neerache
-		<rdar://problem/5747583>
-		
-		Revision 1.45  2008/04/22 19:47:41  neerache
-		<rdar://problem/5750936>
-		
-		Revision 1.44  2007/03/02 07:40:46  neerache
-		Revise document handling & saving <rdar://problems/3776337&4186113>
-		
-		Revision 1.43  2007/03/01 23:51:26  neerache
-		Offer option to speak human moves <rdar://problem/4038206>
-		
-		Revision 1.42  2007/03/01 19:53:31  neerache
-		Update move window on load <rdar://problem/3852844>
-		
-		Revision 1.41  2007/01/17 06:10:12  neerache
-		Make last move / hint speakable <rdar://problem/4510483>
-		
-		Revision 1.40  2007/01/16 08:29:39  neerache
-		Log from beginning
-		
-		Revision 1.39  2007/01/16 03:55:02  neerache
-		TTS works again in LP64 <rdar://problem/4899456>
-		
-		Revision 1.38  2006/07/27 04:06:05  neerache
-		Disable TTS for LP64 <rdar://problem/4654447>
-		
-		Revision 1.37  2004/12/20 09:39:29  neerache
-		Implement self test (RADAR 3590419 / Feature 8905)
-		
-		Revision 1.36  2004/09/08 00:35:49  neerache
-		Deal with non-ASCII characters in file names
-		
-		Revision 1.35  2004/08/16 07:49:23  neerache
-		Support flexible voices, weaker levels, accessibility
-		
-		Revision 1.34  2003/08/13 21:23:11  neerache
-		Open games double clicked in the finder (RADAR 2811246)
-		
-		Revision 1.33  2003/08/11 22:55:41  neerache
-		Loading was unreliable (RADAR 2811246)
-		
-		Revision 1.32  2003/08/05 23:39:04  neerache
-		Remove floating board (RADAR 3361896)
-		
-		Revision 1.31  2003/07/07 23:50:58  neerache
-		Make tuner work again
-		
-		Revision 1.30  2003/07/07 09:16:42  neerache
-		Textured windows are too slow for low end machines, disable
-		
-		Revision 1.29  2003/07/07 08:46:52  neerache
-		Localize Style Names
-		
-		Revision 1.28  2003/07/03 08:12:51  neerache
-		Use sheets for saving (RADAR 3093283)
-		
-		Revision 1.27  2003/07/03 03:19:15  neerache
-		Logarithmic time control, more UI tweaks
-		
-		Revision 1.26  2003/07/02 21:06:16  neerache
-		Move about box into separate class/nib
-		
-		Revision 1.25  2003/06/30 05:16:30  neerache
-		Transfer move execution to Controller
-		
-		Revision 1.24  2003/06/16 05:28:32  neerache
-		Added move generation facility
-		
-		Revision 1.23  2003/06/16 02:18:03  neerache
-		Implement floating board
-		
-		Revision 1.22  2003/06/05 08:31:26  neerache
-		Added Tuner
-		
-		Revision 1.21  2003/06/04 23:14:05  neerache
-		Neater manipulation widget; remove obsolete graphics options
-		
-		Revision 1.20  2003/06/02 05:44:48  neerache
-		Implement direct board manipulation
-		
-		Revision 1.19  2003/06/02 04:21:17  neerache
-		Remove gameEnd:, fUseLight
-		
-		Revision 1.18  2003/05/27 03:13:57  neerache
-		Rework game loading/saving code
-		
-		Revision 1.17  2003/05/24 20:29:49  neerache
-		Add game info, improve diagnostics
-		
-		Revision 1.16  2003/05/02 01:14:25  neerache
-		Debug hook
-		
-		Revision 1.15  2003/04/29 00:02:58  neerache
-		Stash our stuff in Application Support
-		
-		Revision 1.14  2003/04/28 22:14:13  neerache
-		Let board, not engine, handle last move
-		
-		Revision 1.13  2003/04/25 16:37:00  neerache
-		Clean automake build
-		
-		Revision 1.12  2003/04/24 23:22:02  neeri
-		Implement persistent preferences, tweak UI
-		
-		Revision 1.11  2003/04/10 23:03:17  neeri
-		Load positions
-		
-		Revision 1.10  2003/04/05 05:45:08  neeri
-		Add PGN export
-		
-		Revision 1.9  2003/04/02 18:21:09  neeri
-		Support saving games
-		
-		Revision 1.8  2003/03/28 01:31:07  neeri
-		Support hints, last move
-		
-		Revision 1.7  2002/12/04 02:26:28  neeri
-		Fix updating when style changes
-		
-		Revision 1.6  2002/10/15 22:49:40  neeri
-		Add support for texture styles
-		
-		Revision 1.5  2002/10/08 22:56:23  neeri
-		Engine logging, color preferences
-		
-		Revision 1.4  2002/09/13 23:57:05  neeri
-		Support for Crazyhouse display and mouse
-		
-		Revision 1.3  2002/09/12 17:55:18  neeri
-		Introduce level controls
-		
-		Revision 1.2  2002/08/26 23:11:17  neeri
-		Switched to Azimuth/Elevation based Camera positioning model
-		
-		Revision 1.1  2002/08/22 23:47:06  neeri
-		Initial Checkin
-		
 */
 
 #import "MBCController.h"
@@ -854,6 +652,9 @@ static id	sInstance;
 
 - (BOOL) loadGame:(NSDictionary *)dict
 {
+	if (!fView)
+		[self setBoardView:NO];
+
 	[fLastLoad release];
 	fLastLoad = [dict retain]; // So we can store key values
 	NSString * v = [dict objectForKey:@"Variant"];
@@ -1089,10 +890,10 @@ const int kNumFixedMenuItems = 2;
 			if (fLastLoad) {
 				if (![fDocument fileURL])
 					[fDocument updateChangeCount:NSChangeDone];
-			} else {
-				static int sFirstUntitledDocument = 0;
-				if (!sFirstUntitledDocument++)
-					[self setBoardView:YES];
+			} else if (!fView) {
+				[self setBoardView:NO];
+				[fBoard startGame:fVariant];
+				[self startGame];
 			}
 		}
 	}
@@ -1137,7 +938,7 @@ const int kNumFixedMenuItems = 2;
 - (void) noteNewRecentDocumentURL:(NSURL *)absoluteURL
 {
 	//
-	// <rdar://problem/9221126>
+	// Should never mention casual game location in recent documents
 	//
 	if (![absoluteURL isEqual:[MBCDocument casualGameSaveLocation]])
 		[super noteNewRecentDocumentURL:absoluteURL];

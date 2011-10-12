@@ -90,7 +90,7 @@ main(int argc, char **argv)
     keyset.kvno = kvno_integer;
 
     ret = hdb_generate_key_set_password(context, principal, password_str,
-					&keyset.keys.val, &len);
+					NULL, &keyset.keys.val, &len);
     if (ret)
 	krb5_err(context, 1, ret, "hdb_generate_key_set_password");
     keyset.keys.len = len;

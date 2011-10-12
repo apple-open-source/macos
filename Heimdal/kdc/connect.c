@@ -417,18 +417,30 @@ kdc_service(void *ctx, const heim_idata *req,
 	     heim_ipc_complete complete,
 	     heim_sipc_call cctx)
 {
+    krb5_socklen_t sasize;
+    struct sockaddr *sa;
     struct descr *d = ctx;
     int datagram_reply = (d->type == SOCK_DGRAM);
     krb5_data reply;
     krb5_error_code ret;
+    char addr[NI_MAXHOST], port[NI_MAXSERV];
 
     krb5_kdc_update_time(NULL);
     krb5_data_zero(&reply);
  
+    sa = heim_ipc_cred_get_client_address(cred, &sasize);
+
+    if (sa == NULL || getnameinfo(sa, sasize, addr, sizeof(addr), port, sizeof(port), NI_NUMERICHOST|NI_NUMERICSERV) != 0)
+	strlcpy(addr, "unknown network address", sizeof(addr));
+    else {
+	strlcat(addr, ":", sizeof(addr));
+	strlcat(addr, port, sizeof(addr));
+    }
+
     ret = krb5_kdc_process_request(kdc_context, kdc_config,
 				   req->data, req->length,
 				   &reply,
-				   "network", d->sa,
+				   addr, sa,
 				   datagram_reply);
     if(request_log)
 	krb5_kdc_save_request(kdc_context, request_log,

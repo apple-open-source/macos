@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireAVCLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireAVC version 4.2.1, Copyright © 2010 Apple Inc. All rights reserved.</string>
+	<string>IOFireWireAVC version 4.2.2, Copyright © 2011 Apple Inc. All rights reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.2.1</string>
+	<string>4.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>4.2.1</string>
+	<string>4.2.2</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>3F4057BC-D479-11D5-9F05-0003934B81A0</key>

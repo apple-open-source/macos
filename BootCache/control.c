@@ -45,7 +45,7 @@ static int	unprint_playlist(const char *pfname);
 static int	generalize_playlist(const char *pfname);
 static int	generate_playlist(const char *pfname, const char *root);
 static int	truncate_playlist(const char *pfname, char *larg);
-static int  add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool shared);
+static int  add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool shared, const bool low_priority);
 static int  add_directory(struct BC_playlist *pc, const char *fname, const int batch, const bool shared);
 static int  add_fseventsd_files(struct BC_playlist *pc, const int batch, const bool shared);
 static int  add_playlist_for_preheated_user(struct BC_playlist *pc);
@@ -215,9 +215,9 @@ static int add_logical_playlist(const char *playlist, struct BC_playlist *pc, in
             int error;
             if ((error = add_directory(pc, filename, batch, shared)) 
                 && error != ENOENT && error != EINVAL)
-                warnx("Error adding files in drectory %s: %s", filename, strerror(errno));
+                warnx("Error adding files in directory %s: %s", filename, strerror(errno));
         } else {
-            add_file(pc, filename, batch, shared);
+            add_file(pc, filename, batch, shared, false);
         }
     }
     fclose(lpl);
@@ -320,10 +320,16 @@ do_boot_cache()
 	// If we don't have a playlist here, we don't want to play back anything
 	if (pc) {
 		// Add the login playlist of user we expect to log in to the boot playlist
-		add_playlist_for_preheated_user(pc);
+		if (0 != add_playlist_for_preheated_user(pc)) {
+			// Unable to add user playlist, add 32-bit shared cache to low-priority playlist
+#if defined __x86_64__
+			add_file(pc, BC_DYLD_SHARED_CACHE_32, 0, true, true);
+			warnx("Added 32-bit shared cache to the low priority batch");
+#endif
+		}
         
 		// rdar://9021675 Always warm the shared cache
-		add_file(pc, BC_DYLD_SHARED_CACHE, -1, true);
+		add_file(pc, BC_DYLD_SHARED_CACHE, -1, true, false);
 	}
 	
 	error = BC_start(pc);
@@ -355,6 +361,8 @@ add_playlist_for_preheated_user(struct BC_playlist *pc) {
 #define TAL_LOGIN_FOREGROUND_APP_BATCH_NUM   0
 #define TAL_LOGIN_BACKGROUND_APP_BATCH_NUM   (TAL_LOGIN_FOREGROUND_APP_BATCH_NUM + 1)
 #define TAL_LOGIN_LOWPRI_DATA_BATCH_NUM      (TAL_LOGIN_BACKGROUND_APP_BATCH_NUM + 1)
+#define I386_SHARED_CACHE_NULL_BATCH_NUM         (-2)
+#define I386_SHARED_CACHE_LOW_PRIORITY_BATCH_NUM (-1)
 
 	int error, i;
 	int playlist_path_end_idx = 0;
@@ -406,7 +414,24 @@ add_playlist_for_preheated_user(struct BC_playlist *pc) {
 	strlcpy(playlist_path + playlist_path_end_idx, MERGED_PLAYLIST, sizeof(playlist_path) - playlist_path_end_idx);
 	error = BC_read_playlist(playlist_path, &user_playlist);
 	
-	if (ENOENT == error) {
+	if (error == 0) {
+#if defined __x86_64__
+		int i386_shared_cache_batch_num = I386_SHARED_CACHE_NULL_BATCH_NUM;
+		if (-1 != getxattr(playlist_path, I386_XATTR_NAME, &i386_shared_cache_batch_num, sizeof(i386_shared_cache_batch_num), 0, 0x0)) {
+			if (i386_shared_cache_batch_num != I386_SHARED_CACHE_NULL_BATCH_NUM) {
+				if (i386_shared_cache_batch_num == I386_SHARED_CACHE_LOW_PRIORITY_BATCH_NUM) {
+					add_file(user_playlist, BC_DYLD_SHARED_CACHE_32, 0, true, true);
+				} else {
+					add_file(user_playlist, BC_DYLD_SHARED_CACHE_32, i386_shared_cache_batch_num, true, false);
+				}
+				// warnx("Added 32-bit shared cache to batch %d", i386_shared_cache_batch_num);
+
+				already_added_i386_shared_cache = true;
+			}
+		}
+#endif
+		
+	} else if (ENOENT == error) {
 		// No merged playlist for the preheated user. Try to create one from its login and app playlists
 		
 		strlcpy(playlist_path + playlist_path_end_idx, LOGIN_PLAYLIST, sizeof(playlist_path) - playlist_path_end_idx);
@@ -471,7 +496,7 @@ add_playlist_for_preheated_user(struct BC_playlist *pc) {
 #if defined __x86_64__
 									if (!already_added_i386_shared_cache) {
 										if (-1 != getxattr(playlist_path, I386_XATTR_NAME, NULL, 0, 0, 0x0)) {
-											add_file(user_playlist, BC_DYLD_SHARED_CACHE_32, batch_offset, true);
+											add_file(user_playlist, BC_DYLD_SHARED_CACHE_32, batch_offset, true, flags & BC_PE_LOWPRIORITY);
 											already_added_i386_shared_cache = true;
 										}
 									}
@@ -545,7 +570,7 @@ out:
  * Add contents of the file to the bootcache
  */
 static int
-add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool shared)
+add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool shared, const bool low_priority)
 {
 #define MAX_FILESIZE (10ll * 1024 * 1024)
     int error;
@@ -571,10 +596,13 @@ add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool 
         }
         return error;
     }
-    if(shared){
+    if(shared || low_priority){
         int i;
+		u_int16_t flags = 0x0;
+		if (shared)	      flags |= BC_PE_SHARED;
+		if (low_priority) flags |= BC_PE_LOWPRIORITY;
         for (i = 0; i < playlist->p_nentries; i++) {
-				playlist->p_entries[i].pe_flags |= BC_PE_SHARED;
+				playlist->p_entries[i].pe_flags |= flags;
         }
     }
     
@@ -630,7 +658,7 @@ add_directory(struct BC_playlist *pc, const char *dname, const int batch, const 
         if (ret < 0 || ret >= MAXPATHLEN)
             continue;
         
-        add_file(pc, fname, batch, shared);
+        add_file(pc, fname, batch, shared, false);
         if (++count >= MAX_FILES_PER_DIR) break;
     }
     
@@ -706,7 +734,7 @@ add_fseventsd_files(struct BC_playlist *pc, const int batch, const bool shared){
             if (ret < 0 || ret >= 128)
                 continue;
             
-            add_file(pc, fname, batch, shared);
+            add_file(pc, fname, batch, shared, false);
         }
     }
     

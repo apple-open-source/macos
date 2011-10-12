@@ -1,0 +1,33 @@
+#!/usr/bin/ruby
+
+PARTITION_MAP_FILENAME = "/etc/dovecot/partition_map.conf"
+
+def get_partition_map
+  partition_map = {}
+  File.open(PARTITION_MAP_FILENAME) do |f|
+    while line = f.gets
+      components = line.chomp.split(":")
+      if components.length == 2
+        partition_map[components[0]] = components[1]
+      end
+    end
+  end
+  partition_map
+end
+
+def find_first_missing_path(paths)
+  paths.each do |path|
+    return path unless File.exist?(path)
+  end
+  nil
+end
+
+partition_map = get_partition_map
+
+while missing_path = find_first_missing_path(partition_map.values)
+  system("/bin/wait4path", missing_path)
+end
+
+exec(*ARGV) unless ARGV.empty?
+
+exit(0)

@@ -162,18 +162,18 @@ void sign(const char *target)
 	
 	// add target-specific signing inputs, mostly carried from a prior signature
 	CFCopyRef<SecCodeSignerRef> currentSigner = signerRef;		// the one we prepared during setup
-	if (preserveMetadata) {
+	if (preserveMetadata && dict) {
 		CFRef<CFMutableDictionaryRef> param = CFDictionaryCreateMutableCopy(NULL, 0, parameters);
-		if (dict && !CFDictionaryGetValue(param, kSecCodeSignerRequirements))
+		if ((preserveMetadata & kPreserveRequirements) && !CFDictionaryGetValue(param, kSecCodeSignerRequirements))
 			if (CFTypeRef ireqs = CFDictionaryGetValue(dict, kSecCodeInfoRequirementData))
 				CFDictionaryAddValue(param, kSecCodeSignerRequirements, ireqs);
-		if (dict && !CFDictionaryGetValue(param, kSecCodeSignerEntitlements))
+		if ((preserveMetadata & kPreserveEntitlements) && !CFDictionaryGetValue(param, kSecCodeSignerEntitlements))
 			if (CFTypeRef entitlements = CFDictionaryGetValue(dict, kSecCodeInfoEntitlements))
 				CFDictionaryAddValue(param, kSecCodeSignerEntitlements, entitlements);
-		if (dict && !uniqueIdentifier)		// reuse identifier
+		if ((preserveMetadata & kPreserveIdentifier) && !uniqueIdentifier)		// reuse identifier
 			if (CFTypeRef identifier = CFDictionaryGetValue(dict, kSecCodeInfoIdentifier))
 				CFDictionaryAddValue(param, kSecCodeSignerIdentifier, identifier);
-		if (dict && !CFDictionaryGetValue(param, kSecCodeSignerResourceRules))
+		if ((preserveMetadata & kPreserveResourceRules) && !CFDictionaryGetValue(param, kSecCodeSignerResourceRules))
 			if (CFTypeRef resourceDirectory = CFDictionaryGetValue(dict, kSecCodeInfoResourceDirectory))
 				CFDictionaryAddValue(param,	kSecCodeSignerResourceRules, resourceDirectory);
 		MacOSError::check(SecCodeSignerCreate(param, kSecCSDefaultFlags, &currentSigner.aref()));

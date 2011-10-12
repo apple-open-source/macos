@@ -7,7 +7,6 @@ $SERVER_ADMIN="/usr/sbin/serveradmin";
 $TAR = "/usr/bin/gnutar";
 $SBS_CONF = "/private/etc/server_backup";
 $MKTEMP_PATH = "/usr/bin/mktemp";
-$JABBER_USER = "_jabber";
 $ServiceConf = "75-iChatServer.plist";
 $servermgrJabberConfigPath = "/Library/Preferences/com.apple.ichatserver.plist";
 $ServiceName = "iChatServer";
@@ -93,7 +92,10 @@ sub Browse()
 		closedir(SBSDIR);
 
 		foreach my $storedFile (@storedFiles) {
-			if ($storedFile =~ /iChatServer.conf.tar.gz/ || $storedFile =~ /iChatServer.data.tar.gz/) {
+			if ($storedFile =~ /iChatServer.conf.tar.gz/ ||
+						$storedFile =~ /iChatServer.data.tar.gz/ || 
+						$storedFile =~ /iChatServer_Rooms.data.tar.gz/)
+			{
 				print "$SBS_PATH/$storedFile\n";
 			}
 		}
@@ -111,7 +113,6 @@ sub Restore()
 	my $sqliteDefaultDbPath = "$jabberdDBPath/jabberd2.db";
 	my $jabberdSqliteDataFile = "";
 	my $jabberDataTmpDir = "";
-	my $C2SPID = "/var/run/jabberd/c2s.pid";
 	my $SBS_PATH = $BigList{"-path"};
 	my $OPT = $BigList{"-opt"};
 	my $initialJabberdState = 0;
@@ -141,21 +142,20 @@ sub Restore()
 	}
 	
 	# Shutdown jabber if its enabled
-	my $res = `ps -xu \"$JABBER_USER\" |grep c2s|grep -v grep`;
-	if ($res ne "") {
+	my $res = `${SERVER_ADMIN} status jabber`;
+	if ($res !~ /STOPPED/) {
 		&_log($OUTPUT_VERBOSE, "Stopping jabber service\n");
-
 		qx($SERVER_ADMIN stop jabber);
 		$initialJabberdState = 1;
 		for (my $x = 0; $x < 5; $x++) {
-			$res = `ps -xu \"$JABBER_USER\" |grep c2s|grep -v grep`;
-			if ($res eq "") {
+			$res = `${SERVER_ADMIN} status jabber`;
+			if ($res =~ /STOPPED/) {
 				last;
 			}
 			sleep 3;
 		}
 	}
-	if ($res ne "") {
+	if ($res !~ /STOPPED/) {
 		&_log($OUTPUT_PRINT, "Error: Cannot stop jabber service\n");
 		return 1;
 	}
@@ -229,14 +229,16 @@ sub Restore()
 		system($cmd);
 
 		# Restore data
-		opendir(SBSDIR, "$SBS_PATH") || die ("Couldn't open the directory $SBS_PATH for reading.\n");;
+		opendir(SBSDIR, "$SBS_PATH") || die ("Couldn't open the directory $SBS_PATH for reading.\n");
 		my @sbsFiles = readdir(SBSDIR);
 		closedir(SBSDIR);
 
 		# should only be one data file in the path. stop at first file.
 		my @sqlFiles;
+		my $foundChatServerData = 0;
+		my $foundRoomsData = 0;
 		SBSFILESCAN: foreach my $sbsFile (@sbsFiles) {
-			if ($sbsFile =~ /iChatServer.data.tar.gz$/) {
+			if ((! foundChatServerData) && $sbsFile =~ /iChatServer.data.tar.gz$/) {
 				for (my $i = 0; $i < 5; $i++) {
 					$jabberDataTmpDir = `$MKTEMP_PATH -d $tmpPath/jabber_restore.XXXXXXXXXXXXXXXXXXXXXXXX`;
 					chomp($jabberDataTmpDir);
@@ -270,8 +272,31 @@ sub Restore()
 						system("chown jabber:jabber \"$jabberdSqliteDataFile\"");
 						unlink("$jabberDataTmpDir/$sqlFile");
 						qx(rm -Rf "$jabberDataTmpDir");
-						last SBSFILESCAN;  # should only be one SQL file
+						$foundChatServerData = 1;
+						if ($foundRoomsData) {
+							last SBSFILESCAN;  # should only be one SQL file
+						}
 					}
+				}
+			} elsif ((! $foundRoomsData) && $sbsFile eq "iChatServer_Rooms.data.tar.gz") {
+				my $roomsDirPath = qx(${PBUDDY} -c "Print :RoomsDataDirectory:" $SBS_CONF/$ServiceConf);
+				chomp($roomsDirPath);
+				my $roomsLogDirPath = qx(${PBUDDY} -c "Print :RoomsLogDataDirectory:" $SBS_CONF/$ServiceConf);
+				chomp($roomsLogDirPath);
+				$origCWD = $ENV{PWD};
+				chdir("/") || die ("Could not chdir to /");
+				if ($VERBOSE) {
+					$cmd = "rm -rf \"$roomsDirPath\" \"$roomsLogDirPath\" ; $TAR -xvzf \"$SBS_PATH/$sbsFile\"";
+					print "Executing command: $cmd\n";
+				} else {
+					$cmd = "rm -rf  \"$roomsDirPath\" \"$roomsLogDirPath\"; $TAR -xzf \"$SBS_PATH/$sbsFile\"";
+				}
+				system($cmd);
+				chdir($origCWD);
+
+				$foundRoomsData = 1;
+				if ($foundChatServerData) {
+					last SBSFILESCAN;  # should only be one Rooms tarfile
 				}
 			}
 		}

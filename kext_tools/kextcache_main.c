@@ -64,7 +64,7 @@
 #if !NO_BOOT_ROOT
 #include "bootcaches.h"
 #include "bootroot_internal.h"
-#endif
+#endif /* !NO_BOOT_ROOT */
 #include "mkext1_file.h"
 #include "compression.h"
 
@@ -197,7 +197,7 @@ int main(int argc, char * const * argv)
                             toolArgs.installerCalled || toolArgs.cachesOnly);
         goto finish;
     }
-#endif
+#endif /* !NO_BOOT_ROOT */
 
    /* If we're uncompressing the prelinked kernel, take care of that here
     * and exit.
@@ -426,7 +426,7 @@ ExitStatus readArgs(
             case kOptForce:
                 toolArgs->forceUpdateFlag = true;
                 break;
-#endif
+#endif /* !NO_BOOT_ROOT */
   
             case kOptLowPriorityFork:
                 toolArgs->lowPriorityFlag = true;
@@ -535,7 +535,7 @@ ExitStatus readArgs(
                     toolArgs->expectUpToDate = true;
                 }
                 break;
-#endif
+#endif /* !NO_BOOT_ROOT */
           
             case kOptQuiet:
                 beQuiet();
@@ -677,7 +677,7 @@ ExitStatus readArgs(
                     case kLongOptCachesOnly:
                         toolArgs->cachesOnly = true;
                         break;
-#endif
+#endif /* !NO_BOOT_ROOT */
 
                     default:
                        /* Because we use ':', getopt_long doesn't print an error message.
@@ -815,7 +815,7 @@ ExitStatus setPrelinkedKernelArgs(
         }
         toolArgs->needDefaultPrelinkedKernelInfo = true;
         setSystemExtensionsFolders(toolArgs);
-#endif
+#endif /* NO_BOOT_ROOT */
     } else {
         size_t len = strlcpy(toolArgs->prelinkedKernelPath, filename, PATH_MAX);
         if (len >= PATH_MAX) {
@@ -879,9 +879,9 @@ Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs)
     const char * prelinkedKernelFile = NULL;
     size_t       length              = 0;
 
-        prelinkedKernelFile =
-            _kOSKextCachesRootFolder "/" _kOSKextStartupCachesSubfolder "/" 
-            _kOSKextPrelinkedKernelBasename;
+    prelinkedKernelFile =
+        _kOSKextCachesRootFolder "/" _kOSKextStartupCachesSubfolder "/" 
+        _kOSKextPrelinkedKernelBasename;
 
     length = strlcpy(toolArgs->prelinkedKernelPath, 
         prelinkedKernelFile, PATH_MAX);
@@ -897,7 +897,7 @@ Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs)
 finish:
     return result;
 }
-#endif
+#endif /* !NO_BOOT_ROOT */
 
 /*******************************************************************************
 *******************************************************************************/
@@ -1151,13 +1151,10 @@ void setDefaultArchesIfNeeded(KextcacheArgs * toolArgs)
 
     CFArrayRemoveAllValues(toolArgs->targetArchs);
     addArchForName(toolArgs, "x86_64");
-
-
-        addArchForName(toolArgs, "i386");
-
+    addArchForName(toolArgs, "i386");
     return;
 }
-#endif
+#endif /* !NO_BOOT_ROOT */
 
 /*******************************************************************************
 ********************************************************************************/
@@ -1314,7 +1311,7 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
             goto finish;
         }
     }
-#endif
+#endif /* !NO_BOOT_ROOT */
 
     if (toolArgs->updateVolumeURL) {
         if (toolArgs->mkextPath || toolArgs->prelinkedKernelPath) {
@@ -1328,7 +1325,7 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
    /* This is so lame.
     */
     setDefaultArchesIfNeeded(toolArgs);
-#endif
+#endif /* !NO_BOOT_ROOT */
 
    /* xxx - Old kextcache behavior was to just check the time of the
     * first directory argument given. Ideally we'd check every single
@@ -1353,7 +1350,7 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
             goto finish;
         }
     }
-#endif
+#endif /* !NO_BOOT_ROOT */
 
     if (toolArgs->prelinkedKernelPath && CFArrayGetCount(toolArgs->argURLs)) {
          if (!toolArgs->kernelPath) {
@@ -1652,7 +1649,7 @@ ExitStatus createMkext(
             goto finish;
         }
     }
-#endif
+#endif /* !NO_BOOT_ROOT */
 
     if (!createCFMutableArray(&mkexts, &kCFTypeArrayCallBacks)) {
         OSKextLogMemError();
@@ -1759,7 +1756,7 @@ finish:
 
 #if !NO_BOOT_ROOT
     putVolumeForPath(toolArgs->mkextPath, result);
-#endif
+#endif /* !NO_BOOT_ROOT */
 
     return result;
 }
@@ -1905,7 +1902,7 @@ void filterKextID(const void * vValue, void * vContext)
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                 "Error - can't find kext with identifier %s.", kextIDCString);
         context->error = TRUE;
-#endif
+#endif /* 0 */
         goto finish;
     }
 
@@ -2294,7 +2291,7 @@ createPrelinkedKernel(
             goto finish;
         }
     }
-#endif
+#endif /* !NO_BOOT_ROOT */
 
     result = createPrelinkedKernelArchs(toolArgs, &prelinkArchs);
     if (result != EX_OK) {
@@ -2408,7 +2405,7 @@ finish:
 
 #if !NO_BOOT_ROOT
     putVolumeForPath(toolArgs->prelinkedKernelPath, result);
-#endif
+#endif /* !NO_BOOT_ROOT */
 
     return result;
 }
@@ -2695,7 +2692,7 @@ void usage(UsageLevel usageLevel)
       "       %1$s [options] -prelinked-kernel\n"
 #if !NO_BOOT_ROOT
       "       %1$s -update-volume <volume> [options]\n"
-#endif
+#endif /* !NO_BOOT_ROOT */
       "       %1$s -system-caches [options]\n"
       "\n",
       progname);
@@ -2728,7 +2725,7 @@ void usage(UsageLevel usageLevel)
             kOptNameInstaller);
     fprintf(stderr, "-%s skips updating any helper partitions even if they appear out of date\n",
             kOptNameCachesOnly);
-#endif
+#endif /* !NO_BOOT_ROOT */
 #if 0
 // don't print this system-use option
     fprintf(stderr, "-%c <volume>:\n"
@@ -2756,7 +2753,7 @@ void usage(UsageLevel usageLevel)
     fprintf(stderr, "-%s (-%c): Update volumes even if they look up to date\n",
         kOptNameForce, kOptForce);
     fprintf(stderr, "\n");
-#endif
+#endif /* !NO_BOOT_ROOT */
 
     fprintf(stderr, "-%s (-%c): Add 'Local-Root' kexts from directories to an mkext file\n",
         kOptNameLocalRoot, kOptLocalRoot);

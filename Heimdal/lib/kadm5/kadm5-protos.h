@@ -47,6 +47,13 @@ kadm5_chpass_principal (
 	const char */*password*/);
 
 kadm5_ret_t
+kadm5_chpass_principal2 (
+	void */*server_handle*/,
+	krb5_principal /*princ*/,
+	const char */*password*/,
+	krb5_enctype *enctypes);
+
+kadm5_ret_t
 kadm5_chpass_principal_with_key (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
@@ -59,6 +66,14 @@ kadm5_create_principal (
 	kadm5_principal_ent_t /*princ*/,
 	uint32_t /*mask*/,
 	const char */*password*/);
+
+kadm5_ret_t
+kadm5_create_principal2 (
+	void */*server_handle*/,
+	kadm5_principal_ent_t /*princ*/,
+	uint32_t /*mask*/,
+	const char */*password*/,
+	krb5_enctype *enctypes);
 
 kadm5_ret_t
 kadm5_delete_principal (
@@ -185,6 +200,14 @@ kadm5_modify_principal (
 	void */*server_handle*/,
 	kadm5_principal_ent_t /*princ*/,
 	uint32_t /*mask*/);
+
+kadm5_ret_t
+kadm5_randkey_principal2 (
+	void */*server_handle*/,
+	krb5_principal /*princ*/,
+	krb5_enctype *enctypes,
+	krb5_keyblock **/*new_keys*/,
+	int */*n_keys*/);
 
 kadm5_ret_t
 kadm5_randkey_principal (

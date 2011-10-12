@@ -46,7 +46,8 @@ extern "C" {
 #include <CoreFoundation/CoreFoundation.h>
 
 /* Once we add more we may want to make this an enum, also my want to make public */
-#define kHasNtwrkSID	0x01
+#define kHasNtwrkSID		0x01
+#define kWorkAroundEMCPanic	0x02
 
 /* These must match the values in dfs.h  */
 #define kReferralList			CFSTR("ReferralList")

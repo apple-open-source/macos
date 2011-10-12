@@ -45,6 +45,6 @@ void kextd_raise_notification(
     CFStringRef alertHeader,
     CFArrayRef  messageArray);
 
-#endif
+#endif /* ifndef NO_CFUserNotification */
 
-#endif
+#endif /* __KEXTD_USERNOTIFICATION_H__ */

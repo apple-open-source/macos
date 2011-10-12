@@ -40,6 +40,8 @@
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBLog.h>
 
+#include </usr/include/AssertMacros.h>
+
 #include "AppleUSBHubPort.h"
 #include "USBTracepoints.h"
 
@@ -1449,6 +1451,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
                 {
                     _speed = kUSBDeviceSpeedFull;
                     USBLog(5, "**2** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d on hub at 0x%x - found full speed device", this, _portNum, (uint32_t) _hub->_locationID);
+					
                 }
             }
                 
@@ -3480,3 +3483,4 @@ AppleUSBHubPort::DetectExpressCardCantWake()
 	}
 	return false;
 }
+

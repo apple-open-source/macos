@@ -32,6 +32,7 @@
 #include <getopt.h>
 #include <Security/Security.h>
 #include <Security/CodeSigning.h>
+#include <Security/CSCommonPriv.h>
 #include <Security/SecRequirementPriv.h>
 #include <security_utilities/unix++.h>
 #include <security_utilities/macho++.h>
@@ -112,6 +113,7 @@ inline SecRequirementRef readRequirement(const std::string &source)
 inline CFDataRef readRequirements(const std::string &source)
 { return CFDataRef(readRequirement(source, kSecCSParseRequirementSet)); }
 
+uint32_t parseOptionTable(const char *arg, const SecCodeDirectoryFlagTable *options);
 uint32_t parseCdFlags(const char *string);
 CFDateRef parseDate(const char *string);
 

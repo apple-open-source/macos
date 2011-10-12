@@ -31,6 +31,7 @@ build :
 	cd $(SRCROOT)/$(PROJECT) && patch -p1 < $(SRCROOT)/patches/postfix-2.8-patch01
 	cd $(SRCROOT)/$(PROJECT) && patch -p1 < $(SRCROOT)/patches/postfix-2.8-patch02
 	cd $(SRCROOT)/$(PROJECT) && patch -p1 < $(SRCROOT)/patches/postfix-2.8-patch03
+	cd $(SRCROOT)/$(PROJECT) && patch -p1 < $(SRCROOT)/patches/postfix-2.8-patch04
 	$(ENV) $(MAKE) -C $(SRCROOT)/$(PROJECT) makefiles OPT="-DNO_NETINFO -DUSE_TLS -DUSE_CYRUS_SASL -DUSE_SASL_AUTH -D__APPLE_OS_X_SERVER__ -DEVENTS_STYLE=EVENTS_STYLE_KQUEUE\
 			-DHAS_DEV_URANDOM -DUSE_SYSV_POLL\
 			-DHAS_PCRE \
@@ -110,12 +111,13 @@ install : pre-install
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e message_size_limit=10485760
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mailbox_size_limit=0
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e biff=no
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mynetworks=127.0.0.0/8
+	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mynetworks='127.0.0.0/8, [::1]/128'
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e smtpd_client_restrictions='permit_mynetworks permit_sasl_authenticated permit'
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e recipient_delimiter=+
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e tls_random_source=dev:/dev/urandom
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e smtpd_tls_ciphers=medium
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e inet_protocols=all
+	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e inet_interfaces=loopback-only
 	# desktop -> server promotion
 	cd $(DSTROOT)/System/Library/ServerSetup/PromotionExtras && ln -s ../CleanInstallExtras/SetupPostfix.sh
 	rm $(DSTROOT)/private/etc/postfix/makedefs.out

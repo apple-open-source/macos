@@ -169,6 +169,8 @@ KCCursorImpl::~KCCursorImpl() throw()
 {
 }
 
+static ModuleNexus<Mutex> gActivationMutex;
+
 bool
 KCCursorImpl::next(Item &item)
 {
@@ -194,6 +196,22 @@ KCCursorImpl::next(Item &item)
 			
 			try
 			{
+            /*  WARNING:  THIS SECTION IS CRITICAL.
+                If multiple threads are attempting to activate
+                the same database at the same time, the global
+                system database queue will reflect the most recent
+                activation rather than the activation which was
+                created by this thread.
+                
+                We could protect the database structures, but that's not the
+                right answer because it's perfectly legal to have
+                more than one context.  That would basically just
+                make a big lock around CDSA, which is a performance
+                nightmare.  Instead, we protect the PROCESS under
+                which databases are activated.
+            */
+            
+                StLock<Mutex> _(gActivationMutex()); // force serialization of cursor creation
 				(*mCurrent)->database()->activate();
 				mDbCursor = DbCursor((*mCurrent)->database(), *this);
 			}

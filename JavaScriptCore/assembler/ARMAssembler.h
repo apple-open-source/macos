@@ -172,6 +172,7 @@ namespace JSC {
             MOVW = 0x03000000,
             MOVT = 0x03400000,
 #endif
+            NOP = 0xe1a00000,
         };
 
         enum {
@@ -572,6 +573,11 @@ namespace JSC {
 #endif
         }
 
+        void nop()
+        {
+            m_buffer.putInt(NOP);
+        }
+
         void bx(int rm, Condition cc = AL)
         {
 #if WTF_ARM_ARCH_AT_LEAST(5) || defined(__ARM_ARCH_4T__)
@@ -680,7 +686,7 @@ namespace JSC {
             return loadBranchTarget(ARMRegisters::pc, cc, useConstantPool);
         }
 
-        void* executableCopy(ExecutablePool* allocator);
+        void* executableCopy(JSGlobalData&, ExecutablePool* allocator);
 
 #ifndef NDEBUG
         unsigned debugOffset() { return m_buffer.debugOffset(); }
@@ -733,6 +739,14 @@ namespace JSC {
 
         static void patchConstantPoolLoad(void* loadAddr, void* constPoolAddr);
 
+        // Read pointers
+        static void* readPointer(void* from)
+        {
+            ARMWord* insn = reinterpret_cast<ARMWord*>(from);
+            ARMWord* addr = getLdrImmAddress(insn);
+            return *reinterpret_cast<void**>(addr);
+        }
+        
         // Patch pointers
 
         static void linkPointer(void* code, AssemblerLabel from, void* to)
@@ -743,6 +757,11 @@ namespace JSC {
         static void repatchInt32(void* from, int32_t to)
         {
             patchPointerInternal(reinterpret_cast<intptr_t>(from), reinterpret_cast<void*>(to));
+        }
+        
+        static void repatchCompact(void* where, int32_t value)
+        {
+            repatchInt32(where, value);
         }
 
         static void repatchPointer(void* from, void* to)

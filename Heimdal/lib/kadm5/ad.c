@@ -508,7 +508,8 @@ ad_get_cred(kadm5_ad_context *context, const char *password)
 static kadm5_ret_t
 kadm5_ad_chpass_principal(void *server_handle,
 			  krb5_principal principal,
-			  const char *password)
+			  const char *password,
+			  krb5_enctype *enctypes)
 {
     kadm5_ad_context *context = server_handle;
     krb5_data result_code_string, result_string;
@@ -562,7 +563,8 @@ static kadm5_ret_t
 kadm5_ad_create_principal(void *server_handle,
 			  kadm5_principal_ent_t entry,
 			  uint32_t mask,
-			  const char *password)
+			  const char *password,
+			  krb5_enctype *enctypes)
 {
     kadm5_ad_context *context = server_handle;
 
@@ -1227,6 +1229,7 @@ kadm5_ad_modify_principal(void *server_handle,
 static kadm5_ret_t
 kadm5_ad_randkey_principal(void *server_handle,
 			   krb5_principal principal,
+			   krb5_enctype *enctypes,
 			   krb5_keyblock **keys,
 			   int *n_keys)
 {

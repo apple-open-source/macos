@@ -75,6 +75,7 @@ extern const OSSymbol * gIODisplayManufacturerSpecificKey;
 
 extern const OSSymbol * gIODisplayPowerStateKey;
 extern const OSSymbol * gIODisplayControllerIDKey;
+extern const OSSymbol * gIODisplayCapabilityStringKey;
 
 extern const OSSymbol * gIODisplayParametersCommitKey;
 extern const OSSymbol * gIODisplayParametersDefaultKey;

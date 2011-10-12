@@ -198,7 +198,7 @@ tests_stop_timer(test_collection_t *tt)
 
 	if (tt->flags&TC_FLAG_SUMMARY_ON_STOP)
 	{
-		int attempted = tt->passed_count + tt->failed_count;
+		size_t attempted = tt->passed_count + tt->failed_count;
 		fprintf(stdout, "\nTotal passed: %zd\n", tt->passed_count);
 		fprintf(stdout,   "Total FAILED: %zd\n", tt->failed_count);
 		if ( attempted < tt->total_count_hint )

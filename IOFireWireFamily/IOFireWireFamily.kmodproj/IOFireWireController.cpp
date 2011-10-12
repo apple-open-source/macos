@@ -4308,32 +4308,38 @@ IOReturn IOFireWireController::consoleLockInterestHandler( void * target, void *
 {
 	IOFireWireController * me = OSDynamicCast( IOFireWireController, (OSObject *)target );
 	
-    IORegistryEntry * root = IORegistryEntry::getRegistryRoot();
-    OSObject * console_lock_property = NULL;
-    if( root )
+    if ( me != NULL )
     {
-        console_lock_property = root->getProperty( kIOConsoleLockedKey );
+        if( me->getSecurityMode() != kIOFWSecurityModeSecurePermanent )
+        {
+            IORegistryEntry * root = IORegistryEntry::getRegistryRoot();
+            OSObject * console_lock_property = NULL;
+            if( root )
+            {
+                console_lock_property = root->getProperty( kIOConsoleLockedKey );
+            }
+            
+            OSBoolean * console_locked = NULL;
+            if( console_lock_property )
+            {
+                console_locked = OSDynamicCast( OSBoolean, console_lock_property );
+            }
+             
+            if( console_locked && console_locked->isTrue() )
+            {
+                // Key is locked, set security mode to secure
+            //    IOLog( "IOFireWireController::consoleLockInterestHandler lock: value true\n" );
+                me->setSecurityMode( kIOFWSecurityModeSecure );
+            }
+            else
+            {
+                // Key is unlocked, set security mode to normal
+             //   IOLog( "IOFireWireController::consoleLockInterestHandler lock: value false\n" );		
+                me->setSecurityMode( kIOFWSecurityModeNormal );
+            }
+        }
     }
     
-    OSBoolean * console_locked = NULL;
-    if( console_lock_property )
-    {
-        console_locked = OSDynamicCast( OSBoolean, console_lock_property );
-	}
-     
-	if( console_locked && console_locked->isTrue() )
-	{
-		// Key is locked, set security mode to secure
-    //    IOLog( "IOFireWireController::consoleLockInterestHandler lock: value true\n" );
-		me->setSecurityMode( kIOFWSecurityModeSecure );
-	}
-	else
-	{
-		// Key is unlocked, set security mode to normal
-     //   IOLog( "IOFireWireController::consoleLockInterestHandler lock: value false\n" );		
-		me->setSecurityMode( kIOFWSecurityModeNormal );
-	}
-	
 	return kIOReturnSuccess;
 }
 
@@ -4346,28 +4352,32 @@ bool IOFireWireController::serverKeyswitchCallback( void * target, void * refCon
 	OSBoolean *				keyswitchState	= NULL;
 	IOFireWireController *	me				= NULL;
 	
-	keyswitchState = OSDynamicCast( OSBoolean, service->getProperty( "Keyswitch" ) );
-	
-	me = OSDynamicCast( IOFireWireController, (OSObject *)target );
-	
-	if( keyswitchState != NULL && me != NULL )
-	{
-		// Is the key unlocked?
-		
-		if( keyswitchState->isFalse() )
-		{
-			// Key is unlocked, set security mode to normal
-			
-			me->setSecurityMode( kIOFWSecurityModeNormal );
-		}
-		else if( keyswitchState->isTrue() )
-		{
-			// Key is locked, set security mode to secure
-	
-			me->setSecurityMode( kIOFWSecurityModeSecure );
-		}
-		
-	}
+	if( me != NULL )
+    {
+        me = OSDynamicCast( IOFireWireController, (OSObject *)target );
+        
+        if ( me->getSecurityMode() != kIOFWSecurityModeSecurePermanent )
+        {
+            keyswitchState = OSDynamicCast( OSBoolean, service->getProperty( "Keyswitch" ) );
+            if( keyswitchState != NULL )
+            {
+                // Is the key unlocked?
+                
+                if( keyswitchState->isFalse() )
+                {
+                    // Key is unlocked, set security mode to normal
+                    
+                    me->setSecurityMode( kIOFWSecurityModeNormal );
+                }
+                else if( keyswitchState->isTrue() )
+                {
+                    // Key is locked, set security mode to secure
+            
+                    me->setSecurityMode( kIOFWSecurityModeSecure );
+                }
+            }
+        }
+    }
 	
 	return true;	
 }

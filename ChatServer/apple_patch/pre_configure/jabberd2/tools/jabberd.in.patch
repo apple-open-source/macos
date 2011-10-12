@@ -1,6 +1,13 @@
---- /tmp/jabberd-2.2.13/tools/jabberd.in	2011-02-23 08:24:34.000000000 -0800
-+++ ./jabberd2/tools/jabberd.in	2011-02-24 16:25:21.000000000 -0800
-@@ -25,12 +25,14 @@ use POSIX qw(setsid);
+--- /tmp/jabberd-2.2.14/tools/jabberd.in	2011-05-31 15:11:37.000000000 -0700
++++ ./jabberd2/tools/jabberd.in	2011-07-28 19:41:15.000000000 -0700
+@@ -19,18 +19,20 @@ use IPC::Open3;
+ use IO::Select;
+ use POSIX;
+ use POSIX qw(setsid);
+-
++use File::Copy 'mv';
+ 
+ #-----------------------------------------------------------------------------
  # Define some initial variables and default them as needed.
  #-----------------------------------------------------------------------------
  my $Bin = "@bindir@";
@@ -29,7 +36,37 @@
      }
      close(CFG);
  }
-@@ -127,7 +134,7 @@ if ($#programs == -1)
+@@ -116,6 +123,29 @@ if ($debug)
+ }
+ 
+ #-----------------------------------------------------------------------------
++# APPLE: Look for required actions due to software update installation and
++# perform any that have not been completed yet.
++#-----------------------------------------------------------------------------
++# 10.7.2
++my $s2s_ipv6_fix_done_path;
++my $s2s_cfg_path = "";
++foreach my $job_tmp (@programs) {
++    if ($job_tmp->[0] eq "s2s") {
++        $s2s_cfg_path = $job_tmp->[1];
++        last;
++    }
++}
++if ($s2s_cfg_path =~ /jabberd_notification/) {
++    $s2s_ipv6_fix_done_path = "/private/var/jabberd/.10.7.2.s2s_ipv6_fix_notification_server";
++} else {
++    $s2s_ipv6_fix_done_path = "/private/var/jabberd/.10.7.2.s2s_ipv6_fix";
++}
++
++if (! -e $s2s_ipv6_fix_done_path) {
++    &apple_update_s2s_ipv6_fix;
++}
++
++#-----------------------------------------------------------------------------
+ # Launch all of the jobs.
+ #-----------------------------------------------------------------------------
+ if ($#programs == -1)
+@@ -127,7 +157,7 @@ if ($#programs == -1)
  
  foreach my $job (@programs)
  {
@@ -38,7 +75,7 @@
  }
  
  unless (!$daemon || $debug)
-@@ -151,6 +158,15 @@ unless (!$daemon || $debug)
+@@ -151,6 +181,15 @@ unless (!$daemon || $debug)
  while (1)
  {
      my @ready = $select->can_read();
@@ -54,7 +91,7 @@
      foreach my $fh (@ready)
      {
          my $line = <$fh>;
-@@ -161,7 +177,7 @@ while (1)
+@@ -161,7 +200,7 @@ while (1)
          else
          {
              print "ERROR: $fhs{$fh}->{job} died.  Shutting down server.\n";
@@ -63,7 +100,7 @@
          }
      }
  }
-@@ -177,18 +193,32 @@ sub LaunchJob
+@@ -177,18 +216,32 @@ sub LaunchJob
  {
      my $job = shift;
      my $config = shift;
@@ -99,7 +136,7 @@
      
      &debug("jabberd","stdout","LaunchJob: $job -> $cmd\n");
  
-@@ -248,23 +278,41 @@ sub CloseJob
+@@ -248,23 +301,41 @@ sub CloseJob
  ##############################################################################
  sub Signal
  {
@@ -146,3 +183,173 @@
  
  ##############################################################################
  #
+@@ -306,3 +377,169 @@ sub usage
+     exit(0);
+ }
+ 
++##############################################################################
++#
++# APPLE: action required for update to 10.7.2 (changes to fix broken IPv6 s2s)
++#
++##############################################################################
++sub apple_update_s2s_ipv6_fix
++{
++    &log_message("Attempting configuration file changes for Apple software update 10.7.2, fix for IPv6 s2s");
++
++    # Backup the original s2s.xml file
++    &log_message("Backing up $s2s_cfg_path to $s2s_cfg_path.software_update.10.7.2.bak");
++    qx( cp $s2s_cfg_path $s2s_cfg_path.software_update.10.7.2.bak );
++
++    # Use some simple pattern matching to replace the old <origin> preference with our new
++    # <origins> defaults, and update the corresponding comments.
++    if (! open(S2SCFG, "<$s2s_cfg_path")) {
++        &log_message("Failed to update s2s configuration for IPv6 origin support (cannot open file): $!");
++        return;
++    }
++    my @lines = <S2SCFG>;
++    close(S2SCFG);
++
++    my $inserted_new_comment = 0;
++    my $inserted_new_pref = 0;
++
++    # different changes are needed for iChat Server vs. Notification Server configs
++    if ($s2s_cfg_path =~ /jabberd_notification/) {
++        # Notification Server configuration
++        my $removed_fixme_comment = 0;
++        my $updated_local_ip = 0;
++        my $index = 0;
++        for (; $index <= $#lines; $index++) {
++            my $line = $lines[$index];
++            if ((! $removed_fixme_comment) && $line =~ /APPLE: FIXME: must use IPv4 as of 2\.2\.9/) {
++                $lines[$index] = "";
++                $removed_fixme_comment = 1;
++                &log_message("s2s configuration changes: removed obsolete comment 1");
++                if ($lines[$index+1] =~ /^(\s+)<!-- <ip>::<\/ip> -->$/) {
++                    $lines[++$index] = "";
++                    &log_message("s2s configuration changes: removed obsolete comment 2");
++                }
++                next;
++            }
++            elsif ((! $updated_local_ip) && $line =~ /^(\s+)<ip>0\.0\.0\.0<\/ip>$/) {
++                $lines[$index] = "    <ip>::<\/ip>\n";
++                $updated_local_ip = 1;
++                &log_message("s2s configuration changes: updated local ip address to ::");
++                next;
++            }
++            elsif ((! $inserted_new_comment) && $line =~ /If not set, the <ip> section address above is used\. -->/) {
++                $lines[$index] = "         If not set, the <ip> section address above is used.\n".
++                "         APPLE: specify multiple origin IP addrs to add support for both\n".
++                "         IPv4 and IPv6 connections. -->\n";
++                $inserted_new_comment = 1;
++                &log_message("s2s configuration changes: updated <origins> comment");
++                next;
++            }
++            elsif ((! $inserted_new_pref) && ($line =~             /^(\s+)<!--$/) &&
++                    ($lines[$index+1] =~ /^(\s+)<origin>1\.2\.3\.4<\/origin>$/)   &&
++                    ($lines[$index+2] =~ /^(\s+)-->$/)) {
++                $lines[$index] = "    <origins>\n".
++                "        <ip>::</ip>\n".
++                "        <ip>0.0.0.0</ip>\n".
++                "    </origins>\n";
++                $lines[++$index] = "";
++                $lines[++$index] = "";
++                $inserted_new_pref = 1;
++                &log_message("s2s configuration changes: updated s2s configuration for IPv6 origin support");
++                next;
++            }
++            elsif ((! $inserted_new_pref) && $line =~ /<origin>(.+)<\/origin>/) {
++                if ($1 ne "::" && $1 ne "0.0.0.0") {
++                    # They have customized the value, so use it instead of our defaults
++                    $lines[$index] = "    <origins>\n        <ip>$1</ip>\n    </origins>\n";
++                } else {
++                    $lines[$index] = "    <origins>\n".
++                    "        <ip>::</ip>\n".
++                    "        <ip>0.0.0.0</ip>\n".
++                    "    </origins>\n";
++                }
++                $inserted_new_pref = 1;
++                &log_message("s2s configuration changes: updated s2s configuration for IPv6 origin support, no changes made.");
++                next;
++            }
++        }
++
++    } else {
++        # iChat Server configuration
++        my $replaced_old_ip = 0;
++        foreach my $line (@lines) {
++            if ((! $replaced_old_ip) && $line =~ /^(\s+)<ip>0\.0\.0\.0<\/ip>$/) {
++                $line = "    <ip>::<\/ip>\n";
++                $replaced_old_ip = 1;
++                &log_message("s2s configuration changes: replaced IPv4 IP address with IPv6");
++                next;
++            }
++            elsif ((! $inserted_new_comment) && $line =~ /If not set, the <ip> section address above is used\. -->/) {
++                $line = "         If not set, the <ip> section address above is used.\n".
++                "         APPLE: specify multiple origin IP addrs to add support for both\n".
++                "         IPv4 and IPv6 connections. -->\n";
++                $inserted_new_comment = 1;
++                &log_message("s2s configuration changes: updated comment text");
++                next;
++            }
++            elsif ((! $inserted_new_pref) && $line =~ /<origin>(.+)<\/origin>/) {
++                if ($1 ne "::" && $1 ne "0.0.0.0") {
++                    # They have customized the value, so use it instead of our defaults
++                    $line = "    <origins>\n".
++                    "        <ip>$1</ip>\n".
++                    "    </origins>\n";
++                } else {
++                    $line = "    <origins>\n".
++                    "        <ip>::</ip>\n".
++                    "        <ip>0.0.0.0</ip>\n".
++                    "    </origins>\n";
++                }
++                $inserted_new_pref = 1;
++                &log_message("s2s configuration changes: replaced <origin> with new array, using original value");
++                next;
++            }
++        }
++    }
++    if (! $inserted_new_pref) {
++        # If we failed, its probably due to user-modified configuration files not matching, or
++        # the file is up-to-date (eg. a fresh 10.7.x install).
++        &log_message("Failed to update s2s configuration for IPv6 origin support");
++        qx( touch $s2s_ipv6_fix_done_path );  # Don't attempt again; this is a one-shot action.
++        return;
++    }
++
++    my $tmpname = qx{ mktemp /private/var/jabberd/tmp/s2s.xml.XXXXXXXXXXXXXXXXXXXXXXXX };
++    chomp($tmpname);
++
++    if (! open(S2SCFG, ">$tmpname")) {
++        &log_message("Error creating new configuration file: $!");
++        return;
++    }
++    print S2SCFG @lines;
++    close(S2SCFG);
++
++    if (! mv($tmpname, $s2s_cfg_path)) {
++        &log_message("Failed to move update file into place, restoring original");
++        qx( cp -f $s2s_cfg_path.software_update.10.7.2.bak $s2s_cfg_path );
++        qx( chown _jabber:wheel $s2s_cfg_path );
++        qx( chmod 0600 $s2s_cfg_path );
++        return;
++    }
++
++    qx( chown _jabber:wheel $s2s_cfg_path );
++    qx( chmod 0600 $s2s_cfg_path );
++    qx( touch $s2s_ipv6_fix_done_path );
++    &log_message("Completed Apple software update for 10.7.2, fix for IPv6 s2s");
++}
++
++sub log_message
++{
++    my $apple_su_log = "/private/var/jabberd/log/software_updates.log";
++    if (! open(LOGFILE, ">>$apple_su_log")) {
++        print "APPLE: cannot open $apple_su_log: $!";
++        return;
++    }
++    my $time = localtime();
++    print LOGFILE "$time: @_\n";
++    print "APPLE: @_\n" if $debug;
++    close(LOGFILE);
++}

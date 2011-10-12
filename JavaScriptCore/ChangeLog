@@ -1,3 +1,436 @@
+2011-09-06  Mark Rowe  <mrowe@apple.com>
+
+        Merge r94251.
+
+    2011-08-31  Jeff Miller  <jeffm@apple.com>
+
+        REGRESSION(92210): AVFoundation media engine is disabled on OS X
+        https://bugs.webkit.org/show_bug.cgi?id=67316
+
+        Move the definition of WTF_USE_AVFOUNDATION on the Mac back to JavaScriptCore/wtf/Platform.h,
+        since WebKit2 doesn't have access to WebCore/config.h on this platform. This reverts the
+        changes that were made in r92210.
+
+        Reviewed by Darin Adler.
+
+        * wtf/Platform.h: Added definition of WTF_USE_AVFOUNDATION on the Mac.
+
+2011-09-06  Mark Rowe  <mrowe@apple.com>
+
+        Merge r94478.
+
+    2011-09-02  Filip Pizlo  <fpizlo@apple.com>
+
+        DFG JIT speculation failure does recovery of additions in reverse and
+        doesn't rebox
+        https://bugs.webkit.org/show_bug.cgi?id=67551
+
+        Reviewed by Sam Weinig.
+
+        * dfg/DFGJITCompiler.cpp:
+        (JSC::DFG::JITCompiler::jumpFromSpeculativeToNonSpeculative):
+
+2011-08-29  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 93934
+
+    2011-08-26  Gavin Barraclough  <barraclough@apple.com>
+
+            DFG JIT - ArithMod may clobber operands.
+            https://bugs.webkit.org/show_bug.cgi?id=67085
+
+            Reviewed by Sam Weinig.
+
+            unboxDouble must be called on a temporary.
+
+            * dfg/DFGJITCodeGenerator.cpp:
+            (JSC::DFG::JITCodeGenerator::fillDouble):
+            * dfg/DFGJITCodeGenerator.h:
+            (JSC::DFG::JITCodeGenerator::boxDouble):
+            * dfg/DFGNonSpeculativeJIT.cpp:
+            (JSC::DFG::NonSpeculativeJIT::compile):
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::fillSpeculateDouble):
+
+2011-08-23  Mark Rowe  <mrowe@apple.com>
+
+        Merge r93487.
+
+    2011-08-20  Filip Pizlo  <fpizlo@apple.com>
+
+        JavaScriptCore bytecompiler does not compute scope depth correctly
+        in the case of constant declarations
+        https://bugs.webkit.org/show_bug.cgi?id=66572
+
+        Reviewed by Oliver Hunt.
+        
+        Changed the handling of const to add the dynamic scope depth.
+
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::ConstDeclNode::emitCodeSingle):
+
+2011-08-23  Mark Rowe  <mrowe@apple.com>
+
+        Merge r93298.
+
+    2011-08-18  Filip Pizlo  <fpizlo@apple.com>
+
+        [jsfunfuzz] DFG speculative JIT does divide-by-zero checks incorrectly
+        https://bugs.webkit.org/show_bug.cgi?id=66426
+
+        Reviewed by Oliver Hunt.
+        
+        Changed the branchTestPtr to branchTest32.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+
+2011-08-18  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 92804
+
+    2011-08-10  Filip Pizlo  <fpizlo@apple.com>
+
+            REGRESSION(r92670-r92744): WebKit crashes when opening Gmail
+            https://bugs.webkit.org/show_bug.cgi?id=66010
+
+            Reviewed by Oliver Hunt.
+
+            Made sure that Construct calls use() on the this argument.
+
+            * dfg/DFGJITCodeGenerator.cpp:
+            (JSC::DFG::JITCodeGenerator::emitCall):
+
+2011-08-16  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 93070
+
+    2011-08-15  Gavin Barraclough  <barraclough@apple.com>
+
+            https://bugs.webkit.org/show_bug.cgi?id=66263
+            DFG JIT does not always zero extend boolean result of DFG operations
+
+            Reviewed by Sam Weinig.
+
+            * dfg/DFGOperations.cpp:
+            * dfg/DFGOperations.h:
+                - Change bool return values to a 64-bit type.
+
+2011-08-16  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 93048
+
+    2011-08-15  Gavin Barraclough  <barraclough@apple.com>
+
+            Crash accessing static property on sealed object
+            https://bugs.webkit.org/show_bug.cgi?id=66242
+
+            Reviewed by Sam Weinig.
+
+            * runtime/JSObject.h:
+            (JSC::JSObject::putDirectInternal):
+                - should only check isExtensible if checkReadOnly.
+
+2011-08-16  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 88444
+
+    2011-06-08  Mikołaj Małecki  <m.malecki@samsung.com>
+
+            Reviewed by Pavel Feldman.
+
+            Web Inspector: Crash by buffer overrun crash when serializing inspector object tree.
+            https://bugs.webkit.org/show_bug.cgi?id=52791
+
+            No new tests. The problem can be reproduced by trying to create InspectorValue
+            from 1.0e-100 and call ->toJSONString() on this.
+
+            * JavaScriptCore.exp:
+            * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+            export 2 functions DecimalNumber::bufferLengthForStringExponential and
+            DecimalNumber::toStringExponential.
+
+2011-08-11  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 92986
+
+    2011-08-12  Filip Pizlo  <fpizlo@apple.com>
+
+            REGRESSION (r91610?): Bing Maps fail to initialize (InvalidOperation:
+            Matrix3D.invert)
+            https://bugs.webkit.org/show_bug.cgi?id=66038
+
+            Reviewed by Gavin Barraclough.
+
+            Simplest and lowest-impact fix for the case where the spilled format
+            of a DFG node differs from the register format: if the format is
+            converted then indicate that the spilled value is no longer valid
+            ("kill the spill").
+
+            * dfg/DFGGenerationInfo.h:
+            (JSC::DFG::GenerationInfo::killSpilled):
+            * dfg/DFGJITCodeGenerator.cpp:
+            (JSC::DFG::JITCodeGenerator::fillDouble):
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::fillSpeculateDouble):
+
+2011-08-11  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 92911
+
+    2011-08-11  Filip Pizlo  <fpizlo@apple.com>
+
+            DFG JIT-specific structure stub info code offset fields are signed
+            8-bit, but it is possible for the offsets to be greater than 127
+            https://bugs.webkit.org/show_bug.cgi?id=66122
+
+            Reviewed by Gavin Barraclough.
+
+            * bytecode/StructureStubInfo.h:
+            * dfg/DFGJITCodeGenerator.cpp:
+            (JSC::DFG::JITCodeGenerator::cachedGetById):
+            (JSC::DFG::JITCodeGenerator::cachedPutById):
+
+2011-08-11  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 92909
+
+    2011-08-11  Filip Pizlo  <fpizlo@apple.com>
+
+            DFG JIT speculation failure code sometimes picks the wrong register
+            as a scratch register.
+            https://bugs.webkit.org/show_bug.cgi?id=66104
+
+            Reviewed by Gavin Barraclough.
+
+            Hardened the code with more assertions and fixed the bug.  Now a
+            spilled register is only used for scratch if it also isn't being
+            used for shuffling.
+
+            * dfg/DFGJITCompiler.cpp:
+            (JSC::DFG::ShuffledRegister::handleNonCyclingPermutation):
+            (JSC::DFG::JITCompiler::jumpFromSpeculativeToNonSpeculative):
+
+2011-08-11  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 92231
+
+    2011-08-01  Michael Saboff  <msaboff@apple.com>
+
+            Virtual copying of FastMalloc allocated memory causes madvise MADV_FREE_REUSABLE errors
+            https://bugs.webkit.org/show_bug.cgi?id=65502
+
+            Reviewed by Anders Carlsson.
+
+            With the fix of the issues causing madvise MADV_FREE_REUSABLE to fail,
+            added an assert to the return code of madvise to catch any regressions.
+
+            * wtf/TCSystemAlloc.cpp:
+            (TCMalloc_SystemRelease):
+
+2011-08-11  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 91728
+
+    2011-07-25  Filip Pizlo  <fpizlo@apple.com>
+
+            DFG JIT bytecode parser misuses pointers into objects allocated as part of a
+            WTF::Vector.
+            https://bugs.webkit.org/show_bug.cgi?id=65128
+
+            Reviewed by Gavin Barraclough.
+
+            The bytecode parser code seems to be right to have a DFGNode& phiNode reference
+            into the graph, since this makes the code greatly more readable.  This patch
+            thus makes the minimal change necessary to make the code right: it uses a
+            pointer (to disambiguate between reloading the pointer and performing a
+            copy from one location of the vector to another) and reloads it after the
+            calls to addToGraph().
+
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::processPhiStack):
+
+2011-08-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by nobody.
+
+        Merged JavaScriptCore & JavaScriptGlue from 92405 to 92804.
+
+        EXCEPT, Did not merge patches:
+            92437, 92523.
+
+2011-08-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by nobody.
+
+        Merged JavaScriptCore & JavaScriptGlue from 86722 to 92405.
+
+        EXCEPT, Did not merge patches:
+            86837, 89283, 90643, 92068, 92254.
+        ALSO, Did merge full patch (including non-JSC/JSG changes) for:
+            87346, 88587, 89069, 90383, 91095, 91194, 91195, 91790, 91903, 92224.
+
+2011-08-05  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 92210. 
+
+    2011-08-02  Jeff Miller  <jeffm@apple.com>
+
+        Move WTF_USE_AVFOUNDATION from JavaScriptCore/wtf/platform.h to WebCore/config.h
+        https://bugs.webkit.org/show_bug.cgi?id=65552
+        
+        Since this is a WebCore feature, there's no need to define it in JavaScriptCore/wtf/platform.h.
+
+        Reviewed by Adam Roben.
+
+        * wtf/Platform.h: Removed WTF_USE_AVFOUNDATION.
+
+2011-07-22  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 87103. 
+
+    2011-05-23  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Remove safeFloatToInt() in FloatRect.cpp and replace with working version of clampToInteger()
+        https://bugs.webkit.org/show_bug.cgi?id=58216
+
+        * wtf/MathExtras.h:
+        (clampToInteger):
+        (clampToPositiveInteger):
+
+2011-07-22  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 90282. 
+
+    2011-07-01  Oliver Hunt  <oliver@apple.com>
+
+        IE Web Workers demo crashes in JSC::SlotVisitor::visitChildren()
+        https://bugs.webkit.org/show_bug.cgi?id=63732
+
+        Reviewed by Gavin Barraclough.
+
+        Initialise the memory at the head of the new storage so that
+        GC is safe if triggered by reportExtraMemoryCost.
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::increaseVectorPrefixLength):
+
+2011-07-22  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 89614. 
+
+    2011-07-01  Oliver Hunt  <oliver@apple.com>
+
+        GC sweep can occur before an object is completely initialised
+        https://bugs.webkit.org/show_bug.cgi?id=63836
+
+        Reviewed by Gavin Barraclough.
+
+        In rare cases it's possible for a GC sweep to occur while a
+        live, but not completely initialised object is on the stack.
+        In such a case we may incorrectly choose to mark it, even
+        though it has no children that need marking.
+
+        We resolve this by always zeroing out the structure of any
+        value returned from JSCell::operator new(), and making the
+        markstack tolerant of a null structure. 
+
+        * runtime/JSCell.h:
+        (JSC::JSCell::JSCell::~JSCell):
+        (JSC::JSCell::JSCell::operator new):
+        * runtime/Structure.h:
+        (JSC::MarkStack::internalAppend):
+
+2011-07-21  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 89614. 
+
+    2011-06-23  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=61585
+        Crash running regexp /(?:(?=g))|(?:m).{2147483648,}/
+
+        This is due to use of int instead of unsigned, bad math around
+        the 2^31 boundary.
+
+        * yarr/YarrInterpreter.cpp:
+        (JSC::Yarr::ByteCompiler::emitDisjunction):
+            - Change some uses of int to unsigned, refactor compare logic to
+              restrict to the range 0..2^32-1 (rather than -2^32-1..2^32-1).
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::YarrGenerator::generate):
+        (JSC::Yarr::YarrGenerator::backtrack):
+            - Ditto.
+
+2011-06-20  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 86919. 
+
+    2011-05-19  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Randomise code starting location a little
+        https://bugs.webkit.org/show_bug.cgi?id=61161
+
+        Add a nop() function to the Assemblers so that we
+        can randomise code offsets slightly at no real cost.
+
+        * assembler/ARMAssembler.h:
+        (JSC::ARMAssembler::nop):
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::nop):
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::nop):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::nop):
+        * assembler/MacroAssemblerMIPS.h:
+        (JSC::MacroAssemblerMIPS::nop):
+        * assembler/MacroAssemblerSH4.h:
+        (JSC::MacroAssemblerSH4::nop):
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::nop):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::nop):
+        * jit/JIT.cpp:
+        (JSC::JIT::JIT):
+        (JSC::JIT::privateCompile):
+        * jit/JIT.h:
+        * runtime/WeakRandom.h:
+        (JSC::WeakRandom::getUint32):
+
+2011-06-20  Lucas Forschler  <lforschler@apple.com>
+
+    Merged 90232. 
+
+    2011-07-01  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/63814> Fix clang build error in JITOpcodes32_64.cpp
+
+        Fixes the following build error in clang:
+
+            JavaScriptCore/jit/JITOpcodes32_64.cpp:741:36:{741:9-741:35}: error: operator '?:' has lower precedence than '+'; '+' will be evaluated first [-Werror,-Wparentheses,3]
+                 map(m_bytecodeOffset + dynamic ? OPCODE_LENGTH(op_resolve_global_dynamic) : OPCODE_LENGTH(op_resolve_global), dst, regT1, regT0);
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~ ^
+            JavaScriptCore/jit/JITOpcodes32_64.cpp:741:36: note: place parentheses around the '+' expression to silence this warning [3]
+                 map(m_bytecodeOffset + dynamic ? OPCODE_LENGTH(op_resolve_global_dynamic) : OPCODE_LENGTH(op_resolve_global), dst, regT1, regT0);
+                                                ^
+                     (                         )
+            fix-it:"JavaScriptCore/jit/JITOpcodes32_64.cpp":{741:9-741:9}:"("
+            fix-it:"JavaScriptCore/jit/JITOpcodes32_64.cpp":{741:35-741:35}:")"
+            JavaScriptCore/jit/JITOpcodes32_64.cpp:741:36:{741:28-741:94}: note: place parentheses around the '?:' expression to evaluate it first [3]
+                 map(m_bytecodeOffset + dynamic ? OPCODE_LENGTH(op_resolve_global_dynamic) : OPCODE_LENGTH(op_resolve_global), dst, regT1, regT0);
+                                        ~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            1 error generated.
+
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_resolve_global): Add parenthesis to make the
+        tertiary expression evaluate first.
+
 2011-06-20  Lucas Forschler  <lforschler@apple.com>
 
     Merged 89281. 

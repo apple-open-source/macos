@@ -625,6 +625,9 @@ protected:
 	IOMemoryDescriptor * 	GetHBADataDescriptor ( 
 								SCSIParallelTaskIdentifier 	parallelTask );
 
+
+	void 					InitializePowerManagement ( IOService * provider );
+	
 	
 #if 0
 #pragma mark -

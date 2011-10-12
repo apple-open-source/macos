@@ -447,7 +447,7 @@ pid1_magic_init(void)
 	runtime_syslog(LOG_DEBUG, "Audit Session ID: %i", g_audit_session);
 
 	g_audit_session_port = _audit_session_self();
-#endif
+#endif // !TARGET_OS_EMBEDDED
 	
 	strcpy(g_launchd_database_dir, LAUNCHD_DB_PREFIX "/com.apple.launchd");
 }
@@ -555,7 +555,7 @@ launchd_SessionCreate(void)
 	} else {
 		runtime_syslog(LOG_WARNING, "Could not set audit session: %s.", strerror(errno));
 	}
-#endif
+#endif // !TARGET_OS_EMBEDDED
 }
 
 void

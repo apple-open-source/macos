@@ -25,7 +25,7 @@ Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
 AEP			= YES
-AEP_Version		= 1.5.2
+AEP_Version		= 1.5.4
 # License file must be empty as this is a subproject.
 AEP_LicenseFile		=
 AEP_Patches		=
@@ -39,11 +39,7 @@ install::
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
-ifeq ($(_OS_VERSION),10.6)
-include $(SRCROOT)/../AEP.make
-else
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/AEP.make
-endif
 
 DESTDIR	= $(DSTROOT)
 

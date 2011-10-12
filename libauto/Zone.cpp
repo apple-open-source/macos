@@ -498,7 +498,8 @@ namespace Auto {
 #if UseArena
                        locked(&_large_bits_lock) ||
 #endif
-                       locked(&_registered_threads_mutex));
+                       locked(&_registered_threads_mutex) ||
+                       _has_work /* to avoid deadlock, consider zone locked if it would recruit worker threads */);
         if (!result) {
             // check the current registered thread's enlivening queue, to see if it is locked.
             Thread *thread = current_thread();

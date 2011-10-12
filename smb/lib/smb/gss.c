@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010 - 2011  Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,24 +103,6 @@ out:
 	return (maj == GSS_S_COMPLETE);
 }
 
-/*
- * Since gss doesn't understand NetBIOS names, we need to return the IP dot
- * address. If not NetBIOS then its just the server name.
- */
-static CFStringRef TargetHostName(struct smb_ctx *ctx)
-{
-	if (ctx->ct_saddr && (ctx->ct_saddr->sa_family == AF_NETBIOS)) {
-		struct sockaddr_in	*saddr = NULL;
-		/* Host name is a NetBIOS name so we just return the IP addres */
-		GET_IPV4_ADDRESS(ctx->ct_saddr, saddr);
-		return CFStringCreateWithCString(kCFAllocatorDefault, inet_ntoa(saddr->sin_addr), 
-										 kCFStringEncodingUTF8);
-	}
-	/* Host name is not a NetBIOS name so we can just use it */
-	return CFStringCreateWithCString(kCFAllocatorDefault, ctx->serverName, 
-									 kCFStringEncodingUTF8);
-}
-
 /* 
  * Create the target name using the host name. Note we will use the 
  * GSS_C_NT_HOSTBASE name type of cifs@<server> and will return a CFString
@@ -136,7 +118,13 @@ CFStringRef TargetNameCreatedWithHostName(struct smb_ctx *ctx)
 	if (kerbHintsHostname == NULL) {
 		return NULL;
 	}
-	hostName = TargetHostName(ctx);
+	/*
+	 * The old code would return an IP dot address if the name was NetBIOS. This
+	 * was done for Leopard gss. After talking this over with LHA we now always
+	 * return the server name. The IP dot address never worked and was causing
+	 * Dfs links to fail.
+	 */
+	hostName = CFStringCreateWithCString(kCFAllocatorDefault, ctx->serverName, kCFStringEncodingUTF8);
 	if (hostName) {
 		CFStringAppend(kerbHintsHostname, hostName);
 		CFRelease(hostName);

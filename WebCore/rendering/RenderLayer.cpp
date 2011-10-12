@@ -3500,7 +3500,7 @@ IntRect RenderLayer::childrenClipRect() const
     RenderView* renderView = renderer()->view();
     RenderLayer* clippingRootLayer = clippingRoot();
     IntRect layerBounds, backgroundRect, foregroundRect, outlineRect;
-    calculateRects(clippingRootLayer, renderView->documentRect(), layerBounds, backgroundRect, foregroundRect, outlineRect);
+    calculateRects(clippingRootLayer, renderView->unscaledDocumentRect(), layerBounds, backgroundRect, foregroundRect, outlineRect);
     return clippingRootLayer->renderer()->localToAbsoluteQuad(FloatQuad(foregroundRect)).enclosingBoundingBox();
 }
 
@@ -3989,6 +3989,7 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
     return (renderer()->hasOverflowClip()
                 || renderer()->hasReflection()
                 || renderer()->hasMask()
+                || renderer()->isCanvas()
                 || renderer()->isVideo()
                 || renderer()->isEmbeddedObject()
                 || renderer()->isApplet()
@@ -4006,6 +4007,7 @@ bool RenderLayer::isSelfPaintingLayer() const
         || renderer()->hasReflection()
         || renderer()->hasMask()
         || renderer()->isTableRow()
+        || renderer()->isCanvas()
         || renderer()->isVideo()
         || renderer()->isEmbeddedObject()
         || renderer()->isApplet()

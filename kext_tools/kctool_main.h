@@ -73,4 +73,4 @@ Boolean getKextAddressAndSize(CFDictionaryRef infoDict, uint64_t *addr, uint64_t
 
 void usage(UsageLevel usageLevel);
 
-#endif
+#endif /* _KCTOOL_MAIN_H */

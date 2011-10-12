@@ -331,32 +331,38 @@ static SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match, S
 //
 // Parse all forms of the -o/--options argument (CodeDirectory flags)
 //
-uint32_t parseCdFlags(const char *arg)
+uint32_t parseOptionTable(const char *arg, const SecCodeDirectoryFlagTable *options)
 {
 	uint32_t flags = 0;
+	std::string text = arg;
+	for (string::size_type comma = text.find(','); ; text = text.substr(comma+1), comma = text.find(',')) {
+		string word = (comma == string::npos) ? text : text.substr(0, comma);
+		const SecCodeDirectoryFlagTable *item;
+		for (item = options; item->name; item++)
+			if (item->signable && !strncmp(word.c_str(), item->name, word.size())) {
+				flags |= item->value;
+				break;
+			}
+		if (!item->name)  // not found
+			MacOSError::throwMe(errSecCSInvalidFlags);
+		if (comma == string::npos)  // last word
+			break;
+	}
+    return flags;
+}
+
+uint32_t parseCdFlags(const char *arg)
+{
 	// if it's numeric, Just Do It
 	if (isdigit(arg[0])) {		// numeric - any form of number
 		char *remain;
-		flags = strtol(arg, &remain, 0);
+		uint32_t flags = strtol(arg, &remain, 0);
 		if (remain[0])
 			fail("%s: invalid flag(s)", arg);
-	} else {					// text - "flag,fl,fla"
-		std::string text = arg;
-		for (string::size_type comma = text.find(','); ; text = text.substr(comma+1), comma = text.find(',')) {
-			string word = (comma == string::npos) ? text : text.substr(0, comma);
-			const SecCodeDirectoryFlagTable *item;
-			for (item = kSecCodeDirectoryFlagTable; item->name; item++)
-				if (item->signable && !strncmp(word.c_str(), item->name, word.size())) {
-					flags |= item->value;
-					break;
-				}
-			if (!item->name)  // not found
-				MacOSError::throwMe(errSecCSInvalidFlags);
-			if (comma == string::npos)  // last word
-				break;
-		}
-	}
-    return flags;
+		return flags;
+	} else {
+		return parseOptionTable(arg, kSecCodeDirectoryFlagTable);
+    }
 }
 
 

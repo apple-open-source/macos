@@ -2011,6 +2011,8 @@ int uifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
     struct ifaliasreq ifra;
     struct ifreq ifr;
 	
+	cifroute();
+
 	// XXX from sys/sockio.h
 #define SIOCPROTOATTACH _IOWR('i', 80, struct ifreq)    /* attach proto to interface */
 #define SIOCPROTODETACH _IOWR('i', 81, struct ifreq)    /* detach proto from interface */

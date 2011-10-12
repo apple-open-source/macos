@@ -1312,7 +1312,6 @@ static Boolean check_rebuild(struct watchedVol *watched)
 
         goto dorebuild;
     }
-
     // updates isBootRoot and modifies NVRAM if needed
     check_boots_set_nvram(watched);
 

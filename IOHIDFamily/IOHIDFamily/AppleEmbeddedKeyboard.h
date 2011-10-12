@@ -25,7 +25,7 @@
 #ifndef _IOKIT_HID_APPLEEMBEDDEDKEYBOARD_H
 #define _IOKIT_HID_APPLEEMBEDDEDKEYBOARD_H
 
-#include "IOHIDEventDriver.h"
+#include <IOKit/hidevent/IOHIDEventDriver.h>
 
 enum {
     kSecondaryKeyFnFunction         = 0x01,

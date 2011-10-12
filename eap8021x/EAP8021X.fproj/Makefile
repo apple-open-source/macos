@@ -3,13 +3,13 @@ SYSROOT = /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS3.0.Inte
 PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
 
 certattrs: EAPCertificateUtil.c
-	cc -Wall -DTEST_EAPSecCertificateCopyAttributesDictionary -g -o certattrs EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -F/System/Library/PrivateFrameworks
+	cc -Wall -DTEST_EAPSecCertificateCopyAttributesDictionary -g -o certattrs EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
 
 certattrsp: EAPCertificateUtil.c
 	cc -Wall -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk -arch armv6 -DTEST_EAPSecCertificateCopyAttributesDictionary -g -o certattrsp EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework SystemConfiguration -framework Security -framework CoreFoundation -F/System/Library/PrivateFrameworks
 
 identity: EAPCertificateUtil.c
-	cc -Wall -DTEST_EAPSecIdentity -g -o identity EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -F/System/Library/PrivateFrameworks
+	cc -Wall -DTEST_EAPSecIdentity -g -o identity EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
 
 identity_trust_chain: EAPCertificateUtil.c
 	cc -Wall -DTEST_EAPSecIdentityHandleCreateSecIdentityTrustChain -g -o identity_trust_chain EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -F/System/Library/PrivateFrameworks
