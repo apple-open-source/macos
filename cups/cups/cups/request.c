@@ -1,5 +1,5 @@
 /*
- * "$Id: request.c 7946 2008-09-16 23:27:54Z mike $"
+ * "$Id: request.c 9922 2011-08-24 17:21:44Z mike $"
  *
  *   IPP utilities for CUPS.
  *
@@ -248,16 +248,9 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 
       while ((bytes = (int)read(infile, buffer, sizeof(buffer))) > 0)
       {
-	if (httpCheck(http))
-	{
-	  _httpUpdate(http, &status);
-
-	  if (status >= HTTP_MULTIPLE_CHOICES)
-	    break;
-        }
-
-  	if (httpWrite2(http, buffer, bytes) < bytes)
-          break;
+        if ((status = cupsWriteRequestData(http, buffer, bytes))
+                != HTTP_CONTINUE)
+	  break;
       }
     }
 
@@ -265,13 +258,11 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     * Get the server's response...
     */
 
-    if (status == HTTP_CONTINUE || status == HTTP_OK)
+    if (status != HTTP_ERROR)
     {
       response = cupsGetResponse(http, resource);
-      status   = http->status;
+      status   = httpGetStatus(http);
     }
-    else
-      httpFlush(http);
 
     DEBUG_printf(("2cupsDoIORequest: status=%d", status));
 
@@ -283,26 +274,24 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       break;
     }
 
-    if (response)
+    if (response && outfile >= 0)
     {
-      if (outfile >= 0)
-      {
-       /*
-        * Write trailing data to file...
-	*/
+     /*
+      * Write trailing data to file...
+      */
 
-	while ((bytes = (int)httpRead2(http, buffer, sizeof(buffer))) > 0)
-	  if (write(outfile, buffer, bytes) < bytes)
-	    break;
-      }
-      else
-      {
-       /*
-        * Flush any remaining data...
-        */
+      while ((bytes = (int)httpRead2(http, buffer, sizeof(buffer))) > 0)
+	if (write(outfile, buffer, bytes) < bytes)
+	  break;
+    }
 
-        httpFlush(http);
-      }
+    if (http->state != HTTP_WAITING)
+    {
+     /*
+      * Flush any remaining data...
+      */
+
+      httpFlush(http);
     }
   }
 
@@ -343,7 +332,8 @@ cupsDoRequest(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_
  *
  * Use this function to get the response for an IPP request sent using
  * cupsSendDocument() or cupsSendRequest(). For requests that return
- * additional data, use httpRead() after getting a successful response.
+ * additional data, use httpRead() after getting a successful response,
+ * otherwise call httpFlush() to complete the response processing.
  *
  * @since CUPS 1.4/Mac OS X 10.6@
  */
@@ -426,6 +416,8 @@ cupsGetResponse(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       response = NULL;
 
       _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+      http->status = status = HTTP_ERROR;
+      http->error  = EIO;
     }
   }
   else if (status != HTTP_ERROR)
@@ -451,7 +443,7 @@ cupsGetResponse(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       if (!cupsDoAuthentication(http, "POST", resource))
         httpReconnect(http);
       else
-        status = HTTP_AUTHORIZATION_CANCELED;
+        http->status = status = HTTP_AUTHORIZATION_CANCELED;
     }
 
 #ifdef HAVE_SSL
@@ -484,6 +476,8 @@ cupsGetResponse(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
                   attr ? attr->values[0].string.text :
 		      ippErrorString(response->request.status.status_code), 0);
   }
+  else if (status == HTTP_ERROR)
+    _cupsSetError(IPP_INTERNAL_ERROR, strerror(http->error), 0);
   else if (status != HTTP_OK)
     _cupsSetHTTPError(status);
 
@@ -637,6 +631,25 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     if ((http = _cupsConnect()) == NULL)
       return (HTTP_SERVICE_UNAVAILABLE);
 
+ /*
+  * If the prior request was not flushed out, do so now...
+  */
+
+  if (http->state == HTTP_GET_SEND ||
+      http->state == HTTP_POST_SEND)
+  {
+    DEBUG_puts("2cupsSendRequest: Flush prior response.");
+    httpFlush(http);
+  }
+  else if (http->state != HTTP_WAITING)
+  {
+    DEBUG_printf(("1cupsSendRequest: Unknown HTTP state (%d), bailing.",
+                  http->state));
+    _cupsSetError(IPP_INTERNAL_ERROR, strerror(EINVAL), 0);
+
+    return (HTTP_ERROR);
+  }
+
 #ifdef HAVE_SSL
  /*
   * See if we have an auth-info attribute and are communicating over
@@ -648,7 +661,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       !httpAddrLocalhost(http->hostaddr) && !http->tls &&
       httpEncryption(http, HTTP_ENCRYPT_REQUIRED))
   {
-    _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+    DEBUG_puts("1cupsSendRequest: Unable to encrypt connection.");
     return (HTTP_SERVICE_UNAVAILABLE);
   }
 #endif /* HAVE_SSL */
@@ -658,11 +671,15 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   */
 
   if (!_cups_strcasecmp(http->fields[HTTP_FIELD_CONNECTION], "close"))
+  {
+    DEBUG_puts("2cupsSendRequest: Connection: close");
+    httpClearFields(http);
     if (httpReconnect(http))
     {
-      _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+      DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
       return (HTTP_SERVICE_UNAVAILABLE);
     }
+  }
 
  /*
   * Loop until we can send the request without authorization problems.
@@ -707,9 +724,10 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 
     if (httpPost(http, resource))
     {
+      DEBUG_puts("2cupsSendRequest: POST failed, reconnecting.");
       if (httpReconnect(http))
       {
-        _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+        DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
         return (HTTP_SERVICE_UNAVAILABLE);
       }
       else
@@ -740,6 +758,8 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 
     if (state == IPP_ERROR)
     {
+      DEBUG_puts("1cupsSendRequest: Unable to send IPP request.");
+
       http->status = HTTP_ERROR;
       http->state  = HTTP_WAITING;
 
@@ -770,22 +790,38 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     */
 
     if (status >= HTTP_MULTIPLE_CHOICES)
+    {
+      _cupsSetHTTPError(status);
+
+      do
+      {
+	status = httpUpdate(http);
+      }
+      while (status != HTTP_ERROR && http->state == HTTP_POST_RECV);
+
       httpFlush(http);
+    }
 
     switch (status)
     {
       case HTTP_ERROR :
       case HTTP_CONTINUE :
       case HTTP_OK :
+          DEBUG_printf(("1cupsSendRequest: Returning %d.", status));
           return (status);
 
       case HTTP_UNAUTHORIZED :
           if (cupsDoAuthentication(http, "POST", resource))
+	  {
+            DEBUG_puts("1cupsSendRequest: Returning HTTP_AUTHORIZATION_CANCELED.");
 	    return (HTTP_AUTHORIZATION_CANCELED);
+	  }
+
+          DEBUG_puts("2cupsSendRequest: Reconnecting after HTTP_UNAUTHORIZED.");
 
 	  if (httpReconnect(http))
 	  {
-	    _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+	    DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
 	    return (HTTP_SERVICE_UNAVAILABLE);
 	  }
 	  break;
@@ -797,15 +833,19 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 	  * encryption...
 	  */
 
+          DEBUG_puts("2cupsSendRequest: Reconnecting after "
+	             "HTTP_UPGRADE_REQUIRED.");
+
 	  if (httpReconnect(http))
 	  {
-	    _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+	    DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
 	    return (HTTP_SERVICE_UNAVAILABLE);
 	  }
 
+	  DEBUG_puts("2cupsSendRequest: Upgrading to TLS.");
 	  if (httpEncryption(http, HTTP_ENCRYPT_REQUIRED))
 	  {
-	    _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+	    DEBUG_puts("1cupsSendRequest: Unable to encrypt connection.");
 	    return (HTTP_SERVICE_UNAVAILABLE);
 	  }
 	  break;
@@ -818,9 +858,12 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 
 	  expect = (http_status_t)0;
 
+          DEBUG_puts("2cupsSendRequest: Reconnecting after "
+	             "HTTP_EXPECTATION_FAILED.");
+
 	  if (httpReconnect(http))
 	  {
-	    _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+	    DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
 	    return (HTTP_SERVICE_UNAVAILABLE);
 	  }
 	  break;
@@ -907,6 +950,13 @@ cupsWriteRequestData(
       if (status >= HTTP_MULTIPLE_CHOICES)
       {
         _cupsSetHTTPError(status);
+
+	do
+	{
+	  status = httpUpdate(http);
+	}
+	while (status != HTTP_ERROR && http->state == HTTP_POST_RECV);
+
         httpFlush(http);
       }
 
@@ -1082,7 +1132,7 @@ _cupsSetHTTPError(http_status_t status)	/* I - HTTP status code */
         break;
 
     case HTTP_ERROR :
-	_cupsSetError(IPP_INTERNAL_ERROR, httpStatus(status), 0);
+	_cupsSetError(IPP_INTERNAL_ERROR, strerror(errno), 0);
         break;
 
     default :
@@ -1095,5 +1145,5 @@ _cupsSetHTTPError(http_status_t status)	/* I - HTTP status code */
 
 
 /*
- * End of "$Id: request.c 7946 2008-09-16 23:27:54Z mike $".
+ * End of "$Id: request.c 9922 2011-08-24 17:21:44Z mike $".
  */

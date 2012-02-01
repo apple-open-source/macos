@@ -52,6 +52,11 @@ static inline const char *ext_include_script_location_name
 extern const struct sieve_extension_def include_extension;
 extern const struct sieve_binary_extension include_binary_ext;
 
+bool ext_include_load
+	(const struct sieve_extension *ext, void **context);
+void ext_include_unload
+	(const struct sieve_extension *ext);
+
 /* 
  * Commands 
  */
@@ -95,6 +100,13 @@ const char *ext_include_get_script_directory
 struct ext_include_context {
 	/* Extension dependencies */
 	const struct sieve_extension *var_ext;
+
+	/* Configuration */
+ 	char *global_dir;
+	char *personal_dir;
+
+	unsigned int max_nesting_depth;
+	unsigned int max_includes;
 };
 
 static inline struct ext_include_context *ext_include_get_context

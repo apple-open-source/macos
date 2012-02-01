@@ -61,7 +61,7 @@ sk{
                 Hms{"H:mm:ss"}
                 M{"L."}
                 MEd{"E, d.M."}
-                MMM{"LLL."}
+                MMM{"LLL"}
                 MMMEd{"E, d. MMM"}
                 MMMMEd{"E, d. MMMM"}
                 MMMMd{"d. MMMM"}
@@ -236,7 +236,7 @@ sk{
                     d{"E, d.M. - E, d.M."}
                 }
                 MMM{
-                    M{"LLL. - LLL."}
+                    M{"LLL - LLL"}
                 }
                 MMMEd{
                     M{"E, d. MMM - E, d. MMM"}
@@ -327,20 +327,6 @@ sk{
                         "nov",
                         "dec",
                     }
-                    narrow{
-                        "j",
-                        "f",
-                        "m",
-                        "a",
-                        "m",
-                        "j",
-                        "j",
-                        "a",
-                        "s",
-                        "o",
-                        "n",
-                        "d",
-                    }
                     wide{
                         "januára",
                         "februára",
@@ -357,20 +343,6 @@ sk{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "jan",
-                        "feb",
-                        "mar",
-                        "apr",
-                        "máj",
-                        "jún",
-                        "júl",
-                        "aug",
-                        "sep",
-                        "okt",
-                        "nov",
-                        "dec",
-                    }
                     narrow{
                         "j",
                         "f",

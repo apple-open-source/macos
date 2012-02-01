@@ -61,12 +61,14 @@ static bool _is_wanted_content_type
 	i_assert( wanted_types != NULL );
 
 	for (; *wanted_types != NULL; wanted_types++) {
-		const char *wanted_subtype = strchr(*wanted_types, '/');
+		const char *wanted_subtype;
 
 		if (**wanted_types == '\0') {
 			/* empty string matches everything */
 			return TRUE;
 		}
+
+		wanted_subtype = strchr(*wanted_types, '/');
 		if (wanted_subtype == NULL) {
 			/* match only main type */
 			if (strlen(*wanted_types) == type_len &&
@@ -112,7 +114,7 @@ static bool ext_body_get_return_parts
 
 		/* Add new item to the result */
 		return_part = array_append_space(&ctx->return_body_parts);
-		
+
 		/* Depending on whether a decoded body part is requested, the appropriate
 		 * cache item is read. If it is missing, this function fails and the cache 
 		 * needs to be completed by ext_body_parts_add_missing().
@@ -134,7 +136,7 @@ static bool ext_body_get_return_parts
 }
 
 static void ext_body_part_save
-(struct ext_body_message_context *ctx, struct message_part *part,
+(struct ext_body_message_context *ctx,
 	struct ext_body_part_cached *body_part, bool decoded)
 {
 	buffer_t *buf = ctx->tmp_buffer;
@@ -154,8 +156,6 @@ static void ext_body_part_save
 	if ( !decoded ) {
 		body_part->raw_body = part_data;
 		body_part->raw_body_size = part_size;
-		printf("%ld <=> %ld\n", (long) buf->used - 1, (long) part->body_size.physical_size);
-		i_assert(buf->used - 1 == part->body_size.physical_size);
 	} else {
 		body_part->decoded_body = part_data;
 		body_part->decoded_body_size = part_size;
@@ -195,7 +195,7 @@ static bool ext_body_parts_add_missing
 (const struct sieve_message_data *msgdata, struct ext_body_message_context *ctx, 
 	const char * const *content_types, bool decode_to_plain)
 {
-	struct ext_body_part_cached *body_part = NULL;
+	struct ext_body_part_cached *body_part = NULL, *header_part = NULL;
 	struct message_parser_ctx *parser;
 	struct message_decoder_context *decoder;
 	struct message_block block, decoded;
@@ -214,25 +214,50 @@ static bool ext_body_parts_add_missing
 	/* Get the message stream */
 	if ( mail_get_stream(msgdata->mail, NULL, NULL, &input) < 0 )
 		return FALSE;
-		
+	//if (mail_get_parts(msgdata->mail, &parts) < 0)
+	//	return FALSE;
+
 	buffer_set_used_size(ctx->tmp_buffer, 0);
 	
 	/* Initialize body decoder */
-	decoder = decode_to_plain ? message_decoder_init(FALSE) : NULL;
-	
+	decoder = decode_to_plain ? message_decoder_init(FALSE) : NULL;	
+
+	//parser = message_parser_init_from_parts(parts, input, 0, 0);
 	parser = message_parser_init(ctx->pool, input, 0, 0);
+
 	while ( (ret = message_parser_parse_next_block(parser, &block)) > 0 ) {
+
 		if ( block.part != prev_part ) {
+			bool message_rfc822 = FALSE;
+
 			/* Save previous body part */
-			if ( body_part != NULL && save_body ) {
-				ext_body_part_save(ctx, prev_part, body_part, decoder != NULL);
+			if ( body_part != NULL ) {
+				/* Treat message/rfc822 separately; headers become content */
+				if ( block.part->parent == prev_part &&
+					strcmp(body_part->content_type, "message/rfc822") == 0 ) {
+					message_rfc822 = TRUE;
+				} else {
+					if ( save_body ) 
+						ext_body_part_save(ctx, body_part, decoder != NULL);
+				}
 			}
-			
+
 			/* Start processing next */
-			prev_part = block.part;
 			body_part = array_idx_modifiable(&ctx->cached_body_parts, idx);
-			idx++;
 			body_part->content_type = "text/plain";
+
+			/* If this is message/rfc822 content retain the enveloping part for
+			 * storing headers as content.
+			 */
+			if ( message_rfc822 ) {
+				i_assert(idx > 0);
+				header_part = array_idx_modifiable(&ctx->cached_body_parts, idx-1);
+			} else {
+				header_part = NULL;
+			}
+
+			prev_part = block.part;
+			idx++;	
 		}
 		
 		if ( block.hdr != NULL || block.size == 0 ) {
@@ -244,6 +269,12 @@ static bool ext_body_parts_add_missing
 
 			/* Check for end of headers */
 			if ( block.hdr == NULL ) {
+				/* Save headers for message/rfc822 part */
+				if ( header_part != NULL ) {
+					ext_body_part_save(ctx, header_part, decoder != NULL);
+					header_part = NULL;
+				}
+	
 				/* Save bodies only if we have a wanted content-type */
 				save_body = _is_wanted_content_type
 					(content_types, body_part->content_type);
@@ -255,9 +286,22 @@ static bool ext_body_parts_add_missing
 			 */
 			if ( block.hdr->eoh )
 				body_part->have_body = TRUE;
+			else if ( header_part != NULL ) {
+				/* Save message/rfc822 header as part content */
+				if ( block.hdr->continued ) {
+					buffer_append(ctx->tmp_buffer, block.hdr->value, block.hdr->value_len);
+				} else {
+					buffer_append(ctx->tmp_buffer, block.hdr->name, block.hdr->name_len);
+					buffer_append(ctx->tmp_buffer, block.hdr->middle, block.hdr->middle_len);
+					buffer_append(ctx->tmp_buffer, block.hdr->value, block.hdr->value_len);
+				}
+				if ( !block.hdr->no_newline ) {
+					buffer_append(ctx->tmp_buffer, "\r\n", 2);
+				}
+			}
 				
 			/* We're interested of only Content-Type: header */
-			if ( strcasecmp(block.hdr->name, "Content-Type" ) != 0)
+			if ( strcasecmp(block.hdr->name, "Content-Type" ) != 0 )
 				continue;
 
 			/* Header can have folding whitespace. Acquire the full value before 
@@ -289,8 +333,11 @@ static bool ext_body_parts_add_missing
 	}
 
 	/* Save last body part if necessary */
-	if ( body_part != NULL && save_body )
-		ext_body_part_save(ctx, prev_part, body_part, decoder != NULL);
+	if ( header_part != NULL ) {
+		ext_body_part_save(ctx, header_part, decoder != NULL);
+	} else if ( body_part != NULL && save_body ) {
+		ext_body_part_save(ctx, body_part, decoder != NULL);
+	}
 
 	/* Try to fill the return_body_parts array once more */
 	have_all = ext_body_get_return_parts(ctx, content_types, decode_to_plain);
@@ -310,7 +357,6 @@ static bool ext_body_parts_add_missing
 static struct ext_body_message_context *ext_body_get_context
 (const struct sieve_extension *this_ext, struct sieve_message_context *msgctx)
 {
-	pool_t pool = sieve_message_context_pool(msgctx);
 	struct ext_body_message_context *ctx;
 	
 	/* Get message context (contains cached message body information) */
@@ -319,8 +365,12 @@ static struct ext_body_message_context *ext_body_get_context
 	
 	/* Create it if it does not exist already */
 	if ( ctx == NULL ) {
+		pool_t pool;
+
+		pool = sieve_message_context_pool(msgctx);
 		ctx = p_new(pool, struct ext_body_message_context, 1);	
 		ctx->pool = pool;
+
 		p_array_init(&ctx->cached_body_parts, pool, 8);
 		p_array_init(&ctx->return_body_parts, pool, 8);
 		ctx->tmp_buffer = buffer_create_dynamic(pool, 1024*64);

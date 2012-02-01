@@ -1,5 +1,5 @@
 #
-# "$Id: mime.types 7670 2008-06-17 22:42:08Z mike $"
+# "$Id: mime.types 9871 2011-08-06 06:34:46Z mike $"
 #
 #   Base MIME types file for CUPS.
 #
@@ -92,7 +92,7 @@ image/jpeg			jpeg jpg jpe string(0,<FFD8FF>) +\
 				 char(3,0xe4) char(3,0xe5) char(3,0xe6) char(3,0xe7)\
 				 char(3,0xe8) char(3,0xe9) char(3,0xea) char(3,0xeb)\
 				 char(3,0xec) char(3,0xed) char(3,0xee) char(3,0xef))
-image/pwg-raster		string(0,"RaS2") + string(356,<0000000000000000>) priority(100)
+image/pwg-raster		string(0,"RaS2") + string(4,PwgRaster<00>) priority(100)
 image/tiff			tiff tif string(0,MM<002A>) string(0,II<2A00>)
 image/x-photocd			pcd string(2048,PCD_IPI)
 image/x-portable-anymap		pnm
@@ -170,5 +170,5 @@ application/vnd.cups-raw	(string(0,<1B>E) + !string(2,<1B>%0B)) \
 application/octet-stream
 
 #
-# End of "$Id: mime.types 7670 2008-06-17 22:42:08Z mike $".
+# End of "$Id: mime.types 9871 2011-08-06 06:34:46Z mike $".
 #

@@ -26,7 +26,7 @@ Contents
 
 Below are some simple Sieve code examples, more can be found from
 http://libsieve.sourceforge.net/script1.php and
-http://wiki.fastmail.fm/index.php?title=SieveExamples.
+http://fastmail.wikia.com/wiki/SieveExamples.
 
 Mail filtering by various headers
 ---------------------------------
@@ -128,17 +128,41 @@ or equal to 10:
 ---%<-------------------------------------------------------------------------
 if header :contains "X-Spam-Level" "**********" {
   discard;
+  stop;
 }
 ---%<-------------------------------------------------------------------------
+
+Some spam scanners only produce a numeric score in a header. Then, the test
+becomes more involved:
+
+---%<-------------------------------------------------------------------------
+require ["comparator-i;ascii-numeric","relational"];
+if allof (
+   not header :matches "x-spam-score" "-*",
+   header :value "ge" :comparator "i;ascii-numeric" "x-spam-score" "10" )
+{
+  discard;
+  stop;
+}
+---%<-------------------------------------------------------------------------
+
+*NOTE:* Be very careful when matching against spam score headers using the
+relational extension and the i;ascii-numeric comparator. This comparator can
+only be used to match unsigned integers. Strings that do not begin with a digit
+character represent positive infinity and will therefore always be larger than
+any score mentioned in your rule! That is why the above example first checks
+the minus sign explicitly.
 
 Filtering using the spamtest and virustest extensions
 -----------------------------------------------------
 
 When the spamtest [http://tools.ietf.org/html/rfc5235#section-3.2] and
 virustest [http://tools.ietf.org/html/rfc5235#section-3.3] extensions are
-configured on the server, users (and GUIs) can have a much easier way to filter
-spam and virus messages respectively. To filter spam, the spamtest extension
-can for example be used as follows:
+configured on the server ( <here>
+[Pigeonhole.Sieve.Extensions.SpamtestVirustest.txt] is explained how), users
+(and GUIs) can have a much easier way to filter spam and virus messages
+respectively. To filter spam, the spamtest extension can for example be used as
+follows:
 
 ---%<-------------------------------------------------------------------------
 require "spamtestplus";
@@ -292,4 +316,4 @@ Sieve rules:http://www.earth.ox.ac.uk/~steve/sieve/procmail2sieve.pl
 Here's the original post announcing it:
 http://dovecot.org/list/dovecot/2007-March/020895.html
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

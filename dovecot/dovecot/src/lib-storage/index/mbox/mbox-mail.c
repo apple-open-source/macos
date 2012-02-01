@@ -179,6 +179,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
 	uoff_t offset;
+	bool move_offset;
 
 	switch (field) {
 	case MAIL_FETCH_FROM_ENVELOPE:
@@ -195,13 +196,19 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		/* i guess in theory the empty_md5 is valid and can happen,
 		   but it's almost guaranteed that it means the MD5 sum is
 		   missing. recalculate it. */
-		offset = mbox->mbox_lock_type == F_UNLCK ? 0 :
-			istream_raw_mbox_get_start_offset(mbox->mbox_stream);
+		if (mbox->mbox_lock_type == F_UNLCK ||
+		    mbox->mbox_stream == NULL) {
+			offset = 0;
+			move_offset = FALSE;
+		} else {
+			offset = istream_raw_mbox_get_start_offset(mbox->mbox_stream);
+			move_offset = TRUE;
+		}
 		mbox->mbox_save_md5 = TRUE;
 		if (mbox_sync(mbox, MBOX_SYNC_FORCE_SYNC |
 			      MBOX_SYNC_READONLY) < 0)
 			return -1;
-		if (mbox->mbox_lock_type != F_UNLCK) {
+		if (move_offset) {
 			if (istream_raw_mbox_seek(mbox->mbox_stream,
 						  offset) < 0) {
 				i_error("mbox %s sync lost during MD5 syncing",
@@ -252,15 +259,19 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 	if (!mail_index_lookup_seq(view, mail->mail.mail.uid, &seq))
 		i_panic("Message unexpectedly expunged from index");
 
-	if (seq == hdr->messages_count) {
+	if (seq < hdr->messages_count) {
+		if (mbox_file_lookup_offset(mbox, view, seq + 1,
+					    next_offset_r) <= 0)
+			ret = -1;
+	} else if (mail->mail.mail.box->input != NULL) {
+		/* opened the mailbox as input stream. we can't trust the
+		   sync_size, since it's wrong with compressed mailboxes */
+		ret = 0;
+	} else {
 		/* last message, use the synced mbox size */
 		trailer_size =
 			mbox->storage->storage.set->mail_save_crlf ? 2 : 1;
 		*next_offset_r = mbox->mbox_hdr.sync_size - trailer_size;
-	} else {
-		if (mbox_file_lookup_offset(mbox, view, seq + 1,
-					    next_offset_r) <= 0)
-			ret = -1;
 	}
 	mail_index_view_close(&view);
 	return ret;

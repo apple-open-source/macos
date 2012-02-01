@@ -30,8 +30,10 @@
 #include "svn_repos.h"
 #include "svn_checksum.h"
 #include "svn_props.h"
+#include "svn_mergeinfo.h"
 #include "repos.h"
 #include "svn_private_config.h"
+#include "private/svn_repos_private.h"
 
 
 
@@ -555,6 +557,38 @@ open_file(const char *path,
 }
 
 
+/* Verify the mergeinfo property value VALUE and return an error if it
+ * is invalid. The PATH on which that property is set is used for error
+ * messages only.  Use SCRATCH_POOL for temporary allocations. */
+static svn_error_t *
+verify_mergeinfo(const svn_string_t *value,
+                 const char *path,
+                 apr_pool_t *scratch_pool)
+{
+  svn_error_t *err;
+  svn_mergeinfo_t mergeinfo;
+
+  /* It's okay to delete svn:mergeinfo. */
+  if (value == NULL)
+    return SVN_NO_ERROR;
+
+  /* Mergeinfo is UTF-8 encoded so the number of bytes returned by strlen()
+   * should match VALUE->LEN. Prevents trailing garbage in the property. */
+  if (strlen(value->data) != value->len)
+    return svn_error_createf(SVN_ERR_MERGEINFO_PARSE_ERROR, NULL,
+                             _("Commit rejected because mergeinfo on '%s' "
+                               "contains unexpected string terminator"),
+                             path);
+
+  err = svn_mergeinfo_parse(&mergeinfo, value->data, scratch_pool);
+  if (err)
+    return svn_error_createf(err->apr_err, err,
+                             _("Commit rejected because mergeinfo on '%s' "
+                               "is syntactically invalid"),
+                             path);
+  return SVN_NO_ERROR;
+}
+
 
 static svn_error_t *
 change_file_prop(void *file_baton,
@@ -568,6 +602,9 @@ change_file_prop(void *file_baton,
   /* Check for write authorization. */
   SVN_ERR(check_authz(eb, fb->path, eb->txn_root,
                       svn_authz_write, pool));
+
+  if (value && strcmp(name, SVN_PROP_MERGEINFO) == 0)
+    SVN_ERR(verify_mergeinfo(value, fb->path, pool));
 
   return svn_repos_fs_change_node_prop(eb->txn_root, fb->path,
                                        name, value, pool);
@@ -634,11 +671,85 @@ change_dir_prop(void *dir_baton,
         return out_of_date(db->path, svn_node_dir);
     }
 
+  if (value && strcmp(name, SVN_PROP_MERGEINFO) == 0)
+    SVN_ERR(verify_mergeinfo(value, db->path, pool));
+
   return svn_repos_fs_change_node_prop(eb->txn_root, db->path,
                                        name, value, pool);
 }
 
+static svn_error_t *
+error_find_cause(svn_error_t *err, apr_status_t apr_err)
+{
+  svn_error_t *child;
 
+  for (child = err; child; child = child->child)
+    if (child->apr_err == apr_err)
+      return child;
+
+  return SVN_NO_ERROR;
+}
+
+const char *
+svn_repos__post_commit_error_str(svn_error_t *err,
+                                 apr_pool_t *pool)
+{
+  svn_error_t *hook_err1, *hook_err2;
+  const char *msg;
+
+  if (! err)
+    return _("(no error)");
+
+  /* hook_err1 is the SVN_ERR_REPOS_POST_COMMIT_HOOK_FAILED wrapped
+     error from the post-commit script, if any, and hook_err2 should
+     be the original error, but be defensive and handle a case where
+     SVN_ERR_REPOS_POST_COMMIT_HOOK_FAILED doesn't wrap an error. */
+  hook_err1 = error_find_cause(err, SVN_ERR_REPOS_POST_COMMIT_HOOK_FAILED);
+  if (hook_err1 && hook_err1->child)
+    hook_err2 = hook_err1->child;
+  else
+    hook_err2 = hook_err1;
+
+  /* This implementation counts on svn_repos_fs_commit_txn() returning
+     svn_fs_commit_txn() as the parent error with a child
+     SVN_ERR_REPOS_POST_COMMIT_HOOK_FAILED error.  If the parent error
+     is SVN_ERR_REPOS_POST_COMMIT_HOOK_FAILED then there was no error
+     in svn_fs_commit_txn().
+
+     The post-commit hook error message is already self describing, so
+     it can be dropped into an error message without any additional
+     text. */
+  if (hook_err1)
+    {
+      if (err == hook_err1)
+        {
+          if (hook_err2->message)
+            msg = apr_pstrdup(pool, hook_err2->message);
+          else
+            msg = _("post-commit hook failed with no error message");
+        }
+      else
+        {
+          msg = hook_err2->message
+                  ? hook_err2->message
+                  : _("post-commit hook failed with no error message.");
+          msg = apr_psprintf(
+                  pool,
+                  _("post commit FS processing had error '%s' and %s"),
+                  err->message ? err->message : _("(no error message)"),
+                  msg);
+        }
+    }
+  else
+    {
+      msg = apr_psprintf(pool,
+                         _("post-commit FS processing had error '%s'."),
+                         err->message ? err->message
+                                      : _("(no error message)"));
+    }
+
+  return msg;
+}
 
 static svn_error_t *
 close_edit(void *edit_baton,
@@ -648,7 +759,7 @@ close_edit(void *edit_baton,
   svn_revnum_t new_revision = SVN_INVALID_REVNUM;
   svn_error_t *err;
   const char *conflict;
-  char *post_commit_err = NULL;
+  const char *post_commit_err = NULL;
 
   /* If no transaction has been created (ie. if open_root wasn't
      called before close_edit), abort the operation here with an
@@ -661,42 +772,40 @@ close_edit(void *edit_baton,
   err = svn_repos_fs_commit_txn(&conflict, eb->repos,
                                 &new_revision, eb->txn, pool);
 
-  if (err)
+  if (SVN_IS_VALID_REVNUM(new_revision))
     {
-      if (err->apr_err == SVN_ERR_REPOS_POST_COMMIT_HOOK_FAILED)
+      if (err)
         {
           /* If the error was in post-commit, then the commit itself
              succeeded.  In which case, save the post-commit warning
              (to be reported back to the client, who will probably
              display it as a warning) and clear the error. */
-          if (err->child && err->child->message)
-            post_commit_err = apr_pstrdup(pool, err->child->message);
-
+          post_commit_err = svn_repos__post_commit_error_str(err, pool);
           svn_error_clear(err);
           err = SVN_NO_ERROR;
         }
-      else  /* Got a real error -- one that stopped the commit */
-        {
-          /* ### todo: we should check whether it really was a conflict,
-             and return the conflict info if so? */
+    }
+  else
+    {
+      /* ### todo: we should check whether it really was a conflict,
+         and return the conflict info if so? */
 
-          /* If the commit failed, it's *probably* due to a conflict --
-             that is, the txn being out-of-date.  The filesystem gives us
-             the ability to continue diddling the transaction and try
-             again; but let's face it: that's not how the cvs or svn works
-             from a user interface standpoint.  Thus we don't make use of
-             this fs feature (for now, at least.)
+      /* If the commit failed, it's *probably* due to a conflict --
+         that is, the txn being out-of-date.  The filesystem gives us
+         the ability to continue diddling the transaction and try
+         again; but let's face it: that's not how the cvs or svn works
+         from a user interface standpoint.  Thus we don't make use of
+         this fs feature (for now, at least.)
 
-             So, in a nutshell: svn commits are an all-or-nothing deal.
-             Each commit creates a new fs txn which either succeeds or is
-             aborted completely.  No second chances;  the user simply
-             needs to update and commit again  :)
+         So, in a nutshell: svn commits are an all-or-nothing deal.
+         Each commit creates a new fs txn which either succeeds or is
+         aborted completely.  No second chances;  the user simply
+         needs to update and commit again  :)
 
-             We ignore the possible error result from svn_fs_abort_txn();
-             it's more important to return the original error. */
-          svn_error_clear(svn_fs_abort_txn(eb->txn, pool));
-          return err;
-        }
+         We ignore the possible error result from svn_fs_abort_txn();
+         it's more important to return the original error. */
+      svn_error_clear(svn_fs_abort_txn(eb->txn, pool));
+      return err;
     }
 
   /* Pass new revision information to the caller's callback. */

@@ -398,10 +398,21 @@ findPrintableField(
 				&rdnPtr->AttributeTypeAndValue[tvpDex];
 		
 			/* type/value pair: match caller's specified type? */
-			if((tvpType != NULL) &&
-			   ((tvpPtr->type.Length != tvpType->Length) ||
-			    memcmp(tvpPtr->type.Data, tvpType->Data, tvpType->Length))) {
+			if(tvpType != NULL && tvpType->Data != NULL) {
+				if(tvpPtr->type.Length != tvpType->Length) {
 					continue;
+				}
+				if(memcmp(tvpPtr->type.Data, tvpType->Data, tvpType->Length)) {
+					/* If we don't have a match but the requested OID is CSSMOID_UserID,
+					 * look for a matching X.500 UserID OID: (0.9.2342.19200300.100.1.1)  */
+					const char cssm_userid_oid[] = { 0x09,0x49,0x86,0x49,0x1f,0x12,0x8c,0xe4,0x81,0x81 };
+					const char x500_userid_oid[] = { 0x09,0x92,0x26,0x89,0x93,0xF2,0x2C,0x64,0x01,0x01 };
+					if(!(tvpType->Length == sizeof(cssm_userid_oid) &&
+						!memcmp(tvpPtr->type.Data, x500_userid_oid, sizeof(x500_userid_oid)) &&
+						!memcmp(tvpType->Data, cssm_userid_oid, sizeof(cssm_userid_oid)))) {
+						continue;
+					}
+				}
 			}
 			
 			/* printable? */

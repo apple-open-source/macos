@@ -168,7 +168,7 @@ static LKDCHelperErrorType LKDCLookupRealm (const char *hostname, LKDCLocator *l
 	LKDCHelperErrorType error = kLKDCHelperSuccess;
 	DNSServiceRef		serviceRef = NULL;
 	lookupContext		context;
-	char				*lookupName;
+	char				*lookupName = NULL;
 	
 	LKDCLogEnter();
 	

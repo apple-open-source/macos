@@ -1,6 +1,6 @@
---- roundcubemail-0.5.3/program/include/main.inc	2011-06-02 05:36:32.000000000 -0700
+--- roundcubemail-0.6/program/include/main.inc	2011-06-02 05:36:32.000000000 -0700
 +++ roundcubemail/program/include/main.inc	2011-06-08 16:20:41.000000000 -0700
-@@ -1800,7 +1800,12 @@
+@@ -1881,7 +1881,12 @@
  function rcube_parse_host($name, $host='')
  {
    // %n - host
@@ -11,6 +11,6 @@
 +    $n = "[$n]";
 +  } else
 +    $n = preg_replace('/:\d+$/', '', $_SERVER['SERVER_NAME']);
-   // %d - domain name without first part, e.g. %d=mail.domain.tld, %m=domain.tld
+   // %d - domain name without first part, e.g. %n=mail.domain.tld, %d=domain.tld
    $d = preg_replace('/^[^\.]+\./', '', $n);
    // %h - IMAP host

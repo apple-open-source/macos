@@ -81,11 +81,14 @@ enum {
 	errSecCSCMSTooLarge =				-67036,	/* signature too large to embed (size limitation of on-disk representation) */
 	errSecCSHostProtocolInvalidHash =	-67035,	/* host protocol violation - invalid guest hash */
 	errSecCSStaticCodeChanged =			-67034,	/* the code on disk does not match what is running */
-	errSecCSSigDBDenied =				-67033,	/* permission to use the system signature database denied */
-	errSecCSSigDBAccess =				-67032,	/* cannot access system signature database */
+	errSecCSDBDenied =					-67033,	/* permission to use a database denied */
+	errSecCSDBAccess =					-67032,	/* cannot access a database */
+	errSecCSSigDBDenied = errSecCSDBDenied,
+	errSecCSSigDBAccess = errSecCSDBAccess,
 	errSecCSHostProtocolInvalidAttribute = -67031, /* host returned invalid or inconsistent guest attributes */
 	errSecCSInfoPlistFailed =			-67030,	/* invalid Info.plist (plist or signature have been modified) */
 	errSecCSNoMainExecutable =			-67029,	/* the code has no main executable file */
+	errSecCSBadBundleFormat =			-67028,	/* bundle format unrecognized, invalid, or unsuitable */
 };
 
 
@@ -107,6 +110,7 @@ extern const CFStringRef kSecCFErrorResourceMissing; /* CFURLRef: sealed (non-op
 extern const CFStringRef kSecCFErrorInfoPlist;		/* CFTypeRef: Info.plist dictionary or component thereof found invalid */
 extern const CFStringRef kSecCFErrorGuestAttributes; /* CFTypeRef: Guest attribute set of element not accepted */
 extern const CFStringRef kSecCFErrorRequirementSyntax; /* CFStringRef: compilation error for Requirement source */
+extern const CFStringRef kSecCFErrorPath;			/* CFURLRef: subcomponent containing the error */
 
 
 /*!

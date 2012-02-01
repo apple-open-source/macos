@@ -2654,6 +2654,15 @@ sub do_migration()
 		}
 	}
 
+	# set webmail state
+	my @webmail_state = qx(/usr/sbin/webappctl status com.apple.webapp.webmailserver);
+	chomp(@webmail_state);
+	if ( $webmail_state[0] eq "web:state = \"RUNNING\"" ) {
+		qx( ${SERVER_ADMIN} settings mail:imap:request_enable_webmail = yes >> ${MIGRATION_LOG} );
+	} else {
+		qx( ${SERVER_ADMIN} settings mail:imap:request_enable_webmail = no >> ${MIGRATION_LOG} );
+	}
+
 	# migrate log level settings
 	migrate_log_settings();
 

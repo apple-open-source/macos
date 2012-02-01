@@ -1,5 +1,5 @@
 /*
- * "$Id: testdriver.c 7306 2008-02-15 00:52:38Z mike $"
+ * "$Id: testdriver.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Sample/test driver interface program for CUPS.
  *
@@ -172,5 +172,5 @@ list_ppds(const char *name)		/* I - Program name */
 
 
 /*
- * End of "$Id: testdriver.c 7306 2008-02-15 00:52:38Z mike $".
+ * End of "$Id: testdriver.c 9042 2010-03-24 00:45:34Z mike $".
  */

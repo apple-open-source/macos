@@ -1,0 +1,183 @@
+Pigeonhole Sieve Pipe Plugin
+============================
+
+The sieve_pipe plugin adds the vnd.dovecot.pipe extension to the Sieve
+language. The extension adds a new action command for piping messages to a
+pre-defined set of external programs. To mitigate the security concerns, the
+external programs cannot be chosen arbitrarily; the available programs are
+restricted through administrator configuration
+
+Getting the sources
+-------------------
+
+Currently, the sources of the sieve_pipe plugin are not released, but you can
+get them from the the Mercurial repository:
+
+---%<-------------------------------------------------------------------------
+hg clone  http://hg.rename-it.nl/pigeonhole-0.2-sieve-pipe/
+---%<-------------------------------------------------------------------------
+
+Compiling
+---------
+
+If you downloaded the sources of this plugin using Mercurial, you will need to
+execute './autogen.sh' first to build the automake structure in your source
+tree. This process requires autotools and libtool to be installed.
+
+If you installed Dovecot from sources, the plugin's configure script should be
+able to find the installed 'dovecot-config' automatically, along with the
+Pigeonhole development headers:
+
+---%<-------------------------------------------------------------------------
+./configure
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+If this doesn't work, you can use '--with-dovecot=<path>' configure option,
+where the path points to a directory containing 'dovecot-config' file. This can
+point to an installed file:
+
+---%<-------------------------------------------------------------------------
+./configure --with-dovecot=/usr/local/lib/dovecot
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+The above example should also find the necessary Pigeonhole development headers
+implicitly. You can also compile by pointing to compiled Dovecot and Pigeonhole
+source trees:
+
+---%<-------------------------------------------------------------------------
+./configure --with-dovecot=../dovecot-2.0.0/
+--with-pigeonhole=../dovecot-2.0-pigeonhole-0.2.0
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+Configuration
+-------------
+
+This package builds and installs the sieve_pipe plugin for Pigeonhole Sieve.
+The plugin is activated by adding it to the sieve_plugins setting:
+
+---%<-------------------------------------------------------------------------
+sieve_plugins = sieve_pipe
+---%<-------------------------------------------------------------------------
+
+The plugin can directly pipe a message to an external program (typically a
+shell script) by forking a new process. Alternatively, it can connect to a Unix
+socket behind which a Dovecot script service is listening to start the external
+program, e.g. to execute as a different user or for added security.
+
+The program name specified for the Sieve "pipe" command is used to find the
+program or socket in a configured directory. Separate directories are specified
+for the sockets and the directly executed binaries. The socket directory is
+searched first. Since the Sieve "pipe" command refuses "/" in program names, it
+is not possible to build a hierarchical structure.
+
+Directly forked programs are executed with a limited set of environment
+variables: HOME, USER, SENDER, RECIPIENT and ORIG_RECIPIENT. Programs executed
+through the script-pipe socket service currently have no environment set at
+all.
+
+The following configuration settings are used by the sieve_pipe plugin:
+
+sieve_pipe_socket_dir = :
+  Points to a directory relative to the Dovecot base_dir where the sieve_pipe
+  plugin looks for the sockets.
+
+sieve_pipe_bin_dir = :
+  Points to a directory where the sieve_pipe plugin looks for programs (shell
+  scripts) to execute directly and pipe messages to.
+
+Example of socket service
+
+---%<-------------------------------------------------------------------------
+plugin {
+  sieve = ~/.dovecot.sieve
+
+  sieve_plugins = sieve_pipe
+
+  sieve_pipe_socket_dir = sieve-pipe
+}
+
+service sieve-custom-action {
+  executable = script-pipe /usr/lib/dovecot/sieve-pipe/sieve-custom-action.sh
+
+  # use some unprivileged user for execution
+  user = dovenull
+
+  # socket name is program-name in Sieve (without sieve-pipe/ prefix)
+  unix_listener sieve-pipe/sieve-custom-action {
+  }
+}
+---%<-------------------------------------------------------------------------
+
+Example of direct execution
+
+---%<-------------------------------------------------------------------------
+plugin {
+  sieve = ~/.dovecot.sieve
+
+  sieve_plugins = sieve_pipe
+
+  # This directory contains the scripts that are available.
+  sieve_pipe_bin_dir = /usr/lib/dovecot/sieve-pipe
+}
+---%<-------------------------------------------------------------------------
+
+Usage
+-----
+
+Sieve scripts can use the new 'vnd.dovecot.pipe' extension as follows:
+
+---%<-------------------------------------------------------------------------
+require ["vnd.dovecot.pipe"];
+
+pipe "external-program";
+---%<-------------------------------------------------------------------------
+
+Read the full specification
+[http://hg.rename-it.nl/pigeonhole-0.2-sieve-pipe/raw-file/tip/doc/rfc/spec-bosch-sieve-pipe.txt]
+for more information.
+
+Examples
+--------
+
+Example of a jabber notification notify.sieve:
+
+---%<-------------------------------------------------------------------------
+require [ "vnd.dovecot.pipe", "copy", "variables" ];
+if header :matches "subject" "*" { set "subject" "${1}"; }
+if header :matches "from" "*" { set "from" "${1}"; }
+pipe :args [ "USER@DOMAIN.TLD", "${from}", "${subject}" ] :copy :try
+"jabber_notify.sh" ;
+---%<-------------------------------------------------------------------------
+
+The jabber_notify.sh:
+
+---%<-------------------------------------------------------------------------
+USER="$1"
+FROM="$2"
+SUBJECT="$3"
+# clix accepts this as a config search directory
+# you can use clix - lua based
+# http://code.matthewwild.co.uk/clix/summary
+# or use any other jabber cmd line client that can send things
+export XDG_CONFIG_HOME=/srv/mail
+/srv/mail/clix.bin send -q --account=default --to="$USER" "New mail from
+${FROM} about ${SUBJECT}"
+# we don't care about the exit status in this case
+exit 0
+---%<-------------------------------------------------------------------------
+
+The $XDG_CONFIG_HOME/.clixrc:
+
+---%<-------------------------------------------------------------------------
+[default]
+jid=USER@DOMAIN.TLD
+password=PASSWORD
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-11-16 14:09)

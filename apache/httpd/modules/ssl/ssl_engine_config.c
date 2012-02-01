@@ -178,6 +178,7 @@ static SSLSrvConfigRec *ssl_config_server_new(apr_pool_t *p)
 #ifdef HAVE_FIPS
     sc->fips                   = UNSET;
 #endif
+    sc->allow_empty_fragments  = UNSET;
 
     modssl_ctx_init_proxy(sc, p);
 
@@ -275,6 +276,7 @@ void *ssl_config_server_merge(apr_pool_t *p, void *basev, void *addv)
 #ifdef HAVE_FIPS
     cfgMergeBool(fips);
 #endif
+    cfgMergeBool(allow_empty_fragments);
 
     modssl_ctx_cfg_merge_proxy(base->proxy, add->proxy, mrg->proxy);
 
@@ -660,6 +662,22 @@ const char *ssl_cmd_SSLFIPS(cmd_parms *cmd, void *dcfg, int flag)
     if (flag)
         return "SSLFIPS invalid, rebuild httpd and openssl compiled for FIPS";
 #endif
+
+    return NULL;
+}
+
+const char *ssl_cmd_SSLAllowEmptyFragments(cmd_parms *cmd, void *dcfg, int flag)
+{
+    SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
+    const char *err;
+
+    if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+
+    if ((sc->allow_empty_fragments != UNSET) && (sc->allow_empty_fragments != (BOOL)(flag ? TRUE : FALSE)))
+        return "Conflicting SSLAllowEmptyFragments options, cannot be both On and Off";
+    sc->allow_empty_fragments = flag ? TRUE : FALSE;
 
     return NULL;
 }

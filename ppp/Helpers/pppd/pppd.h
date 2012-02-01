@@ -681,6 +681,7 @@ void script_setenv __P((char *, char *, int));	/* set script env var */
 void script_unsetenv __P((char *));		/* unset script env var */
 void new_phase __P((int));	/* signal start of new phase */
 void add_notifier __P((struct notifier **, notify_func, void *));
+void add_notifier_last __P((struct notifier **, notify_func, void *));
 void remove_notifier __P((struct notifier **, notify_func, void *));
 void notify __P((struct notifier *, int));
 void notify_with_ptr __P((struct notifier *, uintptr_t));

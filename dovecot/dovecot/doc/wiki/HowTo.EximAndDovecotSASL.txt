@@ -40,4 +40,8 @@ dovecot_plain:
   server_set_id = $auth1
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+If you are having problems with this not working ensure that you are using
+version 4.72 or greater of exim. Previous versions of exim have trouble with
+the version of the protocol used in Dovecot 2
+
+(This file was created from the wiki on 2011-11-16 14:09)

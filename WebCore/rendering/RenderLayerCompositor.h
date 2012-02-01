@@ -43,7 +43,7 @@ class RenderVideo;
 
 enum CompositingUpdateType {
     CompositingUpdateAfterLayoutOrStyleChange,
-    CompositingUpdateOnPaitingOrHitTest,
+    CompositingUpdateOnHitTest,
     CompositingUpdateOnScroll
 };
 
@@ -93,6 +93,9 @@ public:
     // flushPendingLayerChanges() flushes the entire GraphicsLayer tree, which can cross frame boundaries.
     // This call returns the rootmost compositor that is being flushed (including self).
     RenderLayerCompositor* enclosingCompositorFlushingLayers() const;
+
+    // Called when the GraphicsLayer for the given RenderLayer has flushed changes inside of flushPendingLayerChanges().
+    void didFlushChangesForLayer(RenderLayer*);
     
     // Rebuild the tree of compositing layers
     void updateCompositingLayers(CompositingUpdateType = CompositingUpdateAfterLayoutOrStyleChange, RenderLayer* updateRoot = 0);
@@ -148,6 +151,13 @@ public:
     void didMoveOnscreen();
     void willMoveOffscreen();
     
+    void layerBecameComposited(const RenderLayer*) { ++m_compositedLayerCount; }
+    void layerBecameNonComposited(const RenderLayer*)
+    {
+        ASSERT(m_compositedLayerCount > 0);
+        --m_compositedLayerCount;
+    }
+    
     void didStartAcceleratedAnimation(CSSPropertyID);
     
 #if ENABLE(VIDEO)
@@ -182,7 +192,13 @@ public:
     bool compositorShowDebugBorders() const { return m_showDebugBorders; }
     bool compositorShowRepaintCounter() const { return m_showRepaintCounter; }
 
-    void updateContentsScale(float, RenderLayer* = 0);
+    virtual float deviceScaleFactor() const;
+    virtual float pageScaleFactor() const;
+    virtual void didCommitChangesForLayer(const GraphicsLayer*) const;
+    
+    bool keepLayersPixelAligned() const;
+
+    void deviceOrPageScaleFactorChanged();
 
     GraphicsLayer* layerForHorizontalScrollbar() const { return m_layerForHorizontalScrollbar.get(); }
     GraphicsLayer* layerForVerticalScrollbar() const { return m_layerForVerticalScrollbar.get(); }
@@ -232,6 +248,8 @@ private:
     void removeCompositedChildren(RenderLayer*);
 
     bool layerHas3DContent(const RenderLayer*) const;
+    
+    bool hasAnyAdditionalCompositedLayers(const RenderLayer* rootLayer) const;
 
     void ensureRootPlatformLayer();
     void destroyRootPlatformLayer();
@@ -269,6 +287,7 @@ private:
     bool m_hasAcceleratedCompositing;
     ChromeClient::CompositingTriggerFlags m_compositingTriggers;
 
+    int m_compositedLayerCount;
     bool m_showDebugBorders;
     bool m_showRepaintCounter;
     bool m_compositingConsultsOverlap;

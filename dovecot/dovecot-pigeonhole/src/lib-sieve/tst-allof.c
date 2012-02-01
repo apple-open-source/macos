@@ -19,14 +19,37 @@
 static bool tst_allof_generate
 	(const struct sieve_codegen_env *cgenv, struct sieve_command *ctx,
 		struct sieve_jumplist *jumps, bool jump_true);
+static bool tst_allof_validate_const
+	(struct sieve_validator *valdtr, struct sieve_command *tst,
+		int *const_current, int const_new);
 
 const struct sieve_command_def tst_allof = { 
 	"allof", 
 	SCT_TEST, 
 	0, 2, FALSE, FALSE,
-	NULL, NULL, NULL, NULL, 
+	NULL, NULL, NULL,
+	tst_allof_validate_const,
+	NULL,
 	tst_allof_generate 
 };
+
+/*
+ * Code validation
+ */
+
+static bool tst_allof_validate_const
+(struct sieve_validator *valdtr ATTR_UNUSED,
+	struct sieve_command *tst ATTR_UNUSED, int *const_current, int const_next)
+{
+	if ( const_next == 0 ) {
+		*const_current = 0;
+		return FALSE;
+	}
+
+	if ( *const_current != -1 )
+		*const_current = const_next;
+	return TRUE;
+}
 
 /* 
  * Code generation 

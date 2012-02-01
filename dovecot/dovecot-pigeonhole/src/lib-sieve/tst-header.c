@@ -38,7 +38,8 @@ const struct sieve_command_def tst_header = {
 	2, 0, FALSE, FALSE,
 	tst_header_registered, 
 	NULL,
-	tst_header_validate, 
+	tst_header_validate,
+	NULL,
 	tst_header_generate, 
 	NULL 
 };

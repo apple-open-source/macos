@@ -41,7 +41,6 @@ static struct sieve_binary *_testsuite_script_compile
 {
 	struct sieve_instance *svinst = testsuite_sieve_instance;
 	struct sieve_binary *sbin;
-	const char *sieve_dir;
 	const char *script_path;
 
 	sieve_runtime_trace(renv, SIEVE_TRLVL_TESTS, "compile script `%s'", script);
@@ -52,19 +51,6 @@ static struct sieve_binary *_testsuite_script_compile
 
 	script_path = t_strconcat(script_path, "/", script, NULL);
 
-	/* Initialize environment */
-	sieve_dir = strrchr(script_path, '/');
-	if ( sieve_dir == NULL )
-		sieve_dir= "./";
-	else
-		sieve_dir = t_strdup_until(script_path, sieve_dir+1);
-
-	/* Currently needed for include (FIXME) */
-	testsuite_setting_set
-		("sieve_dir", t_strconcat(sieve_dir, "included", NULL));
-	testsuite_setting_set
-		("sieve_global_dir", t_strconcat(sieve_dir, "included-global", NULL));
-	
 	if ( (sbin = sieve_compile(svinst, script_path, NULL, testsuite_log_ehandler,
 		NULL)) == NULL )
 		return NULL;

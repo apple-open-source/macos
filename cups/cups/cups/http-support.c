@@ -1,5 +1,5 @@
 /*
- * "$Id: http-support.c 7952 2008-09-17 00:56:20Z mike $"
+ * "$Id: http-support.c 9820 2011-06-10 22:06:26Z mike $"
  *
  *   HTTP support routines for CUPS.
  *
@@ -216,7 +216,7 @@ httpAssembleURI(
       * Add username@ first...
       */
 
-      ptr = http_copy_encode(ptr, username, end, "/?@", NULL,
+      ptr = http_copy_encode(ptr, username, end, "/?#[]@", NULL,
                              encoding & HTTP_URI_CODING_USERNAME);
 
       if (!ptr)
@@ -1824,16 +1824,35 @@ http_resolve_cb(
   if ((value = TXTRecordGetValuePtr(txtLen, txtRecord, "rp",
                                     &valueLen)) != NULL)
   {
+    if (((char *)value)[0] == '/')
+    {
+     /*
+      * "rp" value (incorrectly) has a leading slash already...
+      */
+
+      memcpy(rp, value, valueLen);
+      rp[valueLen] = '\0';
+    }
+    else
+    {
+     /*
+      * Convert to resource by concatenating with a leading "/"...
+      */
+
+      rp[0] = '/';
+      memcpy(rp + 1, value, valueLen);
+      rp[valueLen + 1] = '\0';
+    }
+  }
+  else
+  {
    /*
-    * Convert to resource by concatenating with a leading "/"...
+    * Default "rp" value is blank, mapping to a path of "/"...
     */
 
     rp[0] = '/';
-    memcpy(rp + 1, value, valueLen);
-    rp[valueLen + 1] = '\0';
+    rp[1] = '\0';
   }
-  else
-    rp[0] = '\0';
 
  /*
   * Lookup the FQDN if needed...
@@ -1896,5 +1915,5 @@ http_resolve_cb(
 
 
 /*
- * End of "$Id: http-support.c 7952 2008-09-17 00:56:20Z mike $".
+ * End of "$Id: http-support.c 9820 2011-06-10 22:06:26Z mike $".
  */

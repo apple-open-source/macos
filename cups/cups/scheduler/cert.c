@@ -1,5 +1,5 @@
 /*
- * "$Id: cert.c 7673 2008-06-18 22:31:26Z mike $"
+ * "$Id: cert.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   Authentication certificate routines for the CUPS scheduler.
  *
@@ -206,7 +206,7 @@ cupsdAddCert(int        pid,		/* I - Process ID */
 	  *textptr = ',';
 
 	cupsdLogMessage(CUPSD_LOG_ERROR, "ACL: %s", text);
-	free(text);
+	acl_free(text);
       }
 #  endif /* HAVE_MBR_UID_TO_UUID */
 
@@ -438,5 +438,5 @@ cupsdInitCerts(void)
 
 
 /*
- * End of "$Id: cert.c 7673 2008-06-18 22:31:26Z mike $".
+ * End of "$Id: cert.c 9793 2011-05-20 03:49:49Z mike $".
  */

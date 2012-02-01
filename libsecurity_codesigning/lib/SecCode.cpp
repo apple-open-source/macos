@@ -42,12 +42,13 @@ using namespace CodeSigning;
 const CFStringRef kSecCFErrorArchitecture =		CFSTR("SecCSArchitecture");
 const CFStringRef kSecCFErrorPattern =			CFSTR("SecCSPattern");
 const CFStringRef kSecCFErrorResourceSeal =		CFSTR("SecCSResourceSeal");
-const CFStringRef kSecCFErrorResourceAdded =	CFSTR("SecCSResourceAdded");
+const CFStringRef kSecCFErrorResourceAdded =		CFSTR("SecCSResourceAdded");
 const CFStringRef kSecCFErrorResourceAltered =	CFSTR("SecCSResourceAltered");
 const CFStringRef kSecCFErrorResourceMissing =	CFSTR("SecCSResourceMissing");
-const CFStringRef kSecCFErrorInfoPlist =		CFSTR("SecCSInfoPlist");
+const CFStringRef kSecCFErrorInfoPlist =			CFSTR("SecCSInfoPlist");
 const CFStringRef kSecCFErrorGuestAttributes =	CFSTR("SecCSGuestAttributes");
 const CFStringRef kSecCFErrorRequirementSyntax = CFSTR("SecRequirementSyntax");
+const CFStringRef kSecCFErrorPath =				CFSTR("SecComponentPath");
 
 
 //

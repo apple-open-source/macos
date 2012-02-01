@@ -28,7 +28,11 @@ dbox
 ----
 
 Mails can be stored as compressed. Existing uncompressed mails can't currently
-be compressed (or vice versa).
+be directly compressed (or vice versa). You could, however, use <dsync>
+[Tools.Dsync.txt] to copy all mails to another location (which saves them
+compressed) and then replace the original location with the new compressed
+location. You can do this by treating the operation the same as if you were
+migrating from one mailbox format to another (see the dsync page examples).
 
 Maildir
 -------
@@ -86,4 +90,4 @@ the included maildirlock utility. The idea is to:
  6. Unlock the maildir by sending a TERM signal to the maildirlock process
     (killing the PID it wrote to stdout).
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

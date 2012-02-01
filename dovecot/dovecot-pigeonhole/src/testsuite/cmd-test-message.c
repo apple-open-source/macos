@@ -35,7 +35,8 @@ const struct sieve_command_def cmd_test_message = {
 	1, 0, FALSE, FALSE,
 	cmd_test_message_registered, 
 	NULL,
-	cmd_test_message_validate, 
+	cmd_test_message_validate,
+	NULL, 
 	cmd_test_message_generate, 
 	NULL 
 };

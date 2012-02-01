@@ -1,5 +1,5 @@
 /*
- * "$Id: cups-driverd.cxx 3307 2011-06-10 18:21:15Z msweet $"
+ * "$Id: cups-driverd.cxx 3462 2011-10-19 06:24:49Z msweet $"
  *
  *   PPD/driver support for CUPS.
  *
@@ -1196,6 +1196,12 @@ list_ppds(int        request_id,	/* I - Request ID */
 	    ppd->matches += 3;
 	    break;
 	  }
+	  else if (!_cups_strncasecmp(ppd->record.products[i], product,
+	                              product_len))
+	  {
+	    ppd->matches += 2;
+	    break;
+	  }
       }
 
       if (psversion)
@@ -1411,9 +1417,7 @@ load_drv(const char  *filename,		/* I - Actual filename */
   * Add a dummy entry for the file...
   */
 
-  httpAssembleURIf(HTTP_URI_CODING_ALL, uri, sizeof(uri), "drv", "", "", 0,
-		   "/%s", name);
-  add_ppd(name, uri, "", "", "", "", "", "", mtime, size, 0,
+  add_ppd(name, name, "", "", "", "", "", "", mtime, size, 0,
           PPD_TYPE_DRV, "drv");
   ChangedPPD = 1;
 
@@ -1525,7 +1529,7 @@ load_drivers(cups_array_t *include,	/* I - Drivers to include */
 		name[512],		/* ppd-name */
 		make[128],		/* ppd-make */
 		make_and_model[128],	/* ppd-make-and-model */
-		device_id[128],		/* ppd-device-id */
+		device_id[256],		/* ppd-device-id */
 		languages[128],		/* ppd-natural-language */
 		product[128],		/* ppd-product */
 		psversion[128],		/* ppd-psversion */
@@ -1656,7 +1660,7 @@ load_drivers(cups_array_t *include,	/* I - Drivers to include */
 	strcpy(type_str, "postscript");
 
         if (sscanf(line, "\"%511[^\"]\"%127s%*[ \t]\"%127[^\"]\""
-	                 "%*[ \t]\"%127[^\"]\"%*[ \t]\"%127[^\"]\""
+	                 "%*[ \t]\"%127[^\"]\"%*[ \t]\"%255[^\"]\""
 			 "%*[ \t]\"%127[^\"]\"%*[ \t]\"%127[^\"]\""
 			 "%*[ \t]\"%127[^\"]\"",
 	           name, languages, make, make_and_model,
@@ -1770,7 +1774,8 @@ load_ppds(const char *d,		/* I - Actual directory */
 		product[256],		/* Product */
 		psversion[256],		/* PSVersion */
 		temp[512];		/* Temporary make and model */
-  int		model_number,		/* cupsModelNumber */
+  int		install_group,		/* In the installable options group? */
+		model_number,		/* cupsModelNumber */
 		type;			/* ppd-type */
   cups_array_t	*products,		/* Product array */
 		*psversions,		/* PSVersion array */
@@ -1994,6 +1999,7 @@ load_ppds(const char *d,		/* I - Actual directory */
     lang_encoding[0] = '\0';
     strcpy(lang_version, "en");
     model_number     = 0;
+    install_group    = 0;
     type             = PPD_TYPE_POSTSCRIPT;
 
     while (cupsFileGets(fp, line, sizeof(line)) != NULL)
@@ -2088,15 +2094,19 @@ load_ppds(const char *d,		/* I - Actual directory */
       }
       else if (!strncmp(line, "*cupsModelNumber:", 17))
         sscanf(line, "*cupsModelNumber:%d", &model_number);
+      else if (!strncmp(line, "*OpenGroup: Installable", 23))
+        install_group = 1;
+      else if (!strncmp(line, "*CloseGroup:", 12))
+        install_group = 0;
       else if (!strncmp(line, "*OpenUI", 7))
       {
        /*
         * Stop early if we have a NickName or ModelName attributes
-	* before the first OpenUI...
+	* before the first non-installable OpenUI...
 	*/
 
-        if ((model_name[0] || nick_name[0]) && cupsArrayCount(products) > 0 &&
-	    cupsArrayCount(psversions) > 0)
+        if (!install_group && (model_name[0] || nick_name[0]) &&
+            cupsArrayCount(products) > 0 && cupsArrayCount(psversions) > 0)
 	  break;
       }
     }
@@ -2570,5 +2580,5 @@ regex_string(const char *s)		/* I - String to compare */
 
 
 /*
- * End of "$Id: cups-driverd.cxx 3307 2011-06-10 18:21:15Z msweet $".
+ * End of "$Id: cups-driverd.cxx 3462 2011-10-19 06:24:49Z msweet $".
  */

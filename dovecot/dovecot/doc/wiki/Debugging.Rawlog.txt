@@ -62,4 +62,10 @@ You can also give parameters to rawlog:
    files. The packet is written between<<< and >>>.
  * -t: Log a microsecond resolution timestamp at the beginning of each line.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+Warning
+-------
+
+The rawlog seems not to work if you set the home directory in a chrooted
+enviroment.See <Chrooting.txt>.
+
+(This file was created from the wiki on 2011-11-16 14:09)

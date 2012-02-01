@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "lib-signals.h"
 #include "array.h"
 #include "execv-const.h"
 #include "settings-parser.h"
@@ -230,6 +231,7 @@ int main(int argc, char *argv[])
 		usage();
 	}
 	master_service_init_finish(master_service);
+	lib_signals_ignore(SIGHUP, TRUE);
 
 	if (!dsync_debug) {
 		/* disable debugging unless -D is given */
@@ -257,6 +259,7 @@ int main(int argc, char *argv[])
 	if (mail_storage_service_next(storage_service, service_user,
 				      &mail_user) < 0)
 		i_fatal("User init failed");
+	mail_user->admin = TRUE;
 
 	/* create the first local worker */
 	worker1 = dsync_worker_init_local(mail_user, alt_char);
@@ -273,6 +276,7 @@ int main(int argc, char *argv[])
 		if (mail_storage_service_next(storage_service, service_user,
 					      &mail_user2) < 0)
 			i_fatal("User init failed");
+		mail_user2->admin = TRUE;
 
 		if (mail_namespaces_get_root_sep(mail_user->namespaces) !=
 		    mail_namespaces_get_root_sep(mail_user2->namespaces)) {

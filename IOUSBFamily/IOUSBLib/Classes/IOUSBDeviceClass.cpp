@@ -155,7 +155,10 @@ IOUSBDeviceClass::~IOUSBDeviceClass()
     }
 	
 	if (fAsyncPort)
+    {
 		IONotificationPortDestroy(fAsyncPort);
+        fAsyncPort = NULL;
+    }
 	
 	if ( fASLClient )
 		asl_close(fASLClient);
@@ -730,28 +733,23 @@ CreateDeviceAsyncEventSource(CFRunLoopSourceRef *source)
 	
     if (!fAsyncPort) 
     {     
+    	// This CreateDeviceAsyncPort() will create the fCFSource
         ret = CreateDeviceAsyncPort(0);
         if (kIOReturnSuccess != ret)
             return ret;
     }
 	
-    context.version = 1;
-    context.info = this;
-    context.retain = NULL;
-    context.release = NULL;
-    context.copyDescription = NULL;
-	
-    cfPort = CFMachPortCreateWithPort(NULL, IONotificationPortGetMachPort(fAsyncPort), (CFMachPortCallBack) IODispatchCalloutFromMessage, &context, &shouldFreeInfo);
-    if (!cfPort)
-        return kIOReturnNoMemory;
-    
-    fCFSource = CFMachPortCreateRunLoopSource(NULL, cfPort, 0);
-    CFRelease(cfPort);
     if (!fCFSource)
         return kIOReturnNoMemory;
 	
     if (source)
+    {
+        // We retain the fCFSource because our API is a "Create" API, which the callers will assume that they
+        // have to release it.  Since we now get it via IONotificationPortGetRunLoopSource(), the IONotificationPortDestroy()
+        // will release it -- if we don't retain it here, we would do a double relese
+        CFRetain(fCFSource);
 		*source = fCFSource;
+    }
 	
 	DEBUGPRINT("-IOUSBDeviceClass::CreateDeviceAsyncEventSource\n");
     return kIOReturnSuccess;
@@ -770,7 +768,7 @@ IOUSBDeviceClass::GetDeviceAsyncEventSource()
 IOReturn 
 IOUSBDeviceClass::CreateDeviceAsyncPort(mach_port_t *port)
 {
-	IOReturn		kr;
+	IOReturn		kr = kIOReturnSuccess;
     mach_port_t		masterPort;
 	
     ATTACHEDCHECK();
@@ -783,17 +781,15 @@ IOUSBDeviceClass::CreateDeviceAsyncPort(mach_port_t *port)
 		return kIOReturnSuccess;
     }
 	
-    // First create a master_port for my task
-    kr = IOMasterPort(MACH_PORT_NULL, &masterPort);
-    if (kr || !masterPort)
-        return kIOReturnError;
-	
-	fAsyncPort = IONotificationPortCreate(masterPort);
+	fAsyncPort = IONotificationPortCreate(kIOMasterPortDefault);
 	
     if (fAsyncPort) 
 	{
+        // Get the runloop source from our notification port
+        fCFSource = IONotificationPortGetRunLoopSource(fAsyncPort);
+      
 		if (port)
-		*port = IONotificationPortGetMachPort(fAsyncPort);
+            *port = IONotificationPortGetMachPort(fAsyncPort);
 		
 		if (fIsOpen) 
 		{
@@ -809,9 +805,6 @@ IOUSBDeviceClass::CreateDeviceAsyncPort(mach_port_t *port)
 		}
     }
     
-	mach_port_deallocate(mach_task_self(), masterPort);
-    masterPort = 0;
-	
     return kr;
 }
 

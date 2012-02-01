@@ -1,5 +1,5 @@
 /*
- * "$Id: lpq.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: lpq.c 9744 2011-05-05 23:42:30Z mike $"
  *
  *   "lpq" command for CUPS.
  *
@@ -674,5 +674,5 @@ usage(void)
 
 
 /*
- * End of "$Id: lpq.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: lpq.c 9744 2011-05-05 23:42:30Z mike $".
  */

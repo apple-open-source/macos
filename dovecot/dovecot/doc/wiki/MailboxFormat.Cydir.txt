@@ -17,4 +17,4 @@ Cydir is mostly meant to be used for benchmarking and stress testing index
 handling code. Its code is small and simple, so it can also act as an example
 for writing new mail storage backends.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

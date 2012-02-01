@@ -55,7 +55,7 @@ static bool vpopmail_is_disabled(struct auth_request *request,
 }
 
 static char *
-vpopmail_password_lookup(struct auth_request *auth_request, bool cleartext,
+vpopmail_password_lookup(struct auth_request *auth_request, bool *cleartext,
 			 enum passdb_result *result_r)
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
@@ -75,8 +75,13 @@ vpopmail_password_lookup(struct auth_request *auth_request, bool cleartext,
 		password = NULL;
 		*result_r = PASSDB_RESULT_USER_DISABLED;
 	} else {
-		password = t_strdup_noconst(cleartext ? vpw->pw_clear_passwd :
-					   vpw->pw_passwd);
+		if (vpw->pw_clear_passwd != NULL) {
+			password = t_strdup_noconst(vpw->pw_clear_passwd);
+			*cleartext = TRUE;
+		} else if (!*cleartext)
+			password = t_strdup_noconst(vpw->pw_passwd);
+		else
+			password = NULL;
 		*result_r = password != NULL ? PASSDB_RESULT_OK :
 			PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 	}
@@ -95,8 +100,9 @@ static void vpopmail_lookup_credentials(struct auth_request *request,
 {
 	enum passdb_result result;
 	char *password;
+	bool cleartext = TRUE;
 
-	password = vpopmail_password_lookup(request, TRUE, &result);
+	password = vpopmail_password_lookup(request, &cleartext, &result);
 	if (password == NULL) {
 		callback(result, NULL, 0, request);
 		return;
@@ -114,18 +120,23 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	enum passdb_result result;
 	const char *scheme, *tmp_pass;
 	char *crypted_pass;
+	bool cleartext;
 	int ret;
 
-	crypted_pass = vpopmail_password_lookup(request, FALSE, &result);
+	crypted_pass = vpopmail_password_lookup(request, &cleartext, &result);
 	if (crypted_pass == NULL) {
 		callback(result, request);
 		return;
 	}
-
 	tmp_pass = crypted_pass;
-	scheme = password_get_scheme(&tmp_pass);
-	if (scheme == NULL)
-		scheme = request->passdb->passdb->default_pass_scheme;
+
+	if (cleartext)
+		scheme = "CLEARTEXT";
+	else {
+		scheme = password_get_scheme(&tmp_pass);
+		if (scheme == NULL)
+			scheme = request->passdb->passdb->default_pass_scheme;
+	}
 
 	ret = auth_request_password_verify(request, password,
 					   tmp_pass, scheme, "vpopmail");
@@ -136,11 +147,12 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 
-#ifdef HAVE_VPOPMAIL_OPEN_SMTP_RELAY
+#ifdef POP_AUTH_OPEN_RELAY
 	if (strcasecmp(request->service, "POP3") == 0 ||
 	    strcasecmp(request->service, "IMAP") == 0) {
 		const char *host = net_ip2addr(&request->remote_ip);
-		if (host != NULL) {
+		/* vpopmail 5.4 does not understand IPv6 */
+		if (host != NULL && IPADDR_IS_V4(&request->remote_ip)) {
 			/* use putenv() directly rather than env_put() which
 			   would leak memory every time we got here. use a
 			   static buffer for putenv() as SUSv2 requirements

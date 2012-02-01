@@ -346,7 +346,8 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	if (hook_select_send_urlmech)
 		hook_select_send_urlmech(client);
 
-	if (ctx->qresync_uid_validity == status.uidvalidity) {
+	if (ctx->qresync_uid_validity == status.uidvalidity &&
+	    status.uidvalidity != 0) {
 		if ((ret = select_qresync(ctx)) < 0) {
 			client_send_storage_error(ctx->cmd,
 				mailbox_get_storage(ctx->box));

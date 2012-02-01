@@ -45,7 +45,7 @@ bool ext_vacation_seconds_load
 	if ( *context == NULL ) {	
 		/* Make sure vacation extension is registered */
 		*context = (void *)	
-			sieve_extension_require(ext->svinst, &vacation_extension);
+			sieve_extension_require(ext->svinst, &vacation_extension, TRUE);
 	}
 
 	return TRUE;

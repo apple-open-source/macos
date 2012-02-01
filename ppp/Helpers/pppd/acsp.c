@@ -839,7 +839,11 @@ static int acsp_plugin_init_type(acsp_ext *ext, int type_index)
     } else
         return -1;	// bad index
     
-    add_notifier(&ip_up_notify, acsp_plugin_ip_up, ext->context);
+    // we want the routes notifier to fire first, then the domains
+    if (ext->type == CI_DOMAINS)
+        add_notifier_last(&ip_up_notify, acsp_plugin_ip_up, ext->context);
+    else 
+        add_notifier(&ip_up_notify, acsp_plugin_ip_up, ext->context);
     add_notifier(&ip_down_notify, acsp_plugin_ip_down, ext->context);
 
     return 0;
@@ -1231,7 +1235,7 @@ static void acsp_plugin_clear_list(acsp_plugin_context* context)
 static void acsp_plugin_ip_up(void *arg, uintptr_t phase)
 {
     acsp_plugin_context* context = (acsp_plugin_context*)arg;
-    
+
     context->ip_up = 1;
     if (context->mode == PLUGIN_MODE_RCV 
             && context->state == PLUGIN_STATE_DONE 
@@ -1936,7 +1940,7 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 	u_int32_t masklen, addrlen, i, mask;
 	char str[2048];
 	acsp_route  *route;
-	acsp_domain *domain_list, *domain;
+	acsp_domain *domain_list = NULL, *domain;
 	char *str_p, *tok, *delim;
 	
 	dp = (struct dhcp_packet *)pkt;
@@ -1986,7 +1990,6 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 			return;
 		}
 		
-		str[0] = 0;
 		switch (optcode) {
 			case DHCP_OPTION_SUBNET_MASK:
 				mask = *(u_int32_t *)p;
@@ -2002,9 +2005,14 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 				}
 				break;
 			case DHCP_OPTION_DOMAIN_NAME:
+
+				if (domain_list) {
+                    notice("ignoring dhcp option 'domain name', option already processed.\n");
+                    break;
+				}
+
 				memcpy(str, p, optlen);
 				str[optlen] = 0;
-				domain_list = NULL;
 				str_p = str;
 				// check if domain is tokenized by a variety of delimiters
 				GET_SPLITDNS_DELIM(str, delim);
@@ -2028,14 +2036,6 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 					}
 					tok = strsep(&str_p, delim);
 				} while (tok != NULL);
-				if (domain_list) {
-					acsp_plugin_add_domains(domain_list);
-					while (domain_list) {
-						domain = domain_list;
-						domain_list = domain_list->next;
-						free(domain);
-					}
-				}
 				break;
 			case DHCP_OPTION_STATIC_ROUTE:
 				i = 0;
@@ -2059,7 +2059,7 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 					dhcp_context->route = route;
 					i += addrlen + 1 + sizeof(in_addr_t);
 				}
-				acsp_plugin_add_routes(dhcp_context->route);
+                acsp_plugin_add_routes(dhcp_context->route);
 				break;
 
 			default:
@@ -2070,6 +2070,15 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 		len-=optlen;
 	}
 	
+    if (domain_list) {
+       acsp_plugin_add_domains(domain_list);
+        while (domain_list) {
+            domain = domain_list;
+            domain_list = domain_list->next;
+            free(domain);
+        }
+    }
+    
 	/* dhcp is done */
 	UNTIMEOUT(acsp_ipdata_timeout, dhcp_context);
 	dhcp_context->state = PLUGIN_STATE_DONE;

@@ -194,29 +194,35 @@ public:
 	sqlite3_stmt *sql() const { return mStmt; }
 
 private:
-	struct Column {
+	class Column {
+	public:
 		Column(const Statement &st, int ix) : statement(st), index(ix) { }
 		
 		const Statement &statement;
 		const int index;
 	};
 	
-	struct Binding : public Column {
+	class Binding : public Column {
+	public:
 		Binding(const Statement &st, int ix) : Column(st, ix) { }
 		
 		const char *name() const;
 		
+		void null();
 		void operator = (int value);
 		void operator = (sqlite3_int64 value);
 		void operator = (double value);
 		void operator = (const char *value);
 		void operator = (const Value &value);
+		void integer(sqlite3_int64 value);
 		void blob(const void *data, size_t length, bool shared = false);
 		void operator = (CFDataRef data);
+		void operator = (CFStringRef value);
 	};
 	
 public:
-	struct Result : public Column {
+	class Result : public Column {
+	public:
 		Result(const Statement &st, int ix) : Column(st, ix) { }
 		
 		const char *name() const;

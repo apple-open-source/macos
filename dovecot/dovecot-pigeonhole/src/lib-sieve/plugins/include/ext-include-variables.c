@@ -1,6 +1,9 @@
 /* Copyright (c) 2002-2011 Pigeonhole authors, see the included COPYING file
  */
 
+#include "lib.h"
+#include "str-sanitize.h"
+
 #include "sieve-common.h"
 #include "sieve-error.h"
 #include "sieve-script.h"
@@ -37,6 +40,12 @@ struct sieve_variable *ext_include_variable_import_global
 
 	/* Sanity safeguard */	
 	i_assert ( ctx->global_vars != NULL );
+
+	if ( !sieve_variable_identifier_is_valid(variable) ) {
+		sieve_command_validate_error(valdtr, cmd,
+			"invalid variable identifier '%s'", str_sanitize(variable,80));
+		return NULL;
+	}
 
 	/* Get/Declare the variable in the global scope */
 	global_var = sieve_variable_scope_get_variable(global_scope, variable, TRUE);

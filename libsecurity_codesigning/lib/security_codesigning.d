@@ -56,8 +56,8 @@ provider codesign {
 	probe eval__reqint__op(uint32_t opcode, uint32_t offset);
 	probe eval__reqint__unknown_false(uint32_t opcode);
 	probe eval__reqint__unknown_skipped(uint32_t opcode);
-probe eval__reqint__fragment__load(const char *type, const char *name, const void *req);
-probe eval__reqint__fragment__hit(const char *type, const char *name);
+	probe eval__reqint__fragment__load(const char *type, const char *name, const void *req);
+	probe eval__reqint__fragment__hit(const char *type, const char *name);
 	
 	probe guest__hostingport(void *host, mach_port_t hostingPort);
 	probe guest__locate__generic(void *host, uint32_t *guestPath, uint32_t guestPathLength, mach_port_t subport);
@@ -75,4 +75,12 @@ probe eval__reqint__fragment__hit(const char *type, const char *name);
 	probe sign__dep__interp(void *me, const char *name, const void *requirement);
 
 	probe load__antlr();
+};
+
+
+provider syspolicy {
+	probe assess_api(const char *path, uint32_t flags);
+	probe assess_cache_hit();
+	probe assess_local();
+	probe assess_remote();
 };

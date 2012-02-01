@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2011 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/hr.xml
@@ -45,11 +45,11 @@ hr{
         }
         AOK{
             "AOK" /** ===  */,
-            "angolska kvanza (1977-1990)",
+            "angolska kvanza (1977.-1990.)",
         }
         AON{
             "AON" /** ===  */,
-            "angolska nova kvanza (1990-2000)",
+            "angolska nova kvanza (1990.-2000.)",
         }
         AOR{
             "AOR" /** ===  */,
@@ -61,7 +61,7 @@ hr{
         }
         ARP{
             "ARP" /** ===  */,
-            "argentinski pezo (1983-1985)",
+            "argentinski pezo (1983.-1985.)",
         }
         ARS{
             "AR$",
@@ -81,7 +81,7 @@ hr{
         }
         AZM{
             "AZM",
-            "azerbajdžanski manat (1993-2006)",
+            "azerbajdžanski manat (1993.-2006.)",
         }
         AZN{
             "man.",
@@ -101,7 +101,7 @@ hr{
         }
         BDT{
             "Tk",
-            "taka",
+            "bangladeška taka",
         }
         BEC{
             "BEC" /** ===  */,
@@ -185,11 +185,11 @@ hr{
         }
         BUK{
             "BUK" /** ===  */,
-            "kyat",
+            "burmanski kyat",
         }
         BWP{
             "BWP",
-            "pula",
+            "bocvanska pula",
         }
         BYB{
             "BYB" /** ===  */,
@@ -225,15 +225,19 @@ hr{
         }
         CLF{
             "CLF" /** ===  */,
-            "Chilean Unidades de Fomento",
+            "čileanski unidades de fomentos",
         }
         CLP{
             "CL$",
             "čileanski pezo",
         }
+        CNX{
+            "CNX" /** ===  */,
+            "kineski narodni dolar",
+        }
         CNY{
             "CN¥",
-            "renminbi-juan",
+            "kineski yuan",
         }
         COP{
             "CO$",
@@ -241,7 +245,7 @@ hr{
         }
         COU{
             "COU" /** ===  */,
-            "Unidad de Valor Real",
+            "unidad de valor real",
         }
         CRC{
             "₡",
@@ -253,7 +257,7 @@ hr{
         }
         CSK{
             "CSK" /** ===  */,
-            "Czechoslovak Hard Koruna",
+            "čehoslovačka kruna",
         }
         CUC{
             "CUC$",
@@ -277,7 +281,7 @@ hr{
         }
         DDM{
             "DDM" /** ===  */,
-            "East German Ostmark",
+            "istočnonjemačka marka",
         }
         DEM{
             "DM",
@@ -301,11 +305,11 @@ hr{
         }
         ECS{
             "ECS" /** ===  */,
-            "Ecuador Sucre",
+            "ekvatorska sukra",
         }
         ECV{
             "ECV" /** ===  */,
-            "Ecuador Unidad de Valor Constante (UVC)",
+            "ekvatorski unidad de valor constante (UVC)",
         }
         EEK{
             "Ekr",
@@ -317,7 +321,7 @@ hr{
         }
         ERN{
             "Nfk",
-            "nakfa",
+            "eritrejska nakfa",
         }
         ESA{
             "ESA" /** ===  */,
@@ -361,11 +365,11 @@ hr{
         }
         GEK{
             "GEK" /** ===  */,
-            "Georgian Kupon Larit",
+            "gruzijski kupon larit",
         }
         GEL{
             "GEL",
-            "lari",
+            "gruzijski lari",
         }
         GHC{
             "₵",
@@ -381,7 +385,7 @@ hr{
         }
         GMD{
             "GMD",
-            "dalasi",
+            "gambijski dalas",
         }
         GNF{
             "FG",
@@ -393,7 +397,7 @@ hr{
         }
         GQE{
             "GQE" /** ===  */,
-            "Equatorial Guinea Ekwele Guineana",
+            "ekvatorski gvinejski ekwele",
         }
         GRD{
             "₯",
@@ -401,11 +405,11 @@ hr{
         }
         GTQ{
             "GTQ",
-            "kvecal",
+            "gvatemalski kvecal",
         }
         GWE{
             "GWE" /** ===  */,
-            "portugalski gvineja eskudo",
+            "portugalski gvinejski eskudo",
         }
         GWP{
             "GWP" /** ===  */,
@@ -481,7 +485,7 @@ hr{
         }
         ITL{
             "IT₤",
-            "Talijanska lira",
+            "talijanska lira",
         }
         JMD{
             "J$",
@@ -505,7 +509,7 @@ hr{
         }
         KHR{
             "KHR",
-            "rijal",
+            "kambođanski rijal",
         }
         KMF{
             "CF",
@@ -533,7 +537,7 @@ hr{
         }
         LAK{
             "₭",
-            "kip",
+            "laoski kip",
         }
         LBP{
             "LB£",
@@ -549,7 +553,7 @@ hr{
         }
         LSL{
             "LSL",
-            "loti",
+            "lesoto loti",
         }
         LTL{
             "Lt",
@@ -569,7 +573,7 @@ hr{
         }
         LUL{
             "LUL" /** ===  */,
-            "Luksemburški financijski franak",
+            "luksemburški financijski franak",
         }
         LVL{
             "Ls",
@@ -577,7 +581,7 @@ hr{
         }
         LVR{
             "LVR" /** ===  */,
-            "Latvian Ruble",
+            "letonska rublja",
         }
         LYD{
             "LD",
@@ -609,11 +613,11 @@ hr{
         }
         MLF{
             "MLF" /** ===  */,
-            "CFA franak",
+            "malijski franak",
         }
         MMK{
             "MMK",
-            "Myanmar Kyat",
+            "mjanmarski kjat",
         }
         MNT{
             "₮",
@@ -621,7 +625,7 @@ hr{
         }
         MOP{
             "MOP$",
-            "Macao Pataca",
+            "makaoška pataka",
         }
         MRO{
             "UM",
@@ -645,7 +649,7 @@ hr{
         }
         MWK{
             "MWK",
-            "Malawi Kwacha",
+            "malavijska kvača",
         }
         MXN{
             "MX$",
@@ -657,7 +661,7 @@ hr{
         }
         MXV{
             "MXV" /** ===  */,
-            "Mexican Unidad de Inversion (UDI)",
+            "meksički unidad de inversion (UDI)",
         }
         MYR{
             "RM",
@@ -713,7 +717,7 @@ hr{
         }
         PAB{
             "B/.",
-            "balboa",
+            "panamska balboa",
         }
         PEI{
             "I/.",
@@ -721,11 +725,11 @@ hr{
         }
         PEN{
             "S/.",
-            "novi sol",
+            "peruanski novi sol",
         }
         PES{
             "PES" /** ===  */,
-            "sol",
+            "peruanski sol",
         }
         PGK{
             "PGK",
@@ -745,7 +749,7 @@ hr{
         }
         PLZ{
             "PLZ" /** ===  */,
-            "Poljska zlota (1950-1995)",
+            "poljska zlota (1950.-1995.)",
         }
         PTE{
             "Esc",
@@ -881,11 +885,11 @@ hr{
         }
         TMM{
             "TMM",
-            "turkmenistanski manat",
+            "turkmenistanski manat  (1993.-2009.)",
         }
         TMT{
             "TMT",
-            "turkmenistanski novi manat",
+            "turkmenistanski manat",
         }
         TND{
             "DT",
@@ -901,7 +905,7 @@ hr{
         }
         TRL{
             "TRL",
-            "stara turska lira",
+            "turska lira (1922.-2005.)",
         }
         TRY{
             "TL",
@@ -913,7 +917,7 @@ hr{
         }
         TWD{
             "NT$",
-            "Novotajvanski dolar",
+            "novotajvanski dolar",
         }
         TZS{
             "TSh",
@@ -965,15 +969,19 @@ hr{
         }
         VEB{
             "VEB" /** ===  */,
-            "venezuelanski bolivar",
+            "venezuelanski bolivar (1871.-2008.)",
         }
         VEF{
             "Bs.F.",
-            "venezuelanski bolivar fuerte",
+            "venezuelanski bolivar",
         }
         VND{
             "₫",
             "vijetnamski dong",
+        }
+        VNN{
+            "VNN",
+            "vijetnamski dong (1978.-1985.)",
         }
         VUV{
             "VT",
@@ -1101,11 +1109,15 @@ hr{
         }
         ZWD{
             "Z$",
-            "zimbabveanski dolar",
+            "zimbabveanski dolar (1980.-2008.)",
         }
         ZWL{
             "ZWL",
             "zimbabveanski dolar (2009)",
+        }
+        ZWR{
+            "ZWR",
+            "zimbabveanski dolar (2008)",
         }
     }
     CurrencyPlurals{
@@ -1119,10 +1131,10 @@ hr{
             other{"UAE dirhama"}
         }
         AFA{
-            few{"afganistanska afgana (AFA)"}
-            many{"afganistanskih afgana (AFA)"}
-            one{"afganistanski afgan (AFA)"}
-            other{"afganistanskih afgana (AFA)"}
+            few{"afganistanska afgana (1927.-2002.)"}
+            many{"afganistanskih afgana (1927.-2002.)"}
+            one{"afganistanski afgan (1927.-2002.)"}
+            other{"afganistanskih afgana (1927.-2002.)"}
         }
         AFN{
             few{"afganistanska afgana"}
@@ -1155,22 +1167,22 @@ hr{
             other{"angolskih kvanzi"}
         }
         AOK{
-            few{"angolske kvanze (AOK)"}
-            many{"angolskih kvanzi (AOK)"}
-            one{"angolska kvanza (AOK)"}
-            other{"angolskih kvanzi (AOK)"}
+            few{"angolske kvanze (1977.-1990.)"}
+            many{"angolskih kvanzi (1977.-1990.)"}
+            one{"angolska kvanza (1977.-1990.)"}
+            other{"angolskih kvanzi (1977.-1990.)"}
         }
         AON{
-            few{"angolske nove kvanze (AON)"}
-            many{"angolskih novih kvanzi (AON)"}
-            one{"angolska nova kvanza (AON)"}
-            other{"angolskih novih kvanzi (AON)"}
+            few{"angolske nove kvanze (1990.-2000.)"}
+            many{"angolskih novih kvanzi (1990.-2000.)"}
+            one{"angolska nova kvanza (1990.-2000.)"}
+            other{"angolskih novih kvanzi (1990.-2000.)"}
         }
         AOR{
-            few{"angolske kvanze reajustado"}
-            many{"angolskih kvanzi reajustado"}
-            one{"angolska kvanza reajustado"}
-            other{"angolskih kvanzi reajustado (AOR)"}
+            few{"angolske kvanze (1995.-1999.)"}
+            many{"angolskih kvanzi (1995.-1999.)"}
+            one{"angolska kvanza (1995.-1999.)"}
+            other{"angolskih kvanzi (1995.-1999.)"}
         }
         ARA{
             few{"argentinska australa"}
@@ -1179,10 +1191,10 @@ hr{
             other{"argentinskih australa"}
         }
         ARP{
-            few{"argentinska peza (ARP)"}
-            many{"argentinskih peza (ARP)"}
-            one{"argentinski pezo (ARP)"}
-            other{"argentinskih peza (ARP)"}
+            few{"argentinska peza (1983.-1985.)"}
+            many{"argentinskih peza (1983.-1985.)"}
+            one{"argentinski pezo (1983.-1985.)"}
+            other{"argentinskih peza (1983.-1985.)"}
         }
         ARS{
             few{"argentinska pezosa"}
@@ -1209,10 +1221,10 @@ hr{
             other{"arupskih guldena"}
         }
         AZM{
-            few{"azerbajdžanska manata (AZM)"}
-            many{"azerbajdžanskih manata (AZM)"}
-            one{"azerbajdžanski manat (AZM)"}
-            other{"azerbajdžanskih manata (AZM)"}
+            few{"azerbajdžanska manata (1993.-2006.)"}
+            many{"azerbajdžanskih manata (1993.-2006.)"}
+            one{"azerbajdžanski manat (1993.-2006.)"}
+            other{"azerbajdžanskih manata (1993.-2006.)"}
         }
         AZN{
             few{"azerbajdžanska manata"}
@@ -1316,10 +1328,10 @@ hr{
             other{"bolivijskih mvdola"}
         }
         BRB{
-            few{"brazilska nova cruzeira (BRB)"}
-            many{"brazilskih novih cruzeira (BRB)"}
-            one{"brazilski novi cruzeir (BRB)"}
-            other{"brazilskih novih cruzeira (BRB)"}
+            few{"brazilska nova cruzeira (1967.-1986.)"}
+            many{"brazilskih novih cruzeira  (1967.-1986.)"}
+            one{"brazilski novi cruzeir  (1967.-1986.)"}
+            other{"brazilskih novih cruzeira  (1967.-1986.)"}
         }
         BRC{
             few{"brazilska cruzada"}
@@ -1328,10 +1340,10 @@ hr{
             other{"brazilskih cruzada"}
         }
         BRE{
-            few{"brazilska cruzeira (BRE)"}
-            many{"brazilskih cruzeira (BRE)"}
-            one{"brazilski cruzeir (BRE)"}
-            other{"brazilskih cruzeira (BRE)"}
+            few{"brazilska cruzeira (1990.-1993.)"}
+            many{"brazilskih cruzeira (1990.-1993.)"}
+            one{"brazilski cruzeir (1990.-1993.)"}
+            other{"brazilskih cruzeira (1990.-1993.)"}
         }
         BRL{
             few{"brazilska reala"}
@@ -1363,10 +1375,10 @@ hr{
             other{"butanskih ngultruma"}
         }
         BUK{
-            few{"kyata"}
-            many{"kyata"}
-            one{"kyat"}
-            other{"kyata"}
+            few{"burmanska kyata"}
+            many{"burmanskih kyata"}
+            one{"burmanski kyat"}
+            other{"burmanskih kyata"}
         }
         BWP{
             few{"bocvanske pule"}
@@ -1375,10 +1387,10 @@ hr{
             other{"bocvanskih pula"}
         }
         BYB{
-            few{"bjeloruske nove rublje (BYB)"}
-            many{"bjeloruskih novih rublji (BYB)"}
-            one{"bjeloruska nova rublja (BYB)"}
-            other{"bjeloruskih novih rublji (BYB)"}
+            few{"bjeloruske nove rublje (1994-1999)"}
+            many{"bjeloruskih novih rublji (1994-1999)"}
+            one{"bjeloruska nova rublja (1994-1999)"}
+            other{"bjeloruskih novih rublji (1994-1999)"}
         }
         BYR{
             few{"bjeloruske rublje"}
@@ -1461,6 +1473,7 @@ hr{
         CSD{
             few{"stara srpska dinara"}
             many{"starih srpskih dinara"}
+            one{"stari srpski dinar"}
             other{"starih srpskih dinara"}
         }
         CSK{
@@ -1470,10 +1483,10 @@ hr{
             other{"čehoslovačkih kruna"}
         }
         CUC{
-            few{"CUC"}
-            many{"CUC"}
-            one{"CUC"}
-            other{"CUC"}
+            few{"kubanska konvertibilna peza"}
+            many{"kubanskih konvertibilnih peza"}
+            one{"kubanski konvertibilni pezo"}
+            other{"kubanskih konvertibilnih peza"}
         }
         CUP{
             few{"kubanska peza"}
@@ -1638,10 +1651,10 @@ hr{
             other{"gruzijskih lara"}
         }
         GHC{
-            few{"ganska ceda (GHC)"}
-            many{"ganskih ceda (GHC)"}
-            one{"ganski cedi (GHC)"}
-            other{"ganskih ceda (GHC)"}
+            few{"ganska ceda (1979.-2007.)"}
+            many{"ganskih ceda (1979.-2007.)"}
+            one{"ganski cedi (1979.-2007.)"}
+            other{"ganskih ceda (1979.-2007.)"}
         }
         GHS{
             few{"ganska ceda"}
@@ -1674,10 +1687,10 @@ hr{
             other{"gvinejskih sylija"}
         }
         GQE{
-            few{"gvinejska ekwele"}
-            many{"gvinejskih ekwele"}
-            one{"gvinejska ekwele"}
-            other{"gvinejskih ekwele"}
+            few{"ekvatorski gvinejska ekwele"}
+            many{"ekvatorskih gvinejskih ekwele"}
+            one{"ekvatorski gvinejski ekwele"}
+            other{"ekvatorskih gvinejskih ekwele"}
         }
         GRD{
             few{"grčke drahme"}
@@ -1692,10 +1705,10 @@ hr{
             other{"gvatemalskih kvecala"}
         }
         GWE{
-            few{"gvinejska eskuda"}
-            many{"gvinejskih eskuda"}
-            one{"gvinejski eskudo"}
-            other{"gvinejskih eskuda"}
+            few{"portugalska gvinejska eskuda"}
+            many{"portugalskih gvinejskih eskuda"}
+            one{"portugalski gvinejski eskudo"}
+            other{"portugalskih gvinejskih eskuda"}
         }
         GWP{
             few{"gvinejskobisauska peza"}
@@ -2015,10 +2028,10 @@ hr{
             other{"mongolskih tugrika"}
         }
         MOP{
-            few{"pataka"}
-            many{"pataka"}
-            one{"patak"}
-            other{"pataka"}
+            few{"makaoška pataka"}
+            many{"makaoških pataka"}
+            one{"makaoška pataka"}
+            other{"makaoških pataka"}
         }
         MRO{
             few{"mauritanijske ouguje"}
@@ -2063,16 +2076,16 @@ hr{
             other{"meksičkih peza"}
         }
         MXP{
-            few{"meksička srebrna peza (MXP)"}
-            many{"meksičkih srebrnih peza (MXP)"}
-            one{"meksički srebrni pezo (MXP)"}
-            other{"meksičkih srebrnih peza (MXP)"}
+            few{"meksička srebrna peza (1861-1992)"}
+            many{"meksičkih srebrnih peza (1861-1992)"}
+            one{"meksički srebrni pezo (1861-1992)"}
+            other{"meksičkih srebrnih peza (1861-1992)"}
         }
         MXV{
-            few{"Mexican unidads de inversion (UDI)"}
-            many{"Mexican unidads de inversion (UDI)"}
-            one{"Mexican unidads de inversion (UDI)"}
-            other{"Mexican unidads de inversion (UDI)"}
+            few{"meksička unidads de inversion (UDI)"}
+            many{"meksičkih unidads de inversion (UDI)"}
+            one{"meksički unidads de inversion (UDI)"}
+            other{"meksičkih unidads de inversion (UDI)"}
         }
         MYR{
             few{"malezijska ringita"}
@@ -2201,10 +2214,10 @@ hr{
             other{"poljskih zlota"}
         }
         PLZ{
-            few{"poljske zlote (PLZ)"}
-            many{"poljskih zlota (PLZ)"}
-            one{"poljska zlota (PLZ)"}
-            other{"poljskih zlota (PLZ)"}
+            few{"poljske zlote (1950.-1995.)"}
+            many{"poljskih zlota (1950.-1995.)"}
+            one{"poljska zlota (1950.-1995.)"}
+            other{"poljskih zlota (1950.-1995.)"}
         }
         PTE{
             few{"portugalska eskuda"}
@@ -2255,10 +2268,10 @@ hr{
             other{"ruskih rublji"}
         }
         RUR{
-            few{"ruske rublje (RUR)"}
-            many{"ruskih rublji (RUR)"}
-            one{"ruska rublja (RUR)"}
-            other{"ruskih rublji (RUR)"}
+            few{"ruske rublje (1991.-1998.)"}
+            many{"ruskih rublji (1991.-1998.)"}
+            one{"ruska rublja (1991.-1998.)"}
+            other{"ruskih rublji (1991.-1998.)"}
         }
         RWF{
             few{"ruandska franka"}
@@ -2405,16 +2418,16 @@ hr{
             other{"tadžikistanskih somona"}
         }
         TMM{
+            few{"turkmenistanska manata  (1993.-2009.)"}
+            many{"turkmenistanskih manata  (1993.-2009.)"}
+            one{"turkmenistanski manat  (1993.-2009.)"}
+            other{"turkmenistanskih manata  (1993.-2009.)"}
+        }
+        TMT{
             few{"turkmenistanska manata"}
             many{"turkmenistanskih manata"}
             one{"turkmenistanski manat"}
             other{"turkmenistanskih manata"}
-        }
-        TMT{
-            few{"turkmenistanska nova manata"}
-            many{"turkmenistanskih novih manata"}
-            one{"turkmenistanski novi manat"}
-            other{"turkmenistanskih novih manata"}
         }
         TND{
             few{"tuniska dinara"}
@@ -2435,10 +2448,10 @@ hr{
             other{"timorskih eskuda"}
         }
         TRL{
-            few{"stare turske lire"}
-            many{"starih turskih lira"}
-            one{"stara turska lira"}
-            other{"starih turskih lira"}
+            few{"turske lire (1922.-2005.)"}
+            many{"turskih lira (1922.-2005.)"}
+            one{"turska lira (1922.-2005.)"}
+            other{"turskih lira (1922.-2005.)"}
         }
         TRY{
             few{"turske lire"}
@@ -2477,10 +2490,10 @@ hr{
             other{"ukrajinskih karbovantsiva"}
         }
         UGS{
-            few{"ugandska šilinga (UGS)"}
-            many{"ugandskih šilinga (UGS)"}
-            one{"ugandski šiling (UGS)"}
-            other{"ugandskih šilinga (UGS)"}
+            few{"ugandska šilinga (1966.-1987.)"}
+            many{"ugandskih šilinga (1966.-1987.)"}
+            one{"ugandski šiling (1966.-1987.)"}
+            other{"ugandskih šilinga (1966.-1987.)"}
         }
         UGX{
             few{"ugandska šilinga"}
@@ -2513,10 +2526,10 @@ hr{
             other{"urugvajskih pesosa en unidades indexadas"}
         }
         UYP{
-            few{"urugvajska peza (UYP)"}
-            many{"urugvajskih peza (UYP)"}
-            one{"urugvajski pezo (UYP)"}
-            other{"urugvajskih peza (UYP)"}
+            few{"urugvajska peza (1975.-1993.)"}
+            many{"urugvajskih peza (1975.-1993.)"}
+            one{"urugvajski pezo (1975.-1993.)"}
+            other{"urugvajskih peza (1975.-1993.)"}
         }
         UYU{
             few{"urugvajska pezosa"}
@@ -2531,22 +2544,28 @@ hr{
             other{"uzbekistanskih soma"}
         }
         VEB{
-            few{"venezuelanska bolivara"}
-            many{"vezuelanskih bolivara"}
-            one{"venezuelanski bolivar"}
-            other{"venezuelanskih bolivara"}
+            few{"venezuelanska bolivara (1871.-2008.)"}
+            many{"vezuelanskih bolivara (1871.-2008.)"}
+            one{"venezuelanski bolivar (1871.-2008.)"}
+            other{"venezuelanskih bolivara (1871.-2008.)"}
         }
         VEF{
-            few{"venezuelanska bolivara fuertes"}
-            many{"venezuelanskih bolivara fuertes"}
-            one{"venezuelanski bolivar fuertes"}
-            other{"venezuelanskih bolivara fuertes"}
+            few{"venezuelanska bolivara"}
+            many{"venezuelanskih bolivara"}
+            one{"venezuelanski bolivar"}
+            other{"venezuelanskih bolivara"}
         }
         VND{
             few{"vijetnamska donga"}
             many{"vijetnamskih donga"}
             one{"vijetnamski dong"}
             other{"vijetnamskih donga"}
+        }
+        VNN{
+            few{"vijetnamska donga (1978.-1985.)"}
+            many{"vijetnamskih donga (1978.-1985.)"}
+            one{"vijetnamski dong (1978.-1985.)"}
+            other{"vijetnamskih donga (1978.-1985.)"}
         }
         VUV{
             few{"vanuatska vatua"}
@@ -2645,7 +2664,9 @@ hr{
             other{"paladija"}
         }
         XPF{
+            few{"CFP franaka"}
             many{"CFP franaka"}
+            one{"CFP franak"}
             other{"CFP franaka"}
         }
         XPT{
@@ -2733,10 +2754,10 @@ hr{
             other{"zairskih zaira"}
         }
         ZWD{
-            few{"zimbabveanska dolara"}
-            many{"zimbabveanskih dolara"}
-            one{"zimbabveanski dolar"}
-            other{"zimbabveanskih dolara"}
+            few{"zimbabveanska dolara (1980.-2008.)"}
+            many{"zimbabveanskih dolara (1980.-2008.)"}
+            one{"zimbabveanski dolar (1980.-2008.)"}
+            other{"zimbabveanskih dolara (1980.-2008.)"}
         }
         ZWL{
             few{"zimbabveanska dolara (2009)"}
@@ -2744,6 +2765,18 @@ hr{
             one{"zimbabveanski dolar (2009)"}
             other{"zimbabveanskih dolara (2009)"}
         }
+        ZWR{
+            few{"zimbabveanska dolara (2008)"}
+            many{"zimbabveanskih dolara (2008)"}
+            one{"zimbabveanski dolar (2008)"}
+            other{"zimbabveanskih dolara (2008)"}
+        }
+    }
+    CurrencyUnitPatterns{
+        few{"{0} {1}"}
+        many{"{0} {1}"}
+        one{"{0} {1}"}
+        other{"{0} {1}"}
     }
     Version{"2.0.50.96"}
 }

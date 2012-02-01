@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@ namespace CodeSigning {
 
 
 #define BUNDLEDISKREP_DIRECTORY		"_CodeSignature"
+#define STORE_RECEIPT_DIRECTORY		"_MASReceipt"
 
 
 //
@@ -42,7 +43,7 @@ namespace CodeSigning {
 // The bundle is expected to have an Info.plist, and a "main executable file"
 // of some sort (as indicated therein).
 // The BundleDiskRep stores the necessary components in the main executable
-// if it is in Mach-O format, or in Contents files if not.
+// if it is in Mach-O format, or in files in a _CodeSignature directory if not.
 // This DiskRep supports resource sealing.
 //
 class BundleDiskRep : public DiskRep {
@@ -89,6 +90,8 @@ private:
 	CFRef<CFBundleRef> mBundle;
 	std::string mMetaPath;					// path to directory containing signing files
 	bool mMetaExists;						// separate meta-file directory exists
+	CFRef<CFURLRef> mMainExecutableURL;	// chosen main executable URL
+	string mFormat;							// format description string
 	RefPointer<DiskRep> mExecRep;			// DiskRep for main executable file
 };
 

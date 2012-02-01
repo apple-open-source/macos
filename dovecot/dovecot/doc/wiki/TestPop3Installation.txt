@@ -134,4 +134,4 @@ If you can't log in,
 
 Many POP3 clients have been tested with Dovecot and they work.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

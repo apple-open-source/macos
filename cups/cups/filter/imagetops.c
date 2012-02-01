@@ -1,5 +1,5 @@
 /*
- * "$Id: imagetops.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: imagetops.c 9901 2011-08-17 21:01:53Z mike $"
  *
  *   Image file to PostScript filter for CUPS.
  *
@@ -1074,5 +1074,5 @@ ps_ascii85(cups_ib_t *data,		/* I - Data to print */
 
 
 /*
- * End of "$Id: imagetops.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: imagetops.c 9901 2011-08-17 21:01:53Z mike $".
  */

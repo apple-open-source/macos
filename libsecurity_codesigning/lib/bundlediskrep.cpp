@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include "bundlediskrep.h"
+#include "filediskrep.h"
 #include <CoreFoundation/CFURLAccess.h>
 #include <CoreFoundation/CFBundlePriv.h>
 #include <security_utilities/cfmunge.h>
@@ -37,10 +38,10 @@ using namespace UnixPlusPlus;
 // We make a CFBundleRef immediately, but everything else is lazy
 //
 BundleDiskRep::BundleDiskRep(const char *path, const Context *ctx)
-	: mBundle(_CFBundleCreateIfMightBeBundle(NULL, CFTempURL(path)))
+	: mBundle(CFBundleCreate(NULL, CFTempURL(path)))
 {
 	if (!mBundle)
-		MacOSError::throwMe(errSecCSBadObjectFormat);
+		MacOSError::throwMe(errSecCSBadBundleFormat);
 	setup(ctx);
 	CODESIGN_DISKREP_CREATE_BUNDLE_PATH(this, (char*)path, (void*)ctx, mExecRep);
 }
@@ -52,8 +53,10 @@ BundleDiskRep::BundleDiskRep(CFBundleRef ref, const Context *ctx)
 	CODESIGN_DISKREP_CREATE_BUNDLE_REF(this, ref, (void*)ctx, mExecRep);
 }
 
+// common construction code
 void BundleDiskRep::setup(const Context *ctx)
 {
+	// deal with versioned bundles (aka Frameworks)
 	string version = resourcesRootPath()
 		+ "/Versions/"
 		+ ((ctx && ctx->version) ? ctx->version : "Current")
@@ -67,7 +70,46 @@ void BundleDiskRep::setup(const Context *ctx)
 		if (ctx && ctx->version)	// explicitly specified
 			MacOSError::throwMe(errSecCSStaticCodeNotFound);
 	}
-	mExecRep = DiskRep::bestFileGuess(this->mainExecutablePath(), ctx);
+	
+	// conventional executable bundle: CFBundle identifies an executable for us
+	if (mMainExecutableURL.take(CFBundleCopyExecutableURL(mBundle))) {
+		// conventional executable bundle
+		mExecRep = DiskRep::bestFileGuess(this->mainExecutablePath(), ctx);
+		mFormat = string("bundle with ") + mExecRep->format();
+		return;
+	}
+	
+	CFDictionaryRef infoDict = CFBundleGetInfoDictionary(mBundle);
+	assert(infoDict);	// CFBundle will always make one up for us
+	
+	if (CFTypeRef main = CFDictionaryGetValue(infoDict, CFSTR("MainHTML"))) {
+		// widget
+		if (CFGetTypeID(main) != CFStringGetTypeID())
+			MacOSError::throwMe(errSecCSBadBundleFormat);
+		mMainExecutableURL = makeCFURL(cfString(CFStringRef(main)), false, CFRef<CFURLRef>(CFBundleCopySupportFilesDirectoryURL(mBundle)));
+		if (!mMainExecutableURL)
+			MacOSError::throwMe(errSecCSBadBundleFormat);
+		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
+		mFormat = "widget bundle";
+		return;
+	}
+	
+	// generic bundle case - impose our own "minimal signable bundle" standard
+
+	// we MUST have an actual Info.plist in here
+	CFRef<CFURLRef> infoURL = _CFBundleCopyInfoPlistURL(mBundle);
+	if (!infoURL)
+		MacOSError::throwMe(errSecCSBadBundleFormat);
+
+	// focus on the Info.plist (which we know exists) as the nominal "main executable" file
+	if ((mMainExecutableURL = _CFBundleCopyInfoPlistURL(mBundle))) {
+		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
+		mFormat = "bundle";
+		return;
+	}
+	
+	// this bundle cannot be signed
+	MacOSError::throwMe(errSecCSBadBundleFormat);
 }
 
 
@@ -161,10 +203,7 @@ CFURLRef BundleDiskRep::canonicalPath()
 
 string BundleDiskRep::mainExecutablePath()
 {
-	if (CFURLRef exec = CFBundleCopyExecutableURL(mBundle))
-		return cfString(exec, true);
-	else
-		MacOSError::throwMe(errSecCSNoMainExecutable);
+	return cfString(mMainExecutableURL);
 }
 
 string BundleDiskRep::resourcesRootPath()
@@ -176,6 +215,9 @@ void BundleDiskRep::adjustResources(ResourceBuilder &builder)
 {
 	// exclude entire contents of meta directory
 	builder.addExclusion("^" BUNDLEDISKREP_DIRECTORY "/");
+
+	// exclude the store manifest directory
+	builder.addExclusion("^" STORE_RECEIPT_DIRECTORY "/");
 	
 	// exclude the main executable file
 	string resources = resourcesRootPath();
@@ -204,7 +246,7 @@ size_t BundleDiskRep::signingLimit()
 
 string BundleDiskRep::format()
 {
-	return string("bundle with ") + mExecRep->format();
+	return mFormat;
 }
 
 CFArrayRef BundleDiskRep::modifiedFiles()
@@ -256,12 +298,28 @@ string BundleDiskRep::recommendedIdentifier(const SigningContext &)
 
 CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &)
 {
+	// consider the bundle's structure
+	string rbase = this->resourcesRootPath();
+	if (rbase.substr(rbase.length()-2, 2) == "/.")	// produced by versioned bundle implicit "Current" case
+		rbase = rbase.substr(0, rbase.length()-2);	// ... so take it off for this
+	string resources = cfString(CFBundleCopyResourcesDirectoryURL(mBundle), true);
+	if (resources == rbase)
+		resources = "";
+	else if (resources.compare(0, rbase.length(), rbase, 0, rbase.length()) != 0)	// Resources not in resource root
+		MacOSError::throwMe(errSecCSBadBundleFormat);
+	else
+		resources = resources.substr(rbase.length() + 1) + "/";	// differential path segment
+	
 	return cfmake<CFDictionaryRef>("{rules={"
 		"'^version.plist$' = #T"
-		"'^Resources/' = #T"
-		"'^Resources/.*\\.lproj/' = {optional=#T, weight=1000}"
-		"'^Resources/.*\\.lproj/locversion.plist$' = {omit=#T, weight=1100}"
-		"}}");
+		"%s = #T"
+		"%s = {optional=#T, weight=1000}"
+		"%s = {omit=#T, weight=1100}"
+		"}}",
+		(string("^") + resources).c_str(),
+		(string("^") + resources + ".*\\.lproj/").c_str(),
+		(string("^") + resources + ".*\\.lproj/locversion.plist$").c_str()
+	);
 }
 
 const Requirements *BundleDiskRep::defaultRequirements(const Architecture *arch, const SigningContext &ctx)
@@ -310,7 +368,7 @@ void BundleDiskRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef
 			AutoFileDesc fd(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 			fd.writeAll(CFDataGetBytePtr(data), CFDataGetLength(data));
 		} else
-			MacOSError::throwMe(errSecCSBadObjectFormat);
+			MacOSError::throwMe(errSecCSBadBundleFormat);
 	}
 }
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id$"
+# "$Id: makeipptoolpkg 9543 2011-02-17 23:43:53Z mike $"
 #
 #   Make an ipptool package for CUPS.
 #
@@ -80,5 +80,5 @@ rm -r $pkgdir
 echo "Done!"
 
 #
-# End of "$Id$".
+# End of "$Id: makeipptoolpkg 9543 2011-02-17 23:43:53Z mike $".
 #

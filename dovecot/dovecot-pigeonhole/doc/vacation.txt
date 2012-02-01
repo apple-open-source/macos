@@ -31,11 +31,11 @@ to be adjusted accordingly to allow a non-reply period of less than a
 day.  
 
 The vacation and vacation-seconds extensions have their own specific
-settings. The settings that specify a period (currently all of them) 
-are specified in s(econds), unless followed by a d(ay), h(our) or m(inute)
-specifier character. 
+settings. The settings that specify a period are specified in
+s(econds), unless followed by a d(ay), h(our) or m(inute) specifier
+character. 
 
-The following settings can be configured the vacation extension (default
+The following settings can be configured for the vacation extension (default
 values are indicated):
 
 sieve_vacation_min_period = 1d
@@ -55,6 +55,27 @@ sieve_vacation_default_period = 7d
   This specifies the default period that is used when no :days or :seconds
   tag is specified. The configured value must lie between the
   sieve_vacation_min_period and sieve_vacation_max_period.
+
+sieve_vacation_use_original_recipient = no
+  This specifies whether the original envelope recipient should be used in
+  the check for implicit delivery.  The vacation command checks headers of
+  the incoming message, such as To: and Cc: for the address of the
+  recipient, to verify that the message is explicitly addressed at the
+  recipient. If the recipient address is not found, the vacation action
+  will not trigger a response to prevent sending a reply when it is not
+  appropriate. Normally only the final recipient address is used in this
+  check. This setting allows including the original recipient specified in
+  the SMTP session if available. This is useful to handle mail accounts
+  with aliases. Use this option with caution: if you are using aliases that
+  point to more than a single account, senders can get multiple vacation
+  responses for a single message. 
+  
+sieve_vacation_dont_check_recipient = no
+  This disables the checks for implicit delivery entirely. This means that
+  the vacation command does not verify that the message is explicitly
+  addressed at the recipient. Use this option with caution. Specifying
+  'yes' will violate the Sieve standards and can cause vacation replies to
+  be sent for messages not directly addressed at the recipient. 
 
 Invalid values for the settings above will make the Sieve interpreter log
 a warning and revert to the default values. 

@@ -1,5 +1,5 @@
 /*
- * "$Id: ppd-cache.c 3277 2011-05-20 07:30:39Z msweet $"
+ * "$Id: ppd-cache.c 3484 2011-11-07 06:16:43Z msweet $"
  *
  *   PPD cache implementation for CUPS.
  *
@@ -873,11 +873,8 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
         pwg_name = "top";
       else if (!_cups_strncasecmp(choice->choice, "Side", 4))
         pwg_name = "side";
-      else if (!_cups_strcasecmp(choice->choice, "Roll") ||
-               !_cups_strcasecmp(choice->choice, "Roll1"))
+      else if (!_cups_strcasecmp(choice->choice, "Roll"))
         pwg_name = "main-roll";
-      else if (!_cups_strcasecmp(choice->choice, "Roll2"))
-        pwg_name = "alternate-roll";
       else
       {
        /*
@@ -938,6 +935,8 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
         pwg_name = "stationery-letterhead";
       else if (!_cups_strncasecmp(choice->choice, "Preprint", 8))
         pwg_name = "stationery-preprinted";
+      else if (!_cups_strcasecmp(choice->choice, "Recycled"))
+        pwg_name = "stationery-recycled";
       else if (!_cups_strncasecmp(choice->choice, "Transparen", 10))
         pwg_name = "transparency";
       else
@@ -1272,7 +1271,8 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 
     if (filter)
       cupsArrayAdd(pc->filters,
-                   "application/vnd.cups-command application/postscript 0 -");
+                   "application/vnd.cups-command application/postscript 100 "
+                   "commandtops");
   }
 
   if ((ppd_attr = ppdFindAttr(ppd, "cupsPreFilter", NULL)) != NULL)
@@ -2370,5 +2370,5 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
 
 
 /*
- * End of "$Id: ppd-cache.c 3277 2011-05-20 07:30:39Z msweet $".
+ * End of "$Id: ppd-cache.c 3484 2011-11-07 06:16:43Z msweet $".
  */

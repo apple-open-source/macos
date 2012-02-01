@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-common.m4 8781 2009-08-28 17:34:54Z mike $"
+dnl "$Id: cups-common.m4 9866 2011-08-06 04:42:49Z mike $"
 dnl
 dnl   Common configuration stuff for CUPS.
 dnl
@@ -20,7 +20,7 @@ dnl Set the name of the config header file...
 AC_CONFIG_HEADER(config.h)
 
 dnl Version number information...
-CUPS_VERSION="1.5.0"
+CUPS_VERSION="1.5.1"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -92,6 +92,7 @@ dnl Check for pkg-config, which is used for some other tests later on...
 AC_PATH_PROG(PKGCONFIG, pkg-config)
 
 dnl Check for libraries...
+AC_SEARCH_LIBS(fmod, m)
 AC_SEARCH_LIBS(crypt, crypt)
 AC_SEARCH_LIBS(getspent, sec gen)
 
@@ -380,7 +381,17 @@ case $uname in
 
 		dnl Check for sandbox/Seatbelt support
 		if test $uversion -ge 100; then
-		    AC_CHECK_HEADER(sandbox.h,AC_DEFINE(HAVE_SANDBOX_H))
+			AC_CHECK_HEADER(sandbox.h,AC_DEFINE(HAVE_SANDBOX_H))
+		fi
+		if test $uversion -ge 110; then
+			# Broken public headers in 10.7...
+			AC_MSG_CHECKING(for sandbox/private.h presence)
+			if test -f /usr/local/include/sandbox/private.h; then
+				AC_MSG_RESULT(yes)
+			else
+				AC_MSG_RESULT(no)
+				AC_MSG_ERROR(Run 'sudo mkdir -p /usr/local/include/sandbox' and 'sudo touch /usr/local/include/sandbox/private.h' to build CUPS.)
+			fi
 		fi
 
 		dnl Check for XPC support
@@ -421,5 +432,5 @@ esac
 AC_SUBST(BUILDDIRS)
 
 dnl
-dnl End of "$Id: cups-common.m4 8781 2009-08-28 17:34:54Z mike $".
+dnl End of "$Id: cups-common.m4 9866 2011-08-06 04:42:49Z mike $".
 dnl

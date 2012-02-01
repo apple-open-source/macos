@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2011 Pigeonhole authors, see the included COPYING file
-.TH "SIEVEC" 1 "2011-02-23" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
+.TH "SIEVEC" 1 "2011-10-04" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
 .\"------------------------------------------------------------------------
 .SH NAME
 sievec \- Pigeonhole\(aqs Sieve script compiler
@@ -12,7 +12,7 @@ sievec \- Pigeonhole\(aqs Sieve script compiler
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 .PP
-The \fBsieve\-dump\fP command is part of the Pigeonhole Project
+The \fBsievec\fP command is part of the Pigeonhole Project
 (\fBpigeonhole\fR(7)), which adds Sieve (RFC 5228) support to the Dovecot
 secure IMAP and POP3 server (\fBdovecot\fR(1)).
 .PP
@@ -21,7 +21,7 @@ representation. The resulting binary can be used directly to process e\-mail
 messages during the delivery process. The delivery of mail messages and \- by
 means of the LDA Sieve plugin \- also the execution of Sieve scripts is
 performed by Dovecot\(aqs local delivery agent (LDA) called \fBdovecot\-lda\fP(1).
-Usually, it is not necessaryto compile the Sieve script manually using
+Usually, it is not necessary to compile the Sieve script manually using
 \fBsievec\fP, because \fBdovecot\-lda\fP will do this automatically if the binary
 is missing. However, in some cases \fBdovecot\-lda\fP does not have permission to
 write the compiled binary to disk, forcing it to recompile the script every time
@@ -32,7 +32,8 @@ The Pigeonhole Sieve implementation recognizes files with a \fB.sieve\fP
 extension as Sieve scripts and corresponding files with a \fB.svbin\fP extension
 as the associated compiled binary. This means for example that Dovecot\(aqs LDA
 process will first look for a binary file \(dqdovecot.svbin\(dq when it needs to
-execute \(dqdovecot.sieve\(dq. It will compile a new binary when it is missing.
+execute \(dqdovecot.sieve\(dq. It will compile a new binary when it is missing
+or outdated.
 .PP
 The \fBsievec\fP command is also useful to verify Sieve scripts before using.
 Additionally, with the \fB\-d\fP option it can output a textual (and thus
@@ -82,16 +83,16 @@ not allowed when the \fIscript\-file\fP argument is a directory.
 .TP
 .I out\-file
 Specifies where the (binary) output is to be written. This argument is optional.
-If omitted a binary compiled from <scriptname>.sieve is saved as
-<scriptname>.svbin. If \fB\-b\fP is specified, the binary dump is output to
-\fBstdout\fP.
+If this argument is omitted, a binary compiled from <scriptname>.sieve is saved
+as <scriptname>.svbin. If this argument is omitted and \fB\-b\fP is specified,
+the binary dump is output to \fBstdout\fP.
 .\"------------------------------------------------------------------------
 .SH "EXIT STATUS"
 .B sievec
 will exit with one of the following values:
 .TP 4
 .B 0
-Delivery was successful. (EX_OK, EXIT_SUCCES)
+Compile was successful. (EX_OK, EXIT_SUCCESS)
 .TP
 .B 1
 Operation failed. This is returned for almost all failures.

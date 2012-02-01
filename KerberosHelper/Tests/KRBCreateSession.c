@@ -36,21 +36,6 @@ int main (int argc, char **argv) {
 	CFStringRef outRealm = NULL, outServer = NULL, outNoCanon = NULL;
 	CFDictionaryRef outDict = NULL;
 	const char *inHostNameString = NULL, *inAdvertisedPrincipalString = NULL;
-	int no_lkdc = 0, ch;
-
-	while ((ch = getopt(argc, argv, "n")) != -1) {
-	    switch (ch) {
-	    case 'n':
-		no_lkdc = 0;
-		break;
-	    default:
-		printf("usage");
-		exit(1);
-	    }
-	}
-
-	argc -= optind;
-	argv += optind;
 
 	if (argc > 0) {
 		inHostNameString = argv[0];
@@ -103,6 +88,7 @@ int main (int argc, char **argv) {
 
 	CFRelease(outRealm);
 	CFRelease(outDict);
+	CFRelease(inHostName);
 
 	KRBCloseSession(krbHelper);
 

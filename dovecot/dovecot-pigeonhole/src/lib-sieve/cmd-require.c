@@ -25,7 +25,7 @@ const struct sieve_command_def cmd_require = {
 	1, 0, FALSE, FALSE,
 	NULL, NULL, 
 	cmd_require_validate, 
-	NULL, NULL
+	NULL, NULL, NULL
 };
  
 /* 
@@ -55,8 +55,8 @@ static bool cmd_require_validate
 	arg = cmd->first_positional;
 	if ( sieve_ast_argument_type(arg) == SAAT_STRING ) {
 		/* Single string */
-		const struct sieve_extension *ext = sieve_validator_extension_load
-			(valdtr, cmd, arg, sieve_ast_argument_str(arg));	
+		const struct sieve_extension *ext = sieve_validator_extension_load_by_name
+			(valdtr, cmd, arg, sieve_ast_argument_strc(arg));	
 
 		if ( ext == NULL ) result = FALSE;
 		
@@ -65,8 +65,8 @@ static bool cmd_require_validate
 		struct sieve_ast_argument *stritem = sieve_ast_strlist_first(arg);
 		
 		while ( stritem != NULL ) {
-			const struct sieve_extension *ext = sieve_validator_extension_load
-				(valdtr, cmd, stritem, sieve_ast_strlist_str(stritem));
+			const struct sieve_extension *ext = sieve_validator_extension_load_by_name
+				(valdtr, cmd, stritem, sieve_ast_strlist_strc(stritem));
 
 			if ( ext == NULL ) result = FALSE;
 	

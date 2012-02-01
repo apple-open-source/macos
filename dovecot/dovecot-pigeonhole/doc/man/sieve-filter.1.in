@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2011 Pigeonhole authors, see the included COPYING file
-.TH "SIEVE\-FILTER" 1 "2011-02-23" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
+.TH "SIEVE\-FILTER" 1 "2011-10-04" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
 .SH NAME
 sieve\-filter \- Pigeonhole\(aqs Sieve mailbox filter tool
 
@@ -196,7 +196,7 @@ and not affected by the \fIsource\-action\fP.
 will exit with one of the following values:
 .TP 4
 .B 0
-Sieve filter applied successfully. (EX_OK, EXIT_SUCCES)
+Sieve filter applied successfully. (EX_OK, EXIT_SUCCESS)
 .TP
 .B 1
 Operation failed. This is returned for almost all failures.

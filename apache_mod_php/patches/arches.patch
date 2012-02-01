@@ -40,9 +40,9 @@ diff -aur php-5.3.6/acconfig.h php/acconfig.h
   * Local variables:
   * tab-width: 4
   * c-basic-offset: 4
-diff -aur php-5.3.6/main/php_config.h.in php/main/php_config.h.in
---- php-5.3.6/main/php_config.h.in	2011-03-17 00:56:00.000000000 -0700
-+++ php/main/php_config.h.in	2011-03-18 14:07:34.000000000 -0700
+diff -aur php-5.3.7RC3/main/php_config.h.in php/main/php_config.h.in
+--- php-5.3.7RC3/main/php_config.h.in	2011-07-14 01:39:29.000000000 -0700
++++ php/main/php_config.h.in	2011-07-14 16:57:57.000000000 -0700
 @@ -21,6 +21,8 @@
  
  /* $Id: acconfig.h 306939 2011-01-01 02:19:59Z felipe $ */
@@ -52,7 +52,7 @@ diff -aur php-5.3.6/main/php_config.h.in php/main/php_config.h.in
  #if defined(__GNUC__) && __GNUC__ >= 4
  # define ZEND_API __attribute__ ((visibility("default")))
  # define ZEND_DLEXPORT __attribute__ ((visibility("default")))
-@@ -2996,6 +2998,29 @@
+@@ -3008,6 +3010,29 @@
  #endif
  
  /*

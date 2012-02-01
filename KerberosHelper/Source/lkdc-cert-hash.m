@@ -66,7 +66,7 @@ update_node(NSString *realm)
     /* update record.realname with realname */
 
     bool r = ODRecordSetValue(cfRecord, (NSString *)realName,
-			      [[NSArray arrayWithObject:realm] autorelease],
+			      [NSArray arrayWithObject:realm],
 			      NULL);
     if (!r)
 	errx(1, "ODRecordSetValue");
@@ -114,9 +114,9 @@ main(int argc, char **argv)
     if (cert_hash == NULL)
 	errx(1, "Error obtaining cert hash");
 
-    realm = [[NSString stringWithFormat:@"LKDC:SHA1.%@", [NSString stringWithCString: cert_hash encoding:NSUTF8StringEncoding]] autorelease];	
+    realm = [NSString stringWithFormat:@"LKDC:SHA1.%@", [NSString stringWithCString: cert_hash encoding:NSUTF8StringEncoding]];
     
-    urealm = [[realm uppercaseString] autorelease];
+    urealm = [realm uppercaseString];
     update_node(urealm);
 
     free(cert_hash);
@@ -125,7 +125,7 @@ main(int argc, char **argv)
 
     printf("realm: %s\n", [urealm UTF8String]);
 
-    [pool release];
+    [pool drain];
 
     return 0;
 

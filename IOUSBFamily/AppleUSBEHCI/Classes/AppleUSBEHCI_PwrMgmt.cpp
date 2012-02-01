@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2011 Apple Inc.  All rights reserved.
+ * Copyright Â© 1998-2011 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -1010,7 +1010,7 @@ AppleUSBEHCI::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long
 	USBTrace( kUSBTEHCI, kTPEHCIPowerState, (uintptr_t)this, stateNumber, 0, 2);
 
 	USBLog(5, "AppleUSBEHCI[%p]::powerStateDidChangeTo - stateNumber(%d)", this, (int)stateNumber);
-	//¥¥¥ LastRootHubPortStatusChanged(true);
+	//Â¥Â¥Â¥ LastRootHubPortStatusChanged(true);
 	
 	// if we are changing TO doze and FROM sleep, then we need to OR in the root hub port change bit into the saved interrupts
 	// otherwise, when the superclass restores the interrupts, it will replace it

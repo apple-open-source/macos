@@ -1,5 +1,5 @@
 /*
- * "$Id: cupstestdsc.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: cupstestdsc.c 9384 2010-11-22 07:06:39Z mike $"
  *
  *   DSC test program for CUPS.
  *
@@ -438,5 +438,5 @@ usage(void)
 
 
 /*
- * End of "$Id: cupstestdsc.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: cupstestdsc.c 9384 2010-11-22 07:06:39Z mike $".
  */

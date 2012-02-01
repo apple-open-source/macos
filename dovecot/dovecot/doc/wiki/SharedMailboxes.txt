@@ -13,4 +13,4 @@ Dovecot can support mailbox sharing in several different ways:
 See <SharedMailboxes.Permissions.txt> for common filesystem related permission
 problems that are common with all the sharing methods.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

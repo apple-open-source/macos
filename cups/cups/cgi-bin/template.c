@@ -1,5 +1,5 @@
 /*
- * "$Id: template.c 7219 2008-01-14 22:00:02Z mike $"
+ * "$Id: template.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   CGI template function.
  *
@@ -729,5 +729,5 @@ cgi_puturi(const char *s,		/* I - String to output */
 
 
 /*
- * End of "$Id: template.c 7219 2008-01-14 22:00:02Z mike $".
+ * End of "$Id: template.c 9793 2011-05-20 03:49:49Z mike $".
  */

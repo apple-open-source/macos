@@ -1,5 +1,5 @@
 /*
- * "$Id: test1284.c 7465 2008-04-18 16:20:11Z mike $"
+ * "$Id: test1284.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   IEEE-1284 support functions test program for CUPS.
  *
@@ -80,5 +80,5 @@ main(int  argc,				/* I - Number of command-line args */
 
 
 /*
- * End of "$Id: test1284.c 7465 2008-04-18 16:20:11Z mike $".
+ * End of "$Id: test1284.c 9042 2010-03-24 00:45:34Z mike $".
  */

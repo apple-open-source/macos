@@ -49,10 +49,10 @@ static void _testsuite_log_verror
 
 		if ( location == NULL || *location == '\0' )
 			fprintf(stdout,
-				"LOG: error: %s.\n", t_strdup_vprintf(fmt, args_copy));
+				"LOG: error: %s\n", t_strdup_vprintf(fmt, args_copy));
 		else
 			fprintf(stdout,
-				"LOG: error: %s: %s.\n", location, t_strdup_vprintf(fmt, args_copy));
+				"LOG: error: %s: %s\n", location, t_strdup_vprintf(fmt, args_copy));
 	}
 
 	msg.location = p_strdup(pool, location);
@@ -68,10 +68,10 @@ static void _testsuite_log_main_verror
 {
 	if ( location == NULL || *location == '\0' )
 		fprintf(stderr, 
-			"error: %s.\n", t_strdup_vprintf(fmt, args));
+			"error: %s\n", t_strdup_vprintf(fmt, args));
 	else
 		fprintf(stderr, 
-			"%s: error: %s.\n", location, t_strdup_vprintf(fmt, args));
+			"%s: error: %s\n", location, t_strdup_vprintf(fmt, args));
 }
 
 static void _testsuite_log_vwarning
@@ -88,10 +88,10 @@ static void _testsuite_log_vwarning
 
 		if ( location == NULL || *location == '\0' )
 			fprintf(stdout,
-				"LOG: warning: %s.\n", t_strdup_vprintf(fmt, args_copy));
+				"LOG: warning: %s\n", t_strdup_vprintf(fmt, args_copy));
 		else
 			fprintf(stdout,
-				"LOG: warning: %s: %s.\n", location, t_strdup_vprintf(fmt, args_copy));
+				"LOG: warning: %s: %s\n", location, t_strdup_vprintf(fmt, args_copy));
 	}
 
 	msg.location = p_strdup(pool, location);
@@ -114,10 +114,10 @@ static void _testsuite_log_vinfo
 
 		if ( location == NULL || *location == '\0' )
 			fprintf(stdout,
-				"LOG: info: %s.\n", t_strdup_vprintf(fmt, args_copy));
+				"LOG: info: %s\n", t_strdup_vprintf(fmt, args_copy));
 		else
 			fprintf(stdout,
-				"LOG: info: %s: %s.\n", location, t_strdup_vprintf(fmt, args_copy));
+				"LOG: info: %s: %s\n", location, t_strdup_vprintf(fmt, args_copy));
 	}
 
 	msg.location = p_strdup(pool, location);
@@ -155,6 +155,7 @@ static struct sieve_error_handler *_testsuite_log_main_ehandler_create(void)
 
 	ehandler->verror = _testsuite_log_main_verror;
 	ehandler->vwarning = _testsuite_log_vwarning;
+	ehandler->vinfo = _testsuite_log_vinfo;
 
 	return ehandler;
 }
@@ -193,6 +194,7 @@ void testsuite_log_init(bool log_stdout)
 	sieve_error_handler_accept_infolog(testsuite_log_ehandler, TRUE);
 
 	testsuite_log_main_ehandler = _testsuite_log_main_ehandler_create(); 
+	sieve_error_handler_accept_infolog(testsuite_log_main_ehandler, TRUE);
 
 	sieve_system_ehandler_set(testsuite_log_ehandler);
 

@@ -1,6 +1,6 @@
 --- configure.orig	2010-12-01 13:06:27.000000000 -0800
 +++ configure	2010-12-01 13:06:29.000000000 -0800
-@@ -24017,7 +24017,7 @@
+@@ -24084,7 +24084,7 @@
      #   packages/rpm/rhel-4/subversion.spec
      if test -n "$SWIG_VERSION" &&
         test "$SWIG_VERSION" -ge "103024" &&

@@ -337,10 +337,7 @@ void sieve_tool_init_mail_user
 {
 	struct mail_user *mail_user_dovecot = tool->mail_user_dovecot;
 	const char *username = tool->username;
-	struct mail_namespace_settings ns_set;
 	struct mail_namespace *ns = NULL;
-	enum mail_storage_flags storage_flags =
-		MAIL_STORAGE_FLAG_NO_AUTOCREATE;
 	const char *home = NULL, *errstr = NULL;
 
 	tool->mail_user = mail_user_alloc
@@ -353,17 +350,12 @@ void sieve_tool_init_mail_user
 	if ( mail_user_init(tool->mail_user, &errstr) < 0 )
  		i_fatal("Test user initialization failed: %s", errstr);
 
-	memset(&ns_set, 0, sizeof(ns_set));
-	ns_set.location = mail_location;
-	ns_set.inbox = TRUE;
-	ns_set.subscriptions = TRUE;
-
-	ns = mail_namespaces_init_empty(tool->mail_user);
-	ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
-	ns->set = &ns_set;
-
-	if ( mail_storage_create(ns, NULL, storage_flags, &errstr) < 0 )
+	if ( mail_namespaces_init_location
+		(tool->mail_user, mail_location, &errstr) < 0 )
 		i_fatal("Test storage creation failed: %s", errstr);
+
+	ns = tool->mail_user->namespaces;
+	ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 }
 
 struct mail *sieve_tool_open_file_as_mail
@@ -525,6 +517,7 @@ struct sieve_binary *sieve_tool_script_compile
 
 	ehandler = sieve_stderr_ehandler_create(svinst, 0);
 	sieve_error_handler_accept_infolog(ehandler, TRUE);
+	sieve_error_handler_accept_debuglog(ehandler, svinst->debug);
 
 	if ( (sbin = sieve_compile(svinst, filename, name, ehandler, NULL)) == NULL )
 		i_error("failed to compile sieve script '%s'", filename);

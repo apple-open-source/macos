@@ -77,5 +77,7 @@ Others:
  * <Postfix and Dovecot LMTP> [HowTo.PostfixDovecotLMTP.txt]
  * Apple Discussion Forum: Mail Services in Mac OS X Server v10.6 Snow Leopard
    [http://discussions.apple.com/forum.jspa?forumID=1350]
+ * <Postfix + Dspam + Dovecot via LTMP>
+   [HowTo.Virtual+Postfix+Dspam+Dovecot.txt]
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

@@ -1,5 +1,5 @@
 /*
- * "$Id: testdirsvc.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: testdirsvc.c 9691 2011-04-15 23:38:13Z mike $"
  *
  *   Browsing test program for CUPS.
  *
@@ -320,5 +320,5 @@ usage(void)
 
 
 /*
- * End of "$Id: testdirsvc.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: testdirsvc.c 9691 2011-04-15 23:38:13Z mike $".
  */

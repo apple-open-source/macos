@@ -860,12 +860,6 @@ IOUSBDevice::stop( IOService * provider )
 {
     USBLog(5, "%s[%p]::stop isInactive = %d", getName(), this, isInactive());
 	
-	if ( _WORKLOOP && _NOTIFIERHANDLER_TIMER)
-		_WORKLOOP->removeEventSource(_NOTIFIERHANDLER_TIMER);
-	
-	if ( _WORKLOOP )
-		_WORKLOOP->removeEventSource(_COMMAND_GATE);
-
 	if (_pipeZero) 
     {
         _pipeZero->Abort();
@@ -873,6 +867,38 @@ IOUSBDevice::stop( IOService * provider )
         _pipeZero->release();
         _pipeZero = NULL;
     }
+	
+	if ( _expansionData && _WORKLOOP && _NOTIFIERHANDLER_TIMER)
+	{
+		_WORKLOOP->removeEventSource(_NOTIFIERHANDLER_TIMER);
+	
+		_NOTIFIERHANDLER_TIMER->release();
+		_NOTIFIERHANDLER_TIMER = NULL;
+	}
+	
+	if (_expansionData && _WORKLOOP && _COMMAND_GATE)
+	{
+		_WORKLOOP->removeEventSource(_COMMAND_GATE);
+
+		_COMMAND_GATE->release();
+		_COMMAND_GATE = NULL;
+
+		_WORKLOOP->release();
+		_WORKLOOP = NULL;
+	}
+		
+	if (_expansionData && _OPEN_CLIENTS)
+	{
+		if (_OPEN_CLIENTS->getCount())
+		{
+			USBLog(2, "IOUSBDevice[%p]::stop - called with %d _OPEN_CLIENTS", this, _OPEN_CLIENTS->getCount());
+		}
+		else
+		{
+			_OPEN_CLIENTS->release();
+			_OPEN_CLIENTS = NULL;
+		}
+	}
 	
 	USBLog(5, "%s[%p]::-stop isInactive = %d", getName(), this, isInactive());
 
@@ -950,37 +976,6 @@ IOUSBDevice::free()
 			thread_call_free(_DO_PORT_REENUMERATE_THREAD);
 			_DO_PORT_REENUMERATE_THREAD = NULL;
 		}
-		
-		if (_OPEN_CLIENTS)
-		{
-			if (_OPEN_CLIENTS->getCount())
-			{
-				USBLog(2, "IOUSBDevice[%p]::free - called with %d _OPEN_CLIENTS", this, _OPEN_CLIENTS->getCount());
-			}
-			else
-			{
-				_OPEN_CLIENTS->release();
-				_OPEN_CLIENTS = NULL;
-			}
-		}
-		
-		if (_NOTIFIERHANDLER_TIMER)
-		{
-			_NOTIFIERHANDLER_TIMER->release();
-			_NOTIFIERHANDLER_TIMER = NULL;
-		}
-		
-		if ( _COMMAND_GATE )
-		{
-			_COMMAND_GATE->release();
-			_COMMAND_GATE = NULL;
-		}
-		
-		if (_WORKLOOP)
-        {
-            _WORKLOOP->release();
-            _WORKLOOP = NULL;
-        }
 		
 		if ( _INTERFACEARRAYLOCK )
 		{
@@ -1137,7 +1132,7 @@ UInt32
 IOUSBDevice::GetChildLocationID(UInt32 parentLocationID, int port)
 {
     // LocationID is used to uniquely identify a device or interface and it's
-    // suppose to remain constant across reboots as long as the USB topology doesn't
+    // supposed to remain constant across reboots as long as the USB topology doesn't
     // change.  It is a 32-bit word.  The top 2 nibbles (bits 31:24) represent the
     // USB Bus Number.  Each nibble after that (e.g. bits 23:20 or 19:16) correspond
     // to the port number of the hub that the device is connected to.
@@ -1166,14 +1161,29 @@ IOUSBDevice::ResetDevice()
 	
 	USBLog(5, "%s[%p]::ResetDevice (port %d device at 0x%x)", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID);
 	
-	if ( _expansionData && _COMMAND_GATE )
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
 		retain();
-		kr =  _COMMAND_GATE->runAction(_ResetDevice);
+		workLoop->retain();
+		gate->retain();
+		
+		kr = gate->runAction(_ResetDevice);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::ResetDevice _ResetDevice runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
 		release();
 	}
 	else
+	{
 		kr = kIOReturnNoDevice;
+	}
 
 	return kr;
 }
@@ -1185,14 +1195,29 @@ IOUSBDevice::ReEnumerateDevice( UInt32 options )
 	
 	USBLog(5, "%s[%p]::ReEnumerateDevice (port %d device at 0x%x)", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID);
 	
-	if ( _expansionData && _COMMAND_GATE )
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
 		retain();
-		kr = _COMMAND_GATE->runAction(_ReEnumerateDevice, &options);
+		workLoop->retain();
+		gate->retain();
+		
+		kr = gate->runAction(_ReEnumerateDevice, &options);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::ResetDevice _ReEnumerateDevice runAction() failed (0x%x)", getName(), this, kr);
+        }
+
+		gate->release();
+		workLoop->release();
 		release();
 	}
 	else
+	{
 		kr = kIOReturnNoDevice;
+	}
 	
 	return kr;
 }
@@ -1206,19 +1231,24 @@ IOUSBDevice::_ResetDevice(OSObject *target, __unused void *arg0, __unused void *
 	IOReturn	status = kIOReturnSuccess;
 	IOUSBDevice	*me = OSDynamicCast(IOUSBDevice, target);
 
-	if ( me->_WORKLOOP->onThread() )
-	{
-		USBLog(1, "%s[%p] _ResetDevice(port %d) - called on workloop thread !", me->getName(), me, (uint32_t)me->_PORT_NUMBER);
-		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 0 );
-        return kIOUSBSyncRequestOnWLThread;
-	}
-	
     if ( me->isInactive() )
     {
         USBLog(1, "%s[%p]::_ResetDevice - while terminating!", me->getName(), me);
 		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 1 );
         return kIOReturnNoDevice;
     }
+	
+	if ( me->_expansionData == NULL || me->_WORKLOOP == NULL )
+	{
+		return kIOReturnNoDevice;
+	}
+	
+	if ( me->_WORKLOOP->onThread() )
+	{
+		USBLog(1, "%s[%p] _ResetDevice(port %d) - called on workloop thread !", me->getName(), me, (uint32_t)me->_PORT_NUMBER);
+		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 0 );
+        return kIOUSBSyncRequestOnWLThread;
+	}
 	
 	if (me->_RESET_IN_PROGRESS)
 	{
@@ -1560,8 +1590,15 @@ IOUSBDevice::GetFullConfigurationDescriptor(UInt8 index)
 	
    
     if (!_configList || (index >= _descriptor.bNumConfigurations))
+	{
         return NULL;
+	}
     
+	if ( _expansionData == NULL || _WORKLOOP == NULL )
+	{
+		return NULL;
+	}
+	
 	if ( _WORKLOOP->onThread() )
 	{
 		USBLog(1, "%s[%p]::GetFullConfigurationDescriptor(index %d) - called on workloop thread, returning NULL", getName(), this, (uint32_t)index);
@@ -1930,6 +1967,12 @@ IOUSBDevice::TerminateInterfaces(bool terminate)
 IOReturn 
 IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool startMatchingInterfaces)
 {
+	return SetConfiguration(forClient, configNumber, startMatchingInterfaces, false);
+}
+
+IOReturn 
+IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool startMatchingInterfaces, bool issueRemoteWakeup)
+{
     IOReturn							err = kIOReturnSuccess;
     IOUSBDevRequest						request;
     const IOUSBConfigurationDescriptor *confDesc;
@@ -2033,7 +2076,7 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
     //
     TerminateInterfaces(true);
     
-    USBLog(5,"%s[%p]::SetConfiguration to %d",getName(), this, configNumber);
+    USBLog(5,"%s[%p]::SetConfiguration to %d, _speed: %d, _busPowerAvailable = %d, startMatchingInterfaces = %d, issueRemoteWakeup = %d",getName(), this, configNumber, (uint32_t)_speed, (uint32_t) _busPowerAvailable, startMatchingInterfaces, issueRemoteWakeup);
 	
     request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqSetConfig;
@@ -2045,7 +2088,7 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
 	
     if (err)
     {
-        USBLog(1,"%s[%p]::SetConfiguration  failed SET_CONFIG with error 0x%x (%s)", getName(), this, err, USBStringFromReturn(err));
+        USBLog(1,"%s[%p]::SetConfiguration  DeviceRequest(kUSBRqSetConfig) returned 0x%x", getName(), this, (uint32_t)err);
 		USBTrace( kUSBTDevice,  kTPDeviceSetConfiguration, (uintptr_t)this, err, request.bmRequestType, request.wValue );
 		return err;
     }
@@ -2054,6 +2097,22 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
     //
     _currentConfigValue = configNumber;
 	
+	// Issue a remote wakeup if instructed to do so
+	if (issueRemoteWakeup)
+	{
+		err = SetFeature(kUSBFeatureDeviceRemoteWakeup);
+        if ( err != kIOReturnSuccess )
+        {
+			USBLog(5,"%s[%p]::SetConfiguration  SetFeature(kUSBFeatureDeviceRemoteWakeup) returned 0x%x, retrying", getName(), this, (uint32_t)err);
+            // Wait and retry
+            IOSleep(300);
+            err = SetFeature(kUSBFeatureDeviceRemoteWakeup);
+			if (err != kIOReturnSuccess)
+			{
+				USBLog(15,"%s[%p]::SetConfiguration  SetFeature(kUSBFeatureDeviceRemoteWakeup) #2 returned 0x%x, remote wakeup is NOT set", getName(), this, (uint32_t)err);
+			}
+        }
+	}
     // If the device is now configured (non zero) then instantiate interfaces and begin interface
     // matching if appropriate.  Here's how we deal with alternate settings:  We will look for the first
     // interface description and then instantiate all other interfaces that match the alternate setting
@@ -2590,10 +2649,23 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *completion
 {
 	IOReturn	kr = kIOReturnSuccess;
 
-	if ( _expansionData && _COMMAND_GATE )
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
 		retain();
-		kr =  _COMMAND_GATE->runAction(_DeviceRequest, request, completion);
+		workLoop->retain();
+		gate->retain();
+
+		kr =  gate->runAction(_DeviceRequest, request, completion);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::ResetDevice _DeviceRequest runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
 		release();
 	}
 	else
@@ -2652,10 +2724,23 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequestDesc	*request, IOUSBCompletion *comple
 {
 	IOReturn	kr = kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE )
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
 		retain();
-		kr =  _COMMAND_GATE->runAction(_DeviceRequestDesc, request, completion);
+		workLoop->retain();
+		gate->retain();
+		
+		kr =  gate->runAction(_DeviceRequestDesc, request, completion);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::ResetDevice _DeviceRequestDesc runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
 		release();
 	}
 	else
@@ -2712,10 +2797,23 @@ IOUSBDevice::GetConfiguration(UInt8 *configNumber)
 {
 	IOReturn	kr	=	kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE )
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
 		retain();
-		kr =  _COMMAND_GATE->runAction(_GetConfiguration, configNumber);
+		workLoop->retain();
+		gate->retain();
+		
+		kr =  gate->runAction(_GetConfiguration, configNumber);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::ResetDevice _GetConfiguration runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
 		release();
 	}
 	else
@@ -2768,10 +2866,23 @@ IOUSBDevice::GetDeviceStatus(USBStatus *status)
 {
 	IOReturn	kr	=	kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE )
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
 		retain();
-		kr =  _COMMAND_GATE->runAction(_GetDeviceStatus, status);
+		workLoop->retain();
+		gate->retain();
+		
+		kr =  gate->runAction(_GetDeviceStatus, status);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::ResetDevice _GetDeviceStatus runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
 		release();
 	}
 	else
@@ -3284,22 +3395,45 @@ IOReturn
 IOUSBDevice::TakeGetConfigLock(void)
 {
 	IOReturn	ret;
-	if (!_WORKLOOP || !_COMMAND_GATE)
+	
+	if ((_expansionData == NULL) || (_expansionData && (!_WORKLOOP || !_COMMAND_GATE)))
 	{
 		USBLog(1, "%s[%p]::TakeGetConfigLock - no WorkLoop or no gate!", getName(), this);
 		USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)this, (uintptr_t)_WORKLOOP, (uintptr_t)_COMMAND_GATE, 1 );
 		return kIOReturnNotPermitted;
 	}
-	if (_WORKLOOP->onThread())
+	
+	if (_expansionData && _WORKLOOP && _WORKLOOP->onThread())
 	{
 		USBLog(1, "%s[%p]::TakeGetConfigLock - called onThread -- not allowed!", getName(), this);
 		USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)this, 0, 0, 2 );
 		return kIOReturnNotPermitted;
 	}
-	USBLog(5, "%s[%p]::TakeGetConfigLock - calling through to ChangeGetConfigLock", getName(), this);
-	retain();
-	ret = _COMMAND_GATE->runAction(ChangeGetConfigLock, (void*)true);
-	release();
+	
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+		
+		USBLog(5, "%s[%p]::TakeGetConfigLock - calling through to ChangeGetConfigLock", getName(), this);
+		ret = gate->runAction(ChangeGetConfigLock, (void*)true);
+        if ( ret != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::TakeGetConfigLock ChangeGetConfigLock runAction() failed (0x%x)", getName(), this, ret);
+        }
+		
+		gate->release();
+		workLoop->release();
+		release();
+	}
+	else
+	{
+		ret = kIOReturnNoDevice;
+	}
 	
 	return ret;
 }
@@ -3311,16 +3445,37 @@ IOUSBDevice::ReleaseGetConfigLock(void)
 {
 	IOReturn	ret;
 	
-	if (!_WORKLOOP || !_COMMAND_GATE)
+	if ( (_expansionData == NULL) || (_expansionData && (!_WORKLOOP || !_COMMAND_GATE)))
 	{
 		USBLog(1, "%s[%p]::TakeGetConfigLock - no WorkLoop or no gate!", getName(), this);
 		USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)this, (uintptr_t)_WORKLOOP, (uintptr_t)_COMMAND_GATE, 3 );
 		return kIOReturnNotPermitted;
 	}
-	USBLog(5, "%s[%p]::ReleaseGetConfigLock - calling through to ChangeGetConfigLock", getName(), this);
-	retain();
-	ret = _COMMAND_GATE->runAction(ChangeGetConfigLock, (void*)false);
-	release();
+
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+		
+		USBLog(5, "%s[%p]::ReleaseGetConfigLock - calling through to ChangeGetConfigLock", getName(), this);
+		ret = gate->runAction(ChangeGetConfigLock, (void*)false);
+        if ( ret != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::ReleaseGetConfigLock ChangeGetConfigLock runAction() failed (0x%x)", getName(), this, ret);
+        }
+		
+		gate->release();
+		workLoop->release();
+		release();
+	}
+	else
+	{
+		ret = kIOReturnNoDevice;
+	}
 	
 	return ret;
 }
@@ -3334,68 +3489,86 @@ IOUSBDevice::ChangeGetConfigLock(OSObject *target, void *param1, void *param2, v
     bool			takeLock = (bool)param1;
 	IOReturn		retVal = kIOReturnSuccess;
 	
-	if (takeLock)
+	if ( me->_expansionData && me->_COMMAND_GATE && me->_WORKLOOP)
 	{
-		while (me->_GETCONFIGLOCK and (retVal == kIOReturnSuccess))
+		IOCommandGate *	gate = me->_COMMAND_GATE;
+		IOWorkLoop *	workLoop = me->_WORKLOOP;
+		
+		me->retain();
+		workLoop->retain();
+		gate->retain();
+		
+		if (takeLock)
 		{
-			AbsoluteTime	deadline;
-			IOReturn		kr;
-			
-			clock_interval_to_deadline(kGetConfigDeadlineInSecs, kSecondScale, &deadline);
-			USBLog(5, "%s[%p]::ChangeGetConfigLock - _GETCONFIGLOCK held by someone else - calling commandSleep to wait for lock", me->getName(), me);
-			USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 4 );
-			kr = me->_COMMAND_GATE->commandSleep(&me->_GETCONFIGLOCK, deadline, THREAD_ABORTSAFE);
-			switch (kr)
+			while (me->_GETCONFIGLOCK and (retVal == kIOReturnSuccess))
 			{
-				case THREAD_AWAKENED:
-					USBLog(6,"%s[%p]::ChangeGetConfigLock commandSleep woke up normally (THREAD_AWAKENED) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 5 );
-					break;
-					
-				case THREAD_TIMED_OUT:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep timeout out (THREAD_TIMED_OUT) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 6 );
-					retVal = kIOReturnNotPermitted;
-					break;
-					
-				case THREAD_INTERRUPTED:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep interrupted (THREAD_INTERRUPTED) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 7 );
-					retVal = kIOReturnNotPermitted;
-					break;
-					
-				case THREAD_RESTART:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep restarted (THREAD_RESTART) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 8 );
-					retVal = kIOReturnNotPermitted;
-					break;
-					
-				case kIOReturnNotPermitted:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock woke up with status (kIOReturnNotPermitted) - we do not hold the WL!", me->getName(), me);
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 9 );
-					retVal = kr;
-					break;
-					
-				default:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock woke up with unknown status %p",  me->getName(), me, (void*)kr);
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 10 );
-					retVal = kIOReturnNotPermitted;
+				AbsoluteTime	deadline;
+				IOReturn		kr;
+				
+				clock_interval_to_deadline(kGetConfigDeadlineInSecs, kSecondScale, &deadline);
+				USBLog(5, "%s[%p]::ChangeGetConfigLock - _GETCONFIGLOCK held by someone else - calling commandSleep to wait for lock", me->getName(), me);
+				USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 4 );
+				kr = gate->commandSleep(&me->_GETCONFIGLOCK, deadline, THREAD_ABORTSAFE);
+				switch (kr)
+				{
+					case THREAD_AWAKENED:
+						USBLog(6,"%s[%p]::ChangeGetConfigLock commandSleep woke up normally (THREAD_AWAKENED) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
+						USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 5 );
+						break;
+						
+					case THREAD_TIMED_OUT:
+						USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep timeout out (THREAD_TIMED_OUT) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
+						USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 6 );
+						retVal = kIOReturnNotPermitted;
+						break;
+						
+					case THREAD_INTERRUPTED:
+						USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep interrupted (THREAD_INTERRUPTED) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
+						USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 7 );
+						retVal = kIOReturnNotPermitted;
+						break;
+						
+					case THREAD_RESTART:
+						USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep restarted (THREAD_RESTART) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
+						USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 8 );
+						retVal = kIOReturnNotPermitted;
+						break;
+						
+					case kIOReturnNotPermitted:
+						USBLog(3,"%s[%p]::ChangeGetConfigLock woke up with status (kIOReturnNotPermitted) - we do not hold the WL!", me->getName(), me);
+						USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 9 );
+						retVal = kr;
+						break;
+						
+					default:
+						USBLog(3,"%s[%p]::ChangeGetConfigLock woke up with unknown status %p",  me->getName(), me, (void*)kr);
+						USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 10 );
+						retVal = kIOReturnNotPermitted;
+				}
+			}
+			if (retVal == kIOReturnSuccess)
+			{
+				USBLog(5, "%s[%p]::ChangeGetConfigLock - setting _GETCONFIGLOCK to true", me->getName(), me);
+				USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 13 );
+				me->_GETCONFIGLOCK = true;
 			}
 		}
-		if (retVal == kIOReturnSuccess)
+		else
 		{
-			USBLog(5, "%s[%p]::ChangeGetConfigLock - setting _GETCONFIGLOCK to true", me->getName(), me);
-			USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 13 );
-			me->_GETCONFIGLOCK = true;
+			USBLog(5, "%s[%p]::ChangeGetConfigLock - setting _GETCONFIGLOCK to false and calling commandWakeup", me->getName(), me);
+			USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 11 );
+			me->_GETCONFIGLOCK = false;
+			gate->commandWakeup(&me->_GETCONFIGLOCK, true);
 		}
+		gate->release();
+		workLoop->release();
+		me->release();
 	}
 	else
 	{
-		USBLog(5, "%s[%p]::ChangeGetConfigLock - setting _GETCONFIGLOCK to false and calling commandWakeup", me->getName(), me);
-		USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 11 );
-		me->_GETCONFIGLOCK = false;
-		me->_COMMAND_GATE->commandWakeup(&me->_GETCONFIGLOCK, true);
+		retVal = kIOReturnNoDevice;
 	}
+	
 	return retVal;
 }
 
@@ -3404,10 +3577,23 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt3
 {
 	IOReturn	kr = kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE )
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
 		retain();
-		kr =  _COMMAND_GATE->runAction(_DeviceRequestWithTimeout, request, (void*)(uintptr_t)noDataTimeout, (void*)(uintptr_t)completionTimeout, (void*)completion);
+		workLoop->retain();
+		gate->retain();
+		
+		kr =  gate->runAction(_DeviceRequestWithTimeout, request, (void*)(uintptr_t)noDataTimeout, (void*)(uintptr_t)completionTimeout, (void*)completion);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::DeviceRequest _DeviceRequestWithTimeout runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
 		release();
 	}
 	else
@@ -3468,10 +3654,23 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, U
 {
 	IOReturn	kr = kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE )
+	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
+		IOCommandGate *	gate = _COMMAND_GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
 		retain();
-		kr =  _COMMAND_GATE->runAction(_DeviceRequestDescWithTimeout, request, (void*)(uintptr_t)noDataTimeout, (void*)(uintptr_t)completionTimeout, (void*)completion);
+		workLoop->retain();
+		gate->retain();
+		
+		kr =  gate->runAction(_DeviceRequestDescWithTimeout, request, (void*)(uintptr_t)noDataTimeout, (void*)(uintptr_t)completionTimeout, (void*)completion);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::DeviceRequest _DeviceRequestDescWithTimeout runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
 		release();
 	}
 	else
@@ -3541,19 +3740,24 @@ IOUSBDevice::SuspendDevice( bool suspend )
 {
 	IOReturn	status		= kIOReturnSuccess;
 
-	if ( _WORKLOOP->onThread() )
-	{
-		USBLog(1, "%s[%p]::SuspendDevice(port %d) - called on workloop thread !", getName(), this, (uint32_t)_PORT_NUMBER);
-		USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER, _LOCATIONID, 1);
-        return kIOUSBSyncRequestOnWLThread;
-	}
-	
     if ( isInactive() )
     {
         USBLog(1, "%s[%p]::SuspendDevice - while inactive!", getName(), this);
 		USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER,  _LOCATIONID, 3);
         return kIOReturnNoDevice;
     }
+	
+	if ( _expansionData == NULL || _WORKLOOP == NULL )
+	{
+		return kIOReturnNoDevice;
+	}
+
+	if ( _WORKLOOP->onThread() )
+	{
+		USBLog(1, "%s[%p]::SuspendDevice(port %d) - called on workloop thread !", getName(), this, (uint32_t)_PORT_NUMBER);
+		USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER, _LOCATIONID, 1);
+        return kIOUSBSyncRequestOnWLThread;
+	}
 	
 	USBLog(5, "+%s[%p]::SuspendDevice(%s) for port %d device @ 0x%x", getName(), this, suspend ? "suspend" : "resume", (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID );
 	USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this,  _LOCATIONID, suspend, 4);
@@ -3609,19 +3813,24 @@ IOUSBDevice::_ReEnumerateDevice(OSObject *target, void *arg0, __unused void *arg
 	IOUSBDevice	*me		= OSDynamicCast(IOUSBDevice, target);
 	UInt32		*options= (UInt32*)arg0;
 	
-	if ( me->_WORKLOOP->onThread() )
-	{
-		USBLog(1, "%s[%p]::_ReEnumerateDevice(port %d) - called on workloop thread !", me->getName(), me, (uint32_t)me->_PORT_NUMBER);
-		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 0);
-        return kIOUSBSyncRequestOnWLThread;
-	}
-	
     if (me->isInactive())
     {
         USBLog(1, "%s[%p]::_ReEnumerateDevice - while terminating!", me->getName(), me);
 		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 1);
         return kIOReturnNoDevice;
     }
+	
+	if ( me->_expansionData == NULL || me->_WORKLOOP == NULL )
+	{
+		return kIOReturnNoDevice;
+	}
+	
+	if ( me->_WORKLOOP->onThread() )
+	{
+		USBLog(1, "%s[%p]::_ReEnumerateDevice(port %d) - called on workloop thread !", me->getName(), me, (uint32_t)me->_PORT_NUMBER);
+		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 0);
+        return kIOUSBSyncRequestOnWLThread;
+	}
 	
 	if (me->_RESET_IN_PROGRESS)
 	{
@@ -4161,8 +4370,8 @@ OSMetaClassDefineReservedUsed(IOUSBDevice,  9);
 OSMetaClassDefineReservedUsed(IOUSBDevice,  10);
 OSMetaClassDefineReservedUsed(IOUSBDevice,  11);
 OSMetaClassDefineReservedUsed(IOUSBDevice,  12);
+OSMetaClassDefineReservedUsed(IOUSBDevice,  13);
 
-OSMetaClassDefineReservedUnused(IOUSBDevice,  13);
 OSMetaClassDefineReservedUnused(IOUSBDevice,  14);
 OSMetaClassDefineReservedUnused(IOUSBDevice,  15);
 OSMetaClassDefineReservedUnused(IOUSBDevice,  16);

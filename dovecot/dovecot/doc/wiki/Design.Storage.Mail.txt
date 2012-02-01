@@ -97,4 +97,4 @@ immutable, so it's not possible to change message's received date, headers or
 body. If you wish to modify any of them, you need to create a new message and
 expunge the old one.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-ssl.m4 7241 2008-01-22 22:34:52Z mike $"
+dnl "$Id: cups-ssl.m4 9837 2011-06-16 20:12:16Z mike $"
 dnl
 dnl   OpenSSL/GNUTLS stuff for CUPS.
 dnl
@@ -55,6 +55,12 @@ if test x$enable_ssl != xno; then
 		    AC_DEFINE(HAVE_SECBASEPRIV_H))
 		AC_CHECK_HEADER(Security/SecIdentitySearchPriv.h,
 		    AC_DEFINE(HAVE_SECIDENTITYSEARCHPRIV_H))
+
+		dnl Check for SSLSetProtocolVersionMax...
+		SAVELIBS="$LIBS"
+		LIBS="$LIBS -framework Security"
+		AC_CHECK_FUNC(SSLSetProtocolVersionMax)
+		LIBS="$SAVELIBS"
 
 		dnl Check for SecCertificateCopyData..
 		AC_MSG_CHECKING(for SecCertificateCopyData)
@@ -169,5 +175,5 @@ AC_SUBST(EXPORT_SSLLIBS)
 
 
 dnl
-dnl End of "$Id: cups-ssl.m4 7241 2008-01-22 22:34:52Z mike $".
+dnl End of "$Id: cups-ssl.m4 9837 2011-06-16 20:12:16Z mike $".
 dnl

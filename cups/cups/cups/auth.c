@@ -1,5 +1,5 @@
 /*
- * "$Id: auth.c 7720 2008-07-11 22:46:21Z mike $"
+ * "$Id: auth.c 9800 2011-05-20 18:22:33Z mike $"
  *
  *   Authentication functions for CUPS.
  *
@@ -65,6 +65,8 @@ extern const char *cssmErrorString(int error);
 #    ifdef HAVE_GSS_GSSAPI_SPI_H
 #      include <GSS/gssapi_spi.h>
 #    else
+#      define GSS_AUTH_IDENTITY_TYPE_1 1
+#      define gss_acquire_cred_ex_f __ApplePrivate_gss_acquire_cred_ex_f
 typedef struct gss_auth_identity
 {
   uint32_t type;
@@ -419,7 +421,6 @@ _cupsSetNegotiateAuthString(
       }
     }
   }
-  else
 #endif /* HAVE_GSS_ACQUIRED_CRED_EX_F */
 
   if (GSS_ERROR(major_status))
@@ -873,5 +874,5 @@ cups_local_auth(http_t *http)		/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: auth.c 7720 2008-07-11 22:46:21Z mike $".
+ * End of "$Id: auth.c 9800 2011-05-20 18:22:33Z mike $".
  */

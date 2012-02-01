@@ -250,7 +250,8 @@ OSStatus KRBCredRemoveReference(CFStringRef clientPrincipal);
 #define kGSSAPIMechPKU2UOID			CFSTR("1.3.6.1.5.2.7")
 
 CFDictionaryRef
-KRBDecodeNegTokenInit(CFAllocatorRef, CFDataRef);
+KRBDecodeNegTokenInit(CFAllocatorRef, CFDataRef)
+    CF_RETURNS_RETAINED;
 
 CFDictionaryRef
 KRBCreateNegTokenLegacyKerberos(CFAllocatorRef);

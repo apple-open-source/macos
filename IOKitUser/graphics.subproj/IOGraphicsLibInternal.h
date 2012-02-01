@@ -362,6 +362,8 @@ struct IOFBConnect
     UInt32                      defaultHeight;
     UInt32                      defaultImageWidth;
     UInt32                      defaultImageHeight;
+    uint32_t                    displayImageWidth;
+    uint32_t                    displayImageHeight;
     UInt64                      dualLinkCrossover;
     UInt32                      maxDisplayLinks;
     float                       nativeAspect;

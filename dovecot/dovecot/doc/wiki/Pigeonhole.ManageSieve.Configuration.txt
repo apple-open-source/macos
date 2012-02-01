@@ -27,7 +27,7 @@ port 4190 by default. As the implementation of the managesieve daemon is
 largely based on the original IMAP implementation, it is very similar in terms
 of configuration. In addition to most mail daemon config settings, the
 managesieve daemon accepts a few more. The following settings can be configured
-in the 'protocol managesieve' section:
+in the 'protocol sieve' section:
 
 managesieve_max_line_length = 65536:
   The maximum ManageSieve command line length in bytes. This setting is
@@ -90,7 +90,10 @@ sieve = ~/.dovecot.sieve:
   file already exists at the location specified by the 'sieve' setting, it is
   moved to the 'sieve_dir' location before the symbolic link is installed. It
   is renamed to 'dovecot.orig.sieve' and therefore listed as `dovecot.orig' by
-  aManageSieve client.
+  aManageSieve client. *Note:* It is not wise to place this link inside your
+  mail store, as it may be mistaken for a mail folder. Inside a maildir for
+  instance, the default '.dovecot.sieve' would show up as phantom folder
+  //dovecot/sieve/ in your IMAP tree.
 
 Quota Support
 -------------
@@ -242,4 +245,4 @@ The following has changed since the ManageSieve releases for Dovecot v1.x:
    and the services are still called 'managesieve' and 'managesieve-login'. The
    example section demonstrates how this affects the configuration.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

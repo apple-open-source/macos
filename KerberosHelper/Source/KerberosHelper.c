@@ -24,6 +24,8 @@
 #include "NetworkAuthenticationHelper.h"
 #include "KerberosHelper.h"
 #include "KerberosHelperContext.h"
+#include "lookupDSLocalKDC.h"
+#include "util.h"
 
 #include <Heimdal/locate_plugin.h>
 
@@ -209,6 +211,8 @@ lookup_by_kdc(KRBhelperContext *hCtx, const char *name, char **realm)
     ret = krb5_build_principal(hCtx->krb5_ctx, &mcred.server,
 			       0, "", 
 			       "host", name, NULL); /* XXX propper service name */
+    if (ret)
+	return ret;
 
     ret = krb5_cccol_cursor_new(hCtx->krb5_ctx, &cursor);
     if (ret)
@@ -353,12 +357,10 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
     int lkdcp = 0;
     size_t i;
 
-    if (NULL == outKerberosSession) {
-	err = paramErr;
-	goto out;
-    }
-
     *outKerberosSession = NULL;
+    
+    if (NULL == outKerberosSession)
+	return paramErr;
 
     inHostName = CFDictionaryGetValue(inDict, kKRBHostnameKey);
     inAdvertisedPrincipal = CFDictionaryGetValue(inDict, kKRBAdvertisedPrincipalKey);
@@ -374,10 +376,8 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
      * We almost always require a Kerberos context and the default
      * realm, so populate those up front.
      */
-    if (NULL == (hCtx = calloc(1, sizeof(*hCtx)))) {
-	err = memFullErr;
-	goto out;
-    }
+    if (NULL == (hCtx = calloc(1, sizeof(*hCtx))))
+	return memFullErr;
 
     if (0 != k5_ok( krb5_init_context (&hCtx->krb5_ctx) )) {
 	err = memFullErr;
@@ -544,7 +544,6 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
 	      __func__, ipbuf, hbuf, (int)err, 0 == err ? "success" : gai_strerror (err));
         if (err) {
 	    /* This is not a fatal error.  We'll keep looking for candidate host names. */
-            err = noErr;
             continue;
         }
 	find_mapping(hCtx, hbuf, lkdcp);
@@ -667,23 +666,23 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
 	    free(hCtx->realms.data[i].realm);
 	}
 	free(hCtx->realms.data);
-        free (hCtx->defaultRealm);
-        if (NULL != hCtx->realm)
-            CFRelease (hCtx->realm);
-        if (NULL != hCtx->inAdvertisedPrincipal)
-            CFRelease (hCtx->inAdvertisedPrincipal);
-        if (NULL != hCtx->hostname)
-            CFRelease (hCtx->hostname);
-        if (NULL != hCtx->inHostName)
-            CFRelease (hCtx->inHostName);
-        if (NULL != hCtx->krb5_ctx)
-            krb5_free_context (hCtx->krb5_ctx);
+	free (hCtx->defaultRealm);
+	if (NULL != hCtx->realm)
+	    CFRelease (hCtx->realm);
+	if (NULL != hCtx->inAdvertisedPrincipal)
+	    CFRelease (hCtx->inAdvertisedPrincipal);
+	if (NULL != hCtx->hostname)
+	    CFRelease (hCtx->hostname);
+	if (NULL != hCtx->inHostName)
+	    CFRelease (hCtx->inHostName);
+	if (NULL != hCtx->krb5_ctx)
+	    krb5_free_context (hCtx->krb5_ctx);
 	if (NULL != hCtx->hx_ctx)
 	    hx509_context_free(&hCtx->hx_ctx);
 	if (NULL != hCtx->addr)
 	    freeaddrinfo(hCtx->addr);
-
-        free (hCtx);
+	
+	free (hCtx);
     } else
         *outKerberosSession = hCtx;
 
@@ -1340,7 +1339,7 @@ OSStatus KRBAcquireTicket(KRBHelperContextRef inKerberosSession, CFDictionaryRef
 
     if (NULL == hCtx) {
 	KHLog ("%s", "[[[ KRBAcquireTicket () - no context will raise() in the future");
-	err = paramErr; goto Error;
+	return paramErr;
     }
 
     KHLog ("%s", "[[[ KRBAcquireTicket () - required parameters okay");
@@ -1651,7 +1650,7 @@ OSStatus KRBCredAddReferenceAndLabel(CFStringRef clientPrincipal,
     /* Skip SSO cred-caches */
     kret = k5_ok(krb5_cc_get_config(kcontext, id, NULL, "nah-created", &data));
     if (kret) {
-	kret = 0;
+	ret = 0;
 	goto out;
     }
     krb5_data_free(&data);

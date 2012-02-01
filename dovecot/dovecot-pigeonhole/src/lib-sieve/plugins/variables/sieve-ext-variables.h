@@ -46,6 +46,8 @@ struct sieve_variable_name {
 
 ARRAY_DEFINE_TYPE(sieve_variable_name, struct sieve_variable_name);
 
+bool sieve_variable_identifier_is_valid(const char *identifier);
+
 /*
  * Variable scope
  */
@@ -61,7 +63,7 @@ struct sieve_variable {
 struct sieve_variable_scope;
 
 struct sieve_variable_scope *sieve_variable_scope_create
-	(const struct sieve_extension *ext);
+	(struct sieve_instance *svinst, const struct sieve_extension *ext);
 void sieve_variable_scope_ref
 	(struct sieve_variable_scope *scope);
 void sieve_variable_scope_unref
@@ -89,7 +91,7 @@ void sieve_variable_scope_binary_unref
 	(struct sieve_variable_scope_binary **scpbin);
 
 struct sieve_variable_scope *sieve_variable_scope_binary_dump
-	(const struct sieve_extension *ext, 
+	(struct sieve_instance *svinst, const struct sieve_extension *ext, 
 		const struct sieve_dumptime_env *denv, sieve_size_t *address);
 struct sieve_variable_scope_binary *sieve_variable_scope_binary_read
 	(struct sieve_instance *svinst, const struct sieve_extension *ext,

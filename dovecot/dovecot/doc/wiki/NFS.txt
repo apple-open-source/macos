@@ -147,4 +147,4 @@ Misc notes
  * To learn more about NFS caching and other issues, mostly from a programmer's
    point of view, see NFS Coding HOWTO [http://www.unixcoding.org/NFSCoding]
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

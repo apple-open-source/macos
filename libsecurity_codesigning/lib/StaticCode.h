@@ -168,6 +168,7 @@ protected:
 	void defaultDesignatedAppleAnchor(Requirement::Maker &maker);
 	void defaultDesignatedNonAppleAnchor(Requirement::Maker &maker);
 	bool isAppleSDKSignature();
+	bool isAppleCaspianSignature();
 
 	static void checkOptionalResource(CFTypeRef key, CFTypeRef value, void *context);
 

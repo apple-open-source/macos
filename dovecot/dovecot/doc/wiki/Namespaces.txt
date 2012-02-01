@@ -39,16 +39,38 @@ mailbox from its child mailbox. For example if you have a mailbox "foo" with a
 child mailbox "bar", the full path to the child mailbox would be "foo/bar" if
 the separator was '/'. With a separator '.' it would be "foo.bar".
 
-By default the separator is the same as the mailbox list layout separator. This
-setting affects only how the separator is visible to clients, it doesn't change
-the mailbox list layout separator. For example with Maildir++ layout the
-default separator is '.' and if the separator was changed, the mailbox name in
-filesystem would still be called ".foo.bar". Currently it's not possible to
-change the layout separator without modifying the source code. See also
-<listescape> [Plugins.Listescape.txt] plugin.
+IMAP clients, Sieve scripts and many parts of Dovecot configuration use the
+configured separator when referring to mailboxes. This means that if you change
+the separator, you may break things.
+
+However, changing the separator doesn't change the on-disk "layout separator".
+For example:
++-----------------------------+-----------+-----------+---------+---------------------+
+| mail_location               | Layout    | Separator | Mailbox | Directory           |
+|                             | separator |           | name    |                     |
++-----------------------------+-----------+-----------+---------+---------------------+
+| maildir:~/Maildir           | .         | .         | foo.bar | ~/Maildir/.foo.bar/ |
++-----------------------------+-----------+-----------+---------+---------------------+
+| maildir:~/Maildir           | .         | /         | foo/bar | ~/Maildir/.foo.bar/ |
++-----------------------------+-----------+-----------+---------+---------------------+
+| maildir:~/Maildir:LAYOUT=fs | /         | .         | foo.bar | ~/Maildir/foo/bar/  |
++-----------------------------+-----------+-----------+---------+---------------------+
+| maildir:~/Maildir:LAYOUT=fs | /         | /         | foo/bar | ~/Maildir/foo/bar/  |
++-----------------------------+-----------+-----------+---------+---------------------+
+
+Note how the "Separator" changes only the "Mailbox name", but doesn't change
+the directory where the mails are stored. The "layout separator" can only be
+changed by changing the LAYOUT, which also affects the entire directory
+structure.
+
+The layout separator also restricts the mailbox names. For example if the
+layout separator is '.', you can't just set separator to '/' and create a
+mailbox named "foo.bar". If you need to do this, you can use <listescape>
+[Plugins.Listescape.txt] plugin to add escape the mailbox names as necessary.
 
 A commonly used separator is '/'. It probably causes the least amount of
-trouble with different IMAP clients.
+trouble with different IMAP clients. '^' separator is troublesome with
+Thunderbird.
 
 You should use the same hierarchy separator for all namespaces. All list=yes
 namespaces must use the same separator, but if you find it necessary (e.g. for
@@ -132,18 +154,21 @@ namespace {
   prefix = mail/
   hidden = yes
   list = no
+  alias_for =
 }
 namespace {
   separator = /
   prefix = ~/mail/
   hidden = yes
   list = no
+  alias_for =
 }
 namespace {
   separator = /
   prefix = ~%u/mail/
   hidden = yes
   list = no
+  alias_for =
 }
 ---%<-------------------------------------------------------------------------
 
@@ -165,7 +190,7 @@ can continue using it while new clients will use the empty prefix namespace:
 
 ---%<-------------------------------------------------------------------------
 namespace {
-  separator = .
+  separator = /
   prefix =
   inbox = yes
 }
@@ -176,8 +201,14 @@ namespace {
   inbox = no
   hidden = yes
   list = no
+  alias_for =
 }
 ---%<-------------------------------------------------------------------------
+
+The "separator=/" allows the INBOX to have child mailboxes. Otherwise with
+"separator=." it wouldn't be possible to know if "INBOX.foo" means INBOX's
+"foo" child or the root "foo" mailbox in "INBOX." compatibility namespace. With
+"separator=/" the difference is clear with "INBOX/foo" vs. "INBOX.foo".
 
 Per-user Namespace Location From SQL
 ------------------------------------
@@ -210,4 +241,4 @@ user_query = SELECT Location as 'namespace/docs/location' FROM Namespaces WHERE
 ..
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

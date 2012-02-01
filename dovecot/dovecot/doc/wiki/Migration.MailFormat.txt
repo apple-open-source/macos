@@ -14,9 +14,9 @@ everything. See <Tools.Dsync.txt> for full documentation, here are only a
 couple of examples:
 
  * mbox -> maildir migration. Set 'mail_location=maildir:~/Maildir' and run
-   'dsync mirror -u username mbox:~/mail:INBOX=/var/mail/username'
+   'dsync -u username mirror mbox:~/mail:INBOX=/var/mail/username'
  * maildir -> mdbox migration. Set 'mail_location=mdbox:~/mdbox' and run 'dsync
-   mirror -u username maildir:~/Maildir'
+   -u username mirror maildir:~/Maildir'
 
 If you can successfully use dsync, you can skip the rest of this page.
 
@@ -242,4 +242,4 @@ works then:
       copy tmp/foo '#driver.unix'/tmp/foo.unix' = convert /tmp/foo file to mbox
       - Manwe, 2010-03-09
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

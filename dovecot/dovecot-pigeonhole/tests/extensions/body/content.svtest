@@ -204,7 +204,8 @@ This is the end of the inner MIME multipart.
 Content-Type: message/rfc822
 
 From: Someone Else
-Subject: hello request
+Subject: Hello, this is an elaborate request for you to finally say hello
+ already!
 
 Please say Hello
 
@@ -313,6 +314,20 @@ test "Multipart Content" {
  *  matches the :content specification.
  */
 
-/* FIXME */
+test "Content-Type: message/rfc822" {
+	if not body :content "message/rfc822" :contains
+		"From: Someone Else" {
+		test_fail "missed raw message/rfc822 from header";
+	}
+
+	if not body :content "message/rfc822" :is text:
+From: Someone Else
+Subject: Hello, this is an elaborate request for you to finally say hello
+ already!
+.
+	{
+		test_fail "header content does not match exactly";
+	}
+}
 
 

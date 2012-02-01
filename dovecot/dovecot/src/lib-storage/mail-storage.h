@@ -140,7 +140,10 @@ enum mailbox_transaction_flags {
 	   is done only if it can be done easily. */
 	MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS	= 0x04,
 	/* Refresh the index so lookups return latest flags/modseqs */
-	MAILBOX_TRANSACTION_FLAG_REFRESH	= 0x08
+	MAILBOX_TRANSACTION_FLAG_REFRESH	= 0x08,
+	/* Don't update caching decisions no matter what we do in this
+	   transaction (useful for e.g. precaching) */
+	MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC	= 0x10
 };
 
 enum mailbox_sync_flags {
@@ -159,7 +162,9 @@ enum mailbox_sync_flags {
 	   flag for plugins. */
 	MAILBOX_SYNC_FLAG_EXPUNGE		= 0x80,
 	/* Force doing a full resync of indexes. */
-	MAILBOX_SYNC_FLAG_FORCE_RESYNC		= 0x100
+	MAILBOX_SYNC_FLAG_FORCE_RESYNC		= 0x100,
+	/* Add all missing data to cache and fts index ("doveadm index") */
+	MAILBOX_SYNC_FLAG_PRECACHE		= 0x200
 };
 
 enum mailbox_sync_type {

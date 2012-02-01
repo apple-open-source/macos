@@ -1,13 +1,11 @@
 Lucene Full Text Search Indexing
 ================================
 
-The current Lucene implementation is a bit ugly and simultaneous access may
-give some errors. Use <Solr> [Plugins.FTS.Solr.txt] instead if possible.
+Requires Dovecot v2.1+ to work properly.
 
-Dovecot builds only a single Lucene index for all mailboxes. In future this
-would allow support for searching messages quickly from all mailboxes. The
-Lucene indexes are stored in 'lucene-indexes/' directory under the root index
-directory (e.g.'~/Maildir/lucene-indexes/').
+Dovecot builds only a single Lucene index for all mailboxes. The Lucene indexes
+are stored in 'lucene-indexes/' directory under the mail root index directory
+(e.g.'~/Maildir/lucene-indexes/').
 
 Configuration
 -------------
@@ -17,7 +15,22 @@ mail_plugins = $mail_plugins fts fts_lucene
 
 plugin {
   fts = lucene
+  #fts_lucene = <fts-lucene settings>
 }
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+The fts-lucene settings include:
+
+ * whitespace_chars=<chars>: List of characters that are translated to
+   whitespace. You may want to use "@." so that e.g. in
+   "'first.last@example.org'" it won't be treated as a single word, but rather
+   you can search separately for "first", "last" and "example".
+ * default_language=<lang>: Default stemming language to use for mails. The
+   default is english. Requires that Dovecot is built with libstemmer, which
+   also limits the languages that are supported.
+ * textcat_conf=<path> textcat_dir=<path>: Is specified, enable guessing the
+   stemming language for emails and search keywords. This is a little bit
+   problematic in practice, since indexing and searching languages may differ
+   and may not find even exact words because they stem differently.
+
+(This file was created from the wiki on 2011-11-16 14:09)

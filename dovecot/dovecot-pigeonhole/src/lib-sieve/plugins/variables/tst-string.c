@@ -37,7 +37,8 @@ const struct sieve_command_def tst_string = {
 	2, 0, FALSE, FALSE,
 	tst_string_registered, 
 	NULL,
-	tst_string_validate, 
+	tst_string_validate,
+	NULL, 
 	tst_string_generate, 
 	NULL 
 };

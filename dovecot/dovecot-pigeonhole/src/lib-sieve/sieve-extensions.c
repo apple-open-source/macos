@@ -103,6 +103,10 @@ extern const struct sieve_extension_def date_extension;
 extern const struct sieve_extension_def spamtest_extension;
 extern const struct sieve_extension_def spamtestplus_extension;
 extern const struct sieve_extension_def virustest_extension;
+extern const struct sieve_extension_def ihave_extension;
+
+/* vnd.dovecot. */
+extern const struct sieve_extension_def debug_extension;
 
 /*
  * List of native extensions
@@ -118,31 +122,34 @@ const unsigned int sieve_dummy_extensions_count =
 
 /* Core */
 
-const struct sieve_extension_def *sieve_core_extensions[] = {		
+const struct sieve_extension_def *sieve_core_extensions[] = {
 	/* Core extensions */
-	&fileinto_extension, &reject_extension, &envelope_extension, 
+	&fileinto_extension, &reject_extension, &envelope_extension,
 	&encoded_character_extension,
-	
+
 	/* 'Plugins' */
-	&vacation_extension, &subaddress_extension, 
-	&comparator_i_ascii_numeric_extension, 
+	&vacation_extension, &subaddress_extension,
+	&comparator_i_ascii_numeric_extension,
 	&relational_extension, &regex_extension, &imap4flags_extension,
 	&copy_extension, &include_extension, &body_extension,
 	&variables_extension, &enotify_extension, &environment_extension,
-	&mailbox_extension, &date_extension
+	&mailbox_extension, &date_extension, &ihave_extension
 };
 
 const unsigned int sieve_core_extensions_count =
 	N_ELEMENTS(sieve_core_extensions);
 
-/* Extra; 
- *   These are not enabled by default, because explicit configuration is
+/* Extra;
+ *   These are not enabled by default, e.g. because explicit configuration is
  *   necessary to make these useful.
  */
 
-const struct sieve_extension_def *sieve_extra_extensions[] = {	
+const struct sieve_extension_def *sieve_extra_extensions[] = {
 	&vacation_seconds_extension,
-	&spamtest_extension, &spamtestplus_extension, &virustest_extension
+	&spamtest_extension, &spamtestplus_extension, &virustest_extension,
+
+	/* vnd.dovecot. */
+	&debug_extension
 };
 
 const unsigned int sieve_extra_extensions_count =
@@ -346,7 +353,7 @@ bool sieve_extension_reload(const struct sieve_extension *ext)
 }
 
 static struct sieve_extension *_sieve_extension_register
-(struct sieve_instance *svinst, const struct sieve_extension_def *extdef, 
+(struct sieve_instance *svinst, const struct sieve_extension_def *extdef,
 	bool load, bool required)
 {
 	struct sieve_extension_registry *ext_reg = svinst->ext_reg;
@@ -378,8 +385,8 @@ static struct sieve_extension *_sieve_extension_register
 	}
 
 	/* Enable extension */
-	if ( load ) {
-		ext->enabled = TRUE;
+	if ( load || required ) {
+		ext->enabled = ( ext->enabled || load );
 
 		/* Call load handler if extension was not loaded already */
 		if ( !ext->loaded ) {
@@ -390,7 +397,7 @@ static struct sieve_extension *_sieve_extension_register
 		ext->loaded = TRUE;
 	}
 
-	ext->required = (ext->required || required );
+	ext->required = ( ext->required || required );
 
 	return ext;
 }
@@ -419,9 +426,10 @@ void sieve_extension_unregister(const struct sieve_extension *ext)
 }
 
 const struct sieve_extension *sieve_extension_require
-(struct sieve_instance *svinst, const struct sieve_extension_def *extdef)
+(struct sieve_instance *svinst, const struct sieve_extension_def *extdef,
+	bool load)
 {
-	return _sieve_extension_register(svinst, extdef, TRUE, TRUE);
+	return _sieve_extension_register(svinst, extdef, load, TRUE);
 }
 
 int sieve_extensions_get_count(struct sieve_instance *svinst)
@@ -436,14 +444,14 @@ const struct sieve_extension *sieve_extension_get_by_id
 {
 	struct sieve_extension_registry *ext_reg = svinst->ext_reg;
 	struct sieve_extension * const *ext;
-	
+
 	if ( ext_id < array_count(&ext_reg->extensions) ) {
 		ext = array_idx(&ext_reg->extensions, ext_id);
 
-		if ( (*ext)->def != NULL && (*ext)->enabled )
+		if ( (*ext)->def != NULL && ((*ext)->enabled || (*ext)->required) )
 			return *ext;
 	}
-	
+
 	return NULL;
 }
 
@@ -452,16 +460,19 @@ const struct sieve_extension *sieve_extension_get_by_name
 {
 	struct sieve_extension_registry *ext_reg = svinst->ext_reg;
 	const struct sieve_extension *ext;
-	
+
 	if ( *name == '@' )
-		return NULL;	
-		
-	ext = (const struct sieve_extension *) 
+		return NULL;
+
+	if ( strlen(name) > 128 )
+		return NULL;
+
+	ext = (const struct sieve_extension *)
 		hash_table_lookup(ext_reg->extension_index, name);
 
-	if ( ext == NULL || ext->def == NULL || !ext->enabled )
+	if ( ext == NULL || ext->def == NULL || (!ext->enabled && !ext->required))
 		return NULL;
-		
+
 	return ext;
 }
 
@@ -470,15 +481,15 @@ const char *sieve_extensions_get_string(struct sieve_instance *svinst)
 	struct sieve_extension_registry *ext_reg = svinst->ext_reg;
 	string_t *extstr = t_str_new(256);
 	struct sieve_extension * const *exts;
-	unsigned int i, ext_count;	
+	unsigned int i, ext_count;
 
 	exts = array_get(&ext_reg->extensions, &ext_count);
 
 	if ( ext_count > 0 ) {
 		i = 0;
-		
+
 		/* Find first listable extension */
-		while ( i < ext_count && 
+		while ( i < ext_count &&
 			!( exts[i]->enabled && exts[i]->def != NULL &&
 			*(exts[i]->def->name) != '@' && !exts[i]->dummy ) )
 			i++;
@@ -486,11 +497,11 @@ const char *sieve_extensions_get_string(struct sieve_instance *svinst)
 		if ( i < ext_count ) {
 			/* Add first to string */
 			str_append(extstr, exts[i]->def->name);
-			i++;	 
+			i++;
 
 	 		/* Add others */
 			for ( ; i < ext_count; i++ ) {
-				if ( exts[i]->enabled && exts[i]->def != NULL && 
+				if ( exts[i]->enabled && exts[i]->def != NULL &&
 					*(exts[i]->def->name) != '@' && !exts[i]->dummy ) {
 					str_append_c(extstr, ' ');
 					str_append(extstr, exts[i]->def->name);
@@ -505,7 +516,7 @@ const char *sieve_extensions_get_string(struct sieve_instance *svinst)
 static void sieve_extension_enable(struct sieve_extension *ext)
 {
 	ext->enabled = TRUE;
-	
+
 	if ( !ext->loaded ) {
 		(void)_sieve_extension_load(ext);
 	}
@@ -534,7 +545,7 @@ void sieve_extensions_set_string
 	if ( ext_string == NULL ) {
 		/* Enable all */
 		exts = array_get_modifiable(&ext_reg->extensions, &ext_count);
-		
+
 		for ( i = 0; i < ext_count; i++ )
 			sieve_extension_enable(exts[i]);
 
@@ -555,7 +566,7 @@ void sieve_extensions_set_string
 			if ( *name != '\0' ) {
 				const struct sieve_extension *ext;
 				char op = '\0'; /* No add/remove operation */
-	
+
 				if ( *name == '+' 		/* Add to existing config */
 					|| *name == '-' ) {	/* Remove from existing config */
 				 	op = *name++;
@@ -567,7 +578,7 @@ void sieve_extensions_set_string
 				else
 					ext = (const struct sieve_extension *) 
 						hash_table_lookup(ext_reg->extension_index, name);
-	
+
 				if ( ext == NULL || ext->def == NULL ) {
 					sieve_sys_warning(svinst,
 						"ignored unknown extension '%s' while configuring "
@@ -615,19 +626,19 @@ void sieve_extensions_set_string
 			} 
 
 			/* Enable if listed with '+' or no prefix */
-	
+
 			for ( j = 0; j < ena_count; j++ ) {
 				if ( ext_enabled[j]->def == exts[i]->def ) {
 					disabled = FALSE;
 					break;
-				}		
+				}
 			}
 
 			/* Perform actual activation/deactivation */
 
 			if ( exts[i]->id >= 0 && exts[i]->def != NULL && 
 				*(exts[i]->def->name) != '@' ) {
-				if ( disabled && !exts[i]->required )
+				if ( disabled )
 					sieve_extension_disable(exts[i]);
 				else
 					sieve_extension_enable(exts[i]);
@@ -652,6 +663,11 @@ const struct sieve_extension *sieve_get_address_part_extension
 	(struct sieve_instance *svinst)
 {
 	return svinst->ext_reg->address_part_extension;
+}
+
+void sieve_enable_debug_extension(struct sieve_instance *svinst)
+{
+	(void) sieve_extension_register(svinst, &debug_extension, TRUE);
 }
 
 /*

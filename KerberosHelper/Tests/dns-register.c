@@ -63,7 +63,7 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 	    errx(1, "malloc");
 	
 	len = strlen(prefix) + strlen(hostname);
-	asprintf(&realm, "%c%s%s", len, prefix, hostname);
+	asprintf(&realm, "%c%s%s", (int)len, prefix, hostname);
 	if (realm == NULL)
 	    errx(1, "malloc");
 	

@@ -143,4 +143,4 @@ passwords. Even if you do not, imapsync also supports logging in as an admin
 user that has the ability to copy message for sub users, and a variety of other
 authentication options.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

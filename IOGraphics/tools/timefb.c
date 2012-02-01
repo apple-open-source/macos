@@ -1,5 +1,5 @@
 /*
-cc -o /tmp/timefb /tmp/timefb.c -framework IOKit -framework ApplicationServices -Wall -arch x86_64
+cc -o /tmp/timefb timefb.c -framework IOKit -framework ApplicationServices -Wall -arch x86_64
 */
 
 #include <IOKit/IOKitLib.h>
@@ -52,6 +52,8 @@ int main(int argc, char * argv[])
     static const char * mapNames[] = { 
     	"kIOMapInhibitCache", "kIOMapWriteThruCache", "kIOMapCopybackCache", "kIOMapWriteCombineCache" };
 
+    bounds.size.height -= 40;
+
     int mapType, x, y;
     for (mapType = 0; mapType < sizeof(mapTypes) / sizeof(mapTypes[0]); mapType++)
     {
@@ -63,7 +65,27 @@ int main(int argc, char * argv[])
 	    printf("IOConnectMapMemory(%x)\n", kr);
 	    exit(1);
 	}
+
 	mapAddr += 128*1024;
+	t = currentTime();
+
+	uint32_t sum;
+	for (i = 0; i < 20; i++) {
+	    p = mapAddr;
+	    sum = 0;
+	    for (y = 0; y < bounds.size.height; y++)
+	    {
+		for (x = 0; x < bounds.size.width; x++)
+		{
+		    sum += ((uint32_t*)(uintptr_t)p)[x];
+		}
+		p += rb;
+	    }
+	}
+	printf("read (%s) %d times at (%dx%dx32): %g MB/sec sum 0x%x\n", mapNames[mapType], i,
+		(int)bounds.size.width, (int)bounds.size.height, 
+		i*bounds.size.width*bounds.size.height*4/(1e6*(currentTime() - t)), sum);
+
 	t = currentTime();
 	for (i = 0; i < 20; i++) {
 	    CGBlt_fillBytes(bounds.size.width*4, bounds.size.height, 1, (void*)(uintptr_t) mapAddr, rb, 0);
@@ -83,10 +105,9 @@ int main(int argc, char * argv[])
 		p += rb;
 	    }
 	}
-	printf("random(%s) %d times at (%dx%dx32): %g MB/sec\n", mapNames[mapType], i,
+	printf("fill random(%s) %d times at (%dx%dx32): %g MB/sec\n", mapNames[mapType], i,
 		(int)bounds.size.width, (int)bounds.size.height, 
 		i*bounds.size.width*bounds.size.height*4/(1e6*(currentTime() - t)));
-
     
 	kr = IOConnectUnmapMemory(connect, kIOFBVRAMMemory, mach_task_self(), mapAddr);
 	if (kIOReturnSuccess != kr)

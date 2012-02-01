@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 9391 2010-11-30 21:53:04Z mike $"
+# "$Id: Makefile 9933 2011-08-29 21:19:27Z mike $"
 #
 #   Top-level Makefile for CUPS.
 #
@@ -285,7 +285,7 @@ docset:	apihelp
 #
 
 sloc:
-	for dir in cups cupslite scheduler; do \
+	for dir in cups scheduler; do \
 		(cd $$dir; $(MAKE) $(MFLAGS) sloc) || exit 1;\
 	done
 
@@ -326,5 +326,5 @@ dist:	all
 
 
 #
-# End of "$Id: Makefile 9391 2010-11-30 21:53:04Z mike $".
+# End of "$Id: Makefile 9933 2011-08-29 21:19:27Z mike $".
 #

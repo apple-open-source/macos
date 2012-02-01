@@ -101,7 +101,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0420;
 			};
 			buildConfigurationList = 3EC7CFB808D72FA700CFFA31 /* Build configuration list for PBXProject "Ezload" */;
 			compatibilityVersion = "Xcode 3.2";

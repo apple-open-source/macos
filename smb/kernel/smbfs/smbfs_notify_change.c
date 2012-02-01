@@ -95,14 +95,18 @@ reset_notify_change(struct watch_item *watchItem, int RemoveRQ)
 	struct smb_ntrq *ntp = watchItem->ntp;
 	struct smb_rq *	rqp = (watchItem->ntp) ? watchItem->ntp->nt_rq : NULL;
 	
-	watchItem->ntp = NULL;
 	if (rqp) {
-		if (RemoveRQ)	/* Needs to be removed from the queue */
+		if (RemoveRQ) {
+            /* Needs to be removed from the queue */
 			smb_iod_removerq(rqp);
+            watchItem->ntp->nt_rq = NULL;
+        }
 		smb_rq_done(rqp);
 	}
 	if (ntp)
 		smb_nt_done(ntp);
+    
+    watchItem->ntp = NULL;
 }
 
 /*
@@ -475,7 +479,12 @@ process_notify_items(struct smbfs_notify_change *notify, vfs_context_t context)
 	STAILQ_FOREACH_SAFE(watchItem, &notify->watch_list, entries, next) {
 		switch (watchItem->state) {
 			case kCancelNotify:
-				reset_notify_change(watchItem, TRUE);
+                if (notify->pollOnly == TRUE) {
+                    /* request was already removed from the queue */
+                    reset_notify_change(watchItem, FALSE);
+                } else {
+                    reset_notify_change(watchItem, TRUE);
+                }
 				lck_mtx_lock(&watchItem->watch_statelock);
 				/* Wait for the user process to dequeue and free the item */
 				watchItem->state = kWaitingForRemoval;

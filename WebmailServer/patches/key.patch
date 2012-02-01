@@ -1,5 +1,5 @@
-diff -Naur roundcubemail-0.5/program/include/rcmail.php roundcubemail/program/include/rcmail.php
---- roundcubemail-0.5/program/include/rcmail.php	2011-01-06 04:41:16.000000000 -0800
+diff -Naur roundcubemail-0.6/program/include/rcmail.php roundcubemail/program/include/rcmail.php
+--- roundcubemail-0.6/program/include/rcmail.php	2011-01-06 04:41:16.000000000 -0800
 +++ roundcubemail/program/include/rcmail.php	2011-01-12 15:40:38.000000000 -0800
 @@ -41,6 +41,7 @@
     * @var rcmail
@@ -9,19 +9,19 @@ diff -Naur roundcubemail-0.5/program/include/rcmail.php roundcubemail/program/in
  
    /**
     * Stores instance of rcube_config.
-@@ -596,6 +597,11 @@
-       $_SESSION['auth_time'] = time();
+@@ -707,6 +708,11 @@
+     // set initial session vars
+     if (!$_SESSION['user_id'])
        $_SESSION['temp'] = true;
-     }
-+	// create a random DES key cookie if there isn't one
-+	if (!isset($_COOKIE['webmail_des_key'])) {
-+		rcmail::setcookie('webmail_des_key', rcmail::random_key(24));
-+	}
++    // create a random DES key cookie if there isn't one
++    if (!isset($_COOKIE['webmail_des_key'])) {
++        rcmail::setcookie('webmail_des_key', rcmail::random_key(24));
++    }
 +
    }
  
  
-@@ -1170,7 +1176,13 @@
+@@ -1307,7 +1313,13 @@
       */
      $clear = pack("a*H2", $clear, "80");
  
@@ -36,7 +36,7 @@ diff -Naur roundcubemail-0.5/program/include/rcmail.php roundcubemail/program/in
          ($td = mcrypt_module_open(MCRYPT_TripleDES, "", MCRYPT_MODE_CBC, "")))
      {
        $iv = $this->create_iv(mcrypt_enc_get_iv_size($td));
-@@ -1215,7 +1227,14 @@
+@@ -1352,7 +1364,14 @@
  
      $cipher = $base64 ? base64_decode($cipher) : $cipher;
  
@@ -52,7 +52,7 @@ diff -Naur roundcubemail-0.5/program/include/rcmail.php roundcubemail/program/in
          ($td = mcrypt_module_open(MCRYPT_TripleDES, "", MCRYPT_MODE_CBC, "")))
      {
        $iv_size = mcrypt_enc_get_iv_size($td);
-@@ -1320,6 +1339,25 @@
+@@ -1562,6 +1581,25 @@
      setcookie($name, $value, $exp, $cookie['path'], $cookie['domain'],
        rcube_https_check(), true);
    }
@@ -66,54 +66,54 @@ diff -Naur roundcubemail-0.5/program/include/rcmail.php roundcubemail/program/in
 +   * @static
 +  */
 +  public static function random_key($length)
-+   {
-+	$alpha = 'ABCDEFGHIJKLMNOPQERSTUVXYZabcdefghijklmnopqrtsuvwxyz0123456789+*%&?!$-_=';
-+	$out = '';
++  {
++    $alpha = 'ABCDEFGHIJKLMNOPQERSTUVXYZabcdefghijklmnopqrtsuvwxyz0123456789+*%&?!$-_=';
++    $out = '';
 + 
-+	for ($i=0; $i < $length; $i++)
-+		$out .= $alpha{rand(0, strlen($alpha)-1)};
++    for ($i=0; $i < $length; $i++)
++        $out .= $alpha{rand(0, strlen($alpha)-1)};
 +  
-+	return $out;
-+   }
- }
++    return $out;
++  }
  
+   /**
+    * Registers action aliases for current task
  
-diff -Naur roundcubemail-0.4.2/program/include/rcube_config.php roundcubemail/program/include/rcube_config.php
---- roundcubemail-0.4.2/program/include/rcube_config.php	2010-12-22 11:17:47.000000000 -0800
+diff -Naur roundcubemail-0.6/program/include/rcube_config.php roundcubemail/program/include/rcube_config.php
+--- roundcubemail-0.6/program/include/rcube_config.php	2010-12-22 11:17:47.000000000 -0800
 +++ roundcubemail/program/include/rcube_config.php	2011-01-12 15:40:38.000000000 -0800
-@@ -212,8 +212,16 @@
+@@ -242,8 +242,16 @@
       */
      public function get_crypto_key($key)
      {
 -        // Bomb out if the requested key does not exist
 -        if (!array_key_exists($key, $this->prop)) {
-+		$val = null;
++        $val = null;
 +  
-+		// try and get the key from a cookie
-+		if (isset($_COOKIE['webmail_'.$key]))
-+		{
-+			$val = $_COOKIE['webmail_'.$key];
-+		}
++        // try and get the key from a cookie
++        if (isset($_COOKIE['webmail_'.$key]))
++        {
++            $val = $_COOKIE['webmail_'.$key];
++        }
 +  
 +       // Bomb out if the requested key does not exist
 +        if ($val == null && !array_key_exists($key, $this->prop)) {
              raise_error(array(
                  'code' => 500, 'type' => 'php',
                  'file' => __FILE__, 'line' => __LINE__,
-@@ -222,17 +230,20 @@
-         }
+@@ -253,16 +261,19 @@
  
          $key = $this->prop[$key];
-+		
-+		if ($val == null)
-+			$val = $this->prop[$key];
  
++        if ($val == null)
++            $val = $this->prop[$key];
++
          // Bomb out if the configured key is not exactly 24 bytes long
 -        if (strlen($key) != 24) {
 +        if (strlen($val) != 24) {
              raise_error(array(
                  'code' => 500, 'type' => 'php',
- 	            'file' => __FILE__, 'line' => __LINE__,
+                 'file' => __FILE__, 'line' => __LINE__,
 -                'message' => "Configured crypto key '$key' is not exactly 24 bytes long"
 +                'message' => "Configured crypto key '$val' is not exactly 24 bytes long"
              ), true, true);
@@ -124,3 +124,4 @@ diff -Naur roundcubemail-0.4.2/program/include/rcube_config.php roundcubemail/pr
      }
  
  
+

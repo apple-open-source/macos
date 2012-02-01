@@ -49,4 +49,4 @@ conditional flag changes. If message's modseq is higher than the given
 max_modseq while transaction is being committed, the change isn't done and the
 message's sequence number is added to the given array.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

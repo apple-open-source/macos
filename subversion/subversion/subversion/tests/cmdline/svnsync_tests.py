@@ -761,6 +761,106 @@ def commit_a_copy_of_root(sbox):
   #Testcase for issue 3438.
   run_test(sbox, "repo_with_copy_of_root_dir.dump")
 
+# issue #3641 'svnsync fails to partially copy a repository'.
+# This currently fails because while replacements with history
+# within copies are handled, replacements without history inside
+# copies cause the sync to fail:
+#
+#   >svnsync synchronize %TEST_REPOS_ROOT_URL%/svnsync_tests-29-1
+#    %TEST_REPOS_ROOT_URL%/svnsync_tests-29/trunk/H
+#   Transmitting file data ...\..\..\subversion\svnsync\main.c:1444: (apr_err=160013)
+#   ..\..\..\subversion\svnsync\main.c:1391: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_ra\ra_loader.c:1168: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_delta\path_driver.c:254: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_repos\replay.c:480: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_repos\replay.c:276: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_repos\replay.c:290: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_fs_base\tree.c:1258: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_fs_base\tree.c:1258: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_fs_base\tree.c:1236: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_fs_base\tree.c:931: (apr_err=160013)
+#   ..\..\..\subversion\libsvn_fs_base\tree.c:742: (apr_err=160013)
+#   svnsync: File not found: revision 4, path '/trunk/H/Z/B/lambda'
+#
+# See also http://svn.haxx.se/dev/archive-2010-11/0411.shtml and
+# 
+#
+# Note: For those who may poke around this test in the future, r3 of
+# delete-revprops.dump was created with the following svnmucc command:
+#
+# svnmucc.exe -mm cp head %ROOT_URL%/trunk/A %ROOT_URL%/trunk/H
+#                 rm %ROOT_URL%/trunk/H/B
+#                 cp head %ROOT_URL%/trunk/X %ROOT_URL%/trunk/B
+#
+# r4 was created with this svnmucc command:
+#
+# svnmucc.exe -mm cp head %ROOT_URL%/trunk/A %ROOT_URL%/trunk/H/Z
+#                 rm %ROOT_URL%/trunk/H/Z/B
+#                 mkdir %ROOT_URL%/trunk/H/Z/B
+def descend_into_replace(sbox):
+  "descending into replaced dir looks in src"
+  run_test(sbox, "descend_into_replace.dump", subdir='/trunk/H',
+           exp_dump_file_name = "descend_into_replace.expected.dump")
+
+def specific_deny_authz(sbox):
+  "verify if specifically denied paths dont sync"
+
+  sbox.build("specific-deny-authz")
+
+  dest_sbox = sbox.clone_dependent()
+  build_repos(dest_sbox)
+
+  svntest.actions.enable_revprop_changes(dest_sbox.repo_dir)
+
+  run_init(dest_sbox.repo_url, sbox.repo_url)
+
+  svntest.main.run_svn(None, "cp",
+                       os.path.join(sbox.wc_dir, "A"),
+                       os.path.join(sbox.wc_dir, "A_COPY")
+                       )
+  svntest.main.run_svn(None, "ci", "-mm", sbox.wc_dir)
+
+  write_restrictive_svnserve_conf(sbox.repo_dir)
+
+  # For mod_dav_svn's parent path setup we need per-repos permissions in
+  # the authz file...
+  if sbox.repo_url.startswith('http'):
+    svntest.main.file_write(sbox.authz_file,
+                            "[specific-deny-authz:/]\n"
+                            "* = r\n"
+                            "\n"
+                            "[specific-deny-authz:/A]\n"
+                            "* = \n"
+                            "\n"
+                            "[specific-deny-authz:/A_COPY/B/lambda]\n"
+                            "* = \n"
+                            "\n"
+                            "[specific-deny-authz-1:/]\n"
+                            "* = rw\n")
+  # Otherwise we can just go with the permissions needed for the source
+  # repository.
+  else:
+    svntest.main.file_write(sbox.authz_file,
+                            "[/]\n"
+                            "* = r\n"
+                            "\n"
+                            "[/A]\n"
+                            "* = \n"
+                            "\n"
+                            "[/A_COPY/B/lambda]\n"
+                            "* = \n")
+
+  run_sync(dest_sbox.repo_url)
+
+  lambda_url = dest_sbox.repo_url + '/A_COPY/B/lambda'
+
+  # this file should have been blocked by authz
+  svntest.actions.run_and_verify_svn(None,
+                                     [], svntest.verify.AnyOutput,
+                                     'cat',
+                                     lambda_url)
+
+
 
 ########################################################################
 # Run the tests
@@ -800,6 +900,8 @@ test_list = [ None,
               copy_bad_line_endings,
               delete_svn_props,
               commit_a_copy_of_root,
+              descend_into_replace,
+              Skip(specific_deny_authz, svntest.main.is_ra_type_file),
              ]
 
 if __name__ == '__main__':

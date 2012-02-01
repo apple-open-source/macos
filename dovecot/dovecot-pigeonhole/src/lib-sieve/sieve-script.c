@@ -138,11 +138,11 @@ static void sieve_script_handle_file_error
 {
 	switch ( errno ) {
 	case ENOENT:
+		if ( svinst->debug )
+			sieve_sys_debug(svinst, "script file %s not found", t_abspath(path));
 		if ( error_r == NULL )
 			sieve_error(ehandler, name, "sieve script does not exist");
 		else {
-			if ( svinst->debug )
-				sieve_sys_debug(svinst, "script file %s not found", t_abspath(path));
 			*error_r = SIEVE_ERROR_NOT_FOUND;
 		}
 		break;

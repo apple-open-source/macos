@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,6 +33,14 @@
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOKitKeys.h>
+
+// <rdar://8518215>
+enum
+{
+	kCommandGateStatus_Normal				= 0,
+	kCommandGateStatus_RemovalPending,
+	kCommandGateStatus_Invalid
+};
 
 #define super OSObject
 
@@ -384,6 +392,8 @@ bool IOAudioEngineUserClient::initWithAudioEngine(IOAudioEngine *engine, task_t 
 						{
 							reserved->extendedInfo = NULL;
 							reserved->classicMode = 0;
+							reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
+							reserved->commandGateUsage = 0;								// <rdar://8518215>
 
 							workLoop->addEventSource(commandGate);
 							
@@ -635,7 +645,9 @@ IOReturn IOAudioEngineUserClient::_getNearestStartTimeAction(OSObject *target, v
         IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
         if (userClient) {
 			if (userClient->commandGate) {
+				setCommandGateUsage(userClient, true);	// <rdar://8518215>
                 result = userClient->commandGate->runAction(getNearestStartTimeAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(userClient, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -862,6 +874,11 @@ void IOAudioEngineUserClient::free()
 
 void IOAudioEngineUserClient::freeClientBufferSetList()
 {
+	// <rdar://9180891> Lock the buffers to synchronize access to the client buffer list.
+	// This is to prevent race condition between freeClientBufferList, unregisterClientBuffer64 
+	// & stopClient when calling IOAudioStream::removeClient().
+	lockBuffers();
+	
     while (clientBufferSetList) {
         IOAudioClientBufferSet *nextSet;
         
@@ -891,6 +908,7 @@ void IOAudioEngineUserClient::freeClientBufferSetList()
         clientBufferSetList = nextSet;
     }
     
+	unlockBuffers();	// <rdar://9180891>
 }
 
 void IOAudioEngineUserClient::freeClientBuffer(IOAudioClientBuffer64 *clientBuffer) 
@@ -937,14 +955,21 @@ void IOAudioEngineUserClient::stop(IOService *provider)
 	// <rdar://7233118>, <rdar://7029696> Remove the event source here as performing heavy workloop operation in free() could lead
 	// to deadlock since the context which free() is called is not known. stop() is called on the workloop, so it is safe to remove 
 	// the event source here.
-    if (commandGate) {
-        if (workLoop) {
-            workLoop->removeEventSource(commandGate);
-        }
-        
-        commandGate->release();
-        commandGate = NULL;
-    }
+	if (reserved->commandGateUsage == 0) {							// <rdar://8518215>
+		reserved->commandGateStatus = kCommandGateStatus_Invalid;	// <rdar://8518215>
+		
+		if (commandGate) {
+			if (workLoop) {
+				workLoop->removeEventSource(commandGate);
+			}
+			
+			commandGate->release();
+			commandGate = NULL;
+		}
+	}
+	else {	// <rdar://8518215>
+		reserved->commandGateStatus = kCommandGateStatus_RemovalPending;
+	}
 
     super::stop(provider);
 	
@@ -992,7 +1017,9 @@ IOReturn IOAudioEngineUserClient::_closeClientAction(OSObject *target, void *arg
         IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
         if (userClient) {
 			if (userClient->commandGate) {
+				setCommandGateUsage(userClient, true);	// <rdar://8518215>
                 result = userClient->commandGate->runAction(closeClientAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(userClient, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -1165,7 +1192,9 @@ IOReturn IOAudioEngineUserClient::_registerNotificationAction(OSObject *target, 
         IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
         if (userClient) {
             if (userClient->commandGate) {
+				setCommandGateUsage(userClient, true);	// <rdar://8518215>
                 result = userClient->commandGate->runAction(registerNotificationAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(userClient, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -1339,7 +1368,9 @@ IOReturn IOAudioEngineUserClient::_registerBufferAction(OSObject *target, void *
         IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
         if (userClient) {
             if (userClient->commandGate) {
+				setCommandGateUsage(userClient, true);	// <rdar://8518215>
                 result = userClient->commandGate->runAction(registerBufferAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(userClient, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -1386,7 +1417,9 @@ IOReturn IOAudioEngineUserClient::_unregisterBufferAction(OSObject *target, void
         IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
         if (userClient) {
             if (userClient->commandGate) {
+				setCommandGateUsage(userClient, true);	// <rdar://8518215>
                 result = userClient->commandGate->runAction(unregisterBufferAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(userClient, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -1725,7 +1758,7 @@ IOAudioClientBufferSet *IOAudioEngineUserClient::findBufferSet(UInt32 bufferSetI
 {
     IOAudioClientBufferSet *bufferSet = NULL;
     
-	audioDebugIOLog(3, "+ IOAudioEngineUserClient::findBufferSet ( bufferSetID %ld )\n", (long int)bufferSetID );
+	audioDebugIOLog(7, "+ IOAudioEngineUserClient::findBufferSet ( bufferSetID %ld )\n", (long int)bufferSetID );		// <rdar://9725460>
 	
 	if (0 == clientBufferSetList)
 	{
@@ -1739,7 +1772,7 @@ IOAudioClientBufferSet *IOAudioEngineUserClient::findBufferSet(UInt32 bufferSetI
 	{
 		audioDebugIOLog(3, "  did not find clientBufferSetList for ID 0x%lx \n", (long unsigned int)bufferSetID);
 	}
-	audioDebugIOLog(3, "- IOAudioEngineUserClient::findBufferSet ( bufferSetID %ld ) returns %p\n", (long int)bufferSetID, bufferSet );
+	audioDebugIOLog(7, "- IOAudioEngineUserClient::findBufferSet ( bufferSetID %ld ) returns %p\n", (long int)bufferSetID, bufferSet );		// <rdar://9725460>
     return bufferSet;
 }
 
@@ -1837,7 +1870,7 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
         result = kIOReturnNoDevice;
     }
     
-	audioDebugIOLog(3, "- IOAudioEngineUserClient::performClientIO result = 0x%lX\n", (long unsigned int)result);
+	audioDebugIOLog(7, "- IOAudioEngineUserClient::performClientIO result = 0x%lX\n", (long unsigned int)result);		// <rdar://9725460>
     return result;
 }
 
@@ -1890,8 +1923,8 @@ IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, U
 	IOAudioClientBufferExtendedInfo		*extendedInfo;
 	IOAudioStreamDataDescriptor			*dataDescriptor;
 #endif
-
-	audioDebugIOLog ( 3, "+ IOAudioEngineUserClient[%p]::performClientOutput ( firstSampleFrame %ld, loopCount %ld,  bufferSet %p, sampleIntervalHi %ld, sampleIntervalLo %ld )\n", 
+	// <rdar://9725460>
+	audioDebugIOLog ( 4, "+ IOAudioEngineUserClient[%p]::performClientOutput ( firstSampleFrame %ld, loopCount %ld,  bufferSet %p, sampleIntervalHi %ld, sampleIntervalLo %ld )\n",
 					this,
 					(long int)firstSampleFrame, 
 					(long int)loopCount, 
@@ -2066,8 +2099,9 @@ IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, U
         }
     }	
 
-Exit:    
-	audioDebugIOLog ( 3, "- IOAudioEngineUserClient[%p]::performClientOutput ( firstSampleFrame %ld, loopCount %ld,  bufferSet %p, sampleIntervalHi %ld, sampleIntervalLo %ld ) returns 0x%lX\n", 
+Exit:
+	// <rdar://9725460>
+	audioDebugIOLog ( 4, "- IOAudioEngineUserClient[%p]::performClientOutput ( firstSampleFrame %ld, loopCount %ld,  bufferSet %p, sampleIntervalHi %ld, sampleIntervalLo %ld ) returns 0x%lX\n", 
 					this,
 					(long int)firstSampleFrame, 
 					(long int)loopCount, 
@@ -2084,7 +2118,7 @@ IOReturn IOAudioEngineUserClient::performClientInput(UInt32 firstSampleFrame, IO
     IOAudioClientBuffer64			*clientBuf;
 	UInt32							numSampleFrames = 0;
     
-	audioDebugIOLog ( 3, "+  IOAudioEngineUserClient[%p]::performClientInput ( firstSampleFrame %ld,  bufferSet %p)\n", this, (long int)firstSampleFrame, bufferSet );
+	audioDebugIOLog ( 4, "+  IOAudioEngineUserClient[%p]::performClientInput ( firstSampleFrame %ld,  bufferSet %p)\n", this, (long int)firstSampleFrame, bufferSet );			// <rdar://problem/9725460>
 	
     clientBuf = bufferSet->inputBufferList;
 
@@ -2386,7 +2420,9 @@ IOReturn IOAudioEngineUserClient::_startClientAction(OSObject *target, void *arg
         IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
         if (userClient) {
             if (userClient->commandGate) {
+				setCommandGateUsage(userClient, true);	// <rdar://8518215>
                 result = userClient->commandGate->runAction(startClientAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(userClient, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -2419,7 +2455,9 @@ IOReturn IOAudioEngineUserClient::_stopClientAction(OSObject *target, void *arg0
         IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
         if (userClient) {
             if (userClient->commandGate) {
+				setCommandGateUsage(userClient, true);	// <rdar://8518215>
                 result = userClient->commandGate->runAction(stopClientAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(userClient, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -2634,4 +2672,54 @@ IOReturn IOAudioEngineUserClient::sendNotification(UInt32 notificationType)
     
     audioDebugIOLog(3, "- IOAudioEngineUserClient[%p]::sendNotification(%ld) returns 0x%lX\n", this, (long int)notificationType, (long unsigned int)result );
     return result;
+}
+
+// <rdar://8518215>
+void IOAudioEngineUserClient::setCommandGateUsage(IOAudioEngineUserClient *userClient, bool increment)
+{
+	if (userClient->reserved) {
+		if (increment) {
+			switch (userClient->reserved->commandGateStatus)
+			{
+				case kCommandGateStatus_Normal:
+				case kCommandGateStatus_RemovalPending:
+					userClient->reserved->commandGateUsage++;
+					break;
+				case kCommandGateStatus_Invalid:
+					// Should never be here. If so, something went bad...
+					break;
+			}
+		}
+		else {
+			switch (userClient->reserved->commandGateStatus)
+			{
+				case kCommandGateStatus_Normal:
+					if (userClient->reserved->commandGateUsage > 0) {
+						userClient->reserved->commandGateUsage--;
+					}
+					break;
+				case kCommandGateStatus_RemovalPending:
+					if (userClient->reserved->commandGateUsage > 0) {
+						userClient->reserved->commandGateUsage--;
+						
+						if (userClient->reserved->commandGateUsage == 0) {
+							userClient->reserved->commandGateStatus = kCommandGateStatus_Invalid;
+							
+							if (userClient->commandGate) {
+								if (userClient->workLoop) {
+									userClient->workLoop->removeEventSource(userClient->commandGate);
+								}
+								
+								userClient->commandGate->release();
+								userClient->commandGate = NULL;
+							}
+						}
+					}
+					break;
+				case kCommandGateStatus_Invalid:
+					// Should never be here. If so, something went bad...
+					break;
+			}
+		}
+	}
 }

@@ -26,6 +26,8 @@ void testsuite_envelope_set_sender
 	(const struct sieve_runtime_env *renv, const char *value);
 void testsuite_envelope_set_recipient
 	(const struct sieve_runtime_env *renv, const char *value);
+void testsuite_envelope_set_orig_recipient
+	(const struct sieve_runtime_env *renv, const char *value);
 void testsuite_envelope_set_auth_user
 	(const struct sieve_runtime_env *renv, const char *value);
 

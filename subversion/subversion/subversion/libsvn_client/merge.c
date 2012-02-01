@@ -5005,8 +5005,10 @@ get_mergeinfo_walk_cb(const char *path,
          determine if PATH is switched.  This is so get_mergeinfo_paths()
          can later tweak PATH's parent to reflect a missing child (implying it
          needs non-inheritable mergeinfo ranges) and PATH's siblings so they
-         get their own complete set of mergeinfo. */
-      SVN_ERR(svn_wc__path_switched(path, &switched, entry, pool));
+         get their own complete set of mergeinfo.
+         Don't consider file externals (issue #3843). */
+      if (entry->file_external_path == NULL)
+        SVN_ERR(svn_wc__path_switched(path, &switched, entry, pool));
     }
 
   /* Store PATHs with explict mergeinfo, which are switched, are missing
@@ -8173,9 +8175,8 @@ find_unmerged_mergeinfo(svn_mergeinfo_catalog_t *unmerged_to_source_catalog,
         source_path_rel_to_session++;
 
       /* Convert this target path's natural history into mergeinfo. */
-      SVN_ERR(svn_client__mergeinfo_from_segments(&target_history_as_mergeinfo,
-                                                  segments,
-                                                  iterpool));
+      SVN_ERR(svn_mergeinfo__mergeinfo_from_segments(
+        &target_history_as_mergeinfo, segments, iterpool));
 
       /* Remove any target history that is also part of the source's history,
          i.e. their common ancestry.  By definition this has already been
@@ -8265,8 +8266,8 @@ find_unmerged_mergeinfo(svn_mergeinfo_catalog_t *unmerged_to_source_catalog,
                                                   source_rev, source_rev,
                                                   SVN_INVALID_REVNUM,
                                                   ctx, iterpool));
-      SVN_ERR(svn_client__mergeinfo_from_segments(&source_history_as_mergeinfo,
-                                                  segments, iterpool));
+      SVN_ERR(svn_mergeinfo__mergeinfo_from_segments(
+        &source_history_as_mergeinfo, segments, iterpool));
       SVN_ERR(svn_mergeinfo_merge(source_mergeinfo,
                                   source_history_as_mergeinfo, iterpool));
 
@@ -8354,7 +8355,7 @@ find_unmerged_mergeinfo(svn_mergeinfo_catalog_t *unmerged_to_source_catalog,
             {
               svn_mergeinfo_t explicit_source_target_history_intersection;
 
-              SVN_ERR(svn_client__mergeinfo_from_segments(
+              SVN_ERR(svn_mergeinfo__mergeinfo_from_segments(
                 &target_history_as_mergeinfo, segments, iterpool));
 
               /* If there is an intersection between the *explicit* mergeinfo
@@ -8389,7 +8390,7 @@ find_unmerged_mergeinfo(svn_mergeinfo_catalog_t *unmerged_to_source_catalog,
                 target_rev,
                 SVN_INVALID_REVNUM,
                 ctx, iterpool));
-              SVN_ERR(svn_client__mergeinfo_from_segments(
+              SVN_ERR(svn_mergeinfo__mergeinfo_from_segments(
                 &source_history_as_mergeinfo, segments, iterpool));
               SVN_ERR(svn_mergeinfo_merge(source_mergeinfo,
                                           source_history_as_mergeinfo,

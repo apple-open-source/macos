@@ -84,7 +84,7 @@ static struct sieve_storage *client_get_storage
 	const char *home;
 
 	if ( mail_user_get_home(user, &home) <= 0 )
-	home = NULL;
+		home = NULL;
 
 	storage = sieve_storage_create
 		(svinst, user->username, home, set->mail_debug);

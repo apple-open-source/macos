@@ -49,10 +49,10 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libmaster_la_LIBADD =
-am_libmaster_la_OBJECTS = anvil-client.lo master-auth.lo \
-	master-login.lo master-login-auth.lo master-service.lo \
-	master-service-settings.lo master-service-settings-cache.lo \
-	syslog-util.lo
+am_libmaster_la_OBJECTS = anvil-client.lo ipc-client.lo ipc-server.lo \
+	master-auth.lo master-login.lo master-login-auth.lo \
+	master-service.lo master-service-settings.lo \
+	master-service-settings-cache.lo syslog-util.lo
 libmaster_la_OBJECTS = $(am_libmaster_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -276,6 +276,8 @@ AM_CPPFLAGS = \
 
 libmaster_la_SOURCES = \
 	anvil-client.c \
+	ipc-client.c \
+	ipc-server.c \
 	master-auth.c \
 	master-login.c \
 	master-login-auth.c \
@@ -286,6 +288,8 @@ libmaster_la_SOURCES = \
 
 headers = \
 	anvil-client.h \
+	ipc-client.h \
+	ipc-server.h \
 	master-auth.h \
 	master-interface.h \
 	master-login.h \
@@ -352,6 +356,8 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/anvil-client.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ipc-client.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ipc-server.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/master-auth.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/master-login-auth.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/master-login.Plo@am__quote@

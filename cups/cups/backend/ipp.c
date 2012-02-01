@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.c 9770 2011-05-12 04:51:01Z mike $"
+ * "$Id: ipp.c 9897 2011-08-12 00:51:22Z mike $"
  *
  *   IPP backend for CUPS.
  *
@@ -111,7 +111,7 @@ static const char * const pattrs[] =	/* Printer attributes we want */
   "printer-is-accepting-jobs",
   "printer-state",
   "printer-state-message",
-  "printer-state-reasons",
+  "printer-state-reasons"
 };
 static const char * const remote_job_states[] =
 {					/* Remote job state keywords */
@@ -1340,7 +1340,8 @@ main(int  argc,				/* I - Number of command-line args */
 	  http_status = cupsWriteRequestData(http, buffer, bytes);
         }
 
-        while (http_status == HTTP_CONTINUE)
+        while (http_status == HTTP_CONTINUE &&
+               (!job_canceled || compatsize > 0))
 	{
 	 /*
 	  * Check for side-channel requests and more print data...
@@ -1392,6 +1393,7 @@ main(int  argc,				/* I - Number of command-line args */
         break;
 
       if (ipp_status == IPP_SERVICE_UNAVAILABLE ||
+          ipp_status == IPP_NOT_POSSIBLE ||
 	  ipp_status == IPP_PRINTER_BUSY)
       {
 	_cupsLangPrintFilter(stderr, "INFO", _("The printer is busy."));
@@ -1409,7 +1411,6 @@ main(int  argc,				/* I - Number of command-line args */
       }
       else if (ipp_status == IPP_ERROR_JOB_CANCELED)
         goto cleanup;
-            
       else
       {
        /*
@@ -1509,7 +1510,8 @@ main(int  argc,				/* I - Number of command-line args */
 	if (http_status == HTTP_CONTINUE && request->state == IPP_DATA &&
 	    (fd = open(files[i], O_RDONLY)) >= 0)
 	{
-	  while ((bytes = read(fd, buffer, sizeof(buffer))) > 0)
+	  while (!job_canceled &&
+	         (bytes = read(fd, buffer, sizeof(buffer))) > 0)
 	  {
 	    if (cupsWriteRequestData(http, buffer, bytes) != HTTP_CONTINUE)
 	      break;
@@ -1549,6 +1551,7 @@ main(int  argc,				/* I - Number of command-line args */
       copies_remaining --;
     }
     else if (ipp_status == IPP_SERVICE_UNAVAILABLE ||
+             ipp_status == IPP_NOT_POSSIBLE ||
 	     ipp_status == IPP_PRINTER_BUSY)
       continue;
     else
@@ -1621,6 +1624,7 @@ main(int  argc,				/* I - Number of command-line args */
       if (ipp_status > IPP_OK_CONFLICT)
       {
 	if (ipp_status != IPP_SERVICE_UNAVAILABLE &&
+	    ipp_status != IPP_NOT_POSSIBLE &&
 	    ipp_status != IPP_PRINTER_BUSY)
 	{
 	  ippDelete(response);
@@ -1668,7 +1672,9 @@ main(int  argc,				/* I - Number of command-line args */
 	    break;
 	  }
 	}
-	else
+	else if (ipp_status != IPP_SERVICE_UNAVAILABLE &&
+		 ipp_status != IPP_NOT_POSSIBLE &&
+		 ipp_status != IPP_PRINTER_BUSY)
 	{
 	 /*
 	  * If the printer does not return a job-state attribute, it does not
@@ -2195,15 +2201,15 @@ new_request(
 	  else if (!strcmp(media_col_sup->values[i].string.text,
 			   "media-bottom-margin"))
 	    ippAddInteger(media_col, IPP_TAG_ZERO, IPP_TAG_INTEGER,
-			  "media-bottom-margin", size->left);
+			  "media-bottom-margin", size->bottom);
 	  else if (!strcmp(media_col_sup->values[i].string.text,
 			   "media-right-margin"))
 	    ippAddInteger(media_col, IPP_TAG_ZERO, IPP_TAG_INTEGER,
-			  "media-right-margin", size->left);
+			  "media-right-margin", size->right);
 	  else if (!strcmp(media_col_sup->values[i].string.text,
 			   "media-top-margin"))
 	    ippAddInteger(media_col, IPP_TAG_ZERO, IPP_TAG_INTEGER,
-			  "media-top-margin", size->left);
+			  "media-top-margin", size->top);
 	  else if (!strcmp(media_col_sup->values[i].string.text,
 			   "media-source") && media_source)
 	    ippAddString(media_col, IPP_TAG_ZERO, IPP_TAG_KEYWORD,
@@ -2825,6 +2831,7 @@ update_reasons(ipp_attribute_t *attr,	/* I - printer-state-reasons or NULL */
       if (strcmp(reason, "none") &&
 	  strcmp(reason, "none-report") &&
 	  strcmp(reason, "paused") &&
+	  strncmp(reason, "spool-area-full", 15) &&
 	  strcmp(reason, "com.apple.print.recoverable-warning") &&
 	  strncmp(reason, "cups-", 5))
 	cupsArrayAdd(new_reasons, reason);
@@ -2981,5 +2988,5 @@ update_reasons(ipp_attribute_t *attr,	/* I - printer-state-reasons or NULL */
 }
 
 /*
- * End of "$Id: ipp.c 9770 2011-05-12 04:51:01Z mike $".
+ * End of "$Id: ipp.c 9897 2011-08-12 00:51:22Z mike $".
  */

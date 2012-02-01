@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2011-04-20</string>
+	<string>2011-10-18</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>PostgreSQL.txt</string>
 	<key>OpenSourceMD5</key>
-	<string>65acebb374bbeae05c30826d266d86b4</string>
+	<string>6a4cf43ec2ce96bb1558ac2b1ed88216</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Support for building on Mac OS X</string>
@@ -19,11 +19,11 @@
 	<key>OpenSourceProject</key>
 	<string>PostgreSQL</string>
 	<key>OpenSourceSHA1</key>
-	<string>8bb6c4d11eb23eb4f843f4e96f630d336f53e2e9</string>
+	<string>65c719049f36de50b24dc84364b7129f112a489e</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp9.us.postgresql.org/pub/mirrors/postgresql/source/v9.0.2/postgresql-9.0.4.tar.gz</string>
+	<string>http://ftp9.us.postgresql.org/pub/mirrors/postgresql/source/v9.0.5/postgresql-9.0.5.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>9.0.4</string>
+	<string>9.0.5</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://postgresql.org/</string>
 	</dict>

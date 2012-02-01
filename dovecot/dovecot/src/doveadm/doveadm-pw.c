@@ -93,8 +93,10 @@ static void cmd_pw(int argc, char *argv[])
 	if (Vflag == 1) {
 		const unsigned char *raw_password;
 		size_t size;
+		const char *error;
 
-		if (password_decode(hash, scheme, &raw_password, &size) <= 0) {
+		if (password_decode(hash, scheme, &raw_password, &size,
+				    &error) <= 0) {
 			fprintf(stderr, "reverse decode check failed\n");
 			exit(2);
 		}

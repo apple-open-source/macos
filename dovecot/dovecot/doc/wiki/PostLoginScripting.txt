@@ -16,7 +16,7 @@ service imap-postlogin {
   # all post-login scripts are executed via script-login binary
   executable = script-login /usr/local/bin/postlogin.sh
 
-  # the script process runs as the user specified here:
+  # the script process runs as the user specified here (v2.0.14+):
   user = $default_internal_user
   # this UNIX socket listener must use the same name as given to imap
 executable
@@ -60,6 +60,8 @@ It's possible to add/modify userdb fields by adding them to environment and
 adding the field to USERDB_KEYS. For example to change user's mail location:
 
 ---%<-------------------------------------------------------------------------
+#!/bin/sh
+
 export MAIL=maildir:/tmp/test
 export USERDB_KEYS="$USERDB_KEYS mail"
 exec "$@"
@@ -146,4 +148,4 @@ You can also use
  * http://www.linux.org.py/wiki/howto/dovecot_connect_acl
  * TCP wrappers can be used with 'login_access_sockets = tcpwrap'
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

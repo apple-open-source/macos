@@ -353,4 +353,4 @@ Restart Dovecot. Verify that your IMAP client still works. Verify that
 relay-ctrl has recorded your client IP. Hook 'relay-ctrl-check' into your SMTP
 service, as documented in the relay-ctrl README, and you're done.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

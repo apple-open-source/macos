@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 9632 2011-03-21 02:12:14Z mike $"
+# "$Id: Makefile 9755 2011-05-09 22:53:31Z mike $"
 #
 #   API library Makefile for CUPS.
 #
@@ -376,7 +376,7 @@ libcups_s.a:	$(LIBOBJS) libcups_s.exp
 	echo Creating $@...
 	$(DSO) $(DSOFLAGS) -Wl,-bexport:libcups_s.exp -o libcups_s.o \
 		$(LIBOBJS) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
-		$(COMMONLIBS) $(LIBZ) -lm
+		$(COMMONLIBS) $(LIBZ)
 	$(RM) $@
 	$(AR) $(ARFLAGS) $@ libcups_s.o
 
@@ -676,5 +676,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 9632 2011-03-21 02:12:14Z mike $".
+# End of "$Id: Makefile 9755 2011-05-09 22:53:31Z mike $".
 #

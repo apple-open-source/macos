@@ -120,6 +120,9 @@ OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flag
 	@constant kSecCSNoNotValidateResources
 	Do not validate the presence and contents of all bundle resources (if any).
 	By default, a mismatch in any bundle resource causes validation to fail.
+	@constant kSecCSCheckNestedCode
+	For code in bundle form, locate and recursively check embedded code. Only code
+	in standard locations is considered.
 	
 	@param requirement On optional code requirement specifying additional conditions
 	the staticCode object must satisfy to be considered valid. If NULL, no additional
@@ -135,7 +138,8 @@ enum {
 	kSecCSCheckAllArchitectures = 1 << 0,
 	kSecCSDoNotValidateExecutable = 1 << 1,
 	kSecCSDoNotValidateResources = 1 << 2,
-	kSecCSBasicValidateOnly = kSecCSDoNotValidateExecutable | kSecCSDoNotValidateResources
+	kSecCSBasicValidateOnly = kSecCSDoNotValidateExecutable | kSecCSDoNotValidateResources,
+	kSecCSCheckNestedCode = 1 << 3,
 };
 
 OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef staticCode, SecCSFlags flags,

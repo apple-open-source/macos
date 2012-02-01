@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-slp.m4 7241 2008-01-22 22:34:52Z mike $"
+dnl "$Id: cups-slp.m4 9771 2011-05-12 05:21:56Z mike $"
 dnl
 dnl   OpenSLP configuration stuff for CUPS.
 dnl
@@ -34,5 +34,5 @@ AC_SUBST(LIBSLP)
 
 
 dnl
-dnl End of "$Id: cups-slp.m4 7241 2008-01-22 22:34:52Z mike $".
+dnl End of "$Id: cups-slp.m4 9771 2011-05-12 05:21:56Z mike $".
 dnl

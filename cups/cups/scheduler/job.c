@@ -1,5 +1,5 @@
 /*
- * "$Id: job.c 9755 2011-05-09 22:53:31Z mike $"
+ * "$Id: job.c 9935 2011-08-31 00:10:22Z mike $"
  *
  *   Job management routines for the CUPS scheduler.
  *
@@ -1350,17 +1350,22 @@ cupsdDeleteJob(cupsd_job_t       *job,	/* I - Job */
     free(job->compressions);
     free(job->filetypes);
 
-    while (job->num_files > 0)
+    if (action == CUPSD_JOB_PURGE)
     {
-      snprintf(filename, sizeof(filename), "%s/d%05d-%03d", RequestRoot,
-	       job->id, job->num_files);
-      if (Classification)
-	cupsdRemoveFile(filename);
-      else
-	unlink(filename);
+      while (job->num_files > 0)
+      {
+	snprintf(filename, sizeof(filename), "%s/d%05d-%03d", RequestRoot,
+		 job->id, job->num_files);
+	if (Classification)
+	  cupsdRemoveFile(filename);
+	else
+	  unlink(filename);
 
-      job->num_files --;
+	job->num_files --;
+      }
     }
+    else
+      job->num_files = 0;
   }
 
   if (job->history)
@@ -1811,8 +1816,8 @@ cupsdLoadJob(cupsd_job_t *job)		/* I - Job */
     if ((fp = cupsFileOpen(jobfile, "r")) != NULL)
     {
       int	bytes;			/* Size of auth data */
-      char	line[255],		/* Line from file */
-		data[255];		/* Decoded data */
+      char	line[65536],		/* Line from file */
+		data[65536];		/* Decoded data */
 
 
       for (i = 0;
@@ -2905,7 +2910,6 @@ finalize_job(cupsd_job_t *job,		/* I - Job */
 
     int exit_code;			/* Exit code from backend */
 
-
    /*
     * Convert the status to an exit code.  Due to the way the W* macros are
     * implemented on MacOS X (bug?), we have to store the exit status in a
@@ -3158,7 +3162,9 @@ finalize_job(cupsd_job_t *job,		/* I - Job */
 
   if (job->history)
   {
-    if (job->status)
+    if (job->status &&
+        (job->state_value == IPP_JOB_ABORTED ||
+         job->state_value == IPP_JOB_STOPPED))
       dump_job_history(job);
     else
       free_job_history(job);
@@ -3364,6 +3370,9 @@ get_options(cupsd_job_t *job,		/* I - Job */
  /*
   * Then allocate/reallocate the option buffer as needed...
   */
+
+  if (newlength == 0)			/* This can never happen, but Clang */
+    newlength = 1;			/* thinks it can... */
 
   if (newlength > optlength || !options)
   {
@@ -4734,5 +4743,5 @@ update_job_attrs(cupsd_job_t *job,	/* I - Job to update */
 
 
 /*
- * End of "$Id: job.c 9755 2011-05-09 22:53:31Z mike $".
+ * End of "$Id: job.c 9935 2011-08-31 00:10:22Z mike $".
  */

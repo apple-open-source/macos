@@ -1085,7 +1085,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 
 #pragma mark Scavanging
 static UInt32
-mungeECHIStatus(UInt32 flags, EHCIGeneralTransferDescriptorPtr pHCDoneTD)
+mungeECHIStatus(UInt32 flags, EHCIGeneralTransferDescriptorPtr pHCDoneTD, uintptr_t hc, UInt32 busNumber )
 {
     AppleEHCIQueueHead * pEndpoint;
 	
@@ -1157,7 +1157,11 @@ mungeECHIStatus(UInt32 flags, EHCIGeneralTransferDescriptorPtr pHCDoneTD)
 			return kOHCIITDConditionBufferUnderrun;
 		}
     }
-    
+    if ( (flags & kEHCITDStatus_MissedUF) != 0 )
+	{
+		USBTrace( kUSBTEHCI, kTPEHCIMungeECHIStatus, hc, flags, busNumber, 1);
+	}
+	
     if ( (flags & kEHCITDStatus_Babble) != 0)
     {
 		// Babble means that we had a data overrun
@@ -1215,7 +1219,7 @@ mungeECHIStatus(UInt32 flags, EHCIGeneralTransferDescriptorPtr pHCDoneTD)
     }	
 	
     USBLog(1, "mungeECHIStatus condition we're not expecting 0x%x", (uint32_t)flags);
-	USBTrace( kUSBTEHCI, kTPEHCIMungeECHIStatus , 0, flags, kOHCIITDConditionCRC, 0);
+	USBTrace( kUSBTEHCI, kTPEHCIMungeECHIStatus , hc, flags, kOHCIITDConditionCRC, 0);
     
     return kOHCIITDConditionCRC;
 }
@@ -1333,7 +1337,7 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
 			}
 			else
 			{
-				transferStatus = mungeECHIStatus(flags, pHCDoneTD);
+				transferStatus = mungeECHIStatus(flags, pHCDoneTD, (uintptr_t)this, _busNumber);
 				if (transferStatus)
 				{
 					USBLog(4, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - TD (%p) - got transferStatus 0x%x with flags (0x%x)", this, pHCDoneTD, (uint32_t)transferStatus, (uint32_t)flags);

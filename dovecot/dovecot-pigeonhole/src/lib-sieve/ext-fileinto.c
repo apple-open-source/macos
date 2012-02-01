@@ -77,7 +77,8 @@ static const struct sieve_command_def fileinto_command = {
 	SCT_COMMAND,
 	1, 0, FALSE, FALSE, 
 	NULL, NULL,
-	cmd_fileinto_validate, 
+	cmd_fileinto_validate,
+	NULL,
 	cmd_fileinto_generate, 
 	NULL 
 };

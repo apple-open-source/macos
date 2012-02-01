@@ -88,4 +88,4 @@ directly. When creating new mailboxes,'mail_namespace_get_default_storage()'
 returns the storage that should be used. For other purposes you should find the
 storage via <mailbox list> [Design.Storage.MailboxList.txt] functions.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

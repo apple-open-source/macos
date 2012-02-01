@@ -38,8 +38,19 @@ Escape character is '^]'.
 AUTH=PLAIN] Dovecot ready.
 ---%<-------------------------------------------------------------------------
 
-If you got "connection refused", check that 'imap' is included in 'protocols'
-setting in 'dovecot.conf'. Also check that 'listen' setting is '*'.
+If you got "connection refused", make sure that Dovecot is configured to serve
+the imap protocol and listening on the expected interfaces/addresses.The
+simplest way to do that would be using <doveconf(1)> [Tools.Doveconf.txt]:
+
+---%<-------------------------------------------------------------------------
+# doveconf protocols listen
+protocols = imap pop3 lmtp sieve
+listen = *, ::
+---%<-------------------------------------------------------------------------
+
+If the protocols setting shouldn't contain 'imap' so add it. Also make sure,
+that relevant '!include' or '!try_include' configuration lines are not
+commented.
 
 Next check that it also works from remote host:
 
@@ -184,4 +195,4 @@ If you can see only INBOX,
 
 Most IMAP clients have been tested with Dovecot and they work.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

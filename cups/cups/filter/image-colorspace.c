@@ -1,5 +1,5 @@
 /*
- * "$Id: image-colorspace.c 7720 2008-07-11 22:46:21Z mike $"
+ * "$Id: image-colorspace.c 9748 2011-05-06 21:02:44Z mike $"
  *
  *   Colorspace conversions for CUPS.
  *
@@ -1563,5 +1563,5 @@ zshear(float mat[3][3],			/* I - Matrix */
 
 
 /*
- * End of "$Id: image-colorspace.c 7720 2008-07-11 22:46:21Z mike $".
+ * End of "$Id: image-colorspace.c 9748 2011-05-06 21:02:44Z mike $".
  */

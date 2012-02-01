@@ -35,6 +35,7 @@ const struct sieve_command_def tst_size = {
 	tst_size_registered, 
 	tst_size_pre_validate,
 	tst_size_validate, 
+	NULL,
 	tst_size_generate, 
 	NULL 
 };

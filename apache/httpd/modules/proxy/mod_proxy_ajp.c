@@ -174,6 +174,7 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
     char *buff;
     char *send_body_chunk_buff;
     apr_uint16_t size;
+    apr_byte_t conn_reuse = 0;
     const char *tenc;
     int havebody = 1;
     int output_failed = 0;
@@ -213,7 +214,9 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
                      conn->worker->hostname);
         if (status == AJP_EOVERFLOW)
             return HTTP_BAD_REQUEST;
-        else {
+        else if  (status == AJP_EBAD_METHOD) {
+            return HTTP_NOT_IMPLEMENTED;
+        } else {
             /*
              * This is only non fatal when the method is idempotent. In this
              * case we can dare to retry it with a different worker if we are
@@ -469,22 +472,28 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
                         if (bb_len != -1)
                             conn->worker->s->read += bb_len;
                     }
-                    if (ap_pass_brigade(r->output_filters,
-                                        output_brigade) != APR_SUCCESS) {
-                        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                                      "proxy: error processing body.%s",
-                                      r->connection->aborted ?
-                                      " Client aborted connection." : "");
-                        output_failed = 1;
+                    if (headers_sent) {
+                        if (ap_pass_brigade(r->output_filters,
+                                            output_brigade) != APR_SUCCESS) {
+                            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                                          "proxy: error processing body.%s",
+                                          r->connection->aborted ?
+                                          " Client aborted connection." : "");
+                            output_failed = 1;
+                        }
+                        data_sent = 1;
+                        apr_brigade_cleanup(output_brigade);
                     }
-                    data_sent = 1;
-                    apr_brigade_cleanup(output_brigade);
                 }
                 else {
                     backend_failed = 1;
                 }
                 break;
             case CMD_AJP13_END_RESPONSE:
+                status = ajp_parse_reuse(r, conn->data, &conn_reuse);
+                if (status != APR_SUCCESS) {
+                    backend_failed = 1;
+                }
                 e = apr_bucket_eos_create(r->connection->bucket_alloc);
                 APR_BRIGADE_INSERT_TAIL(output_brigade, e);
                 if (ap_pass_brigade(r->output_filters,
@@ -563,6 +572,10 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
         if (data_sent) {
             rv = DONE;
         }
+    }
+    else if (!conn_reuse) {
+        /* Our backend signalled connection close */
+        conn->close++;
     }
     else {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,

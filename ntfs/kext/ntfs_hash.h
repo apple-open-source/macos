@@ -2,8 +2,8 @@
  * ntfs_hash.h - Defines for inode hash structures and operations for the NTFS
  *		 kernel driver.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,7 +70,6 @@ static inline void ntfs_inode_hash_rm_nolock(ntfs_inode *ni)
 	LIST_REMOVE(ni, hash);
 }
 
-__private_extern__ void ntfs_inode_hash_add(ntfs_inode *ni);
 __private_extern__ void ntfs_inode_hash_rm(ntfs_inode *ni);
 
 #endif /* !_OSX_NTFS_HASH_H */

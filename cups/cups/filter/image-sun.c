@@ -1,5 +1,5 @@
 /*
- * "$Id: image-sun.c 7223 2008-01-16 23:41:19Z mike $"
+ * "$Id: image-sun.c 9771 2011-05-12 05:21:56Z mike $"
  *
  *   Sun Raster image file routines for CUPS.
  *
@@ -403,5 +403,5 @@ read_unsigned(FILE *fp)			/* I - File to read from */
 
 
 /*
- * End of "$Id: image-sun.c 7223 2008-01-16 23:41:19Z mike $".
+ * End of "$Id: image-sun.c 9771 2011-05-12 05:21:56Z mike $".
  */

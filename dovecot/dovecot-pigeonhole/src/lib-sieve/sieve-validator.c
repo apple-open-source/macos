@@ -264,7 +264,7 @@ static bool _cmd_unknown_validate
 
 static const struct sieve_command_def unknown_command = { 
 	"", SCT_NONE, 0, 0, FALSE, FALSE , 
-	NULL, NULL, _cmd_unknown_validate, NULL, NULL 
+	NULL, NULL, _cmd_unknown_validate, NULL, NULL, NULL 
 };
 
 /* Registration of the core commands of the language */
@@ -528,37 +528,65 @@ static struct sieve_tag_registration *sieve_validator_command_tag_get
  * Extension support 
  */
 
-const struct sieve_extension *sieve_validator_extension_load
+bool sieve_validator_extension_load
 (struct sieve_validator *valdtr, struct sieve_command *cmd,
-	struct sieve_ast_argument *ext_arg, string_t *ext_name) 
+	struct sieve_ast_argument *ext_arg, const struct sieve_extension *ext)
 {
+	const struct sieve_extension_def *extdef = ext->def;
 	struct sieve_validator_extension_reg *reg;
-	const struct sieve_extension *ext;
-	const struct sieve_extension_def *extdef;
-	const char *name = str_c(ext_name);
 
-	if ( str_len(ext_name) > 128 ) {
-		sieve_argument_validate_error(valdtr, ext_arg, 
-			"%s %s: unknown Sieve capability '%s' (name is impossibly long)",
-			sieve_command_identifier(cmd), sieve_command_type_name(cmd),
-			str_sanitize(name, 128));
-		return NULL;
+	if ( !sieve_ast_extension_link(valdtr->ast, ext) ) {
+		/*if ( cmd != NULL && ext_arg != NULL ) {
+			sieve_argument_validate_warning(valdtr, ext_arg, 
+				"%s %s: sieve capability `%s' already loaded",
+				sieve_command_identifier(cmd), sieve_command_type_name(cmd),
+				sieve_extension_name(ext));
+		}*/
+	} else {
+		if ( extdef->validator_load != NULL && 
+			!extdef->validator_load(ext, valdtr) ) {
+			if ( cmd != NULL && ext_arg != NULL ) {
+				sieve_argument_validate_error(valdtr, ext_arg, 
+					"%s %s: failed to load Sieve capability '%s'",
+					sieve_command_identifier(cmd), sieve_command_type_name(cmd),
+					sieve_extension_name(ext));
+			}
+			return FALSE;
+		}
 	}
 
-	ext = sieve_extension_get_by_name(valdtr->svinst, name); 
-	
-	if ( ext == NULL || ext->def == NULL ) {
+	/* Register extension no matter what and store the AST argument registering it 
+	 */
+	if ( ext->id >= 0 ) {
+		reg = array_idx_modifiable(&valdtr->extensions, (unsigned int) ext->id);
+		if ( reg->arg == NULL )
+			reg->arg = ext_arg;
+		reg->loaded = TRUE;
+	}
+
+	return TRUE;
+}
+
+const struct sieve_extension *sieve_validator_extension_load_by_name
+(struct sieve_validator *valdtr, struct sieve_command *cmd,
+	struct sieve_ast_argument *ext_arg, const char *ext_name) 
+{
+	const struct sieve_extension *ext;
+
+	ext = sieve_extension_get_by_name(valdtr->svinst, ext_name); 
+
+	if ( ext == NULL || ext->def == NULL || !ext->enabled ) {
 		unsigned int i;
 		bool core_test = FALSE;
 		bool core_command = FALSE;
 
 		for ( i = 0; !core_command && i < sieve_core_commands_count; i++ ) {
-			if ( strcasecmp(sieve_core_commands[i]->identifier, name) == 0 )
+			if ( strcasecmp(sieve_core_commands[i]->identifier, ext_name) == 0 )
 				core_command = TRUE;
 		}
 
 		for ( i = 0; !core_test && i < sieve_core_tests_count; i++ ) {
-			if ( strcasecmp(sieve_core_tests[i]->identifier, name) == 0 )
+			if ( strcasecmp(sieve_core_tests[i]->identifier, ext_name) == 0 )
 				core_test = TRUE;
 		}
 
@@ -567,36 +595,18 @@ const struct sieve_extension *sieve_validator_extension_load
 				"%s %s: '%s' is not known as a Sieve capability, "
 				"but it is known as a Sieve %s that is always available",
 				sieve_command_identifier(cmd), sieve_command_type_name(cmd),
-				name, ( core_test ? "test" : "command" ));
+				str_sanitize(ext_name, 128), ( core_test ? "test" : "command" ));
 		} else {
 			sieve_argument_validate_error(valdtr, ext_arg,
 				"%s %s: unknown Sieve capability '%s'", 
 				sieve_command_identifier(cmd), sieve_command_type_name(cmd),
-				name);
+				str_sanitize(ext_name, 128));
 		}
 		return NULL;
 	}
-	
-	sieve_ast_extension_link(valdtr->ast, ext);
 
-	extdef = ext->def;
-
-	if ( extdef->validator_load != NULL && 
-		!extdef->validator_load(ext, valdtr) ) {
-		sieve_argument_validate_error(valdtr, ext_arg, 
-			"%s %s: failed to load Sieve capability '%s'",
-			sieve_command_identifier(cmd), sieve_command_type_name(cmd),
-			sieve_extension_name(ext));
+	if ( !sieve_validator_extension_load(valdtr, cmd, ext_arg, ext) )
 		return NULL;
-	}
-
-	/* Register extension no matter what and store the AST argument registering it 
-	 */
-	if ( ext->id >= 0 ) {
-		reg = array_idx_modifiable(&valdtr->extensions, (unsigned int) ext->id);
-		reg->arg = ext_arg;
-		reg->loaded = TRUE;
-	}
 
 	return ext;
 }
@@ -604,32 +614,18 @@ const struct sieve_extension *sieve_validator_extension_load
 const struct sieve_extension *sieve_validator_extension_load_implicit
 (struct sieve_validator *valdtr, const char *ext_name)
 {
-	struct sieve_validator_extension_reg *reg;
 	const struct sieve_extension *ext;
-	const struct sieve_extension_def *extdef;
 
 	ext = sieve_extension_get_by_name(valdtr->svinst, ext_name); 
-	
+
 	if ( ext == NULL || ext->def == NULL )
 		return NULL;
-	
-	sieve_ast_extension_link(valdtr->ast, ext);
 
-	extdef = ext->def;
-
-	if ( extdef->validator_load != NULL && !extdef->validator_load(ext, valdtr) )
+	if ( !sieve_validator_extension_load(valdtr, NULL, NULL, ext) )
 		return NULL;
-
-	/* Register extension no matter what and store the AST argument registering it 
-	 */
-	if ( ext->id >= 0 ) {
-		reg = array_idx_modifiable(&valdtr->extensions, (unsigned int) ext->id);
-		reg->loaded = TRUE;
-	}
 
 	return ext;
 }
-
 
 void sieve_validator_extension_register
 (struct sieve_validator *valdtr, const struct sieve_extension *ext,
@@ -1139,11 +1135,13 @@ static bool sieve_validate_command_block
  */
 
 static bool sieve_validate_test_list
-	(struct sieve_validator *valdtr, struct sieve_ast_node *test_list); 
+	(struct sieve_validator *valdtr, struct sieve_ast_node *test_list,
+		int *const_r); 
 static bool sieve_validate_block
 	(struct sieve_validator *valdtr, struct sieve_ast_node *block);
 static bool sieve_validate_command
-	(struct sieve_validator *valdtr, struct sieve_ast_node *cmd_node);
+	(struct sieve_validator *valdtr, struct sieve_ast_node *cmd_node,
+		int *const_r);
 	
 static bool sieve_validate_command_context
 (struct sieve_validator *valdtr, struct sieve_ast_node *cmd_node) 
@@ -1154,7 +1152,6 @@ static bool sieve_validate_command_context
 	i_assert( ast_type == SAT_TEST || ast_type == SAT_COMMAND );
 	
 	/* Verify the command specified by this node */
-	
 	cmd_reg = sieve_validator_find_command_registration
 		(valdtr, cmd_node->identifier);
 	
@@ -1196,7 +1193,7 @@ static bool sieve_validate_command_context
 }
 
 static bool sieve_validate_command
-(struct sieve_validator *valdtr, struct sieve_ast_node *cmd_node) 
+(struct sieve_validator *valdtr, struct sieve_ast_node *cmd_node, int *const_r) 
 {
 	enum sieve_ast_type ast_type = sieve_ast_node_type(cmd_node);
 	struct sieve_command *cmd = cmd_node->command;
@@ -1240,8 +1237,7 @@ static bool sieve_validate_command
 			return FALSE;
 		}
 			
-		result = result && sieve_validate_arguments_context(valdtr, cmd);
-								
+		result = result && sieve_validate_arguments_context(valdtr, cmd);								
 	}
 
 	/*  
@@ -1250,35 +1246,71 @@ static bool sieve_validate_command
 	
 	if ( cmd_def != NULL ) {
 		/* Tests */
-		if ( cmd_def->subtests > 0 && 
-			(result || sieve_errors_more_allowed(valdtr->ehandler)) )
-			result = sieve_validate_test_list(valdtr, cmd_node) && result;
+		if ( cmd_def->subtests > 0 ) { 
+			if ( result || sieve_errors_more_allowed(valdtr->ehandler) ) {
+				result = sieve_validate_test_list(valdtr, cmd_node, const_r) && result;
+			} 
+		} else if ( result ) {
+			if ( cmd_def->validate_const != NULL ) {
+				(void)cmd_def->validate_const(valdtr, cmd, const_r, -1);
+			} else {
+				*const_r = -1;
+			}
+		}
+
+		/* Skip block if result of test is const FALSEconst struct sieve_extension *sieve_validator_extension_load
+(struct sieve_validator *valdtr, struct sieve_command *cmd,
+	struct sieve_ast_argument *ext_arg, string_t *ext_name)  */
+		if ( result && *const_r == 0 )
+			return TRUE;
 
 		/* Command block */
 		if ( cmd_def->block_allowed && ast_type == SAT_COMMAND && 
-			(result || sieve_errors_more_allowed(valdtr->ehandler)) )
+			(result || sieve_errors_more_allowed(valdtr->ehandler)) ) {
 			result = sieve_validate_block(valdtr, cmd_node) && result;
+		}
 	}
 	
 	return result;
 }
 
 static bool sieve_validate_test_list
-(struct sieve_validator *valdtr, struct sieve_ast_node *test_list) 
+(struct sieve_validator *valdtr, struct sieve_ast_node *test_node,
+	int *const_r) 
 {
-	bool result = TRUE;
+	struct sieve_command *tst = test_node->command;
+	const struct sieve_command_def *tst_def = ( tst != NULL ? tst->def : NULL );
 	struct sieve_ast_node *test;
+	bool result = TRUE;
 
-	test = sieve_ast_test_first(test_list);
+	if ( tst_def != NULL && tst_def->validate_const != NULL ) {
+		if ( !tst_def->validate_const(valdtr, tst, const_r, -2) ) 
+			return TRUE;
+	}
+
+	test = sieve_ast_test_first(test_node);
 	while ( test != NULL 
 		&& (result || sieve_errors_more_allowed(valdtr->ehandler)) ) {
+		int const_value = -2;
 	
 		result = 
 			sieve_validate_command_context(valdtr, test) && 
-			sieve_validate_command(valdtr, test) &&
-			result;	
+			sieve_validate_command(valdtr, test, &const_value) &&
+			result;
+
+		if ( result ) {
+			if ( tst_def != NULL && tst_def->validate_const != NULL ) {
+				if ( !tst_def->validate_const(valdtr, tst, const_r, const_value) ) 
+					return TRUE;
+			} else {
+				*const_r = -1;
+			}
+		}
 		
-		test = sieve_ast_test_next(test);
+		if ( result && const_value >= 0 )
+			test = sieve_ast_node_detach(test);
+		else
+			test = sieve_ast_test_next(test);
 	}		
 	
 	return result;
@@ -1295,6 +1327,7 @@ static bool sieve_validate_block
 		while ( !fatal && cmd_node != NULL
 			&& (result || sieve_errors_more_allowed(valdtr->ehandler)) ) {	
 			bool command_success;
+			int const_value = -2;
 
 			next = sieve_ast_command_next(cmd_node);
 			command_success = sieve_validate_command_context(valdtr, cmd_node);
@@ -1323,7 +1356,8 @@ static bool sieve_validate_block
 				}
 			}
 
-			result = !fatal && sieve_validate_command(valdtr, cmd_node) && result;
+			result = !fatal && sieve_validate_command(valdtr, cmd_node, &const_value)
+				&& result;
 			
 			cmd_node = next;
 		}		

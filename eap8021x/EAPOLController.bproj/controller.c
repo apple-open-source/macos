@@ -234,9 +234,6 @@ S_profile_copy_itemID_dict(EAPOLClientProfileRef profile)
 }
 #endif /* TARGET_OS_EMBEDDED */
 
-#if 0
-#endif 0
-
 static int
 get_ifm_type(const char * name)
 {
@@ -529,7 +526,7 @@ eapolClientForceRenew(eapolClientRef client)
 
 #if TARGET_OS_EMBEDDED
 static void
-eapolClientExited(eapolClientRef client)
+eapolClientExited(eapolClientRef client, EAPOLControlMode mode)
 {
     return;
 }
@@ -543,7 +540,7 @@ eapolClientExited(eapolClientRef client)
 #include "EAPOLUtil.h"
 
 static void
-handle_config_changed(boolean_t check_system_mode);
+handle_config_changed(boolean_t start_system_mode);
 
 #define RECV_SIZE	1600
 
@@ -674,23 +671,24 @@ eapolClientStartMonitoring(eapolClientRef client)
 }
 
 static void
-eapolClientExited(eapolClientRef client)
+eapolClientExited(eapolClientRef client, EAPOLControlMode mode)
 {
-    boolean_t				no_one_logged_in;
-    CFStringRef				user;
+    boolean_t		start_system_mode = FALSE;
+    CFStringRef		user;
     
     if (S_store == NULL) {
 	return;
     }
     user = SCDynamicStoreCopyConsoleUser(S_store, NULL, NULL);
     if (user == NULL) {
-	no_one_logged_in = TRUE;
+	if (mode != kEAPOLControlModeSystem) {
+	    start_system_mode = TRUE;
+	}
     }
     else {
 	CFRelease(user);
-	no_one_logged_in = FALSE;
     }
-    handle_config_changed(no_one_logged_in);
+    handle_config_changed(start_system_mode);
     return;
 }
 
@@ -703,7 +701,8 @@ static void
 exec_callback(pid_t pid, int status, struct rusage * rusage, void * context)
 {
     eapolClientRef	client;
-    
+    EAPOLControlMode	mode;
+
     client = eapolClientLookupProcess(pid);
     if (client == NULL) {
 	return;
@@ -713,8 +712,9 @@ exec_callback(pid_t pid, int status, struct rusage * rusage, void * context)
 	       "EAPOLController: eapolclient(%s) pid=%d exited with status %d",
 	       client->if_name,  pid, status);
     }
+    mode = client->mode;
     eapolClientInvalidate(client);
-    eapolClientExited(client);
+    eapolClientExited(client, mode);
     return;
 }
 
@@ -1551,6 +1551,7 @@ int
 ControllerClientDetach(mach_port_t session_port)
 {
     eapolClientRef	client;
+    EAPOLControlMode	mode;
     int			result = 0;
 
     client = eapolClientLookupSession(session_port);
@@ -1558,8 +1559,9 @@ ControllerClientDetach(mach_port_t session_port)
 	result = EINVAL;
 	goto failed;
     }
+    mode = client->mode;
     eapolClientInvalidate(client);
-    eapolClientExited(client);
+    eapolClientExited(client, mode);
 
  failed:
     return (result);
@@ -2107,7 +2109,7 @@ update_monitored_interfaces(CFArrayRef configured_iflist)
 }
 
 static void
-handle_config_changed(boolean_t check_system_mode)
+handle_config_changed(boolean_t start_system_mode)
 {
     EAPOLEthernetInfo			info;
 
@@ -2116,9 +2118,9 @@ handle_config_changed(boolean_t check_system_mode)
     }
 
     /* get a snapshot of the configuration information */
-    EAPOLEthernetInfoInit(&info, check_system_mode);
+    EAPOLEthernetInfoInit(&info, start_system_mode);
 
-    if (check_system_mode) {
+    if (start_system_mode) {
 	update_system_mode_interfaces(info.system_mode_configurations,
 				      info.system_mode_iflist);
     }

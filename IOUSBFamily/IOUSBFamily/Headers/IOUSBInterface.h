@@ -63,7 +63,7 @@ protected:
         IOCommandGate		*_gate;
         IOWorkLoop			*_workLoop;
 		bool				_needToClose;
-		IOLock *			_pipeObjLock;											// Lock to synchronize accesses to our pipeObjects
+		IOLock *			_pipeObjLock;				// Deprecated
 		OSSet *				_openClients;
     };
     ExpansionData * _expansionData;
@@ -74,6 +74,10 @@ protected:
     virtual void		SetProperties(void);			// update my property table with the correct properties		
 
     IOReturn 			ResetPipes(void);				// reset all pipes (except pipe zero) (not virtual)
+    IOReturn 			AbortPipesGated(void);			// abort all pipes (except pipe zero) (not virtual)
+    IOReturn 			ClosePipesGated(void);			// Abort and close all pipes (except pipe zero) (not virtual)
+	IOUSBPipe*			FindNextPipeGated(IOUSBPipe *current, IOUSBFindEndpointRequest *request, bool withRetain);
+	IOUSBPipe*			GetPipeObjGated(UInt8 index);
 	
 public:
 	// static methods
@@ -81,6 +85,10 @@ public:
     static IOReturn				CallSuperOpen(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
     static IOReturn     		CallSuperClose(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 	static IOReturn 			_ResetPipes(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn 			_AbortPipes(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn 			_ClosePipes(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn 			_FindNextPipe(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn 			_GetPipeObj(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 	static UInt8 				hex2char( UInt8 digit );
     
 	// IOService methods

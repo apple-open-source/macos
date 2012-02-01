@@ -1,8 +1,301 @@
+2011-09-11  Stephan Bosch  <stephan@rename-it.nl>
+
+	* INSTALL, doc/include.txt, doc/rfc/draft-ietf-sieve-include-03.txt,
+	doc/rfc/draft-ietf-sieve-include-05.txt, doc/vacation.txt:
+	Updated INSTALL documentation for new configuration options of the
+	include extension.
+	[6e46c17ab0b7] [tip]
+
+	* src/lib-sieve/plugins/include/ext-include-binary.c, src/lib-
+	sieve/plugins/include/ext-include-common.c, src/lib-
+	sieve/plugins/include/ext-include-common.h, src/lib-
+	sieve/plugins/include/ext-include-limits.h, src/testsuite/testsuite-
+	script.c, tests/extensions/include/errors.svtest,
+	tests/extensions/include/errors/depth-limit.sieve,
+	tests/extensions/include/errors/include-limit.sieve,
+	tests/extensions/include/included/depth-limit-1.sieve,
+	tests/extensions/include/included/depth-limit-2.sieve,
+	tests/extensions/include/included/depth-limit-3.sieve:
+	include extension: made nesting_depth and max_includes limits
+	configurable.
+	[f12899a3d02f]
+
+	* src/lib-sieve/plugins/include/ext-include-common.c, src/lib-
+	sieve/plugins/include/ext-include-common.h, src/lib-
+	sieve/plugins/include/ext-include.c, src/testsuite/testsuite.c,
+	tests/extensions/include/errors/included/action-fileinto.sieve,
+	tests/extensions/include/errors/included/action-reject.sieve,
+	tests/extensions/include/errors/included/circular-one.sieve,
+	tests/extensions/include/errors/included/circular-three-2.sieve,
+	tests/extensions/include/errors/included/circular-three-3.sieve,
+	tests/extensions/include/errors/included/circular-three.sieve,
+	tests/extensions/include/errors/included/circular-two-2.sieve,
+	tests/extensions/include/errors/included/circular-two.sieve,
+	tests/extensions/include/execute/included/actions-fileinto1.sieve,
+	tests/extensions/include/execute/included/actions-fileinto2.sieve,
+	tests/extensions/include/execute/included/actions-fileinto3.sieve,
+	tests/extensions/include/included/action-fileinto.sieve,
+	tests/extensions/include/included/action-reject.sieve,
+	tests/extensions/include/included/actions-fileinto1.sieve,
+	tests/extensions/include/included/actions-fileinto2.sieve,
+	tests/extensions/include/included/actions-fileinto3.sieve,
+	tests/extensions/include/included/circular-one.sieve,
+	tests/extensions/include/included/circular-three-2.sieve,
+	tests/extensions/include/included/circular-three-3.sieve,
+	tests/extensions/include/included/circular-three.sieve,
+	tests/extensions/include/included/circular-two-2.sieve,
+	tests/extensions/include/included/circular-two.sieve:
+	include extension: implemented proper configuration handling
+	Configuration is now only read once at extension initialization.
+	[ce825c9671a6]
+
+	* src/lib-sieve/plugins/variables/ext-variables-common.c:
+	variables extension: fixed deinitialization problem (unfreed
+	variable scope data) newly found by Valgrind.
+	[6d0da356f0fd]
+
+	* src/lib-sieve/plugins/include/ext-include-common.c, src/lib-
+	sieve/plugins/variables/ext-variables-common.c, src/lib-
+	sieve/plugins/variables/ext-variables-dump.c, src/lib-
+	sieve/plugins/variables/sieve-ext-variables.h:
+	variables extension: fixed segfault bug triggered when dumping
+	binary variable scopes.
+	[75bb6c3f4176]
+
+2011-08-29  Stephan Bosch  <stephan@rename-it.nl>
+
+	* NEWS, README:
+	Updated NEWS and README for next release.
+	[2b7f00ea1062]
+
+	* TODO:
+	Updated TODO.
+	[3901d10186e0]
+
+	* src/lib-sieve-tool/sieve-tool.c, src/lib-sieve/sieve-error.c, src
+	/lib-sieve/sieve-script.c:
+	sieve: fixed debug mode; no messages were logged in some situations.
+	[db043c016009]
+
+	* src/sieve-tools/sievec.c:
+	sievec: forgot to enable -D (debug) parameter.
+	[04b4edd4bf6e]
+
+2011-08-02  Stephan Bosch  <stephan@rename-it.nl>
+
+	* doc/vacation.txt, src/lib-sieve/plugins/vacation/cmd-vacation.c, src
+	/lib-sieve/plugins/vacation/ext-vacation-common.c, src/lib-
+	sieve/plugins/vacation/ext-vacation-common.h, src/testsuite
+	/testsuite-message.c, src/testsuite/testsuite-message.h,
+	src/testsuite/testsuite-objects.c,
+	tests/extensions/vacation/reply.svtest:
+	lib-sieve: vacation extension: finally added support for using the
+	original recipient in vacation address check.
+	[81f7acac82f2]
+
+	* src/lib-sieve/cmd-redirect.c:
+	lib-sieve: forgot to check for NULL recipient in previous change.
+	[efad75f779de]
+
+	* src/lib-sieve/cmd-redirect.c:
+	lib-sieve: added X-Sieve-Redirected-From header for people using
+	SPF/SRS.
+	[81b37c0055c3]
+
+2011-07-05  Stephan Bosch  <stephan@rename-it.nl>
+
+	* src/lib-sieve/plugins/include/cmd-global.c, src/lib-
+	sieve/plugins/include/ext-include-variables.c, src/lib-
+	sieve/plugins/variables/ext-variables-arguments.c, src/lib-
+	sieve/plugins/variables/ext-variables-name.c, src/lib-
+	sieve/plugins/variables/sieve-ext-variables.h,
+	tests/extensions/include/rfc-ex2-default.sieve:
+	lib-sieve: include extension: forgot to check variable identifier
+	syntax.
+	[08bbe5872576]
+
+2011-07-02  Stephan Bosch  <stephan@rename-it.nl>
+
+	* Merged concurrent changes.
+	[e9bb226739cb]
+
+	* TODO:
+	Updated TODO.
+	[b69e1c556ad4]
+
+	* NEWS, README:
+	Updated documentation.
+	[278efc729dc3]
+
+2011-06-29  Stephan Bosch  <stephan@rename-it.nl>
+
+	* src/lib-sieve/plugins/variables/ext-variables-common.c:
+	lib-sieve: variables extension: fixed -Wunused-but-set-variable
+	compiler warning.
+	[a720b0775fa5]
+
+2011-06-26  Stephan Bosch  <stephan@rename-it.nl>
+
+	* doc/rfc/ihave.rfc5463.txt:
+	Added ihave RFC to repository.
+	[ac0870035061]
+
+	* Makefile.am, src/lib-sieve/plugins/ihave/Makefile.am, src/lib-
+	sieve/plugins/ihave/cmd-error.c, src/lib-sieve/plugins/ihave/ext-
+	ihave-common.h, src/lib-sieve/plugins/ihave/ext-ihave.c, src/lib-
+	sieve/plugins/ihave/tst-ihave.c,
+	tests/extensions/ihave/errors.svtest,
+	tests/extensions/ihave/errors/error.sieve,
+	tests/extensions/ihave/restrictions.svtest:
+	lib-sieve: finished ihave extension.
+	[bdb94146c89c]
+
+	* TODO:
+	Updated TODO list.
+	[2eec49242135]
+
+	* Makefile.am, configure.in, src/lib-sieve/Makefile.am, src/lib-sieve
+	/cmd-require.c, src/lib-sieve/plugins/Makefile.am, src/lib-
+	sieve/plugins/ihave/Makefile.am, src/lib-sieve/plugins/ihave/ext-
+	ihave-binary.c, src/lib-sieve/plugins/ihave/ext-ihave-binary.h, src
+	/lib-sieve/plugins/ihave/ext-ihave-common.c, src/lib-
+	sieve/plugins/ihave/ext-ihave-common.h, src/lib-sieve/plugins/ihave
+	/ext-ihave.c, src/lib-sieve/plugins/ihave/tst-ihave.c, src/lib-sieve
+	/sieve-ast.c, src/lib-sieve/sieve-ast.h, src/lib-sieve/sieve-
+	extensions.c, src/lib-sieve/sieve-extensions.h, src/lib-sieve/sieve-
+	validator.c, src/lib-sieve/sieve-validator.h,
+	tests/extensions/ihave/execute.svtest,
+	tests/extensions/ihave/execute/ihave.sieve:
+	lib-sieve: implemented ihave extension.
+	[d6c207acbc8d]
+
+	* TODO, src/lib-sieve/cmd-discard.c, src/lib-sieve/cmd-if.c, src/lib-
+	sieve/cmd-keep.c, src/lib-sieve/cmd-redirect.c, src/lib-sieve/cmd-
+	require.c, src/lib-sieve/cmd-stop.c, src/lib-sieve/ext-envelope.c,
+	src/lib-sieve/ext-fileinto.c, src/lib-sieve/ext-reject.c, src/lib-
+	sieve/plugins/body/tst-body.c, src/lib-sieve/plugins/date/tst-
+	date.c, src/lib-sieve/plugins/enotify/cmd-notify.c, src/lib-
+	sieve/plugins/enotify/tst-notify-method-capability.c, src/lib-
+	sieve/plugins/enotify/tst-valid-notify-method.c, src/lib-
+	sieve/plugins/environment/tst-environment.c, src/lib-
+	sieve/plugins/imap4flags/cmd-flag.c, src/lib-
+	sieve/plugins/imap4flags/ext-imapflags.c, src/lib-
+	sieve/plugins/imap4flags/tst-hasflag.c, src/lib-
+	sieve/plugins/include/cmd-global.c, src/lib-sieve/plugins/include
+	/cmd-include.c, src/lib-sieve/plugins/include/cmd-return.c, src/lib-
+	sieve/plugins/mailbox/tst-mailboxexists.c, src/lib-
+	sieve/plugins/notify/cmd-denotify.c, src/lib-sieve/plugins/notify
+	/cmd-notify.c, src/lib-sieve/plugins/spamvirustest/tst-
+	spamvirustest.c, src/lib-sieve/plugins/vacation/cmd-vacation.c, src
+	/lib-sieve/plugins/variables/cmd-set.c, src/lib-
+	sieve/plugins/variables/tst-string.c, src/lib-
+	sieve/plugins/vnd.dovecot/debug/cmd-debug-log.c, src/lib-sieve
+	/sieve-commands.h, src/lib-sieve/sieve-validator.c, src/lib-sieve
+	/tst-address.c, src/lib-sieve/tst-allof.c, src/lib-sieve/tst-
+	anyof.c, src/lib-sieve/tst-exists.c, src/lib-sieve/tst-header.c, src
+	/lib-sieve/tst-not.c, src/lib-sieve/tst-size.c, src/lib-sieve/tst-
+	truefalse.c, src/testsuite/cmd-test-binary.c, src/testsuite/cmd-
+	test-config.c, src/testsuite/cmd-test-fail.c, src/testsuite/cmd-
+	test-mailbox.c, src/testsuite/cmd-test-message.c, src/testsuite/cmd-
+	test-result.c, src/testsuite/cmd-test-set.c, src/testsuite/cmd-
+	test.c, src/testsuite/tst-test-error.c, src/testsuite/tst-test-
+	multiscript.c, src/testsuite/tst-test-result-action.c, src/testsuite
+	/tst-test-result-execute.c, src/testsuite/tst-test-script-compile.c,
+	src/testsuite/tst-test-script-run.c, tests/control-if.svtest, tests
+	/test-allof.svtest, tests/test-anyof.svtest:
+	lib-sieve: optimized compilation of tests that yield constant
+	results (i.e. known at compile tme), such as true and false. If the
+	result of a test is known at compile time, it is optimized away. If
+	an if-command depends on an entirely constant test, it is optimized
+	away as well, causing only the 'true' sub-block to be compiled.
+	[cf3b58e583ec]
+
+2011-06-22  Stephan Bosch  <stephan@rename-it.nl>
+
+	* src/lib-sieve-tool/sieve-tool.c, src/sieve-tools/sieve-test.c,
+	src/testsuite/testsuite.c:
+	Sieve tools: started using mail_namespaces_init_location instead of
+	mail_namespaces_init_empty.
+	[b9050c63a238]
+
+	* src/lib-sieve/sieve-actions.c:
+	lib-sieve: made sure that flags and keywords are only checked when
+	the mailbox is actually opened.
+	[850d5748a115]
+
+	* tests/extensions/imap4flags/execute.svtest:
+	Finished testsuite item for the imap4flags extension.
+	[9b3368611f32]
+
+2011-06-21  Stephan Bosch  <stephan@rename-it.nl>
+
+	* doc/man/sieve-dump.1.in, doc/man/sieve-filter.1.in, doc/man/sieve-
+	test.1.in, doc/man/sievec.1.in:
+	Fixed a few minor textual problems in the manual pages.
+	[de8753dad82f]
+
+2011-06-06  Stephan Bosch  <stephan@rename-it.nl>
+
+	* Makefile.am, configure.in, doc/man/sieve-test.1.in, src/lib-
+	sieve/Makefile.am, src/lib-sieve/plugins/Makefile.am, src/lib-
+	sieve/plugins/vnd.dovecot/Makefile.am, src/lib-
+	sieve/plugins/vnd.dovecot/debug/Makefile.am, src/lib-
+	sieve/plugins/vnd.dovecot/debug/cmd-debug-log.c, src/lib-
+	sieve/plugins/vnd.dovecot/debug/ext-debug-common.h, src/lib-
+	sieve/plugins/vnd.dovecot/debug/ext-debug.c, src/lib-sieve/sieve-
+	extensions.c, src/lib-sieve/sieve-extensions.h, src/sieve-
+	tools/Makefile.am, src/sieve-tools/debug/Makefile.am, src/sieve-
+	tools/debug/cmd-debug-print.c, src/sieve-tools/debug/ext-debug-
+	common.h, src/sieve-tools/debug/ext-debug.c, src/sieve-tools/debug
+	/sieve-ext-debug.h, src/sieve-tools/sieve-dump.c, src/sieve-tools
+	/sieve-filter.c, src/sieve-tools/sieve-test.c, src/sieve-
+	tools/sievec.c, src/testsuite/testsuite-log.c,
+	tests/extensions/vnd.dovecot/debug/execute.svtest:
+	Made vnd.dovecot.debug extension available to the LDA plugin instead
+	of only the command line tools.
+	[9d328e6732ff]
+
+2011-05-11  Stephan Bosch  <stephan@rename-it.nl>
+
+	* src/lib-sievestorage/sieve-storage.c, src/managesieve/managesieve-
+	client.c:
+	Sieve Storage: improved handling of unconfigured user home
+	directory.
+	[560057691dac]
+
+2011-05-10  Stephan Bosch  <stephan@rename-it.nl>
+
+	* src/lib-sieve/sieve-extensions.c, src/lib-sieve/sieve-extensions.h,
+	src/lib-sieve/sieve-validator.c:
+	Imap4flags: previous change was inadequate.
+	[cc25d9fa8183]
+
+2011-05-09  Stephan Bosch  <stephan@rename-it.nl>
+
+	* src/lib-sieve/plugins/imap4flags/ext-imapflags.c, src/lib-
+	sieve/plugins/vacation/ext-vacation-seconds.c, src/lib-sieve/sieve-
+	extensions.c, src/lib-sieve/sieve-extensions.h:
+	Imap4flags: prevent forcibly enabling imap4flags when imapflags is
+	enabled.
+	[ef58ace33b47]
+
 2011-04-14  Stephan Bosch  <stephan@rename-it.nl>
+
+	* .hgsigs:
+	Added signature for changeset 3ab2a125e1e2
+	[42497f1c37ff]
+
+	* .hgtags:
+	Added tag 0.2.3 for changeset 3ab2a125e1e2
+	[ae64daced5b1]
+
+	* configure.in:
+	Released v0.2.3 for Dovecot v2.0.12.
+	[3ab2a125e1e2] [0.2.3]
 
 	* NEWS:
 	Prepared NEWS file for next release.
-	[cbb671878b87] [tip]
+	[cbb671878b87]
 
 	* INSTALL:
 	Small changes to the INSTALL file regarding configuration of

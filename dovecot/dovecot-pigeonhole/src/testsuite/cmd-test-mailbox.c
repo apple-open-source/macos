@@ -33,7 +33,8 @@ const struct sieve_command_def cmd_test_mailbox_create = {
 	SCT_COMMAND, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL,
-	cmd_test_mailbox_validate, 
+	cmd_test_mailbox_validate,
+	NULL,
 	cmd_test_mailbox_generate, 
 	NULL 
 };
@@ -49,7 +50,8 @@ const struct sieve_command_def cmd_test_mailbox_delete = {
 	SCT_COMMAND, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL,
-	cmd_test_mailbox_validate, 
+	cmd_test_mailbox_validate,
+	NULL,
 	cmd_test_mailbox_generate, 
 	NULL 
 };

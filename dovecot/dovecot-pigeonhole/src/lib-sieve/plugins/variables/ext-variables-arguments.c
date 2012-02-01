@@ -343,19 +343,19 @@ static bool _sieve_variable_argument_activate
 	bool result = FALSE;
 	string_t *variable;
 	const char *varstr, *varend;
-	ARRAY_TYPE(sieve_variable_name) vname;	
+	ARRAY_TYPE(sieve_variable_name) vname;
 	int nelements = 0;
 
 	T_BEGIN {
-		t_array_init(&vname, 2);			
-	
+		t_array_init(&vname, 2);
+
 		variable = sieve_ast_argument_str(arg);
 		varstr = str_c(variable);
 		varend = PTR_OFFSET(varstr, str_len(variable));
 		nelements = ext_variable_name_parse(&vname, &varstr, varend);
 
-		/* Check whether name parsing succeeded */	
-		if ( nelements < 0 || varstr != varend ) {
+		/* Check whether name parsing succeeded */
+		if ( nelements <= 0 || varstr != varend ) {
 			/* Parse failed */
 			sieve_argument_validate_error(valdtr, arg, 
 				"invalid variable name '%s'", str_sanitize(str_c(variable),80));

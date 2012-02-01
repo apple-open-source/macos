@@ -93,7 +93,7 @@ bool Requirement::Interpreter::evaluate()
 	case opTrue:
 		return true;
 	case opIdent:
-		return getString() == mContext->directory->identifier();
+		return mContext->directory && getString() == mContext->directory->identifier();
 	case opAppleAnchor:
 		return appleSigned();
 	case opAppleGenericAnchor:
@@ -113,11 +113,12 @@ bool Requirement::Interpreter::evaluate()
 	case opOr:
 		return evaluate() | evaluate();
 	case opCDHash:
-		{
+		if (mContext->directory) {
 			SHA1 hash;
 			hash(mContext->directory, mContext->directory->length());
 			return hash.verify(getHash());
-		}
+		} else
+			return false;
 	case opNot:
 		return !evaluate();
 	case opInfoKeyField:
@@ -220,10 +221,16 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 		{ "subject.CN", &CSSMOID_CommonName },
 		{ "subject.D", &CSSMOID_Description },
 		{ "subject.L", &CSSMOID_LocalityName },
+//		{ "subject.C-L", &CSSMOID_CollectiveLocalityName },	// missing from Security.framework headers
 		{ "subject.O", &CSSMOID_OrganizationName },
+		{ "subject.C-O", &CSSMOID_CollectiveOrganizationName },
 		{ "subject.OU", &CSSMOID_OrganizationalUnitName },
+		{ "subject.C-OU", &CSSMOID_CollectiveOrganizationalUnitName },
 		{ "subject.ST", &CSSMOID_StateProvinceName },
+		{ "subject.C-ST", &CSSMOID_CollectiveStateProvinceName },
 		{ "subject.STREET", &CSSMOID_StreetAddress },
+		{ "subject.C-STREET", &CSSMOID_CollectiveStreetAddress },
+		{ "subject.UID", &CSSMOID_UserID },
 		{ NULL, NULL }
 	};
 	
@@ -232,7 +239,7 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 		if (cf->name == key) {
 			CFRef<CFStringRef> value;
 			if (OSStatus rc = SecCertificateCopySubjectComponent(cert, cf->oid, &value.aref())) {
-				secdebug("csinterp", "cert %p lookup for DN.%s failed rc=%ld", cert, key.c_str(), rc);
+				secdebug("csinterp", "cert %p lookup for DN.%s failed rc=%d", cert, key.c_str(), rc);
 				return false;
 			}
 			return match(value);
@@ -242,7 +249,7 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 	if (key == "email") {
 		CFRef<CFArrayRef> value;
 		if (OSStatus rc = SecCertificateCopyEmailAddresses(cert, &value.aref())) {
-			secdebug("csinterp", "cert %p lookup for email failed rc=%ld", cert, rc);
+			secdebug("csinterp", "cert %p lookup for email failed rc=%d", cert, rc);
 			return false;
 		}
 		return match(value);

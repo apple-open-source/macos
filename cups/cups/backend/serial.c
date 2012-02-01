@@ -1,5 +1,5 @@
 /*
- * "$Id: serial.c 7647 2008-06-16 17:39:40Z mike $"
+ * "$Id: serial.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   Serial port backend for CUPS.
  *
@@ -1323,5 +1323,5 @@ side_cb(int print_fd,			/* I - Print file */
 
 
 /*
- * End of "$Id: serial.c 7647 2008-06-16 17:39:40Z mike $".
+ * End of "$Id: serial.c 9793 2011-05-20 03:49:49Z mike $".
  */

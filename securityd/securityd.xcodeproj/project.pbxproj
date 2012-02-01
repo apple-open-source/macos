@@ -23,6 +23,7 @@
 			buildConfigurationList = AA6D4B860E6F3B8D0050206D /* Build configuration list for PBXAggregateTarget "startup" */;
 			buildPhases = (
 				AA6D4B800E6F3B210050206D /* ShellScript */,
+				18CD1CEB1460A7F100F7D110 /* Run Script (install /etc/authorization.merge) */,
 			);
 			dependencies = (
 			);
@@ -172,6 +173,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		18CD1CEC1460A80A00F7D110 /* authmerge.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = authmerge.sh; sourceTree = "<group>"; };
 		405845650663B2010083E58C /* AuthorizationMechEval.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AuthorizationMechEval.cpp; sourceTree = "<group>"; };
 		405845660663B2010083E58C /* AuthorizationMechEval.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AuthorizationMechEval.h; sourceTree = "<group>"; };
 		40689F840725DCE00021A502 /* authhost.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = authhost.h; sourceTree = "<group>"; };
@@ -334,6 +336,7 @@
 		4CD8CCBB055884E0006B3584 /* Other Installs */ = {
 			isa = PBXGroup;
 			children = (
+				18CD1CEC1460A80A00F7D110 /* authmerge.sh */,
 				C26FB2650BC2C3A300D8EFC8 /* com.apple.securityd.plist */,
 				4CD8CCBC055884E0006B3584 /* authorization.plist */,
 				4CD8CCBD055884E0006B3584 /* CodeEquivalenceCandidates */,
@@ -694,6 +697,20 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		18CD1CEB1460A7F100F7D110 /* Run Script (install /etc/authorization.merge) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script (install /etc/authorization.merge)";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "${SRCROOT}/etc/authmerge.sh";
+		};
 		AA6D4B790E6F3A910050206D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -974,7 +991,7 @@
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 55016;
+				CURRENT_PROJECT_VERSION = 55111;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,
@@ -1024,11 +1041,10 @@
 				ARCHS = x86_64;
 				BUILD_VARIANTS = (
 					normal,
-					debug,
 				);
 				COPY_PHASE_STRIP = "(null)";
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 55016;
+				CURRENT_PROJECT_VERSION = 55111;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
@@ -1079,7 +1095,7 @@
 				BUILD_VARIANTS = normal;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 55016;
+				CURRENT_PROJECT_VERSION = 55111;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,
@@ -1129,11 +1145,10 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUILD_VARIANTS = (
 					normal,
-					debug,
 				);
 				COPY_PHASE_STRIP = "(null)";
 				CSSM_HEADERS = "";
-				CURRENT_PROJECT_VERSION = 55016;
+				CURRENT_PROJECT_VERSION = 55111;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,

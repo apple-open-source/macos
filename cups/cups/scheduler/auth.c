@@ -1,5 +1,5 @@
 /*
- * "$Id: auth.c 8160 2008-12-06 00:13:31Z mike $"
+ * "$Id: auth.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   Authorization routines for the CUPS scheduler.
  *
@@ -2078,7 +2078,7 @@ cupsdIsAuthorized(cupsd_client_t *con,	/* I - Connection */
         return (HTTP_OK);
     }
 
-    return (HTTP_FORBIDDEN);
+    return (con->username[0] ? HTTP_FORBIDDEN : HTTP_UNAUTHORIZED);
   }
 
  /*
@@ -2117,7 +2117,7 @@ cupsdIsAuthorized(cupsd_client_t *con,	/* I - Connection */
   cupsdLogMessage(CUPSD_LOG_DEBUG,
                   "cupsdIsAuthorized: User not in group(s)!");
 
-  return (HTTP_FORBIDDEN);
+  return (con->username[0] ? HTTP_FORBIDDEN : HTTP_UNAUTHORIZED);
 }
 
 
@@ -2582,5 +2582,5 @@ to64(char          *s,			/* O - Output string */
 
 
 /*
- * End of "$Id: auth.c 8160 2008-12-06 00:13:31Z mike $".
+ * End of "$Id: auth.c 9793 2011-05-20 03:49:49Z mike $".
  */

@@ -43,6 +43,8 @@ Bugs/Issues
  * With Xen you should run ntpd only in dom0. Other domains should synchronize
    time automatically (see this Xen FAQ [http://xen.epiuse.com/xen-faq.txt] and
    this thread [http://dovecot.org/list/dovecot/2009-October/043301.html]).
+ * With Vmware you follow the guidlines at the Vmware knowledge base
+   [http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1006427].
  * Time moved backwards by 4398 seconds
    [http://www.dovecot.org/list/dovecot/2008-June/031548.html]? Buggy
    kernel/hardware.
@@ -86,4 +88,4 @@ a while is to avoid problems related to timestamps. Some issues are:
 While killing mail processes doesn't fully solve any of those issues, they're
 at least less likely to happen then.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

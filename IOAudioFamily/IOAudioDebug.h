@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,7 @@
 #define _IOAUDIODEBUG_H
 
 #ifdef DEBUG
-	#define DEBUG_LEVEL 1
+	#define DEBUG_LEVEL 3						//<rdar://problem/9725460>
 	//#define DEBUG_USE_FIRELOG 1
 	#define DEBUG_USE_FIREWIRE_KPRINTF 1
 	

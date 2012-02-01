@@ -1,5 +1,5 @@
 AC_PREREQ([2.59])
-AC_INIT([Dovecot],[2.0.13apple1],[dovecot@dovecot.org])
+AC_INIT([Dovecot],[2.0.16apple1],[dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AM_INIT_AUTOMAKE([foreign])
@@ -257,13 +257,19 @@ AS_HELP_STRING([--with-gc], [Use Boehm garbage collector]),
   want_gc=no)
 
 AC_ARG_WITH(storages,
-AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (maildir mbox sdbox mdbox cydir)]), [
+AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (mdbox sdbox maildir mbox cydir)]), [
 	if test "$withval" = "yes" || test "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
 	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
-	mail_storages="shared maildir mbox sdbox mdbox cydir")
+	mail_storages="shared mdbox sdbox maildir mbox cydir")
 AC_SUBST(mail_storages)
+mail_storages="$mail_storages raw"
+# drop duplicates
+duplicates=`(for i in $mail_storages; do echo $i; done)|sort|uniq -d|xargs echo`
+if test "$duplicates" != ""; then
+  AC_ERROR([Duplicate --with-storages: $duplicates])
+fi
 
 DC_DOVECOT_MODULEDIR
 
@@ -2408,9 +2414,6 @@ CORE_LIBS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
 STORAGE_LIB='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
 
 LINKED_STORAGE_LIBS=
-mail_storages="$mail_storages raw"
-# drop duplicates
-mail_storages=`(for i in $mail_storages; do echo $i; done)|sort|uniq|xargs echo`
 have_sdbox=no
 for storage in $mail_storages; do
   LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS `eval echo \\$${storage}_libs`"
@@ -2659,6 +2662,7 @@ src/lmtp/Makefile
 src/dict/Makefile
 src/director/Makefile
 src/dns/Makefile
+src/ipc/Makefile
 src/imap/Makefile
 src/imap-login/Makefile
 src/login-common/Makefile

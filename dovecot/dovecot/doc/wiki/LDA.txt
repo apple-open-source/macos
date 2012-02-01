@@ -29,20 +29,20 @@ Main features of Dovecot LDA
 Common configuration
 --------------------
 
-The configuration is done in the /protocol lda/ section in 'dovecot.conf'. The
-important settings are:
+The configuration is done in conf.d/15-lda.conf file. The important settings
+are:
 
  * 'postmaster_address' is used as the From: header address in bounce mails
  * 'hostname' is used in generated Message-IDs and in Reporting-UA: header in
    bounce mails
  * 'sendmail_path' is used to send mails. Note that the default is
-   '/usr/lib/sendmail', which doesn't necessarily work the same as
-   '/usr/sbin/sendmail'.
+   '/usr/sbin/sendmail', which doesn't necessarily work the same as
+   '/usr/lib/sendmail'.
  * 'auth_socket_path' specifies the UNIX socket to auth-userdb where LDA can
    lookup userdb information when '-d' parameter is used. See below how to
    configure Dovecot to configure the socket.
 
-Note that 'dovecot.conf' file must be world readable to enable dovecot-lda
+Note that 15-lda.conf  file must be world readable to enable dovecot-lda
 process read it, while running with user privileges.
 
 Parameters
@@ -287,4 +287,4 @@ Plugins
  * Sieve language support can be added with the <Pigeonhole Sieve plugin>
    [Pigeonhole.Sieve.txt].
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

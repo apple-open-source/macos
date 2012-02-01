@@ -47,6 +47,7 @@ type OSStatus = int32_t;
 //
 routine ocspdFetch(
 	requestport serverport : mach_port_t;
+	serveraudittoken sourceAudit: audit_token_t;
 	in ocsp_req : Data;		
 	out ocsp_rep : Data);
 	

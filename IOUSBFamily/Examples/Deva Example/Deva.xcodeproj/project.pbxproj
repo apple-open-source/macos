@@ -126,7 +126,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0420;
 			};
 			buildConfigurationList = 3EEA302C08D71E48002CBB49 /* Build configuration list for PBXProject "Deva" */;
 			compatibilityVersion = "Xcode 3.2";

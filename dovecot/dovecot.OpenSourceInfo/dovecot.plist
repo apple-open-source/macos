@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-05-11</string>
+		<string>2011-11-16</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT &amp; LGPL</string>
 		<key>OpenSourceLicenseFile</key>
@@ -23,15 +23,15 @@
 		<key>OpenSourceSHA1</key>
 		<string></string>
 		<key>OpenSourceURL</key>
-		<string>http://dovecot.org/releases/2.0/dovecot-2.0.13.tar.gz</string>
+		<string>http://dovecot.org/releases/2.0/dovecot-2.0.16.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>Released v2.0.13</string>
+		<string>Released v2.0.16</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.dovecot.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-04-14</string>
+		<string>2011-11-28</string>
 		<key>OpenSourceLicense</key>
 		<string>LGPL</string>
 		<key>OpenSourceLicenseFile</key>
@@ -44,9 +44,9 @@
 		<key>OpenSourceSHA1</key>
 		<string></string>
 		<key>OpenSourceURL</key>
-		<string>http://www.rename-it.nl/dovecot/2.0/dovecot-2.0-pigeonhole-0.2.3.tar.gz</string>
+		<string>http://www.rename-it.nl/dovecot/2.0/dovecot-2.0-pigeonhole-0.2.5.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>Released v0.2.3</string>
+		<string>Released v0.2.5</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://pigeonhole.dovecot.org/</string>
 	</dict>

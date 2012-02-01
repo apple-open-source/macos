@@ -1,5 +1,5 @@
 dnl
-dnl "$Id$"
+dnl "$Id: cups-3264.m4 9771 2011-05-12 05:21:56Z mike $"
 dnl
 dnl   32/64-bit library support stuff for CUPS.
 dnl
@@ -136,5 +136,5 @@ case "$uname" in
 esac
 
 dnl
-dnl End of "$Id$".
+dnl End of "$Id: cups-3264.m4 9771 2011-05-12 05:21:56Z mike $".
 dnl

@@ -19,14 +19,37 @@
 static bool tst_anyof_generate	
 	(const struct sieve_codegen_env *cgenv, struct sieve_command *ctx,
 		struct sieve_jumplist *jumps, bool jump_true);
+static bool tst_anyof_validate_const
+	(struct sieve_validator *valdtr, struct sieve_command *tst,
+		int *const_current, int const_next);
 
 const struct sieve_command_def tst_anyof = { 
 	"anyof", 
 	SCT_TEST, 
 	0, 2, FALSE, FALSE,
-	NULL, NULL, NULL, NULL, 
+	NULL, NULL, NULL,
+	tst_anyof_validate_const,
+	NULL,
 	tst_anyof_generate 
 };
+
+/*
+ * Code validation
+ */
+
+static bool tst_anyof_validate_const
+(struct sieve_validator *valdtr ATTR_UNUSED,
+	struct sieve_command *tst ATTR_UNUSED, int *const_current, int const_next)
+{
+	if ( const_next > 0 ) {
+		*const_current = 1;
+		return FALSE;
+	}
+
+	if ( *const_current != -1 )
+		*const_current = const_next;
+	return TRUE;
+}
 
 /* 
  * Code generation 
@@ -75,9 +98,9 @@ static bool tst_anyof_generate
 		}
 	} else {
 		/* Script author is being inefficient; we can optimize the allof test away */
-        test = sieve_ast_test_first(ctx->ast_node);
-        sieve_generate_test(cgenv, test, jumps, jump_true);
-    }		
+		test = sieve_ast_test_first(ctx->ast_node);
+		sieve_generate_test(cgenv, test, jumps, jump_true);
+	}		
 		
 	return TRUE;
 }

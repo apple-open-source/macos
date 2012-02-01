@@ -1,5 +1,5 @@
 /*
- * "$Id: parallel.c 7810 2008-07-29 01:11:15Z mike $"
+ * "$Id: parallel.c 9774 2011-05-12 06:15:14Z mike $"
  *
  *   Parallel port backend for CUPS.
  *
@@ -672,5 +672,5 @@ side_cb(int         print_fd,		/* I - Print file */
 
 
 /*
- * End of "$Id: parallel.c 7810 2008-07-29 01:11:15Z mike $".
+ * End of "$Id: parallel.c 9774 2011-05-12 06:15:14Z mike $".
  */

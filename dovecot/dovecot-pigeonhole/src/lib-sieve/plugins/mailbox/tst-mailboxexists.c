@@ -34,7 +34,8 @@ const struct sieve_command_def mailboxexists_test = {
 	SCT_TEST, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL,
-	tst_mailboxexists_validate, 
+	tst_mailboxexists_validate,
+	NULL, 
 	tst_mailboxexists_generate, 
 	NULL 
 };

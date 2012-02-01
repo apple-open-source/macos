@@ -92,4 +92,4 @@ the default, and most clients can work with it, but Outlook Express needs the
 
  * http://archives.neohapsis.com/archives/postfix/2000-11/0881.html
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

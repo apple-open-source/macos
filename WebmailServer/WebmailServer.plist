@@ -6,23 +6,24 @@
 		<key>OpenSourceProject</key>
 		<string>roundcubemail</string>
 		<key>OpenSourceVersion</key>
-		<string>0.5.3</string>
+		<string>0.6</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://roundcube.net/</string>
 		<key>OpenSourceMD5</key>
-		<string>1575517c7d264439eb9f236e5e3e78d7</string>
+		<string>bdb9039d6fb95614a609aa1cb6476cf9</string>
 		<key>OpenSourceURL</key>
-		<string>http://cdnetworks-us-1.dl.sourceforge.net/project/roundcubemail/roundcubemail/0.5.3/roundcubemail-0.5.3.tar.gz</string>
+		<string>http://cdnetworks-us-1.dl.sourceforge.net/project/roundcubemail/roundcubemail/0.6/roundcubemail-0.6.tar.gz</string>
 		<key>OpenSourceSHA1</key>
-		<string>68c59e90f55f5e9ded2dc374f6d48800d4c4d63e</string>
+		<string>304a888554a54817ffcd13c20adc46368d18935a</string>
 		<key>OpenSourceImportDate</key>
-		<string>2011-06-08</string>
+		<string>2011-08-16</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Patch db.inc.php to bring in a config override script</string>
 			<string>Patch several scripts to avoid saving password in file</string>
 			<string>UI Refinements</string>
 			<string>IPv6 support</string>
+			<string>Additional localizations</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>GPL</string>

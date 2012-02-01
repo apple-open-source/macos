@@ -1,10 +1,10 @@
 /*
- * "$Id: dbus.c 3049 2011-03-14 19:16:09Z msweet $"
+ * "$Id: dbus.c 3453 2011-10-04 07:01:41Z msweet $"
  *
  *   D-Bus notifier for CUPS.
  *
  *   Copyright 2008-2010 by Apple Inc.
- *   Copyright (C) 2007 Red Hat, Inc.
+ *   Copyright (C) 2011 Red Hat, Inc.
  *   Copyright (C) 2007 Tim Waugh <twaugh@redhat.com>
  *   Copyright 1997-2005 by Easy Software Products.
  *
@@ -353,7 +353,7 @@ main(int  argc,				/* I - Number of command-line args */
     /*
      * Create and send the new message...
      */
-    
+
     fprintf(stderr, "DEBUG: %s\n", signame);
     message = dbus_message_new_signal("/org/cups/cupsd/Notifier",
 				      "org.cups.cupsd.Notifier",
@@ -423,10 +423,11 @@ main(int  argc,				/* I - Number of command-line args */
 	  p = printer_reasons;
 	  for (i = 0; i < attr->num_values; i++)
 	  {
-	    strcpy(p, attr->values[i].string.text);
-	    p += strlen(p);
 	    if (i)
 	      *p++ = ',';
+
+	    strcpy(p, attr->values[i].string.text);
+	    p += strlen(p);
 	  }
 	  dbus_message_iter_append_string(&iter, &printer_reasons);
 	}
@@ -548,5 +549,5 @@ acquire_lock(int    *fd,		/* O - Lock file descriptor */
 
 
 /*
- * End of "$Id: dbus.c 3049 2011-03-14 19:16:09Z msweet $".
+ * End of "$Id: dbus.c 3453 2011-10-04 07:01:41Z msweet $".
  */

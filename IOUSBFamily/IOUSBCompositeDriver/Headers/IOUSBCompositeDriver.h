@@ -67,6 +67,8 @@ class IOUSBCompositeDriver : public IOService
     
     struct IOUSBCompositeDriverExpansionData 
     {
+		bool			fIssueRemoteWakeup;
+		bool			fRemoteWakeupIssued;
     };
     
     IOUSBCompositeDriverExpansionData * fIOUSBCompositeExpansionData;
@@ -77,7 +79,9 @@ public:
         
 		// IOService Methods
 		//
-		virtual bool            start(IOService * provider);
+	virtual bool			init( OSDictionary *  propTable );
+	virtual	void			free();
+    virtual bool            start(IOService * provider);
     virtual IOReturn        message( UInt32 type, IOService * provider,  void * argument = 0 );
     virtual bool            willTerminate( IOService * provider, IOOptionBits options );
     virtual bool            didTerminate( IOService * provider, IOOptionBits options, bool * defer );

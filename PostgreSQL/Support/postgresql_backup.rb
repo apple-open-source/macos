@@ -41,6 +41,7 @@ class PostgreSQLTool < BackupTool
 	# Constants
 	#
 	BACKUP_DIR = "/Library/Server/PostgreSQL/Backup"
+	BACKUP_FILE_UNCOMPRESSED = "dumpall.psql"
 	BACKUP_FILE = "dumpall.psql.gz"
 	DB_DIR = "/private/var/pgsql"
 	SECRET_DIR = "/.ServerBackups/postgresql"
@@ -100,6 +101,12 @@ class PostgreSQLTool < BackupTool
 		unless (@options && @options[:path] && @options[:dataset])
 			raise OptionParser::InvalidArgument, "Missing arguments for 'backup'."
 		end
+		# Only attempt backup if the service is running
+		state = false
+		self.launch("/usr/sbin/serveradmin status postgres") do |output|
+			state = ((/RUNNING/ =~ output) != nil)
+		end
+		orig_state = state
 		$log.debug("@options = #{@options.inspect}")
 		archive_dir = @options[:path]
 		unless (archive_dir[0] == ?/)
@@ -113,6 +120,7 @@ class PostgreSQLTool < BackupTool
 		# on the live data volume
 		archive_dir = self.backupDir
 		dump_file = "#{archive_dir}/#{BACKUP_FILE}"
+		dump_file_uncompressed = "#{archive_dir}/#{BACKUP_FILE_UNCOMPRESSED}"
 		# Create the backup directory as necessary.
 		unless File.directory?(archive_dir)
 			if File.exists?(archive_dir)
@@ -127,14 +135,55 @@ class PostgreSQLTool < BackupTool
 		# Backup only once a day
 		mod_time = File.exists?(dump_file) ? File.mtime(dump_file) : Time.at(0)
 		if (Time.now - mod_time) >= (24 * 60 * 60)
+			# Attempt to start the service if needed
+			if (! state)
+				self.launch("/usr/sbin/serveradmin start postgres") do |output|
+					state = ((/RUNNING/ =~ output) != nil)
+				end
+			end
+			if (! state)
+				$log.info "PostgreSQL is not running, skipping database backup"
+				return
+			end
+
 			$log.info "Creating dump file \'#{dump_file}\'..."
-			system("/usr/bin/sudo -u _postgres /usr/bin/pg_dumpall | /usr/bin/gzip > #{dump_file.shellescape}")
-			if ($?.exitstatus == 0)
-				File.chmod(0640, dump_file)
-				File.chown(216, 216, dump_file)
-				$log.info "...Backup succeeded."
+			system("/usr/bin/sudo -u _postgres /usr/bin/pg_dumpall > #{dump_file_uncompressed.shellescape}")
+			if ($?.exitstatus != 0)
+				$log.error "...Backup failed on pg_dumpall, Status=#{$?.exitstatus}"
 			else
-				$log.error "...Backup failed! Status=#{$?.exitstatus}"
+				system("/usr/bin/gzip #{dump_file_uncompressed.shellescape}")				
+				if ($?.exitstatus == 0)
+					File.chmod(0640, dump_file)
+					File.chown(216, 216, dump_file)
+					$log.info "...Backup succeeded."
+				else
+					$log.error "...Backup failed on gzip! Status=#{$?.exitstatus}"
+				end
+			end
+
+			# Restore original service state
+			if (! orig_state)
+				# What if a dependent service was launched while we were backing up?  We
+				# don't want to shut down postgres in that case.
+				wiki_state = false
+				calendar_state = false
+				addressbook_state = false
+				devicemgr_state = false
+				self.launch("/usr/sbin/serveradmin status wiki") do |output|
+					wiki_state = ((/RUNNING/ =~ output) != nil)
+				end
+				self.launch("/usr/sbin/serveradmin status calendar") do |output|
+					calendar_state = ((/RUNNING/ =~ output) != nil)
+				end
+				self.launch("/usr/sbin/serveradmin status addressbook") do |output|
+					addressbook_state = ((/RUNNING/ =~ output) != nil)
+				end
+				self.launch("/usr/sbin/serveradmin status devicemgr") do |output|
+					devicemgr_state = ((/RUNNING/ =~ output) != nil)
+				end
+				if (! (wiki_state || calendar_state || addressbook_state || devicemgr_state))
+					self.launch("/usr/sbin/serveradmin stop postgres")
+				end
 			end
 		else
 			$log.info "Dump file is less than 24 hours old; skipping."

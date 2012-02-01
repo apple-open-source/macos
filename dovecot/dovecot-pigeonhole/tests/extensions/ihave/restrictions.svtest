@@ -1,0 +1,14 @@
+require "vnd.dovecot.testsuite";
+require "ihave";
+
+test "Restricted: encoded-character" {
+	if ihave "encoded-character" {
+		test_fail "encoded-character extension is incompatible with ihave";
+	}
+}
+
+test "Restricted: variables" {
+	if ihave "variables" {
+		test_fail "variables extension is incompatible with ihave";
+	}
+}

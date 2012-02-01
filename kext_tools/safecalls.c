@@ -219,7 +219,7 @@ finish:
     return bsderr;
 }
 
-// have to rely on schdirparent so we don't accidentally O_CREAT
+// schdirparent() ensures O_CREAT will occur on right volume
 int sopen(int fdvol, const char *path, int flags, mode_t mode /*'...' fancier*/)
 {
     int rfd = -1;

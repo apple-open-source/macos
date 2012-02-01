@@ -1,5 +1,5 @@
 .\"
-.\" "$Id: ppdcfile.man 7607 2008-05-21 01:06:23Z mike $"
+.\" "$Id: ppdcfile.man 9771 2011-05-12 05:21:56Z mike $"
 .\"
 .\"   ppdcfile man page for CUPS.
 .\"
@@ -167,5 +167,5 @@ http://localhost:631/help
 .SH COPYRIGHT
 Copyright 2007-2011 by Apple Inc.
 .\"
-.\" End of "$Id: ppdcfile.man 7607 2008-05-21 01:06:23Z mike $".
+.\" End of "$Id: ppdcfile.man 9771 2011-05-12 05:21:56Z mike $".
 .\"

@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.h 7847 2008-08-19 04:22:14Z mike $"
+ * "$Id: ipp.h 9861 2011-08-02 17:28:53Z mike $"
  *
  *   Internet Printing Protocol definitions for CUPS.
  *
@@ -73,6 +73,7 @@ typedef enum ipp_tag_e			/**** Format tags for attributes ****/
   IPP_TAG_UNSUPPORTED_GROUP,		/* Unsupported attributes group */
   IPP_TAG_SUBSCRIPTION,			/* Subscription group */
   IPP_TAG_EVENT_NOTIFICATION,		/* Event group */
+  IPP_TAG_DOCUMENT = 0x09,		/* Document group */
   IPP_TAG_UNSUPPORTED_VALUE = 0x10,	/* Unsupported value */
   IPP_TAG_DEFAULT,			/* Default value */
   IPP_TAG_UNKNOWN,			/* Unknown value */
@@ -241,6 +242,7 @@ typedef enum ipp_op_e			/**** IPP operations ****/
   IPP_CANCEL_MY_JOBS,			/* Cancel-My-Jobs */
   IPP_RESUBMIT_JOB,			/* Resubmit-Job */
   IPP_CLOSE_JOB,			/* Close-Job */
+  IPP_IDENTIFY_PRINTER,			/* Identify-Printer (proposed IPP JPS3) */
   IPP_PRIVATE = 0x4000,			/* Reserved @private@ */
   CUPS_GET_DEFAULT,			/* Get the default printer */
   CUPS_GET_PRINTERS,			/* Get a list of printers and/or classes */
@@ -312,6 +314,8 @@ typedef enum ipp_status_e		/**** IPP status codes ****/
   IPP_ERROR_JOB_CANCELED,		/* server-error-job-canceled */
   IPP_MULTIPLE_JOBS_NOT_SUPPORTED,	/* server-error-multiple-document-jobs-not-supported */
   IPP_PRINTER_IS_DEACTIVATED,		/* server-error-printer-is-deactivated */
+  IPP_TOO_MANY_JOBS,			/* server-error-too-many-jobs */
+  IPP_TOO_MANY_DOCUMENTS,		/* server-error-too-many-documents */
 
   IPP_AUTHENTICATION_CANCELED = 0x1000,	/* Authentication canceled by user @since CUPS 1.5/Mac OS X 10.7@ */
   IPP_PKI_ERROR,			/* Error negotiating a secure connection @since CUPS 1.5/Mac OS X 10.7@ */
@@ -514,5 +518,5 @@ extern ipp_tag_t	ippTagValue(const char *name) _CUPS_API_1_4;
 #endif /* !_CUPS_IPP_H_ */
 
 /*
- * End of "$Id: ipp.h 7847 2008-08-19 04:22:14Z mike $".
+ * End of "$Id: ipp.h 9861 2011-08-02 17:28:53Z mike $".
  */

@@ -17,7 +17,8 @@ with the newly generated one.
 Once running v2.0, it's safe to downgrade to v1.2.5 or newer. Older versions
 don't understand some of the changes to index files and will log errors.
 
-Other important changes:
+Permission related changes
+--------------------------
 
  * Dovecot uses two system users for internal purposes now by default:
    "dovenull" and "dovecot". You need to create the "dovenull" user or change
@@ -29,9 +30,20 @@ Other important changes:
     * Just like with "dovecot" user, "dovenull" doesn't need a password, home
       directory or anything else (but it's good to give it its own private
       "dovenull" group).
- * no more convert plugin, use <dsync> [Tools.Dsync.txt] instead
- * no more expire-tool, use <doveadm expunge> [Plugins.Expire.txt] instead.
-   also expire configuration is different.
+ * "auth-master" socket related configuration should be replaced with
+   "auth-userdb" socket everywhere (auth-master should still work, but it gives
+   more permissions than necessary)
+ * If you get any kind of "permission denied" errors related to UNIX sockets,
+   you can change their permissions from 'service { unix_listener { ... } } '
+   blocks. See 'example-config/conf.d/10-master.conf' for examples or 'doveconf
+   -a' output for their current values.
+
+Other major changes
+-------------------
+
+ * No more convert plugin, use <dsync> [Tools.Dsync.txt] instead
+ * No more expire-tool, use <doveadm expunge> [Plugins.Expire.txt] instead.
+   Also expire configuration is different.
  * <Post-login scripts are configured differently> [PostLoginScripting.txt] and
    need to be modified
  * <Quota warnings are configured differently> [Quota.Configuration.txt] and
@@ -72,4 +84,4 @@ LDA
  * -s parameter was replaced by lda_mailbox_autosubscribe setting. The default
    is "no", as before.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

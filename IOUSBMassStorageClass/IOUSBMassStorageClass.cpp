@@ -547,6 +547,8 @@ IOUSBMassStorageClass::start ( IOService * provider )
 		characterDict->retain ( );
 	}
 	
+	require_nonzero ( characterDict, abortStart );
+	
 	obj = getProperty ( kIOPropertyPhysicalInterconnectTypeKey );
 	if ( obj != NULL )
 	{

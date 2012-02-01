@@ -12,8 +12,6 @@
 #include "sieve-extensions.h"
 #include "sieve-tool.h"
 
-#include "sieve-ext-debug.h"
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -30,7 +28,7 @@
 static void print_help(void)
 {
 	printf(
-"Usage: sieve-dump [-h] [-P <plugin>] [-x <extensions>]\n"
+"Usage: sieve-dump [-c <config-file>] [-h] [-P <plugin>] [-x <extensions>]\n"
 "                  <sieve-binary> [<out-file>]\n"
 	);
 }
@@ -79,9 +77,9 @@ int main(int argc, char **argv)
 	/* Finish tool initialization */
 	svinst = sieve_tool_init_finish(sieve_tool, FALSE);
 
-	/* Register debug extension */
-	(void) sieve_extension_register(svinst, &debug_extension, TRUE);
-		
+        /* Enable debug extension */
+        sieve_enable_debug_extension(svinst);
+
 	/* Dump binary */
 	sbin = sieve_load(svinst, binfile, NULL);
 	if ( sbin != NULL ) {

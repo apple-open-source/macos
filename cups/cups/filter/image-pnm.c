@@ -1,5 +1,5 @@
 /*
- * "$Id: image-pnm.c 7374 2008-03-08 01:13:26Z mike $"
+ * "$Id: image-pnm.c 9771 2011-05-12 05:21:56Z mike $"
  *
  *   Portable Any Map file routines for CUPS.
  *
@@ -316,5 +316,5 @@ _cupsImageReadPNM(
 
 
 /*
- * End of "$Id: image-pnm.c 7374 2008-03-08 01:13:26Z mike $".
+ * End of "$Id: image-pnm.c 9771 2011-05-12 05:21:56Z mike $".
  */

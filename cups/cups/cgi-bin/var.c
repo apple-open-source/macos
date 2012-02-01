@@ -1,5 +1,5 @@
 /*
- * "$Id: var.c 7460 2008-04-16 02:19:54Z mike $"
+ * "$Id: var.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   CGI form variable and array functions for CUPS.
  *
@@ -452,19 +452,19 @@ cgiSetCookie(const char *name,		/* I - Name */
 
   printf("Set-Cookie: %s=%s;", name, value);
   if (path)
-    printf("; path=%s", path);
+    printf(" path=%s;", path);
   if (domain)
-    printf("; domain=%s", domain);
+    printf(" domain=%s;", domain);
   if (expires)
   {
     char	date[256];		/* Date string */
 
-    printf("; expires=%s", httpGetDateString2(expires, date, sizeof(date)));
+    printf(" expires=%s;", httpGetDateString2(expires, date, sizeof(date)));
   }
   if (secure)
-    puts("; secure;");
+    puts(" secure;");
   else
-    puts(";");
+    putchar('\n');
 }
 
 
@@ -1301,5 +1301,5 @@ cgi_unlink_file(void)
 
 
 /*
- * End of "$Id: var.c 7460 2008-04-16 02:19:54Z mike $".
+ * End of "$Id: var.c 9793 2011-05-20 03:49:49Z mike $".
  */

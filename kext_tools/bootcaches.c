@@ -446,6 +446,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
                     sizeof(caches->kernel))) {
                     goto finish;
                 }
+
             }
  
             // Archs are fetched from the cacheinfo dictionary when needed
@@ -471,7 +472,8 @@ finish:
     return rval;
 }
 
-// helper to create cached if needed; policy is in readCaches_internal()
+// create cache dirs as needed
+// readCaches_internal() calls on most volumes.
 static int
 createCacheDirs(struct bootCaches *caches)
 {
@@ -1063,7 +1065,8 @@ int rebuild_kext_boot_cache_file(
     int             mkextVersion            = 0;
 
     // bootcaches.plist might not request mkext/kernelcache rebuilds
-    if (!caches->kext_boot_cache_file) {
+    if (!caches->kext_boot_cache_file
+    ) {
        goto finish;
     }
 
@@ -1507,6 +1510,9 @@ finish:
     return needsupdate;
 }
 
+// XX after 10376911 is in, remove this declaration from /trunk
+bool CSFDEWritePropertyCacheToFD(CFDictionaryRef context, int fd, CFStringRef wipeKeyUUID);
+
 int
 rebuild_csfde_cache(struct bootCaches *caches)
 {
@@ -1515,6 +1521,7 @@ rebuild_csfde_cache(struct bootCaches *caches)
     int64_t         propStamp;
     char           *errmsg = NULL;
     char            erpath[PATH_MAX];
+    int             erfd = -1;
     CFArrayRef      dataVolumes = NULL;
     CFStringRef     wipeKeyUUID = NULL;
 
@@ -1562,22 +1569,38 @@ rebuild_csfde_cache(struct bootCaches *caches)
     if (copy_csfde_props(caches->csfde_uuid, &ectx, &propStamp))
         goto finish;
 
-    // write to /<vol>/S/L/Caches/..corestorage/EncryptedRoot.enc.plist
-    errmsg = "error writing encryption context cache file";
+    // build /<vol>/S/L/Caches/..corestorage/EncryptedRoot.plist.wipekey
+    errmsg = "error building encryption context cache file path";
     pathcpy(erpath, caches->root);
     pathcat(erpath, caches->erpropcache->rpath);
+    errmsg = NULL;
 
-    if (szerofile(caches->cachefd, erpath))
+    // zero any existing file, sopen(), and write to validated fd
+    // (ENOENT ignored by szerofile())
+    if (szerofile(caches->cachefd, erpath)) {
+        OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
+                  "%s: %s", erpath, strerror(errno));
+    }
+    (void)sunlink(caches->cachefd, erpath);
+    if(-1==(erfd=sopen(caches->cachefd,erpath,O_CREAT|O_RDWR,kCacheFileMode))){
         OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                  "WARNING: could not zero %s", erpath);
-    if (!CSFDEInitPropertyCache(ectx, caches->root, wipeKeyUUID))
+                  "%s: %s", erpath, strerror(errno));
+        rval = errno;
         goto finish;
+    }
+    if (!CSFDEWritePropertyCacheToFD(ectx, erfd, wipeKeyUUID)) {
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                  "CSFDEWritePropertyCacheToFD(%s) failed", erpath);
+        goto finish;
+    }
 
     // success
     errmsg = NULL;
     rval = 0;
 
 finish:
+    if (erfd != -1)
+        close (erfd);
     if (dataVolumes)
         CFRelease(dataVolumes);
     if (wipeKeyUUID)
@@ -2072,6 +2095,7 @@ static void removeTrailingSlashes(char * path)
 
     return;
 }
+
 
 /******************************************************************************
  * updateMount() remounts the volume with the requested flags!

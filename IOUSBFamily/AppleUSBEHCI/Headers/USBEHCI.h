@@ -406,17 +406,19 @@ typedef struct EHCISplitIsochTransferDescriptorShared
 
 struct EHCIRegistersStruct
 {
-	volatile UInt32				USBCMD;
-	volatile UInt32				USBSTS;
-	volatile UInt32				USBIntr;
-	volatile UInt32				FRIndex;
-	volatile UInt32				CTRLDSSegment;
-	volatile UInt32				PeriodicListBase;
-	volatile UInt32				AsyncListAddr;
-	volatile UInt32				Reserved[9];
-	volatile UInt32				ConfigFlag;
-	volatile UInt32				PortSC[1];
+	volatile UInt32				USBCMD;				// 0x00
+	volatile UInt32				USBSTS;				// 0x04
+	volatile UInt32				USBIntr;			// 0x08
+	volatile UInt32				FRIndex;			// 0x0C
+	volatile UInt32				CTRLDSSegment;		// 0x10
+	volatile UInt32				PeriodicListBase;	// 0x14
+	volatile UInt32				AsyncListAddr;		// 0x18
+	volatile UInt32				Reserved[9];		// 0x1C-3C	
+	volatile UInt32				ConfigFlag;			// 0x40
+	volatile UInt32				PortSC[];			// 0x44
 };
+
+
 
 // This is the "shared" data area between the controller and the UIM. It is 48 bytes long, but since it must be on a 32 byte
 // boundary, and since we allocate them back to back, we pad to 64 bytes
@@ -424,19 +426,19 @@ struct EHCIRegistersStruct
 struct EHCIQueueHeadShared
 {
 	volatile USBPhysicalAddress32				nextQH;				// 0x00 Pointer to next ED (physical)
-	volatile UInt32						flags;				// 0x04 
-	volatile UInt32						splitFlags;			// 0x08 Routing for split transactions
+	volatile UInt32								flags;				// 0x04 
+	volatile UInt32								splitFlags;			// 0x08 Routing for split transactions
 	volatile USBPhysicalAddress32				CurrqTDPtr;			// 0x0c pointer to last TD (physical address)
 	volatile USBPhysicalAddress32				NextqTDPtr;			// 0x10 pointer to first TD (physical)
 	volatile USBPhysicalAddress32				AltqTDPtr;			// 0x14 pointer to first TD (physical)
-	volatile UInt32						qTDFlags;			// 0x18
+	volatile UInt32								qTDFlags;			// 0x18
 	volatile USBPhysicalAddress32				BuffPtr[5];			// 0x1C - 2F	
 #if !APPLE_USB_EHCI_64
-	UInt32							padding[4];			// 0x30-0x3f
+	UInt32										padding[4];			// 0x30-0x3f
 };												// 0x40 length of structure
 #else
 	volatile USBPhysicalAddress32				extBuffPtr[5];			// 0x30-0x43	
-	UInt32							padding[7];			// 0x44-0x5F
+	UInt32										padding[7];			// 0x44-0x5F
 };												// 0x60 length of structure
 #endif											
 

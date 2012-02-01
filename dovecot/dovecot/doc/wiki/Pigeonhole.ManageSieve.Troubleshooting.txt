@@ -5,12 +5,23 @@ Like Dovecot itself, *the ManageSieve service always logs a detailed error
 message* if something goes wrong at the server (refer to <Dovecot Logging>
 [Logging.txt] for more details): the logs are the first place to look if you
 suspect something is wrong. To get additional debug messages in your log file,
-you should set 'mail_debug=yes' in dovecot.conf (inside 'protocol managesieve
-{...}'if you want to enable this for managesieve only).
+you should set 'mail_debug=yes' in dovecot.conf (inside 'protocol sieve {...}
+'if you want to enable this forManageSieve only).
 
 If the client commits protocol violations or sends invalid scripts, an error
 response is provided to the client which is not necessarily logged on the
 server. A goodManageSieve client presents such error messages to the user.
+
+Keep in mind that the the ManageSieve service only provides the Sieve
+/protocol/, which may be somewhat confusing. This protocol can only be used to
+/upload/ Sieve scripts and /activate/ them for execution. Performing the steps
+below therefore only verifies that this functionality is working and *not*
+whether Sieve scripts are correctly being executed upon delivery. The execution
+of Sieve scripts is performed by the Dovecot <Local Delivery Agent (LDA)>
+[LDA.txt] or its <LMTP service> [LMTP.txt] using the <LDA Sieve plugin>
+[Pigeonhole.Sieve.txt]. If you have problems with Sieve script execution upon
+delivery, you are referred to the <Sieve Troubleshooting page>
+[Pigeonhole.Sieve.Troubleshooting.txt].
 
 Manual Login and Script Upload
 ------------------------------
@@ -20,9 +31,10 @@ caused by Dovecot or your configuration. It is often best to test
 yourManageSieve server manually first. This also provides you with the direct
 error messages from the server without intermission of your client. If you do
 not use TLS, you can connect using a simple 'telnet' or 'netcat' connection to
-the configured port. Otherwise you must use a TLS-capable text protocol client
-like 'gnutls-cli' as described below. Upon connection, the server presents the
-initial greeting with its capabilities:
+the configured port (typically 4190 or 2000 for older setups). Otherwise you
+must use a TLS-capable text protocol client like 'gnutls-cli' as described
+below. Upon connection, the server presents the initial greeting with its
+capabilities:
 
 ---%<-------------------------------------------------------------------------
 "IMPLEMENTATION" "dovecot"
@@ -83,8 +95,8 @@ OK "Putscript completed."
 ---%<-------------------------------------------------------------------------
 
 Upon successful upload, you should find a file called 'hutsefluts.sieve' in
-your 'sieve_storage' directory. The script should also be listed by the server
-as follows when the 'LISTSCRIPTS' command is issued:
+your 'sieve_dir' directory. The script should also be listed by the server as
+follows when the 'LISTSCRIPTS' command is issued:
 
 ---%<-------------------------------------------------------------------------
 LISTSCRIPTS
@@ -116,7 +128,7 @@ OK "Listscripts completed.
 ---%<-------------------------------------------------------------------------
 
 The symbolic link configured with the 'sieve' setting should now point to the
-activated script in the 'sieve_storage' directory. If no script is active, this
+activated script in the 'sieve_dir' directory. If no script is active, this
 symbolic link is absent.
 
 Manual TLS Login
@@ -186,4 +198,4 @@ to the Dovecot mailing list [http://dovecot.org/mailinglists.html]. In any
 case, you must make sure that the issue is properly explained and that the
 author can contact you for more information.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

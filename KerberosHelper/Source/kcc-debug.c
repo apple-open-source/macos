@@ -169,6 +169,8 @@ main(int argc, char **argv)
 	OSStatus r = KRBCredAddReferenceAndLabel(princ, ident);
 	if (r != noErr)
 	    errx(1, "KRBCredAddReferenceAndLabel: %d", (int)r);
+	CFRelease(princ);
+	CFRelease(ident);
 
     } else if (mark == 0) {
 	if (argc != 1)
@@ -180,6 +182,7 @@ main(int argc, char **argv)
 	OSStatus r = KRBCredFindByLabelAndRelease(ident);
 	if (r != noErr)
 	    errx(1, "KRBCredFindByLabelAndRelease: %d", (int)r);
+	CFRelease(ident);
 
     }
     

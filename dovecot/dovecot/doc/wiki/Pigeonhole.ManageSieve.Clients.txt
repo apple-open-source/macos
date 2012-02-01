@@ -46,10 +46,12 @@ client problems.
     * /(Mark Titorenko)/: Stephan provides an updated link to Steffen's
       ManageSieve patch in this Dovecot mailing list post dated 2009-09-01
       [http://www.mail-archive.com/dovecot@dovecot.org/msg21862.html]
+ * *Ruby/Managesieve*: Ruby command line client and library to managesieve
+   works fine Ruby/Managesieve [http://managesieve.rubyforge.org/]
 
 *NOTE*: If you add new issues to this list, notify the author or send an e-mail
 to the Dovecot mailing list [http://dovecot.org/mailinglists.html]. In any
 case, you must make sure that the issue is properly explained and that the
 author can contact you for more information.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

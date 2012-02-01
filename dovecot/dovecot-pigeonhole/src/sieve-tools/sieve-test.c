@@ -20,8 +20,6 @@
 
 #include "sieve-tool.h"
 
-#include "sieve-ext-debug.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -44,7 +42,8 @@
 static void print_help(void)
 {
 	printf(
-"Usage: sieve-test [-c <config-file>] [-C] [-D] [-d <dump-filename>] [-e]\n"
+"Usage: sieve-test [-a <orig-recipient-address] [-c <config-file>]\n"
+"                  [-C] [-D] [-d <dump-filename>] [-e]\n"
 "                  [-f <envelope-sender>] [-l <mail-location>]\n"
 "                  [-m <default-mailbox>] [-P <plugin>]\n"
 "                  [-r <recipient-address>] [-s <script-file>]\n"
@@ -133,12 +132,12 @@ int main(int argc, char **argv)
 	while ((c = sieve_tool_getopt(sieve_tool)) > 0) {
 		switch (c) {
 		case 'r':
-			/* original recipient address */
-			recipient = optarg;
-			break;
-		case 'a':
 			/* final recipient address */
 			final_recipient = optarg;
+			break;
+		case 'a':
+			/* original recipient address */
+			recipient = optarg;
 			break;
 		case 'f':
 			/* envelope sender address */
@@ -209,10 +208,10 @@ int main(int argc, char **argv)
 	}
 
 	/* Finish tool initialization */
-	svinst = sieve_tool_init_finish(sieve_tool, TRUE);
+	svinst = sieve_tool_init_finish(sieve_tool, execute && mailloc == NULL);
 
-	/* Register debug extension */
-	(void) sieve_extension_register(svinst, &debug_extension, TRUE);
+	/* Enable debug extension */
+	sieve_enable_debug_extension(svinst);
 
 	/* Create error handler */
 	ehandler = sieve_stderr_ehandler_create(svinst, 0);

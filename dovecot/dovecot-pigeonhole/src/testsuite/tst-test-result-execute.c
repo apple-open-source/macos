@@ -29,7 +29,7 @@ const struct sieve_command_def tst_test_result_execute = {
 	"test_result_execute", 
 	SCT_TEST, 
 	0, 0, FALSE, FALSE,
-	NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL,
 	tst_test_result_execute_generate, 
 	NULL 
 };

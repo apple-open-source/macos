@@ -120,7 +120,10 @@ struct sieve_command_def {
 	bool (*pre_validate)
 		(struct sieve_validator *valdtr, struct sieve_command *cmd); 
 	bool (*validate)
-		(struct sieve_validator *valdtr, struct sieve_command *cmd); 
+		(struct sieve_validator *valdtr, struct sieve_command *cmd);
+	bool (*validate_const)
+		(struct sieve_validator *valdtr, struct sieve_command *cmd,
+			int *const_current, int const_next); 
 	bool (*generate) 
 		(const struct sieve_codegen_env *cgenv, struct sieve_command *cmd);
 	bool (*control_generate) 

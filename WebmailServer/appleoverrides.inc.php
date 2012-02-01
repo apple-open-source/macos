@@ -28,4 +28,7 @@ $rcmail_config['drafts_mbox'] = 'Drafts';
 $rcmail_config['junk_mbox'] = 'Junk';
 $rcmail_config['sent_mbox'] = 'Sent Messages';
 $rcmail_config['trash_mbox'] = 'Deleted Messages';
-$rcmail_config['default_imap_folders'] = array('INBOX', 'Drafts', 'Sent', 'Junk', 'Trash');
+$rcmail_config['default_imap_folders'] = array('INBOX', 'Drafts', 'Sent Messages', 'Junk', 'Deleted Messages');
+$rcmail_config['create_default_folders'] = true;
+// mail domain name
+$rcmail_config['mail_domain'] = '%d';

@@ -1,5 +1,5 @@
 /*
- * "$Id: pstops.c 9394 2010-11-30 22:36:08Z mike $"
+ * "$Id: pstops.c 9901 2011-08-17 21:01:53Z mike $"
  *
  *   PostScript filter for CUPS.
  *
@@ -1594,10 +1594,7 @@ copy_page(cups_file_t  *fp,		/* I - File to read from */
     */
 
     if (linelen > 0 && !strncmp(line, "%%EndPageSetup", 14))
-    {
-      linelen        = cupsFileGetLine(fp, line, linesize);
-      has_page_setup = 0;
-    }
+      linelen = cupsFileGetLine(fp, line, linesize);
   }
 
   if (first_page)
@@ -2880,6 +2877,17 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
         break;
   }
 
+ /*
+  * Mirror the page as needed...
+  */
+
+  if (doc->mirror)
+    doc_printf(doc, "%.1f 0.0 translate -1 1 scale\n", PageWidth);
+
+ /*
+  * Offset and scale as necessary for fitplot/fit-to-page/number-up...
+  */
+
   if (Duplex && doc->number_up > 1 && ((number / doc->number_up) & 1))
     doc_printf(doc, "%.1f %.1f translate\n", PageWidth - PageRight, PageBottom);
   else if (doc->number_up > 1 || doc->fitplot)
@@ -3234,13 +3242,6 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
                bboxx + margin, bboxy + margin,
                bboxw - 2 * margin, bboxl - 2 * margin);
   }
-
- /*
-  * Mirror the page as needed...
-  */
-
-  if (doc->mirror)
-    doc_printf(doc, "%.1f 0.0 translate -1 1 scale\n", PageWidth);
 }
 
 
@@ -3485,5 +3486,5 @@ write_options(
 
 
 /*
- * End of "$Id: pstops.c 9394 2010-11-30 22:36:08Z mike $".
+ * End of "$Id: pstops.c 9901 2011-08-17 21:01:53Z mike $".
  */

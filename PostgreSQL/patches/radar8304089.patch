@@ -1,8 +1,7 @@
-diff -Naur postgresql-9.0.1/configure postgresql/configure
---- postgresql-9.0.3/configure	2011-01-27 18:21:31.000000000 -0800
-+++ postgresql/configure	2011-01-27 18:21:31.000000000 -0800
+--- postgresql-9.0.5/configure	2011-09-22 15:00:48.000000000 -0700
++++ postgresql/configure	2011-10-18 22:58:26.000000000 -0700
 @@ -27775,12 +27775,21 @@
- 
+
  # Select shared-memory implementation type.
  if test "$PORTNAME" != "win32"; then
 +  if test x"$USE_POSIX_SHARED_MEMORY" = x"1" ; then
@@ -13,20 +12,19 @@ diff -Naur postgresql-9.0.1/configure postgresql/configure
 +
 +    SHMEM_IMPLEMENTATION="src/backend/port/posix_shmem.c"
 +  else
- 
+
  cat >>confdefs.h <<\_ACEOF
  #define USE_SYSV_SHARED_MEMORY 1
  _ACEOF
- 
+
 -  SHMEM_IMPLEMENTATION="src/backend/port/sysv_shmem.c"
 +    SHMEM_IMPLEMENTATION="src/backend/port/sysv_shmem.c"
 +  fi
  else
- 
+
  cat >>confdefs.h <<\_ACEOF
-diff -Naur postgresql-9.0.3/configure.in postgresql/configure.in
---- postgresql-9.0.3/configure.in	2011-01-27 18:21:31.000000000 -0800
-+++ postgresql/configure.in	2011-01-27 18:21:31.000000000 -0800
+--- postgresql-9.0.5/configure.in	2011-09-22 15:00:48.000000000 -0700
++++ postgresql/configure.in	2011-10-18 22:59:19.000000000 -0700
 @@ -1700,8 +1700,13 @@
  
  # Select shared-memory implementation type.

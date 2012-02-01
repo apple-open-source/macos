@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 7875 2008-08-27 22:53:31Z mike $"
+# "$Id: Makefile 9766 2011-05-11 22:17:34Z mike $"
 #
 #   Scheduler Makefile for CUPS.
 #
@@ -575,5 +575,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 7875 2008-08-27 22:53:31Z mike $".
+# End of "$Id: Makefile 9766 2011-05-11 22:17:34Z mike $".
 #

@@ -34,7 +34,8 @@ const struct sieve_command_def cmd_setflag = {
 	-1, /* We check positional arguments ourselves */
 	0, FALSE, FALSE, 
 	NULL, NULL,
-	ext_imap4flags_command_validate, 
+	ext_imap4flags_command_validate,
+	NULL, 
 	cmd_flag_generate, 
 	NULL 
 };
@@ -51,7 +52,8 @@ const struct sieve_command_def cmd_addflag = {
 	-1, /* We check positional arguments ourselves */
 	0, FALSE, FALSE, 
 	NULL, NULL,
-	ext_imap4flags_command_validate, 
+	ext_imap4flags_command_validate,
+	NULL,
 	cmd_flag_generate, 
 	NULL 
 };
@@ -69,7 +71,8 @@ const struct sieve_command_def cmd_removeflag = {
 	-1, /* We check positional arguments ourselves */
 	0, FALSE, FALSE, 
 	NULL, NULL,
-	ext_imap4flags_command_validate, 
+	ext_imap4flags_command_validate,
+	NULL,
 	cmd_flag_generate, 
 	NULL 
 };

@@ -98,7 +98,8 @@ private:
 //
 // An interpretation context
 //
-struct Requirement::Context {
+class Requirement::Context {
+public:
 	Context(CFArrayRef certChain, CFDictionaryRef infoDict, CFDictionaryRef entitlementDict, const CodeDirectory *dir)
 		: certs(certChain), info(infoDict), entitlements(entitlementDict), directory(dir) { }
 	

@@ -161,6 +161,49 @@ mailbox = NEW.mailbox) IS NOT NULL;
 END;
 ---%<-------------------------------------------------------------------------
 
+Vpopmail (+MySQL)
+-----------------
+
+Configure expire plugin like MySQL configuration. From here, there are two
+cases:
+
+If you are using the mysql database for authentication directly, you only need
+to make iterate work for <MySQL> [AuthDatabase.SQL.txt].
+
+When using Vpopmail backend, doveadm -A won't work. To be able to use the
+expire database, you can use a bash script like this:
+
+---%<-------------------------------------------------------------------------
+#!/bin/bash
+
+# SQL connection data
+HOST="localhost"
+USER="dovecot"
+PWD="yourpassword"
+DBNAME="vpopmail"
+TBLNAME="expires"
+# expunge messages older than this (days)
+TTL=30
+
+expiredsql=`cat <<EOF
+  USE $DBNAME;
+  SELECT CONCAT(username, "~", mailbox)
+  FROM $TBLNAME
+  WHERE expire_stamp>0 AND expire_stamp<UNIX_TIMESTAMP()-86400*$TTL;
+EOF`
+
+for row in `echo "$expiredsql" | mysql -h $HOST -u $USER -p$PWD -N`; do
+  username=`echo $row | cut -d"~" -f1`
+  mailbox=`echo $row | cut -d"~" -f2-`
+
+  # Check if mailbox name is empty. Just in case.
+  if [ -n $mailbox ]; then
+        echo "Expunging: "$row
+        doveadm expunge -u $username mailbox "$mailbox" savedbefore $TTL"d"
+  fi
+done
+---%<-------------------------------------------------------------------------
+
 Example #1 timeline
 -------------------
 
@@ -296,4 +339,4 @@ exactly need to be expunged.
 After running expire-tool without --test you'll see that the Trash mailbox is
 empty and the database row is deleted.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

@@ -1647,13 +1647,13 @@ IOCheckTimingWithDisplay( IOFBConnectRef connectRef,
 static kern_return_t
 InstallTiming( IOFBConnectRef                connectRef, 
                 IOFBDisplayModeDescription * desc,
-                IOOptionBits                 dmFlags,
                 IOOptionBits                 modeGenFlags )
 {
     IOReturn                    err;
+    IOOptionBits                dmFlags;
     IOTimingInformation *       timing = &desc->timingInfo;
 
-    bzero(&desc->info, sizeof(desc->info));
+	dmFlags = desc->info.flags;
 
     if (connectRef->dualLinkCrossover)
     {
@@ -1740,8 +1740,9 @@ InstallFromCEAShortVideoDesc( IOFBConnectRef connectRef, UInt8 * data )
             flags = kDisplayModeValidFlag | kDisplayModeSafeFlag;
             if(false && connectRef->hasHDMI && (data[offset] & 0x80))
                 flags |= kDisplayModeDefaultFlag;
-    
-            err = InstallTiming( connectRef, &modeDesc, flags, kIOFBEDIDDetailedMode );
+
+            modeDesc.info.flags = flags;
+            err = InstallTiming( connectRef, &modeDesc, kIOFBEDIDDetailedMode );
         }
         offset++;
     }
@@ -1851,16 +1852,46 @@ InstallFromEDIDDesc( IOFBConnectRef connectRef,
 #endif
     }
 
+	uint16_t imageWidth = desc->horizImageSize    | ((desc->imageSizeHigh & 0xf0) << 4);
+	uint16_t imageHeight = desc->verticalImageSize | ((desc->imageSizeHigh & 0x0f) << 8);
+
+	// sanity checks against display size
+	if (imageWidth && connectRef->displayImageWidth)
+	{
+		if ((imageWidth < (connectRef->displayImageWidth / 2))
+	     || (imageWidth > (connectRef->displayImageWidth + 9)))
+		{
+			imageWidth = 0;
+		}
+	}
+	if (imageHeight && connectRef->displayImageHeight)
+	{
+		if ((imageHeight < (connectRef->displayImageHeight / 2))
+	     || (imageHeight > (connectRef->displayImageHeight + 9)))
+		{
+			imageHeight = 0;
+		}
+	}
+
+	if ((!imageWidth) || (!imageHeight)) imageWidth = imageHeight = 0;
+
     if (!connectRef->defaultWidth)
     {
+    	// this mode is default
         connectRef->defaultWidth       = timing->detailedInfo.v2.horizontalActive;
         connectRef->defaultHeight      = timing->detailedInfo.v2.verticalActive;
-        connectRef->defaultImageWidth  = desc->horizImageSize    | ((desc->imageSizeHigh & 0xf0) << 4);
-        connectRef->defaultImageHeight = desc->verticalImageSize | ((desc->imageSizeHigh & 0x0f) << 8);
+        connectRef->defaultImageWidth  = imageWidth;
+        connectRef->defaultImageHeight = imageHeight;
+		if (!imageWidth)
+		{
+			imageWidth  = connectRef->displayImageWidth;
+			imageHeight = connectRef->displayImageHeight;
+		}
     }
-
-    err = InstallTiming( connectRef, &modeDesc,
-                            dmFlags, kIOFBEDIDDetailedMode );
+	modeDesc.info.imageWidth  = imageWidth;
+	modeDesc.info.imageHeight = imageHeight;
+	modeDesc.info.flags       = dmFlags;
+    err = InstallTiming( connectRef, &modeDesc, kIOFBEDIDDetailedMode );
 
     return( err );
 }
@@ -1887,9 +1918,8 @@ InstallFromTimingOverride( IOFBConnectRef connectRef,
         connectRef->defaultImageWidth  = timing->detailedInfo.v2.horizontalActive;
         connectRef->defaultImageHeight = timing->detailedInfo.v2.verticalActive;
     }
-    err = InstallTiming( connectRef, &modeDesc,
-                            dmFlags,
-                            kIOFBEDIDDetailedMode );
+	modeDesc.info.flags = dmFlags;
+    err = InstallTiming( connectRef, &modeDesc, kIOFBEDIDDetailedMode );
 
     return( err );
 }
@@ -1963,8 +1993,8 @@ InstallTimingForResolution( IOFBConnectRef connectRef, EDID * edid,
                 continue;
             }
         }
-    
-        err = InstallTiming( connectRef, &modeDesc, dmFlags, modeGenFlags );
+		modeDesc.info.flags = dmFlags;
+        err = InstallTiming( connectRef, &modeDesc, modeGenFlags );
     }
     while (false);
 
@@ -2717,6 +2747,9 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 
         DEBG(connectRef, "EDID default idx %d, only %d\n",
                 connectRef->defaultIndex, connectRef->defaultOnly);
+
+        connectRef->displayImageWidth  = edid->displayParams[1] * 10;
+        connectRef->displayImageHeight = edid->displayParams[2] * 10;
 
         uint8_t videoInput = edid->displayParams[0];
         if ((0x80 & videoInput) && ((edid->version > 1) || (edid->revision >= 4)))

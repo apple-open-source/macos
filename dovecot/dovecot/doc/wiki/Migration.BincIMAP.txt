@@ -346,4 +346,4 @@ Manual conversion
  * Binc's message flags are compatible with Dovecot (as they are specified by
    the Maildir specification)
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

@@ -145,12 +145,10 @@ CFTypeRef readRequirement(const string &source, SecCSFlags flags)
 //
 // ErrorCheck
 //
-void ErrorCheck::operator () (OSStatus rc)
+void ErrorCheck::throwError()
 {
-	if (rc != noErr) {
-		assert(mError);
-		throw Error(mError);
-	}
+	assert(mError);
+	throw Error(mError);
 }
 
 
@@ -509,6 +507,9 @@ void diagnose(const char *context, OSStatus rc, CFDictionaryRef info)
 {
 	diagnose1(context, rc);
 	
+	if (CFTypeRef path = CFDictionaryGetValue(info, kSecCFErrorPath))
+			fprintf(stderr, "In subcomponent: %s\n", cfString(CFURLRef(path)).c_str());
+			
 	if (CFTypeRef detail = CFDictionaryGetValue(info, kSecCFErrorArchitecture))
 			fprintf(stderr, "In architecture: %s\n", cfString(CFStringRef(detail)).c_str());
 	

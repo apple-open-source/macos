@@ -1,5 +1,5 @@
 /*
- * "$Id: config.h.in 7918 2008-09-08 22:03:01Z mike $"
+ * "$Id: config.h.in 9837 2011-06-16 20:12:16Z mike $"
  *
  *   Configuration file for CUPS.
  *
@@ -340,6 +340,13 @@
  */
 
 #undef HAVE_SECPOLICYCREATESSL
+
+
+/*
+ * Do we have the SSLSetProtocolVersionMax function?
+ */
+
+#undef HAVE_SSLSETPROTOCOLVERSIONMAX
 
 
 /*
@@ -737,5 +744,5 @@
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h.in 7918 2008-09-08 22:03:01Z mike $".
+ * End of "$Id: config.h.in 9837 2011-06-16 20:12:16Z mike $".
  */

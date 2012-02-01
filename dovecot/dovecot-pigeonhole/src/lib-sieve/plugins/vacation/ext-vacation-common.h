@@ -18,6 +18,8 @@ struct ext_vacation_config {
 	unsigned int min_period;
 	unsigned int max_period;
 	unsigned int default_period;
+	bool use_original_recipient;
+	bool dont_check_recipient;
 };
 
 /* 

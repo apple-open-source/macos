@@ -33,7 +33,7 @@ const struct sieve_command_def cmd_test_result_reset = {
 	"test_result_reset", 
 	SCT_COMMAND, 
 	0, 0, FALSE, FALSE,
-	NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL,
 	cmd_test_result_generate, 
 	NULL 
 };
@@ -48,7 +48,7 @@ const struct sieve_command_def cmd_test_result_print = {
 	"test_result_print", 
 	SCT_COMMAND, 
 	0, 0, FALSE, FALSE,
-	NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL,
 	cmd_test_result_generate, 
 	NULL 
 };

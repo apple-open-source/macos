@@ -47,7 +47,7 @@ static const struct sieve_command_def cmd_mark = {
     0, 0, FALSE, FALSE,
     NULL, NULL,
     cmd_mark_validate,
-    NULL, NULL,
+    NULL, NULL, NULL
 };
 
 /* Unmark command
@@ -61,7 +61,7 @@ static const struct sieve_command_def cmd_unmark = {
     0, 0, FALSE, FALSE,
     NULL, NULL,
     cmd_mark_validate,
-    NULL, NULL,
+    NULL, NULL, NULL
 };
 
 /* 
@@ -94,7 +94,7 @@ static bool ext_imapflags_load
 	if ( *context == NULL ) {	
 		/* Make sure real extension is registered, it is needed by the binary */
 		*context = (void *)	
-			sieve_extension_require(ext->svinst, &imap4flags_extension);
+			sieve_extension_require(ext->svinst, &imap4flags_extension, FALSE);
 	}
 
 	return TRUE;

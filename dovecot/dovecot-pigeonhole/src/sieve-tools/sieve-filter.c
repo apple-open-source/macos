@@ -20,8 +20,6 @@
 
 #include "sieve-tool.h"
 
-#include "sieve-ext-debug.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -464,8 +462,8 @@ int main(int argc, char **argv)
 	/* Finish tool initialization */
 	svinst = sieve_tool_init_finish(sieve_tool, TRUE);
 
-	/* Register Sieve debug extension */
-	(void) sieve_extension_register(svinst, &debug_extension, TRUE);
+        /* Enable debug extension */
+        sieve_enable_debug_extension(svinst);
 
 	/* Create error handler */
 	ehandler = sieve_stderr_ehandler_create(svinst, 0);

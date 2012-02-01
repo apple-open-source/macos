@@ -1,5 +1,7 @@
 require "vnd.dovecot.testsuite";
 require "vacation";
+require "variables";
+require "body";
 
 test_set "message" text:
 From: stephan@example.org
@@ -44,5 +46,45 @@ test "References" {
 test "In-Reply-To" {
 	if not header :is "in-reply-to" "<432df324@example.org>" {
 		test_fail "in-reply-to header set incorrectly";
+	}
+}
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+Subject: frop
+References: <1234@local.machine.example> <3456@example.net>
+ <435444@ttms.example.org> <4223@froop.example.net> <m345444444@message-id.exp>
+Message-ID: <432df324@example.org>
+To: nico@frop.example.org
+
+Frop
+.
+;
+
+test "Variables" {
+	set "message" "I am not in today!";
+	set "subject" "Out of office";
+	set "from" "user@example.com";
+
+	vacation :from "${from}" :subject "${subject}" "${message}";
+
+	if not test_result_execute {
+		test_fail "execution of result failed";
+	}
+
+	test_message :smtp 0;
+
+	if not header :contains "subject" "Out of office" {
+		test_fail "subject not set properly";
+	}
+
+	if not header :contains "from" "user@example.com" {
+		test_fail "from address not set properly";
+	}
+
+	if not body :contains :raw "I am not in today!" {
+		test_fail "message not set properly";
 	}
 }

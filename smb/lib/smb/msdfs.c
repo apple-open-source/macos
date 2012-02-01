@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1560,10 +1560,14 @@ static int processDfsReferralDictionary(struct smb_ctx * inConn,
 				smb_ctx_done(newConn);
 				continue;
 			}
-
+			/*
+			 * The Spec says that if kDFSStorageServer is set in the referralHeaderFlags
+			 * then all the referrals are storage. This does not seem to be true
+			 * in the real world. So we now always do one more check unless the
+			 * server and tree don't support Dfs.
+			 */
 			if (((newConn->ct_vc_caps & SMB_CAP_DFS) != SMB_CAP_DFS) ||
-				(!(smb_tree_conn_optional_support_flags(newConn) & SMB_SHARE_IS_IN_DFS)) ||
-				((referralHeaderFlags & kDFSReferralMask) == kDFSStorageServer)) {
+				(!(smb_tree_conn_optional_support_flags(newConn) & SMB_SHARE_IS_IN_DFS))) {
 				/* This must be a storage referral, so we are done */
 				*outConn = newConn;
 			} else if (isReferralPathNotCovered(newConn, referralStr) ) {

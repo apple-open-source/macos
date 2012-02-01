@@ -117,6 +117,8 @@ class IOAudioEngineUserClient : public IOUserClient
 			IOAudioClientBufferExtendedInfo64	*extendedInfo;
 			IOExternalMethod					methods[kIOAudioEngineNumCalls];		// This size can be changed, this is the new methods pointer
 			UInt32								classicMode;
+			UInt32								commandGateStatus;						// <rdar://8518215>
+			SInt32								commandGateUsage;						// <rdar://8518215>
 		};
 		
 		ExpansionData *reserved;
@@ -215,6 +217,8 @@ class IOAudioEngineUserClient : public IOUserClient
 		virtual void lockBuffers();
 		virtual void unlockBuffers();
 		
+		static void setCommandGateUsage(IOAudioEngineUserClient *userClient, bool increment);		// <rdar://8518215>
+
 	public:
 		
 		static IOAudioEngineUserClient *withAudioEngine(IOAudioEngine *engine, task_t clientTask, void *securityToken, UInt32 type);

@@ -1,5 +1,5 @@
 /*
- * "$Id: texttops.c 7720 2008-07-11 22:46:21Z mike $"
+ * "$Id: texttops.c 9399 2010-12-03 06:29:20Z mike $"
  *
  *   Text to PostScript filter for CUPS.
  *
@@ -1161,5 +1161,5 @@ write_text(const char *s)	/* I - String to write */
 
 
 /*
- * End of "$Id: texttops.c 7720 2008-07-11 22:46:21Z mike $".
+ * End of "$Id: texttops.c 9399 2010-12-03 06:29:20Z mike $".
  */

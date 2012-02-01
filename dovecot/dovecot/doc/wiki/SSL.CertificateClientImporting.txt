@@ -62,4 +62,4 @@ Configuration -> Edit accounts (Choose here your's one and press 'Edit'-button)
 
 Account -> SSL -> Certificate for receiving->Browse
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

@@ -42,9 +42,10 @@ struct sieve_variable_scope {
 	pool_t pool;
 	int refcount;
 
-	struct sieve_variable *error_var;
-
+	struct sieve_instance *svinst;
 	const struct sieve_extension *ext;
+
+	struct sieve_variable *error_var;
 
 	struct hash_table *variables;
 	ARRAY_DEFINE(variable_index, struct sieve_variable *);
@@ -64,7 +65,7 @@ struct sieve_variable_scope_iter {
 };
 
 struct sieve_variable_scope *sieve_variable_scope_create
-(const struct sieve_extension *ext) 
+(struct sieve_instance *svinst, const struct sieve_extension *ext) 
 {
 	struct sieve_variable_scope *scope;
 	pool_t pool;
@@ -74,6 +75,7 @@ struct sieve_variable_scope *sieve_variable_scope_create
 	scope->pool = pool;
 	scope->refcount = 1;
 
+	scope->svinst = svinst;
 	scope->ext = ext;
 
 	scope->variables = hash_table_create
@@ -88,17 +90,19 @@ void sieve_variable_scope_ref(struct sieve_variable_scope *scope)
 	scope->refcount++;
 }
 
-void sieve_variable_scope_unref(struct sieve_variable_scope **scope)
+void sieve_variable_scope_unref(struct sieve_variable_scope **_scope)
 {
-	i_assert((*scope)->refcount > 0);
+	struct sieve_variable_scope *scope = *_scope;
 
-	if (--(*scope)->refcount != 0)
+	i_assert(scope->refcount > 0);
+
+	if (--scope->refcount != 0)
 		return;
 
-	hash_table_destroy(&(*scope)->variables);
+	hash_table_destroy(&scope->variables);
 
-	pool_unref(&(*scope)->pool);
-    *scope = NULL;
+	*_scope = NULL;
+	pool_unref(&scope->pool);
 }
 
 pool_t sieve_variable_scope_pool(struct sieve_variable_scope *scope)
@@ -234,7 +238,7 @@ struct sieve_variable *sieve_variable_scope_get_indexed
 /* Scope binary */
 
 struct sieve_variable_scope *sieve_variable_scope_binary_dump
-(const struct sieve_extension *ext, 
+(struct sieve_instance *svinst, const struct sieve_extension *ext, 
 	const struct sieve_dumptime_env *denv, sieve_size_t *address)
 {
 	struct sieve_variable_scope *local_scope;
@@ -253,7 +257,7 @@ struct sieve_variable_scope *sieve_variable_scope_binary_dump
 		return FALSE;
 	
 	/* Create scope */
-	local_scope = sieve_variable_scope_create(ext);
+	local_scope = sieve_variable_scope_create(svinst, ext);
 	
 	/* Read and dump scope itself */
 
@@ -336,7 +340,7 @@ struct sieve_variable_scope_binary *sieve_variable_scope_binary_read
 	}
 	
 	/* Create scope */
-	scope = sieve_variable_scope_create(ext);
+	scope = sieve_variable_scope_create(svinst, ext);
 
 	scpbin = sieve_variable_scope_binary_create(scope);
 	scpbin->size = scope_size;
@@ -352,7 +356,7 @@ struct sieve_variable_scope *sieve_variable_scope_binary_get
 (struct sieve_variable_scope_binary *scpbin)
 {
 	const struct sieve_extension *ext = scpbin->scope->ext;
-	struct sieve_instance *svinst = ext->svinst;
+	struct sieve_instance *svinst = scpbin->scope->svinst;
 	const char *ext_name = 
 		( ext == NULL ? "variables" : sieve_extension_name(ext) );
 	unsigned int i;
@@ -551,7 +555,7 @@ static struct sieve_variable_scope *ext_variables_create_local_scope
 {
 	struct sieve_variable_scope *scope;
 
-	scope = sieve_variable_scope_create(NULL);
+	scope = sieve_variable_scope_create(this_ext->svinst, NULL);
 
 	sieve_ast_extension_register
 		(ast, this_ext, &variables_ast_extension, (void *) scope);
@@ -689,6 +693,22 @@ struct ext_variables_interpreter_context {
 	ARRAY_DEFINE(ext_storages, struct sieve_variable_storage *);
 };
 
+static void ext_variables_interpreter_free
+(const struct sieve_extension *ext ATTR_UNUSED,
+	struct sieve_interpreter *interp ATTR_UNUSED, void *context)
+{
+	struct ext_variables_interpreter_context *ctx = 
+		(struct ext_variables_interpreter_context *)context;
+
+	sieve_variable_scope_binary_unref(&ctx->local_scope_bin);
+}
+
+static struct sieve_interpreter_extension variables_interpreter_extension = {
+	&variables_extension,
+	NULL,
+	ext_variables_interpreter_free
+};
+
 static struct ext_variables_interpreter_context *
 ext_variables_interpreter_context_create
 (const struct sieve_extension *this_ext, struct sieve_interpreter *interp, 
@@ -705,8 +725,8 @@ ext_variables_interpreter_context_create
 	p_array_init(&ctx->ext_storages, pool, 
 		sieve_extensions_get_count(this_ext->svinst));
 
-	sieve_interpreter_extension_set_context
-		(interp, this_ext, (void *) ctx);
+	sieve_interpreter_extension_register
+		(interp, this_ext, &variables_interpreter_extension, (void *) ctx);
 
 	return ctx;
 }
@@ -715,16 +735,15 @@ bool ext_variables_interpreter_load
 (const struct sieve_extension *ext, const struct sieve_runtime_env *renv, 
 	sieve_size_t *address)
 {
-	struct ext_variables_interpreter_context *ctx;
 	struct sieve_variable_scope_binary *scpbin;
 
 	scpbin = sieve_variable_scope_binary_read
 		(renv->svinst, NULL, renv->sblock, address);
 	if ( scpbin == NULL )
 		return FALSE;
-	
+
 	/* Create our context */
-	ctx = ext_variables_interpreter_context_create
+	(void)ext_variables_interpreter_context_create
 		(ext, renv->interp, scpbin);
 
 	/* Enable support for match values */

@@ -15,6 +15,13 @@ The Listescape plugin allows you to use all of these characters, as long as the
 virtual separator is changed to something else. The characters are escaped to
 the mailbox name as \NN hex codes.
 
+So what would be a good hierarchy separator to use?
+
+ * '.' and '/' are very commonly used and should work everywhere
+ * '\' is used by Exchange, and should also work everywhere
+ * '^' is used internally by Thunderbird and causes some trouble with it
+ * others?
+
 Examples
 --------
 
@@ -38,15 +45,15 @@ plugin {
 ---%<-------------------------------------------------------------------------
 
 Allow both '.' and '/' characters when virtual hierarchy separator is changed
-to '^':
+to '$':
 
 ---%<-------------------------------------------------------------------------
 mail_plugins = $mail_plugins listescape
 
 namespace private {
-  separator = ^
+  separator = $
   inbox = yes
 }
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

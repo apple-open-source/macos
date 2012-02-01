@@ -3413,6 +3413,67 @@ static void ntfs_unmount_attr_inode_detach(ntfs_inode **pni)
 }
 
 /**
+ * ntfs_do_postponed_release - release resources used by an ntfs volume
+ * @vol:	ntfs volume to release
+ *
+ * Release resources used by the ntfs volume @vol.
+ *
+ * This is called either at unmount time or if there were still inodes active
+ * then it is called when the last inode is freed.  This ensures the @vol
+ * pointer in the ntfs_inode structure remains valid until all inodes are gone.
+ */
+void ntfs_do_postponed_release(ntfs_volume *vol)
+{
+	ntfs_debug("Doing postponed release of volume.");
+	lck_mtx_lock(&ntfs_lock);
+	if (vol->upcase && vol->upcase == ntfs_default_upcase) {
+		vol->upcase = NULL;
+		/*
+		 * Drop our reference on the default upcase table and throw it
+		 * away if we had the only reference.
+		 */
+		if (!--ntfs_default_upcase_users) {
+			OSFree(ntfs_default_upcase, ntfs_default_upcase_size,
+					ntfs_malloc_tag);
+			ntfs_default_upcase = NULL;
+		}
+	}
+	if (NVolCompressionEnabled(vol)) {
+		/*
+		 * Drop our reference on the compression buffer and throw it
+		 * away if we had the only reference.
+		 */
+		if (!--ntfs_compression_users) {
+			OSFree(ntfs_compression_buffer,
+					ntfs_compression_buffer_size,
+					ntfs_malloc_tag);
+			ntfs_compression_buffer = NULL;
+		}
+	}
+	lck_mtx_unlock(&ntfs_lock);
+	/* If we loaded the attribute definitions table, throw it away now. */
+	if (vol->attrdef)
+		OSFree(vol->attrdef, vol->attrdef_size, ntfs_malloc_tag);
+	/* If we used a volume specific upcase table, throw it away now. */
+	if (vol->upcase)
+		OSFree(vol->upcase, vol->upcase_len << NTFSCHAR_SIZE_SHIFT,
+				ntfs_malloc_tag);
+	/* If we cached a volume name, throw it away now. */
+	if (vol->name)
+		OSFree(vol->name, vol->name_size, ntfs_malloc_tag);
+	/* Deinitialize the ntfs_volume locks. */
+	lck_rw_destroy(&vol->mftbmp_lock, ntfs_lock_grp);
+	lck_rw_destroy(&vol->lcnbmp_lock, ntfs_lock_grp);
+	lck_mtx_destroy(&vol->rename_lock, ntfs_lock_grp);
+	lck_rw_destroy(&vol->secure_lock, ntfs_lock_grp);
+	lck_spin_destroy(&vol->security_id_lock, ntfs_lock_grp);
+	lck_mtx_destroy(&vol->inodes_lock, ntfs_lock_grp);
+	/* Finally, free the ntfs volume. */
+	OSFree(vol, sizeof(ntfs_volume), ntfs_malloc_tag);
+	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());
+}
+
+/**
  * ntfs_unmount - unmount an ntfs file system
  * @mp:		mount point to unmount
  * @mnt_flags:	flags describing the unmount (MNT_FORCE is the only one)
@@ -3582,43 +3643,20 @@ no_root:
 
 	}
 	/* Split our ntfs_volume away from the mount. */
+	vol->mp = NULL;
 	vfs_setfsprivate(mp, NULL);
-	lck_mtx_lock(&ntfs_lock);
-	if (vol->upcase && vol->upcase == ntfs_default_upcase) {
-		vol->upcase = NULL;
-		/*
-		 * Drop our reference on the default upcase table and throw it
-		 * away if we had the only reference.
-		 */
-		if (!--ntfs_default_upcase_users) {
-			OSFree(ntfs_default_upcase, ntfs_default_upcase_size,
-					ntfs_malloc_tag);
-			ntfs_default_upcase = NULL;
-		}
+	/* If there are still inodes attached, postpone freeing the volume. */
+	lck_mtx_lock(&vol->inodes_lock);
+	if (!LIST_EMPTY(&vol->inodes)) {
+		NVolSetPostponedRelease(vol);
+		lck_mtx_unlock(&vol->inodes_lock);
+		ntfs_debug("Scheduled postponed release of volume.");
+		return 0;
 	}
-	if (NVolCompressionEnabled(vol)) {
-		/*
-		 * Drop our reference on the compression buffer and throw it
-		 * away if we had the only reference.
-		 */
-		if (!--ntfs_compression_users) {
-			OSFree(ntfs_compression_buffer,
-					ntfs_compression_buffer_size,
-					ntfs_malloc_tag);
-			ntfs_compression_buffer = NULL;
-		}
-	}
-	lck_mtx_unlock(&ntfs_lock);
-	/* If we loaded the attribute definitions table, throw it away now. */
-	if (vol->attrdef)
-		OSFree(vol->attrdef, vol->attrdef_size, ntfs_malloc_tag);
-	/* If we used a volume specific upcase table, throw it away now. */
-	if (vol->upcase)
-		OSFree(vol->upcase, vol->upcase_len << NTFSCHAR_SIZE_SHIFT,
-				ntfs_malloc_tag);
-	/* If we cached a volume name, throw it away now. */
-	if (vol->name)
-		OSFree(vol->name, vol->name_size, ntfs_malloc_tag);
+	lck_mtx_unlock(&vol->inodes_lock);
+	ntfs_do_postponed_release(vol);
+	ntfs_debug("Done.");
+	return 0;
 no_mft:
 	/* Deinitialize the ntfs_volume locks. */
 	lck_rw_destroy(&vol->mftbmp_lock, ntfs_lock_grp);
@@ -3626,6 +3664,7 @@ no_mft:
 	lck_mtx_destroy(&vol->rename_lock, ntfs_lock_grp);
 	lck_rw_destroy(&vol->secure_lock, ntfs_lock_grp);
 	lck_spin_destroy(&vol->security_id_lock, ntfs_lock_grp);
+	lck_mtx_destroy(&vol->inodes_lock, ntfs_lock_grp);
 	/* Finally, free the ntfs volume. */
 	OSFree(vol, sizeof(ntfs_volume), ntfs_malloc_tag);
 unload:
@@ -4101,6 +4140,7 @@ static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 	lck_mtx_init(&vol->rename_lock, ntfs_lock_grp, ntfs_lock_attr);
 	lck_rw_init(&vol->secure_lock, ntfs_lock_grp, ntfs_lock_attr);
 	lck_spin_init(&vol->security_id_lock, ntfs_lock_grp, ntfs_lock_attr);
+	lck_mtx_init(&vol->inodes_lock, ntfs_lock_grp, ntfs_lock_attr);
 	vfs_setfsprivate(mp, vol);
 	if (vfs_isrdonly(mp))
 		NVolSetReadOnly(vol);

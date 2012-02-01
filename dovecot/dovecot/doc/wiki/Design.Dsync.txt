@@ -108,4 +108,4 @@ FIXME: This optimization currently works only in full sync mode. If this were
 to work in fast sync mode, the full mailbox list would have to be looked up
 from local side. And this would slow it down..
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

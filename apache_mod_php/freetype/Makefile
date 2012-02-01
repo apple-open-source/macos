@@ -24,7 +24,7 @@ Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
 AEP			= YES
-AEP_Version		= 2.4.6
+AEP_Version		= 2.4.7
 # License file must be empty as this is a subproject.
 AEP_LicenseFile		=
 AEP_Patches		=

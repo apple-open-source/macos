@@ -1,4 +1,38 @@
-                                                         -*- coding: utf-8 -*-
+﻿                                                         -*- coding: utf-8 -*-
+Changes with Apache 2.2.21
+
+  *) SECURITY: CVE-2011-3348 (cve.mitre.org)
+     mod_proxy_ajp: Respond with HTTP_NOT_IMPLEMENTED when the method is not
+     recognized.  [Jean-Frederic Clere]
+
+  *) Fix a regression introduced by the CVE-2011-3192 byterange fix in 2.2.20.
+     PR 51748. [<lowprio20 gmail.com>]
+
+  *) mod_filter: Instead of dropping the Accept-Ranges header when a filter
+     registered with AP_FILTER_PROTO_NO_BYTERANGE is present,
+     set the header value to "none". [Eric Covener, Ruediger Pluem]
+
+  *) mod_proxy_ajp: Ignore flushing if headers have not been sent.
+     PR 51608 [Ruediger Pluem]
+
+  *) mod_dav_fs: Fix segfault if apr DBM driver cannot be loaded. PR 51751.
+     [Stefan Fritsch]
+
+  *) mod_alias: Adjust log severity of "incomplete redirection target"
+     message. PR 44020.
+
+  *) mod_rewrite: Check validity of each internal (int:) RewriteMap even if the
+     RewriteEngine is disabled in server context, avoiding a crash while
+     referencing the invalid int: map at runtime. PR 50994.
+     [Ben Noordhuis <info noordhuis nl>]
+
+  *) core: Allow MaxRanges none|unlimited|default and set 'Accept-Ranges: none'
+     in the case Ranges are being ignored with MaxRanges none.
+     [Eric Covener]
+
+  *) mod_proxy_ajp: Respect "reuse" flag in END_REPONSE packets.
+     [Rainer Jung]
+
 Changes with Apache 2.2.20
 
   *) SECURITY: CVE-2011-3192 (cve.mitre.org)

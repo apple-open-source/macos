@@ -216,10 +216,29 @@ IOUSBHubDevice::GetPolicyMaker(void)
 UInt32
 IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 {
+	IOReturn	kr = kIOReturnSuccess;
 	uint64_t	extraAllocated = 0;
 	
-	USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower = %d", this, (uint32_t)requestedPower);
-	IOUSBDevice::_expansionData->_commandGate->runAction(GatedRequestExtraPower, (void *)requestedPower, &extraAllocated);
+	if ( IOUSBDevice::_expansionData && IOUSBDevice::_expansionData->_commandGate && IOUSBDevice::_expansionData->_workLoop)
+	{
+		IOCommandGate *	gate = IOUSBDevice::_expansionData->_commandGate;
+		IOWorkLoop *	workLoop = IOUSBDevice::_expansionData->_workLoop;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+       
+        USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower = %d", this, (uint32_t)requestedPower);
+        gate->runAction(GatedRequestExtraPower, (void *)requestedPower, &extraAllocated);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::RequestExtraPower GatedRequestExtraPower runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
+		release();
+	}
 	
 	USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - returning %d", this, (uint32_t)extraAllocated);
 	return (UInt32) extraAllocated;
@@ -354,8 +373,28 @@ IOUSBHubDevice::RequestExtraPower(uint64_t requestedPower, uint64_t * powerAlloc
 void
 IOUSBHubDevice::ReturnExtraPower(UInt32 returnedPower)
 {
-	USBLog(5, "IOUSBHubDevice[%p]::ReturnExtraPower - returning = %d", this, (uint32_t)returnedPower);
-	IOUSBDevice::_expansionData->_commandGate->runAction(GatedReturnExtraPower, (void *)returnedPower);
+	IOReturn	kr = kIOReturnSuccess;
+	
+	if ( IOUSBDevice::_expansionData && IOUSBDevice::_expansionData->_commandGate && IOUSBDevice::_expansionData->_workLoop)
+	{
+		IOCommandGate *	gate = IOUSBDevice::_expansionData->_commandGate;
+		IOWorkLoop *	workLoop = IOUSBDevice::_expansionData->_workLoop;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+        
+        USBLog(5, "IOUSBHubDevice[%p]::ReturnExtraPower - returning = %d", this, (uint32_t)returnedPower);
+        gate->runAction(GatedReturnExtraPower, (void *)returnedPower);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::ReturnExtraPower GatedReturnExtraPower runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
+		release();
+	}
 }
 
 IOReturn
@@ -451,11 +490,32 @@ IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCur
 UInt32
 IOUSBHubDevice::RequestSleepPower(UInt32 requestedPower)
 {
+	IOReturn	kr = kIOReturnSuccess;
 	uint64_t	extraAllocated = 0;
 	
-	USBLog(5, "IOUSBHubDevice[%p]::RequestSleepPower - requestedPower = %d", this, (uint32_t)requestedPower);
-	IOUSBDevice::_expansionData->_commandGate->runAction(GatedRequestSleepPower, (void *)requestedPower, &extraAllocated);
-	
+	if ( IOUSBDevice::_expansionData && IOUSBDevice::_expansionData->_commandGate && IOUSBDevice::_expansionData->_workLoop)
+	{
+		IOCommandGate *	gate = IOUSBDevice::_expansionData->_commandGate;
+		IOWorkLoop *	workLoop = IOUSBDevice::_expansionData->_workLoop;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+        
+        
+        USBLog(5, "IOUSBHubDevice[%p]::RequestSleepPower - requestedPower = %d", this, (uint32_t)requestedPower);
+        gate->runAction(GatedRequestSleepPower, (void *)requestedPower, &extraAllocated);
+        
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::RequestSleepPower GatedRequestSleepPower runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
+		release();
+	}
+    
 	USBLog(5, "IOUSBHubDevice[%p]::RequestSleepPower - returning %d", this, (uint32_t)extraAllocated);
 	return (UInt32) extraAllocated;
 }
@@ -600,8 +660,28 @@ IOUSBHubDevice::RequestSleepPower(uint64_t requestedPower, uint64_t *powerAlloca
 void
 IOUSBHubDevice::ReturnSleepPower(UInt32 returnedPower)
 {
-	USBLog(5, "IOUSBHubDevice[%p]::ReturnSleepPower - returning = %d", this, (uint32_t)returnedPower);
-	IOUSBDevice::_expansionData->_commandGate->runAction(GatedReturnSleepPower, (void *)returnedPower);
+	IOReturn	kr = kIOReturnSuccess;
+	
+	if ( IOUSBDevice::_expansionData && IOUSBDevice::_expansionData->_commandGate && IOUSBDevice::_expansionData->_workLoop)
+	{
+		IOCommandGate *	gate = IOUSBDevice::_expansionData->_commandGate;
+		IOWorkLoop *	workLoop = IOUSBDevice::_expansionData->_workLoop;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+        
+        USBLog(5, "IOUSBHubDevice[%p]::ReturnSleepPower - returning = %d", this, (uint32_t)returnedPower);
+        gate->runAction(GatedReturnSleepPower, (void *)returnedPower);
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"%s[%p]::RequestExtraPower GatedRequestExtraPower runAction() failed (0x%x)", getName(), this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
+		release();
+	}
 }
 
 IOReturn

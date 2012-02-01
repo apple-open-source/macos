@@ -835,8 +835,13 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 	return maker();
 }
 
-static const uint8_t adcSdkMarker[] = { APPLE_EXTENSION_OID, 2, 1 };
+static const uint8_t adcSdkMarker[] = { APPLE_EXTENSION_OID, 2, 1 };		// iOS intermediate marker
 static const CSSM_DATA adcSdkMarkerOID = { sizeof(adcSdkMarker), (uint8_t *)adcSdkMarker };
+
+static const uint8_t caspianSdkMarker[] = { APPLE_EXTENSION_OID, 2, 6 }; // Caspian intermediate marker
+static const CSSM_DATA caspianSdkMarkerOID = { sizeof(caspianSdkMarker), (uint8_t *)caspianSdkMarker };
+static const uint8_t caspianLeafMarker[] = { APPLE_EXTENSION_OID, 1, 13 }; // Caspian leaf certificate marker
+static const CSSM_DATA caspianLeafMarkerOID = { sizeof(caspianLeafMarker), (uint8_t *)caspianLeafMarker };
 
 void SecStaticCode::defaultDesignatedAppleAnchor(Requirement::Maker &maker)
 {
@@ -863,8 +868,41 @@ void SecStaticCode::defaultDesignatedAppleAnchor(Requirement::Maker &maker)
 		maker.put(matchExists);			// exists
 		return;
 	}
+	
+	if (isAppleCaspianSignature()) {
+		// get the Organizational Unit DN element for the leaf (it contains the TEAMID)
+		CFRef<CFStringRef> teamID;
+		MacOSError::check(SecCertificateCopySubjectComponent(cert(Requirement::leafCert),
+			&CSSMOID_OrganizationalUnitName, &teamID.aref()));
 
-	// otherwise, claim this program for Apple
+		// apple anchor generic and ...
+		maker.put(opAnd);
+		maker.anchorGeneric();			// apple generic anchor and...
+		
+		// ... certificate 1[intermediate marker oid] exists and ...
+		maker.put(opAnd);
+		maker.put(opCertGeneric);		// certificate
+		maker.put(1);					// 1
+		maker.putData(caspianSdkMarker, sizeof(caspianSdkMarker));
+		maker.put(matchExists);			// exists
+		
+		// ... certificate leaf[Caspian cert oid] exists and ...
+		maker.put(opAnd);
+		maker.put(opCertGeneric);		// certificate
+		maker.put(0);					// leaf
+		maker.putData(caspianLeafMarker, sizeof(caspianLeafMarker));
+		maker.put(matchExists);			// exists
+
+		// ... leaf[subject.OU] = <leaf's subject>
+		maker.put(opCertField);			// certificate
+		maker.put(0);					// leaf
+		maker.put("subject.OU");		// [subject.OU]
+		maker.put(matchEqual);			// =
+		maker.putData(teamID);			// TEAMID
+		return;
+	}
+
+	// otherwise, claim this program for Apple Proper
 	maker.anchor();
 }
 
@@ -874,6 +912,16 @@ bool SecStaticCode::isAppleSDKSignature()
 		if (CFArrayGetCount(certChain) == 3)		// leaf, one intermediate, anchor
 			if (SecCertificateRef intermediate = cert(1)) // get intermediate
 				if (certificateHasField(intermediate, CssmOid::overlay(adcSdkMarkerOID)))
+					return true;
+	return false;
+}
+
+bool SecStaticCode::isAppleCaspianSignature()
+{
+	if (CFArrayRef certChain = certificates())		// got cert chain
+		if (CFArrayGetCount(certChain) == 3)		// leaf, one intermediate, anchor
+			if (SecCertificateRef intermediate = cert(1)) // get intermediate
+				if (certificateHasField(intermediate, CssmOid::overlay(caspianSdkMarkerOID)))
 					return true;
 	return false;
 }

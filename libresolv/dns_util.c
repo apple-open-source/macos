@@ -349,6 +349,12 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 
 	*remaining -= 10;
 
+	if (*remaining < rdlen)
+	{
+		dns_free_resource_record(r);
+		return NULL;
+	}
+
 	eor = *x;
 	r->data.A = NULL;
 
@@ -709,12 +715,6 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 
 		case ns_t_null:
 		default:
-			if (*remaining < rdlen)
-			{
-				dns_free_resource_record(r);
-				return NULL;
-			}
-
 			*remaining -= rdlen;
 
 			size = sizeof(dns_raw_resource_record_t);

@@ -138,4 +138,4 @@ Prebuild Binaries for AIX 5.2
 You will find prebuild AIX 5.2 binaries here:
 http://www.fh-trier.de/~beckerr/dovecot/
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

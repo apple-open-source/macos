@@ -1251,7 +1251,8 @@ copyEntitlement(SCHelperSessionRef session, CFStringRef entitlement)
 			CFIndex		code	= CFErrorGetCode(error);
 			CFStringRef	domain	= CFErrorGetDomain(error);
 
-			if (!CFEqual(domain, kCFErrorDomainMach) || (code != kIOReturnNotFound)) {
+			if (!CFEqual(domain, kCFErrorDomainMach) ||
+			    ((code != kIOReturnInvalid) && (code != kIOReturnNotFound))) {
 				// if unexpected error
 				SCLog(TRUE, LOG_ERR,
 				      CFSTR("SecTaskCopyValueForEntitlement(,\"%@\",) failed, error = %@ : %@"),

@@ -114,7 +114,23 @@ OSStatus dbError(const SQLite3::Error &err);
 	return noErr;
 	
 #define END_CSAPI1(bad)    } catch (...) { return bad; }
+
 	
+#define END_CSAPI_ERRORS1(bad) \
+	} \
+	catch (const CSError &err) { err.cfError(errors); } \
+	catch (const UnixError &err) { \
+		switch (err.error) { \
+		case ENOEXEC: CSError::cfError(errors, errSecCSBadObjectFormat); \
+		default: CSError::cfError(errors, err.osStatus()); \
+		}} \
+    catch (const MacOSError &err) { CSError::cfError(errors, err.osStatus()); } \
+    catch (const SQLite3::Error &err) { CSError::cfError(errors, dbError(err)); } \
+    catch (const CommonError &err) { CSError::cfError(errors, SecKeychainErrFromOSStatus(err.osStatus())); } \
+    catch (const std::bad_alloc &) { CSError::cfError(errors, memFullErr); } \
+    catch (...) { CSError::cfError(errors, errSecCSInternalError); } \
+	return bad;
+
 
 //
 // A version of CodeSigning::Required

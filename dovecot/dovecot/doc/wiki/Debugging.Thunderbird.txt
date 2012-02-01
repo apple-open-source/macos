@@ -55,4 +55,4 @@ lines, if you add ",timestamp" after "NSPR_LOG_MODULES=IMAP:5" for example. The
 above will create a date/time stamped logfile for each run, so  you won't lose
 the previous logs.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

@@ -207,6 +207,37 @@ test "No reply for implicitly delivered message" {
 }
 
 /*
+ * No reply to original recipient
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: timo@example.com
+To: all@example.com
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "timo@example.com";
+test_set "envelope.to" "stephan@example.com";
+test_set "envelope.orig_to" "all@example.com";
+
+test "No reply for original recipient" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "vacation not supposed to send message";
+	}
+}
+
+/*
  * Reply for normal mail
  */
 
@@ -258,6 +289,73 @@ test_set "envelope.to" "stephan@example.com";
 
 test "Reply for :addresses" {
 	vacation :addresses "all@example.com" "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if not test_message :smtp 0 {
+		test_fail "vacation did not reply";
+	}
+}
+
+/*
+ * Reply for original recipient
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: timo@example.com
+To: all@example.com
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "timo@example.com";
+test_set "envelope.to" "stephan@example.com";
+test_set "envelope.orig_to" "all@example.com";
+
+test_config_set "sieve_vacation_use_original_recipient" "yes";
+test_config_reload :extension "vacation";
+
+test "Reply for original recipient" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if not test_message :smtp 0 {
+		test_fail "vacation did not reply";
+	}
+}
+
+/*
+ * Reply for any recipient
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: timo@example.com
+To: all@example.com
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "timo@example.com";
+test_set "envelope.to" "stephan@example.com";
+
+test_config_set "sieve_vacation_dont_check_recipient" "yes";
+test_config_reload :extension "vacation";
+
+test "Reply for any recipient" {
+	vacation "I am gone";
 
 	if not test_result_execute {
 		test_fail "failed to execute vacation";

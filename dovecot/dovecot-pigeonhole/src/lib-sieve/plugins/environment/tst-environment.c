@@ -37,7 +37,8 @@ const struct sieve_command_def tst_environment = {
 	2, 0, FALSE, FALSE,
 	tst_environment_registered, 
 	NULL,
-	tst_environment_validate, 
+	tst_environment_validate,
+	NULL, 
 	tst_environment_generate, 
 	NULL 
 };

@@ -158,6 +158,36 @@ OSStatus SecRequirementCreateGroup(CFStringRef groupName, SecCertificateRef anch
 	SecCSFlags flags, SecRequirementRef *requirement);
 
 
+	
+/*!
+	@function SecRequirementEvaluate
+	Explicitly evaluate a SecRequirementRef against context provided in the call.
+	This allows evaluation of a code requirement outside the context of a code signature.
+
+	@param requirement A valid SecRequirement object.
+	@param certificateChain A CFArray of SecCertificate objects describing the certificate
+	chain of the object being validated. This must be a full chain terminating in an anchor
+	certificate that is cryptographically valid.
+	@param context An optional CFDictionary containing additional context made available
+	to the requirement program's evaluation. NULL is equivalent to an empty dictionary.
+	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
+	@result Upon success, noErr. Failure to pass the check returns errSecCSReqFailed.
+	All other returns indicate errors as documented in CSCommon.h or certain other
+	Security framework headers.
+	
+	@constant kSecRequirementKeyInfoPlist A context key providing an CFDictionary denoting
+	an Info.plist. If this key is missing, all references to Info.plist contents will fail.
+	@constant kSecRequirementKeyEntitlements A context key providing an CFDictionary describing
+	an entitlement dictionary. If this key is missing, all references to entitlements will fail.
+*/
+extern CFStringRef kSecRequirementKeyInfoPlist;
+extern CFStringRef kSecRequirementKeyEntitlements;
+
+OSStatus SecRequirementEvaluate(SecRequirementRef requirement,
+	CFArrayRef certificateChain, CFDictionaryRef context,
+	SecCSFlags flags);
+
+
 #ifdef __cplusplus
 }
 #endif

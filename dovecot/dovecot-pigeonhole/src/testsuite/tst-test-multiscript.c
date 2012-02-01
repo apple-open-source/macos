@@ -33,7 +33,8 @@ const struct sieve_command_def tst_test_multiscript = {
 	SCT_TEST, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL,
-	tst_test_multiscript_validate, 
+	tst_test_multiscript_validate,
+	NULL, 
 	tst_test_multiscript_generate, 
 	NULL 
 };

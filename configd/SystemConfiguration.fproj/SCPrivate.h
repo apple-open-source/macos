@@ -127,6 +127,7 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
  */
 #define kSCNetworkReachabilityOptionConnectionOnDemandByPass	CFSTR("ConnectionOnDemandByPass")
 
+
 /*!
 	@group
  */

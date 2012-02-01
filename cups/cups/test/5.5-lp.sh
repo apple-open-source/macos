@@ -1,10 +1,10 @@
 #!/bin/sh
 #
-# "$Id: 5.5-lp.sh 7415 2008-03-31 22:33:20Z mike $"
+# "$Id: 5.5-lp.sh 8380 2009-02-22 05:24:23Z mike $"
 #
 #   Test the lp command.
 #
-#   Copyright 2007-2009 by Apple Inc.
+#   Copyright 2007-2011 by Apple Inc.
 #   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -56,8 +56,6 @@ echo "    lp -d Test1 testfile.jpg"
 echo "    lp -d Test2 testfile.jpg"
 i=0
 while test $i -lt $1; do
-	echo "    flood copy $i..." 1>&2
-
 	j=1
 	while test $j -le $2; do
 		../systemv/lp -d test-$j testfile.jpg 2>&1
@@ -82,5 +80,5 @@ echo ""
 ./waitjobs.sh
 
 #
-# End of "$Id: 5.5-lp.sh 7415 2008-03-31 22:33:20Z mike $".
+# End of "$Id: 5.5-lp.sh 8380 2009-02-22 05:24:23Z mike $".
 #

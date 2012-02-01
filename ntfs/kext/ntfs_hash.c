@@ -1,8 +1,8 @@
 /*
  * ntfs_hash.c - NTFS kernel inode hash operations.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -61,8 +61,7 @@
 #include "ntfs_volume.h"
 
 /* Structures associated with ntfs inode caching. */
-typedef LIST_HEAD(, _ntfs_inode) ntfs_inode_list;
-static ntfs_inode_list *ntfs_inode_hash_table;
+static ntfs_inode_list_head *ntfs_inode_hash_table;
 static unsigned long ntfs_inode_hash_mask;
 
 /* A sleeping lock to protect concurrent accesses to the ntfs inode hash. */
@@ -129,7 +128,7 @@ static inline unsigned long ntfs_inode_hash(const ntfs_volume *vol,
  * Return the hash bucket list for the ntfs inode with mft record number
  * @mft_no on the volume @vol.
  */
-static inline ntfs_inode_list *ntfs_inode_hash_list(const ntfs_volume *vol,
+static inline ntfs_inode_list_head *ntfs_inode_hash_list(const ntfs_volume *vol,
 		const ino64_t mft_no)
 {
 	return ntfs_inode_hash_table + ntfs_inode_hash(vol, mft_no);
@@ -147,7 +146,7 @@ static inline ntfs_inode_list *ntfs_inode_hash_list(const ntfs_volume *vol,
  *	    inode to be reclaimed/loaded and then we retry the search again.
  */
 static inline ntfs_inode *ntfs_inode_hash_list_find_nolock(
-		const ntfs_volume *vol, const ntfs_inode_list *list,
+		const ntfs_volume *vol, const ntfs_inode_list_head *list,
 		const ntfs_attr *na)
 {
 	ntfs_inode *ni;
@@ -200,7 +199,7 @@ retry:
  * on the vnode.
  */
 static inline ntfs_inode *ntfs_inode_hash_list_find(const ntfs_volume *vol,
-		const ntfs_inode_list *list, const ntfs_attr *na)
+		const ntfs_inode_list_head *list, const ntfs_attr *na)
 {
 	ntfs_inode *ni;
 
@@ -242,7 +241,7 @@ retry:
  */
 ntfs_inode *ntfs_inode_hash_lookup(ntfs_volume *vol, const ntfs_attr *na)
 {
-	ntfs_inode_list *list;
+	ntfs_inode_list_head *list;
 	ntfs_inode *ni;
 
 	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len 0x%x.",
@@ -252,18 +251,6 @@ ntfs_inode *ntfs_inode_hash_lookup(ntfs_volume *vol, const ntfs_attr *na)
 	ni = ntfs_inode_hash_list_find(vol, list, na);
 	ntfs_debug("Done (ntfs_inode %sfound in cache).", ni ? "" : "not ");
 	return ni;
-}
-
-/**
- * ntfs_inode_hash_add_nolock - add a loaded ntfs inode to the ntfs inode hash
- * @ni:		ntfs inode to add to the hash
- *
- * Add the loaded ntfs inode @ni to the ntfs inode hash.
- */
-static inline void ntfs_inode_hash_add_nolock(ntfs_inode *ni,
-		ntfs_inode_list *list)
-{
-	LIST_INSERT_HEAD(list, ni, hash);
 }
 
 /**
@@ -281,7 +268,7 @@ static inline void ntfs_inode_hash_add_nolock(ntfs_inode *ni,
  */
 ntfs_inode *ntfs_inode_hash_get(ntfs_volume *vol, const ntfs_attr *na)
 {
-	ntfs_inode_list *list;
+	ntfs_inode_list_head *list;
 	ntfs_inode *ni, *nni;
 
 	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len 0x%x.",
@@ -335,26 +322,14 @@ retry:
 	 * NInoAlloc() and we hold the hash lock so we can now add our inode to
 	 * the hash list bucket and drop the hash lock.
 	 */
-	ntfs_inode_hash_add_nolock(nni, list);
+	LIST_INSERT_HEAD(list, nni, hash);
 	lck_mtx_unlock(&ntfs_inode_hash_lock);
+	/* Add the inode to the list of inodes in the volume. */
+	lck_mtx_lock(&vol->inodes_lock);
+	LIST_INSERT_HEAD(&vol->inodes, nni, inodes);
+	lck_mtx_unlock(&vol->inodes_lock);
 	ntfs_debug("Done (new ntfs_inode added to cache).");
 	return nni;
-}
-
-/**
- * ntfs_inode_hash_add - add a loaded ntfs inode to the ntfs inode hash
- * @ni:		ntfs inode to add to the hash
- *
- * Add the loaded ntfs inode @ni to the ntfs inode hash.
- */
-void ntfs_inode_hash_add(ntfs_inode *ni)
-{
-	ntfs_inode_list *list;
-
-	list = ntfs_inode_hash_table + ntfs_inode_hash(ni->vol, ni->mft_no);
-	lck_mtx_lock(&ntfs_inode_hash_lock);
-	ntfs_inode_hash_add_nolock(ni, list);
-	lck_mtx_unlock(&ntfs_inode_hash_lock);
 }
 
 /**

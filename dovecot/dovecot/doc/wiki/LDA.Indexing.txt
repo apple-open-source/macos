@@ -44,4 +44,4 @@ deliver mails that doesn't update indexes. Dovecot can efficiently see and
 index such new mails without doing anything expensive like "rebuilding
 indexes".
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

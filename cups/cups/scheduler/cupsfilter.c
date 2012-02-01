@@ -1,5 +1,5 @@
 /*
- * "$Id: cupsfilter.c 9046 2010-03-24 07:58:11Z mike $"
+ * "$Id: cupsfilter.c 9862 2011-08-03 02:44:09Z mike $"
  *
  *   Filtering program for CUPS.
  *
@@ -329,7 +329,7 @@ main(int  argc,				/* I - Number of command-line args */
 	      break;
 
 	  case 'u' : /* Delete PPD file after conversion */
-	      removeinfile = 1;
+	      removeppd = 1;
 	      break;
 
           case 'U' : /* Specify username... */
@@ -1490,5 +1490,5 @@ usage(const char *command,		/* I - Command name */
 
 
 /*
- * End of "$Id: cupsfilter.c 9046 2010-03-24 07:58:11Z mike $".
+ * End of "$Id: cupsfilter.c 9862 2011-08-03 02:44:09Z mike $".
  */

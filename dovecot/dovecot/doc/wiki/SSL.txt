@@ -13,19 +13,32 @@ SSL and TLS terms are often used in confusing ways:
    pop3 (110) or smtp port (25/587). Nothing would prevent using SSLv3 protocol
    after STARTTLS command.
 
-Using two separate ports for plaintext and SSL connections was thought to be
-wasteful, so STARTTLS intended to deprecate the SSL ports (imaps, pop3s, smtps,
-etc). This never really happened, probably because of two reasons:
+Originally SSL support was added to protocols by giving them a separate "SSL
+port" (imaps, pop3s, etc.), where the SSL handshake starts immediately when
+client connects, and only after the session is encrypted the regular protocol
+handling begins. Using two separate ports for plaintext and SSL connections was
+thought to be wasteful and adds complexity for clients which may wish to make
+use of SSL when it is advertised, so STARTTLS command was added and intended to
+deprecate the SSL ports. Clients using STARTTLS work by connecting to the
+regular unencrypted port and immediately issue a STARTTLS command, after which
+the session is encrypted. After SSL handshake there is no difference between
+SSL port initiated connections and STARTTLS initiated connections.
+
+SSL port deprecation never really happened, probably because of a few reasons:
 
  * Some admins don't even know about STARTTLS.
  * Some admins want to require SSL/TLS, but don't realize that this is also
    possible with STARTTLS (Dovecot has 'disable_plaintext_auth=yes' and
    'ssl=required' settings).
- * Some admins understand everything, but still prefer to allow only SSL ports.
-   This could be because it makes it easier to ensure that no information is
-   leaked, because SSL/TLS handshake happens immediately. Some clients
-   unfortunately try to do plaintext authentication without STARTTLS, even when
-   IMAP server has told the client that it won't work.
+ * Some admins understand everything, but still prefer to allow only SSL ports
+   (maybe with a firewall). This could be because it makes it easier to ensure
+   that no information is leaked, because SSL/TLS handshake happens
+   immediately. Some clients unfortunately try to do plaintext authentication
+   without STARTTLS, even when IMAP server has told the client that it won't
+   work.  Besides, it requires fewer round-trips if you begin SSL upon
+   connection when you know you want it, instead of connect, negotiate
+   capabilities, insist on TLS, then start all over again inside the encrypted
+   session.
 
 Unfortunately there doesn't seem to be any clear and simple way to refer to
 these different meanings.
@@ -44,4 +57,4 @@ this documentation only talks about SSL when in fact it means both SSL/TLS.
  * Dovecot uses OpenSSL, so whatever information you find about it applies also
    to Dovecot.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

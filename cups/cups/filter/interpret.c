@@ -1,5 +1,5 @@
 /*
- * "$Id: interpret.c 7852 2008-08-21 04:19:45Z mike $"
+ * "$Id: interpret.c 9788 2011-05-19 02:50:54Z mike $"
  *
  *   PPD command interpreter for CUPS.
  *
@@ -820,7 +820,7 @@ error_stack(_cups_ps_stack_t *st,	/* I - Stack */
   _cups_ps_obj_t	*obj;		/* Current object on stack */
 
 
-  _cupsRasterAddError(title);
+  _cupsRasterAddError("%s", title);
 
   for (obj = st->objs, c = st->num_objs; c > 0; c --, obj ++)
     error_object(obj);
@@ -1684,5 +1684,5 @@ DEBUG_stack(_cups_ps_stack_t *st)	/* I - Stack */
 
 
 /*
- * End of "$Id: interpret.c 7852 2008-08-21 04:19:45Z mike $".
+ * End of "$Id: interpret.c 9788 2011-05-19 02:50:54Z mike $".
  */

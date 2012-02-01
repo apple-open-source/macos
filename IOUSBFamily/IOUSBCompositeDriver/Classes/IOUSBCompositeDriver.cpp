@@ -121,6 +121,57 @@ IOUSBCompositeDriver::start(IOService * provider)
     return configured;
 }
 
+
+//=============================================================================================
+//
+//  init
+//
+//=============================================================================================
+//
+bool 
+IOUSBCompositeDriver::init(OSDictionary * propTable)
+{
+    if (!super::init(propTable))  return false;
+	
+    // allocate our expansion data
+    if (!fIOUSBCompositeExpansionData)
+    {
+		fIOUSBCompositeExpansionData = (IOUSBCompositeDriverExpansionData *)IOMalloc(sizeof(fIOUSBCompositeExpansionData));
+		if (!fIOUSBCompositeExpansionData)
+			return false;
+		bzero(fIOUSBCompositeExpansionData, sizeof(fIOUSBCompositeExpansionData));
+    }
+	
+	return true;
+}
+
+
+//=============================================================================================
+//
+//  free
+//
+//=============================================================================================
+//
+void
+IOUSBCompositeDriver::free()
+{
+    USBLog(6,"+IOUSBCompositeDriver[%p]::free", this);
+	
+    //  This needs to be the LAST thing we do, as it disposes of our "fake" member
+    //  variables.
+    //
+    if (fIOUSBCompositeExpansionData)
+    {
+        IOFree(fIOUSBCompositeExpansionData, sizeof(fIOUSBCompositeExpansionData));
+        fIOUSBCompositeExpansionData = NULL;
+    }
+	
+	USBLog(6, "-IOUSBCompositeDriver[%p]::free", this);
+	
+    super::free();
+}
+
+
 //=============================================================================================
 //
 //  message
@@ -228,6 +279,7 @@ IOUSBCompositeDriver::ConfigureDevice()
 	OSBoolean *								suspendPropertyRef;
 	OSBoolean *								expressCardCantWakeRef;
 	OSBoolean *								lowPowerNotificationDisplayed;
+	bool									issueRemoteWakeup = false;
     
    // Find if we have a Preferred Configuration
     //
@@ -344,6 +396,15 @@ IOUSBCompositeDriver::ConfigureDevice()
     //
     fConfigValue = prefConfig ? prefConfigValue : cd->bConfigurationValue;
     
+    // Get the remote wakeup feature if it's supported (there is a bug here where if we have a prefConfig, we are not looking for
+	// the atributes of the pref config, but instead we look at the default's config attributes)
+    //
+    fConfigbmAttributes = cd->bmAttributes;
+    if (fConfigbmAttributes & kUSBAtrRemoteWakeup)
+    {
+		fIOUSBCompositeExpansionData->fIssueRemoteWakeup = true;
+	}
+	
     // Now, configure it
     //
     err = SetConfiguration(fConfigValue, true);
@@ -367,21 +428,24 @@ IOUSBCompositeDriver::ConfigureDevice()
         }
     }
     
-    // Set the remote wakeup feature if it's supported
-    //
-    fConfigbmAttributes = cd->bmAttributes;
-    if (fConfigbmAttributes & kUSBAtrRemoteWakeup)
-    {
-        USBLog(3,"%s[%p] Setting kUSBFeatureDeviceRemoteWakeup for device: %s", getName(), this, fDevice->getName());
-        err = fDevice->SetFeature(kUSBFeatureDeviceRemoteWakeup);
-        if ( err != kIOReturnSuccess )
-        {
-            // Wait and retry
-            IOSleep(300);
-            err = fDevice->SetFeature(kUSBFeatureDeviceRemoteWakeup);
-        }
+	if (!fIOUSBCompositeExpansionData->fRemoteWakeupIssued)
+	{
+		// Set the remote wakeup feature if it's supported
+		//
+		fConfigbmAttributes = cd->bmAttributes;
+		if (fConfigbmAttributes & kUSBAtrRemoteWakeup)
+		{
+			USBLog(3,"%s[%p] Setting kUSBFeatureDeviceRemoteWakeup for device: %s", getName(), this, fDevice->getName());
+			err = fDevice->SetFeature(kUSBFeatureDeviceRemoteWakeup);
+			if ( err != kIOReturnSuccess )
+			{
+				// Wait and retry
+				IOSleep(300);
+				err = fDevice->SetFeature(kUSBFeatureDeviceRemoteWakeup);
+			}
+		}
     }
-    
+	
 	// See if this is an express card device which would disconnect on sleep (thus waking everytime)
 	//
 	expressCardCantWakeRef = OSDynamicCast( OSBoolean, fDevice->getProperty(kUSBExpressCardCantWake) );
@@ -548,9 +612,18 @@ ErrorExit:
 IOReturn
 IOUSBCompositeDriver::SetConfiguration(UInt8 configValue, bool startInterfaceMatching)
 {
-    // Call the device object to do the configuration
-    //
-    return fDevice->SetConfiguration(this, configValue, startInterfaceMatching);
+	// Call the device object to do the configuration
+	//
+	if ( fIOUSBCompositeExpansionData && fIOUSBCompositeExpansionData->fIssueRemoteWakeup )
+	{
+		fIOUSBCompositeExpansionData->fRemoteWakeupIssued = true;
+		return fDevice->SetConfiguration(this, configValue, startInterfaceMatching, true);
+	}
+	else
+	{
+		fIOUSBCompositeExpansionData->fRemoteWakeupIssued = false;
+		return fDevice->SetConfiguration(this, configValue, startInterfaceMatching);
+	}
 }
 
 

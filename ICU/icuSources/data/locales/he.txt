@@ -390,11 +390,11 @@ he{
                     "hebr",
                 }
                 {
-                    "dd/MM/yyyy",
+                    "dd MM yyyy",
                     "hebr",
                 }
                 {
-                    "dd/MM/yy",
+                    "dd MM yy",
                     "hebr",
                 }
                 "{1} {0}",

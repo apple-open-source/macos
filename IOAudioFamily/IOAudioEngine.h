@@ -240,6 +240,8 @@ protected:
 		UInt32								mixClipOverhead;
 		OSArray								*streams;
 	    UInt32								inputSampleOffset;
+		UInt32								commandGateStatus;			// <rdar://8518215>
+		SInt32								commandGateUsage;			// <rdar://8518215>
 	};
     
     ExpansionData   *reserved;
@@ -859,6 +861,8 @@ protected:
 	// These aren't virtual by design
 	UInt32 getNextStreamID(IOAudioStream * newStream);
 	IOAudioStream * getStreamForID(UInt32 streamID);
+
+	static void setCommandGateUsage(IOAudioEngine *engine, bool increment);		// <rdar://8518215>
 
 };
 

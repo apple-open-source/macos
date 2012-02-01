@@ -78,7 +78,7 @@ const char *bundleVersion;			// specific version string requested (from a versio
 bool noMachO = false;				// force non-MachO operation
 bool dryrun = false;				// do not actually change anything
 bool allArchitectures = false;		// process all architectures in a universal (aka fat) code file
-int preserveMetadata = 0;           // what metadata to keep from previous signature
+int preserveMetadata = 0;			// what metadata to keep from previous signature
 
 
 //
@@ -86,7 +86,8 @@ int preserveMetadata = 0;           // what metadata to keep from previous signa
 //
 static const char *features[] = {
 	"hash-identities",				// supports -s hash-of-certificate
-	"identity-preferences",			// supports -s identity-preference-name
+	"identity-preferences",		// supports -s identity-preference-name
+	"deep-verify",					// supports --deep-verify
 	NULL							// sentinel
 };
 
@@ -110,6 +111,7 @@ enum {
 	optBundleVersion,
 	optCheckExpiration,
 	optContinue,
+	optDeepVerify,
 	optDetachedDatabase,
 	optDigestAlgorithm,
 	optDryRun,
@@ -152,6 +154,7 @@ const struct option options[] = {
 	{ "bundle-version", required_argument,	NULL, optBundleVersion },
 	{ "check-expiration", no_argument,		NULL, optCheckExpiration },
 	{ "continue",	no_argument,			NULL, optContinue },
+	{ "deep-verify", no_argument,			NULL, optDeepVerify },
 	{ "detached-database", optional_argument, NULL, optDetachedDatabase },
 	{ "digest-algorithm", required_argument, NULL, optDigestAlgorithm },
 	{ "dryrun",		no_argument,			NULL, optDryRun },
@@ -254,6 +257,9 @@ int main(int argc, char *argv[])
 				break;
 			case optContinue:
 				continueOnError = true;
+				break;
+			case optDeepVerify:
+				staticVerifyOptions |= kSecCSCheckNestedCode;
 				break;
 			case optDetachedDatabase:
 				if (optarg)

@@ -70,40 +70,170 @@ test "Basic functionality: if true/false" {
 }
 
 /*
+ * TEST: Basic functionality: if not true/false
+ */
+
+test "Basic functionality: if not true/false" {
+	/* Static */
+	if not true {
+		test_fail "executed wrong alternative for static not true";
+	} else {
+		/* Correct */
+	}
+
+	if not false {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for static not false";
+	}
+
+	/* Dynamic */
+	if not exists "to" {
+		test_fail "executed wrong alternative for dynamic not true";
+	} else {
+		/* Correct */
+	}
+
+	if not exists "flierp" {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for dynamic not false";
+	}
+}
+
+/*
  * TEST: Basic functionality: elseif true/false
  */
 
 test "Basic functionality: elseif true/false" {
 	/* Static */
-	if false {
-		test_fail "executed wrong alternative for static true (if)";
-	} elsif true {
+	if true {
 		/* Correct */
+	} elsif true {
+		test_fail "executed wrong alternative for static true-true (elsif)";
 	} else {
-		test_fail "executed wrong alternative for static true (else)";	
+		test_fail "executed wrong alternative for static true-true (else)";	
+	}
+
+	if true {
+		/* Correct */
+	} elsif false {
+		test_fail "executed wrong alternative for static true-false (elsif)";
+	} else {
+		test_fail "executed wrong alternative for static true-false (else)";	
 	}
 
 	if false {
-		test_fail "executed wrong alternative for static false (if)";
+		test_fail "executed wrong alternative for static false-true (if)";
+	} elsif true {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for static false-false (else)";	
+	}
+
+	if false {
+		test_fail "executed wrong alternative for static false-false (if)";
 	} elsif false {
-		test_fail "executed wrong alternative for static false (elsif)";	
+		test_fail "executed wrong alternative for static false-false (elsif)";	
 	} else {
 		/* Correct */
 	}
 
 	/* Dynamic */
-	if address :is "from" "tss@example.net" {
-		test_fail "executed wrong alternative for dynamic true (if)";
-	} elsif address :is "from" "stephan@example.org" {
+	if address :is "from" "stephan@example.org" {
 		/* Correct */
+	} elsif address :contains "from" "stephan" {
+		test_fail "executed wrong alternative for dynamic true-true (elsif)";
 	} else {
-		test_fail "executed wrong alternative for dynamic true(else)";	
+		test_fail "executed wrong alternative for dynamic true-true (else)";	
+	}
+
+	if address :is "from" "stephan@example.org" {
+		/* Correct */
+	} elsif address :is "from" "frop@example.com" {
+		test_fail "executed wrong alternative for dynamic true-false (elsif)";
+	} else {
+		test_fail "executed wrong alternative for dynamic true-false (else)";	
 	}
 
 	if address :is "from" "tss@example.net" {
-		test_fail "executed wrong alternative for dynamic false (if)";
+		test_fail "executed wrong alternative for dynamic false-true (if)";
+	} elsif address :is "from" "stephan@example.org" {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for dynamic false-true(else)";	
+	}
+
+	if address :is "from" "tss@example.net" {
+		test_fail "executed wrong alternative for dynamic false-false (if)";
 	} elsif address :is "to" "stephan@example.org" {
-		test_fail "executed wrong alternative for dynamic false (elsif)";	
+		test_fail "executed wrong alternative for dynamic false-false (elsif)";	
+	} else {
+		/* Correct */
+	}
+
+	/* Static/Dynamic */
+
+	if true {
+		/* Correct */
+	} elsif address :contains "from" "stephan" {
+		test_fail "executed wrong alternative for first-static true-true (elsif)";
+	} else {
+		test_fail "executed wrong alternative for first-static true-true (else)";	
+	}
+
+	if address :is "from" "stephan@example.org" {
+		/* Correct */
+	} elsif true {
+		test_fail "executed wrong alternative for second-static true-true (elsif)";
+	} else {
+		test_fail "executed wrong alternative for second-static true-true (else)";	
+	}
+
+	if true {
+		/* Correct */
+	} elsif address :is "from" "frop@example.com" {
+		test_fail "executed wrong alternative for first-static true-false (elsif)";
+	} else {
+		test_fail "executed wrong alternative for first-static true-false (else)";	
+	}
+
+	if address :is "from" "stephan@example.org" {
+		/* Correct */
+	} elsif false {
+		test_fail "executed wrong alternative for second-static true-false (elsif)";
+	} else {
+		test_fail "executed wrong alternative for second-static true-false (else)";	
+	}
+
+	if false {
+		test_fail "executed wrong alternative for first-static false-true (if)";
+	} elsif address :is "from" "stephan@example.org" {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for first-static false-true(else)";	
+	}
+
+	if address :is "from" "tss@example.net" {
+		test_fail "executed wrong alternative for second-static false-true (if)";
+	} elsif true {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for second-static false-true(else)";	
+	}
+
+	if false {
+		test_fail "executed wrong alternative for first-static false-false (if)";
+	} elsif address :is "to" "stephan@example.org" {
+		test_fail "executed wrong alternative for first-static false-false (elsif)";	
+	} else {
+		/* Correct */
+	}
+
+	if address :is "from" "tss@example.net" {
+		test_fail "executed wrong alternative for second-static false-false (if)";
+	} elsif false {
+		test_fail "executed wrong alternative for second-static false-false (elsif)";	
 	} else {
 		/* Correct */
 	}

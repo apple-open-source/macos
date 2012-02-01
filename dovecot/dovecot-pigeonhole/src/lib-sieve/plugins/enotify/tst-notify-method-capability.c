@@ -39,7 +39,8 @@ const struct sieve_command_def notify_method_capability_test = {
 	3, 0, FALSE, FALSE,
 	tst_notifymc_registered, 
 	NULL,
-	tst_notifymc_validate, 
+	tst_notifymc_validate,
+	NULL, 
 	tst_notifymc_generate, 
 	NULL 
 };

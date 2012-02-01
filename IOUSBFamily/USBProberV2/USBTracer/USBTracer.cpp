@@ -5089,7 +5089,14 @@ CollectTraceEHCI ( kd_buf tracepoint )
 			break;
 
 		case USB_EHCI_TRACE( kTPEHCIMungeECHIStatus ):
-			log(info, "EHCI", "MungeECHIStatus", parg1, "condition we're not expecting 0x%x kOHCIITDConditionCRC", arg2 );
+			if (arg4 == 0)
+			{
+				log(info, "EHCI", "MungeECHIStatus", parg1, "condition we're not expecting 0x%x kOHCIITDConditionCRC", arg2 );
+			}
+			else if (arg4 == 1)
+			{
+				log(info, "EHCI", "MungeECHIStatus", parg1, "received a Missing Micro Frame (MMF) on a split transaction (status 0x%x) on bus 0x%x", arg2, arg3 );
+			}
 			break;
 		
 		case USB_EHCI_TRACE( kTPEHCIScavengeIsocTransactions ):

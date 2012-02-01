@@ -6,9 +6,9 @@
 
 Project			= dovecot
 DELIVERABLE		= dovecot
-PROJECT_VERSION		= $(Project)-2.0.13apple1
+PROJECT_VERSION		= $(Project)-2.0.16apple1
 PigeonholeProject		= $(Project)-pigeonhole
-PIGEONHOLE_VERSION		= $(Project)-2.0-pigeonhole-0.2.3
+PIGEONHOLE_VERSION		= $(Project)-2.0-pigeonhole-0.2.5
 
 # Configuration values we customize
 #

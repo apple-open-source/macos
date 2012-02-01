@@ -68,7 +68,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0420;
 			};
 			buildConfigurationList = 3EEA301808D71E47002CBB49 /* Build configuration list for PBXProject "ClassicNotSeize" */;
 			compatibilityVersion = "Xcode 3.2";

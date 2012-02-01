@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2011 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ca.xml
@@ -14,6 +14,8 @@ ca{
         calendar{"calendari"}
         collation{"ordre alfabètic"}
         currency{"moneda"}
+        numbers{"números"}
+        x{"Ús privat"}
     }
     Languages{
         aa{"àfar"}
@@ -525,6 +527,9 @@ ca{
         zxx{"sense contingut lingüístic"}
         zza{"zaza"}
     }
+    LanguagesShort{
+        az{"àzeri"}
+    }
     Scripts{
         Arab{"àrab"}
         Armi{"arameu imperial"}
@@ -565,8 +570,8 @@ ca{
         Hang{"hangul"}
         Hani{"han"}
         Hano{"hanunoo"}
-        Hans{"xinès simplificat"}
-        Hant{"xinès tradicional"}
+        Hans{"simplificat"}
+        Hant{"tradicional"}
         Hebr{"hebreu"}
         Hira{"hiragana"}
         Hmng{"pahawh hmong"}
@@ -615,7 +620,7 @@ ca{
         Phlp{"psalter pahlavi"}
         Phlv{"pahlavi"}
         Phnx{"fenici"}
-        Plrd{"Pollard Miao"}
+        Plrd{"pollard miao"}
         Prti{"parthià inscripcional"}
         Rjng{"rejang"}
         Roro{"rongo-rongo"}
@@ -623,7 +628,6 @@ ca{
         Samr{"samarità"}
         Sara{"sarati"}
         Saur{"saurashtra"}
-        Sgnw{"SignWriting"}
         Shaw{"shavià"}
         Sinh{"singalès"}
         Sund{"sundanès"}
@@ -667,7 +671,7 @@ ca{
             islamic{"calendari musulmà"}
             islamic-civil{"calendari civil islàmic"}
             japanese{"calendari japonès"}
-            roc{"calendari de la República Popular de Xina"}
+            roc{"calendari de la República de Xina"}
         }
         collation{
             big5han{"ordre del xinès tradicional - Big5"}
@@ -677,6 +681,9 @@ ca{
             pinyin{"ordre pinyin"}
             stroke{"ordre dels traços"}
             traditional{"ordre tradicional"}
+        }
+        numbers{
+            latn{"nombres aràbics"}
         }
     }
     Variants{

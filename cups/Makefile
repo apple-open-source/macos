@@ -14,11 +14,10 @@ GnuAfterInstall	= install-plist
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 # Specify the configure flags to use...
-Configure_Flags = --with-cups-build="cups-297.2" \
+Configure_Flags = --with-cups-build="cups-297.3" \
 		  --with-libcupsorder=/usr/local/lib/OrderFiles/libcups.2.order \
 		  --with-libcupsimageorder=/usr/local/lib/OrderFiles/libcupsimage.2.order \
 		  --enable-pie --disable-pap \
-		  --enable-webif \
 		  --with-archflags="$(RC_CFLAGS)" \
 		  --with-ldarchflags="`$(SRCROOT)/getldarchflags.sh $(RC_CFLAGS)` $(PPC_FLAGS)" \
 		  --with-adminkey="system.print.admin" \

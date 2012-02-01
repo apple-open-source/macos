@@ -183,14 +183,15 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	}
 
 	if (ns->mail_set->mail_debug) {
-		i_debug("%s: root=%s, index=%s, control=%s, inbox=%s",
+		i_debug("%s: root=%s, index=%s, control=%s, inbox=%s, alt=%s",
 			list->name,
 			list->set.root_dir == NULL ? "" : list->set.root_dir,
 			list->set.index_dir == NULL ? "" : list->set.index_dir,
 			list->set.control_dir == NULL ?
 			"" : list->set.control_dir,
 			list->set.inbox_path == NULL ?
-			"" : list->set.inbox_path);
+			"" : list->set.inbox_path,
+			list->set.alt_dir == NULL ? "" : list->set.alt_dir);
 	}
 	mail_namespace_finish_list_init(ns, list);
 
@@ -433,8 +434,9 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 			mailbox_list_set_critical(list, "stat(%s) failed: %m",
 						  path);
 		} else if (list->mail_set->mail_debug) {
-			i_debug("Namespace %s: Permission lookup failed from %s",
-			       list->ns->prefix, path);
+			i_debug("Namespace %s: %s doesn't exist yet, "
+				"using default permissions",
+				list->ns->prefix, path);
 		}
 		if (name != NULL) {
 			/* return defaults */

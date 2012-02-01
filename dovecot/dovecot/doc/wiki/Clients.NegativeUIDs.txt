@@ -50,4 +50,4 @@ This should really never be a problem with Maildir. If however you have managed
 to cause it somehow (by receiving 2 billion mails?), you can recreate the UIDs
 by deleting 'dovecot-uidlist' file.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

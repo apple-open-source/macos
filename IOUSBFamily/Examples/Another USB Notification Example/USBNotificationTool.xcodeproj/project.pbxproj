@@ -97,7 +97,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0420;
 			};
 			buildConfigurationList = 3EEA300A08D71E47002CBB49 /* Build configuration list for PBXProject "USBNotificationTool" */;
 			compatibilityVersion = "Xcode 3.2";

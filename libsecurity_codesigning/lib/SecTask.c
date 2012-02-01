@@ -170,7 +170,6 @@ static void SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
 	CFNumberRef targetPID = NULL;
 	CFDictionaryRef guestAttributes = NULL;
 	CFDictionaryRef targetInfo = NULL;
-	CFDictionaryRef entitlements = NULL;
 	CFDataRef entitlementData = NULL;
 	SecCodeRef target = NULL;
 	CFErrorRef cfErr = NULL;

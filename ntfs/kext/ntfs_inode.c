@@ -160,6 +160,7 @@ static inline void __ntfs_inode_init(ntfs_volume *vol, ntfs_inode *ni)
 		.tv_nsec = 0,
 	};
 	ntfs_rl_init(&ni->rl);
+	ni->mft_ni = NULL;
 	ni->m_buf = NULL;
 	ni->m = NULL;
 	ni->attr_list_size = 0;
@@ -3132,6 +3133,9 @@ err:
  */
 static inline void ntfs_inode_free(ntfs_inode *ni)
 {
+	ntfs_volume *vol = ni->vol;
+	BOOL do_release;
+
 	/* No need to lock at this stage as no one else has a reference. */
 	if (ni->nr_extents > 0) {
 		int i;
@@ -3186,6 +3190,19 @@ static inline void ntfs_inode_free(ntfs_inode *ni)
 			ni->name != NTFS_SFM_AFPINFO_NAME)
 		OSFree(ni->name, (ni->name_len + 1) * sizeof(ntfschar),
 				ntfs_malloc_tag);
+	/* Remove the inode from the list of inodes in the volume. */
+	lck_mtx_lock(&vol->inodes_lock);
+	LIST_REMOVE(ni, inodes);
+	/*
+	 * If this was the last inode and the release of the volume was
+	 * postponed then release the volume now.
+	 */
+	do_release = FALSE;
+	if (LIST_EMPTY(&vol->inodes) && NVolPostponedRelease(vol)) {
+		NVolClearPostponedRelease(vol);
+		do_release = TRUE;
+	}
+	lck_mtx_unlock(&vol->inodes_lock);
 	/* Destroy all the locks before finally discarding the ntfs inode. */
 	lck_rw_destroy(&ni->lock, ntfs_lock_grp);
 	lck_spin_destroy(&ni->size_lock, ntfs_lock_grp);
@@ -3193,6 +3210,9 @@ static inline void ntfs_inode_free(ntfs_inode *ni)
 	ntfs_rl_deinit(&ni->attr_list_rl);
 	lck_mtx_destroy(&ni->extent_lock, ntfs_lock_grp);
 	OSFree(ni, sizeof(ntfs_inode), ntfs_malloc_tag);
+	/* If the volume release was postponed, perform it now. */
+	if (do_release)
+		ntfs_do_postponed_release(vol);
 }
 
 /**

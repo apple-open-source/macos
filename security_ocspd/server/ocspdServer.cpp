@@ -45,6 +45,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <time.h>
+#include <bsm/libbsm.h>
 #include <sys/stat.h>
 #include <security_ocspd/ocspd.h>						/* created by MIG */
 
@@ -68,6 +69,9 @@ Mutex gListLock;
 
 /* Global list of files being downloaded */
 CFMutableArrayRef gDownloadList = NULL;
+
+/* Global list of OCSP URIs currently being contacted */
+CFMutableArrayRef gURIList = NULL;
 
 /* Global dictionary of CRL issuers */
 CFMutableDictionaryRef gIssuersDict = NULL;
@@ -94,7 +98,8 @@ static SecAsn1OCSPDReply *ocspdGenReply(
 
 static SecAsn1OCSPDReply *ocspdHandleReq(
 	SecAsn1CoderRef coder, 
-	SecAsn1OCSPDRequest &request)
+	SecAsn1OCSPDRequest &request,
+	bool recursing)
 {
 	CSSM_DATA derResp = {0, NULL};
 	CSSM_RETURN crtn;	
@@ -140,7 +145,68 @@ static SecAsn1OCSPDReply *ocspdHandleReq(
 	unsigned numUris = ocspdArraySize((const void **)request.urls);
 	for(unsigned dex=0; dex<numUris; dex++) {
 		CSSM_DATA *uri = request.urls[dex];
-		crtn = ocspdHttpPost(coder, *uri, *request.ocspReq, derResp);
+		CFStringRef uriStr = NULL;
+		bool reqOK = (uri->Length > 0 && uri->Data != NULL);
+
+		if(reqOK && recursing) {
+			/* We are being called from within a concurrent request, so must
+			 * be careful to avoid repeating the same lookups endlessly. */
+			uriStr = CFStringCreateWithBytes(kCFAllocatorDefault,
+				uri->Data, uri->Length, kCFStringEncodingUTF8, false);
+			if(!uriStr) {
+				reqOK = false;
+			} else {
+				StLock<Mutex> _(gListLock); /* lock before examining list */
+				if(gURIList == NULL) {
+					gURIList = CFArrayCreateMutable(kCFAllocatorDefault,
+						0, &kCFTypeArrayCallBacks);
+					if(!gURIList) {
+						reqOK = false;
+					}
+				}
+				if(reqOK) {
+					bool inProgress = CFArrayContainsValue(gURIList,
+						CFRangeMake(0, CFArrayGetCount(gURIList)), uriStr);
+					if(!inProgress) {
+						/* Add the URI to our "reentrant URIs in progress" list
+						 * and proceed with the request. This allows legitimate
+						 * reentrancy when processing redirects; however, if
+						 * execution comes back here with the same URI before we
+						 * finish this function and can remove it from the list,
+						 * we shouldn't make the request. */
+						CFArrayAppendValue(gURIList, uriStr);
+					} else {
+						/* Don't repeat this request */
+						char *ustr = (char *)malloc(uri->Length + 1);
+						memmove(ustr, uri->Data, uri->Length);
+						ustr[uri->Length] = '\0';
+						ocspdErrorLog("ocspdHandleReq: request for \"%s\" is already in progress\n", ustr);
+						free(ustr);
+						reqOK = false;
+					}
+				}
+			}
+		}
+
+		if(reqOK) {
+			/* go ahead with this OCSP request */
+			crtn = ocspdHttpPost(coder, *uri, *request.ocspReq, derResp);
+		} else {
+			crtn = CSSMERR_APPLETP_OCSP_BAD_REQUEST;
+		}
+		if(uriStr) {
+			if(reqOK) {
+				/* remove URI from list */
+				StLock<Mutex> _(gListLock);
+				CFIndex idx =  CFArrayGetFirstIndexOfValue(gURIList,
+					CFRangeMake(0, CFArrayGetCount(gURIList)), uriStr);
+				if(idx >= 0) {
+					CFArrayRemoveValueAtIndex(gURIList, idx);
+				}
+			}
+			CFRelease(uriStr);
+		}
+
 		if(crtn == CSSM_OK) {
 			SecAsn1OCSPDReply *reply = ocspdGenReply(coder, derResp, request.certID);
 			if(!cacheWriteDisable) {
@@ -531,6 +597,7 @@ int crlCheckCachePath()
 
 kern_return_t ocsp_server_ocspdFetch (
 	mach_port_t serverport,
+	audit_token_t auditToken,
 	Data ocspd_req,
 	mach_msg_type_number_t ocspd_reqCnt,
 	Data *ocspd_rep,
@@ -545,6 +612,9 @@ kern_return_t ocsp_server_ocspdFetch (
 	SecAsn1OCSPReplies replies;
 	unsigned numReplies = 0;
 	uint8 version = OCSPD_REPLY_VERS;
+	pid_t pid = -1;
+	audit_token_to_au32(auditToken, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+	bool recursing = (getpid() == pid);
 	
 	/* decode top-level SecAsn1OCSPDRequests */
 	SecAsn1CoderRef coder;
@@ -579,7 +649,7 @@ kern_return_t ocsp_server_ocspdFetch (
 
 	/* This may need to be threaded, one thread per request */
 	for(unsigned dex=0; dex<numRequests; dex++) {
-		SecAsn1OCSPDReply *reply = ocspdHandleReq(coder, *(requests.requests[dex]));
+		SecAsn1OCSPDReply *reply = ocspdHandleReq(coder, *(requests.requests[dex]), recursing);
 		if(reply != NULL) {
 			replies.replies[numReplies++] = reply;
 		}

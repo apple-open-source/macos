@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: run-stp-tests.sh 8217 2009-01-09 19:10:34Z mike $"
+# "$Id: run-stp-tests.sh 9750 2011-05-06 22:53:53Z mike $"
 #
 #   Perform the complete set of IPP compliance tests specified in the
 #   CUPS Software Test Plan.
@@ -573,15 +573,17 @@ echo "<PRE>" >>$strfile
 
 fail=0
 for file in 4*.test; do
-	echo "Performing $file..."
+	echo $ac_n "Performing $file: $ac_c"
 	echo "" >>$strfile
 
-	./ipptool -t ipp://localhost:$port/printers $file | tee -a $strfile
+	./ipptool -tI ipp://localhost:$port/printers $file >> $strfile
 	status=$?
 
 	if test $status != 0; then
-		echo Test failed.
+		echo FAIL
 		fail=`expr $fail + 1`
+	else
+		echo PASS
 	fi
 done
 
@@ -601,16 +603,18 @@ echo $date by $user on `hostname`. >>$strfile
 echo "<PRE>" >>$strfile
 
 for file in 5*.sh; do
-	echo "Performing $file..."
+	echo $ac_n "Performing $file: $ac_c"
 	echo "" >>$strfile
 	echo "\"$file\":" >>$strfile
 
-	sh $file $pjobs $pprinters | tee -a $strfile
+	sh $file $pjobs $pprinters >> $strfile
 	status=$?
 
 	if test $status != 0; then
-		echo Test failed.
+		echo FAIL
 		fail=`expr $fail + 1`
+	else
+		echo PASS
 	fi
 done
 
@@ -866,5 +870,5 @@ if test $fail != 0; then
 fi
 
 #
-# End of "$Id: run-stp-tests.sh 8217 2009-01-09 19:10:34Z mike $"
+# End of "$Id: run-stp-tests.sh 9750 2011-05-06 22:53:53Z mike $"
 #

@@ -1,0 +1,93 @@
+--- modules/ssl/mod_ssl.c.orig	2010-07-12 13:47:45.000000000 -0500
++++ modules/ssl/mod_ssl.c	2011-10-26 19:56:17.000000000 -0500
+@@ -102,6 +102,9 @@
+     SSL_CMD_SRV(FIPS, FLAG,
+                 "Enable FIPS-140 mode "
+                 "(`on', `off')")
++    SSL_CMD_SRV(AllowEmptyFragments, FLAG,
++                "Allow empty fragments "
++                "(`on', `off')")
+     SSL_CMD_ALL(CipherSuite, TAKE1,
+                 "Colon-delimited list of permitted SSL Ciphers "
+                 "(`XXX:...:XXX' - see manual)")
+--- modules/ssl/ssl_engine_config.c.orig	2011-04-14 08:56:17.000000000 -0500
++++ modules/ssl/ssl_engine_config.c	2011-10-26 19:56:17.000000000 -0500
+@@ -178,6 +178,7 @@
+ #ifdef HAVE_FIPS
+     sc->fips                   = UNSET;
+ #endif
++    sc->allow_empty_fragments  = UNSET;
+ 
+     modssl_ctx_init_proxy(sc, p);
+ 
+@@ -275,6 +276,7 @@
+ #ifdef HAVE_FIPS
+     cfgMergeBool(fips);
+ #endif
++    cfgMergeBool(allow_empty_fragments);
+ 
+     modssl_ctx_cfg_merge_proxy(base->proxy, add->proxy, mrg->proxy);
+ 
+@@ -664,6 +666,22 @@
+     return NULL;
+ }
+ 
++const char *ssl_cmd_SSLAllowEmptyFragments(cmd_parms *cmd, void *dcfg, int flag)
++{
++    SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
++    const char *err;
++
++    if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
++        return err;
++    }
++
++    if ((sc->allow_empty_fragments != UNSET) && (sc->allow_empty_fragments != (BOOL)(flag ? TRUE : FALSE)))
++        return "Conflicting SSLAllowEmptyFragments options, cannot be both On and Off";
++    sc->allow_empty_fragments = flag ? TRUE : FALSE;
++
++    return NULL;
++}
++
+ const char *ssl_cmd_SSLCipherSuite(cmd_parms *cmd,
+                                    void *dcfg,
+                                    const char *arg)
+--- modules/ssl/ssl_engine_init.c.orig	2011-04-14 08:56:17.000000000 -0500
++++ modules/ssl/ssl_engine_init.c	2011-10-26 21:15:31.000000000 -0500
+@@ -238,6 +238,8 @@
+             sc->fips = FALSE;
+         }
+ #endif
++        if (sc->allow_empty_fragments == UNSET)
++            sc->allow_empty_fragments = TRUE;
+     }
+ 
+ #if APR_HAS_THREADS
+@@ -485,6 +487,10 @@
+ 
+     SSL_CTX_set_options(ctx, SSL_OP_ALL);
+ 
++    if (sc->allow_empty_fragments) {
++        SSL_CTX_clear_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
++    }
++
+     if (!(protocol & SSL_PROTOCOL_SSLV2)) {
+         SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+     }
+--- modules/ssl/ssl_private.h.orig	2011-04-14 08:56:17.000000000 -0500
++++ modules/ssl/ssl_private.h	2011-10-26 20:00:14.000000000 -0500
+@@ -486,6 +486,7 @@
+ #ifdef HAVE_FIPS
+     BOOL             fips;
+ #endif
++    BOOL             allow_empty_fragments;
+ };
+ 
+ /**
+@@ -570,6 +571,7 @@
+ const char  *ssl_cmd_SSLProxyCheckPeerCN(cmd_parms *cmd, void *dcfg, int flag);
+ 
+ const char *ssl_cmd_SSLFIPS(cmd_parms *cmd, void *dcfg, int flag);
++const char *ssl_cmd_SSLAllowEmptyFragments(cmd_parms *cmd, void *dcfg, int flag);
+ 
+ /**  module initialization  */
+ int          ssl_init_Module(apr_pool_t *, apr_pool_t *, apr_pool_t *, server_rec *);

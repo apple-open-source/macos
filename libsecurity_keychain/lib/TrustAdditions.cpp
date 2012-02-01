@@ -43,8 +43,9 @@
 #include <CommonCrypto/CommonDigest.h>
 #include <Security/Security.h>
 #include <Security/cssmtype.h>
-#include <Security/SecTrustPriv.h>             // for kSecEVOrganizationName
 #include <Security/cssmapplePriv.h>            // for CSSM_APPLE_TP_OCSP_OPTIONS, CSSM_APPLE_TP_OCSP_OPT_FLAGS
+
+#include "SecTrustPriv.h"
 
 //
 // Macros
@@ -863,6 +864,39 @@ CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultTy
 	}
 
 	return NULL;
+}
+
+// returns a CFDictionaryRef containing extended trust results.
+// Caller must release this dictionary.
+//
+// If the isEVCandidate argument is true, extended validation checking is performed
+// and the kSecEVOrganizationName key will be set in the dictionary if EV criteria is met.
+// In all cases, kSecTrustEvaluationDate and kSecTrustExpirationDate will be set.
+//
+CFDictionaryRef extendedTrustResults(CFArrayRef certChain, SecTrustResultType trustResult, OSStatus tpResult, bool isEVCandidate)
+{
+	CFMutableDictionaryRef resultDict = NULL;
+	if (isEVCandidate) {
+		resultDict = (CFMutableDictionaryRef) extendedValidationResults(certChain, trustResult, tpResult);
+	}
+	if (!resultDict) {
+		resultDict = CFDictionaryCreateMutable(NULL, 0,
+			&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (!resultDict) {
+			return NULL;
+		}
+	}
+	CFAbsoluteTime at = CFAbsoluteTimeGetCurrent();
+	CFDateRef trustEvaluationDate = CFDateCreate(kCFAllocatorDefault, at);
+	// by default, permit caching of trust evaluation results for up to 2 hours
+	// FIXME: need to modify this based on cert expiration and OCSP/CRL validity
+	CFDateRef trustExpirationDate = CFDateCreate(kCFAllocatorDefault, at + (60*60*2));
+	CFDictionaryAddValue(resultDict, kSecTrustEvaluationDate, trustEvaluationDate);
+	SafeCFRelease(&trustEvaluationDate);
+	CFDictionaryAddValue(resultDict, kSecTrustExpirationDate, trustExpirationDate);
+	SafeCFRelease(&trustExpirationDate);
+
+	return resultDict;
 }
 
 // returns a CFDictionaryRef containing mappings from supported EV CA OIDs to SHA-1 hash values;

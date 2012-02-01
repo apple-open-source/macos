@@ -144,6 +144,15 @@ Sent*
   all
 ---%<-------------------------------------------------------------------------
 
+List messages from past 48 hours (syntax is in seconds):
+
+---%<-------------------------------------------------------------------------
+# ~/Maildir/virtual/recent/dovecot-virtual
+INBOX
+work/*
+  all younger 172800
+---%<-------------------------------------------------------------------------
+
 Virtual POP3 INBOX
 ------------------
 
@@ -216,4 +225,4 @@ IMAP UIDs. Instead use for GUIDs (with maildir the same as base filename):
 pop3_uidl_format = %g
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

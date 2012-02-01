@@ -1,5 +1,5 @@
 /*
- * "$Id: file.c 9159 2010-06-16 18:02:57Z mike $"
+ * "$Id: file.c 9812 2011-05-31 22:26:28Z mike $"
  *
  *   File functions for CUPS.
  *
@@ -80,6 +80,7 @@ static ssize_t	cups_read(cups_file_t *fp, char *buf, size_t bytes);
 static ssize_t	cups_write(cups_file_t *fp, const char *buf, size_t bytes);
 
 
+#ifndef WIN32
 /*
  * '_cupsFileCheck()' - Check the permissions of the given filename.
  */
@@ -357,6 +358,7 @@ _cupsFileCheckFilter(
 
   fprintf(stderr, "%s: %s\n", prefix, message);
 }
+#endif /* !WIN32 */
 
 
 /*
@@ -2720,5 +2722,5 @@ cups_write(cups_file_t *fp,		/* I - CUPS file */
 
 
 /*
- * End of "$Id: file.c 9159 2010-06-16 18:02:57Z mike $".
+ * End of "$Id: file.c 9812 2011-05-31 22:26:28Z mike $".
  */

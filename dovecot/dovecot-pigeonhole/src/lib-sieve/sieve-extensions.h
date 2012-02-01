@@ -77,10 +77,12 @@ struct sieve_extension {
 	unsigned int dummy:1;
 };
 
-#define sieve_extension_name(ext) \
-	(ext)->def->name
 #define sieve_extension_is(ext, definition) \
 	( (ext)->def == &(definition) )
+#define sieve_extension_name(ext) \
+	(ext)->def->name
+#define sieve_extension_name_is(ext, _name) \
+	( strcmp((ext)->def->name, (_name)) == 0 )
 
 /* 
  * Defining opcodes and operands 
@@ -116,7 +118,8 @@ const struct sieve_extension *sieve_extension_register
 	(struct sieve_instance *svinst, const struct sieve_extension_def *extension, 
 		bool load);
 const struct sieve_extension *sieve_extension_require
-	(struct sieve_instance *svinst, const struct sieve_extension_def *extension);
+	(struct sieve_instance *svinst, const struct sieve_extension_def *extension, 
+		bool load);
 bool sieve_extension_reload(const struct sieve_extension *ext);
 
 void sieve_extension_unregister(const struct sieve_extension *ext);
@@ -139,6 +142,8 @@ const struct sieve_extension *sieve_get_comparator_extension
 	(struct sieve_instance *svinst);
 const struct sieve_extension *sieve_get_address_part_extension
 	(struct sieve_instance *svinst);
+
+void sieve_enable_debug_extension(struct sieve_instance *svinst);
 
 /*
  * Capability registries

@@ -279,7 +279,39 @@ OSStatus sslVerifyProtVersion(
 			}
 			break;
 		default:
-			ortn = errSSLNegotiation;
+			/* something greater than we support? */
+			if(peerVersion > TLS_Version_1_0) {
+				/* downgrade if possible */
+				if(ctx->protocolSide == SSL_ClientSide) {
+					/*
+					 * Client side - no more negotiation possible
+					 * Note this actually implies a pretty serious server
+					 * side violation; it's sending back a protocol version
+					 * HIGHER than we requested
+					 */
+					ortn = errSSLNegotiation;
+				}
+				else if(ctx->versionTls1Enable) {
+					/* server downgrading to TLS1.0 */
+					*negVersion = TLS_Version_1_0;
+				}
+				else if(ctx->versionSsl3Enable) {
+					/* server downgrading to SSL3 */
+					*negVersion = SSL_Version_3_0;
+				}
+				else if(ctx->versionSsl2Enable) {
+					/* server downgrading to SSL2 */
+					*negVersion = SSL_Version_2_0;
+				}
+				else {
+					sslErrorLog("sslVerifyProtVersion: protocol 0x%0x is unsupported, unable to downgrade\n", peerVersion);
+					ortn = errSSLNegotiation;
+				}
+			}
+			else {
+				sslErrorLog("sslVerifyProtVersion: protocol 0x%0x is unsupported\n", peerVersion);
+				ortn = errSSLNegotiation;
+			}
 			break;
 		
 	}

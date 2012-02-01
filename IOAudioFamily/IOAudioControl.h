@@ -155,6 +155,8 @@ protected:
     struct ExpansionData {
 		IOAudioEngine *				providerEngine;
 		OSArray *					notificationQueue;
+		UInt32						commandGateStatus;			// <rdar://8518215>
+		SInt32						commandGateUsage;			// <rdar://8518215>
 	};
     
     ExpansionData *reserved;
@@ -588,6 +590,8 @@ protected:
     virtual IOReturn removeUserClient(IOAudioControlUserClient *userClient);
     
     virtual IOReturn detachUserClients();
+
+	static void setCommandGateUsage(IOAudioControl *control, bool increment);		// <rdar://8518215>
 
 };
 

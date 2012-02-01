@@ -74,7 +74,7 @@ extern const char *procAction;			// action-on-process(es) requested
 extern Architecture architecture;		// specific binary architecture to process (from a universal file)
 extern const char *bundleVersion;		// specific version string requested (from a versioned bundle)
 extern bool noMachO;					// force non-MachO operation
-extern bool dryrun;						// do not actually change anything
+extern bool dryrun;					// do not actually change anything
 extern bool allArchitectures;			// process all architectures in a universal (aka fat) code file
 
 enum {

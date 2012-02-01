@@ -281,4 +281,13 @@ initially have "lookup" right, but later we don't:
 4 OK Myrights completed.
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+Troubleshooting
+---------------
+
+ * Make sure the % and %% variables are specified correctly in the namespace
+   location.'mail_debug=yes' will help you see if Dovecot is trying to access
+   correct paths.
+ * 'doveadm acl debug -u user@domain shared/user/box' can be helpful in
+   figuring out why a mailbox can't be accessed.
+
+(This file was created from the wiki on 2011-11-16 14:09)

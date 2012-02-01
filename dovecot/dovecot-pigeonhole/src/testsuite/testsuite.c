@@ -49,7 +49,7 @@ const struct sieve_script_env *testsuite_scriptenv;
 static void print_help(void)
 {
 	printf(
-"Usage: testsuite [-E] [-d <dump-filename>]\n"
+"Usage: testsuite [-D] [-E] [-d <dump-filename>]\n"
 "                 [-t <trace-filename>] [-T <trace-option>]\n"
 "                 [-P <plugin>] [-x <extensions>]\n"
 "                 <scriptfile>\n"
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 	int ret, c;
 
 	sieve_tool = sieve_tool_init
-		("testsuite", &argc, &argv, "d:t:T:EP:", TRUE);
+		("testsuite", &argc, &argv, "d:t:T:EDP:", TRUE);
 
 	/* Parse arguments */
 	scriptfile = dumpfile = tracefile = NULL;
@@ -136,20 +136,10 @@ int main(int argc, char **argv)
 	/* Initialize mail user */
 	sieve_tool_set_homedir(sieve_tool, t_abspath(""));
 	
-	/* Set dummy mail environment */
-	env_put(t_strdup_printf("MAIL=maildir:/tmp/dovecot-test-%s",
-		sieve_tool_get_username(sieve_tool)));
-
-	/* Finish tool initialization */
-	svinst = sieve_tool_init_finish(sieve_tool, TRUE);
-		
-	testsuite_init(svinst, log_stdout);
+	/* Initialize settings environment */
 	testsuite_settings_init();
 
-	printf("Test case: %s:\n\n", scriptfile);
-
-	/* Initialize environment */
-
+	/* Currently needed for include (FIXME) */
 	sieve_dir = strrchr(scriptfile, '/');
 	if ( sieve_dir == NULL )
 		sieve_dir= "./";
@@ -157,11 +147,16 @@ int main(int argc, char **argv)
 		sieve_dir = t_strdup_until(scriptfile, sieve_dir+1);
 	}
 
-	/* Currently needed for include (FIXME) */
 	testsuite_setting_set
 		("sieve_dir", t_strconcat(sieve_dir, "included", NULL));
 	testsuite_setting_set
 		("sieve_global_dir", t_strconcat(sieve_dir, "included-global", NULL));
+
+	/* Finish testsuite initialization */
+	svinst = sieve_tool_init_finish(sieve_tool, FALSE);	
+	testsuite_init(svinst, log_stdout);
+
+	printf("Test case: %s:\n\n", scriptfile);
 
 	/* Compile sieve script */
 	if ( (sbin = sieve_compile

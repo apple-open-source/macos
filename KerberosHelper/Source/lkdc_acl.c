@@ -28,6 +28,10 @@
 
 static CFArrayRef
 getTrustedApps(const char *trustedApp)
+    CF_RETURNS_RETAINED;
+
+static CFArrayRef
+getTrustedApps(const char *trustedApp)
 {
     SecTrustedApplicationRef app;
     void *values[1];

@@ -1,5 +1,3 @@
-SUBDIRS = debug
-
 bin_PROGRAMS = sievec sieve-dump sieve-test
 
 if BUILD_UNFINISHED
@@ -15,8 +13,7 @@ AM_CPPFLAGS = \
 
 libs = \
 	$(top_builddir)/src/lib-sieve/libdovecot-sieve.la \
-	$(top_builddir)/src/lib-sieve-tool/libsieve-tool.la \
-	$(top_builddir)/src/sieve-tools/debug/libsieve_ext_debug.la
+	$(top_builddir)/src/lib-sieve-tool/libsieve-tool.la 
 
 libs_ldadd = $(libs) $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_LDA) $(LIBDOVECOT)
 libs_deps = $(libs) $(LIBDOVECOT_STORAGE_DEPS) $(LIBDOVECOT_LDA_DEPS) $(LIBDOVECOT_DEPS)

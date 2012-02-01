@@ -239,6 +239,11 @@ void Trust::evaluate(bool disableEV)
 		context.actionData() = localActionCData;
 	}
 	
+	if (!mAnchors) {
+		// always check trust settings if caller did not provide explicit trust anchors
+		actionDataP->ActionFlags |= CSSM_TP_ACTION_TRUST_SETTINGS;
+	}
+
 	if (policySpecified(mPolicies, CSSMOID_APPLE_TP_SSL)) {
 		// enable network cert fetch for SSL only: <rdar://7422356>
 		actionDataP->ActionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
@@ -391,19 +396,17 @@ void Trust::evaluate(bool disableEV)
         secdebug("trusteval", "unexpected evidence ignored");
     }
 	
-	/* do post-processing for EV candidate chain */
-	if (isEVCandidate) {
-		CFArrayRef fullChain = makeCFArray(convert, mCertChain);
-		CFDictionaryRef evResult = extendedValidationResults(fullChain, mResult, mTpReturn);
-		mExtendedResult = evResult; // assignment to CFRef type is an implicit retain
-		if (evResult)
-			CFRelease(evResult);
-		CFRelease(fullChain);
-		secdebug("evTrust", "Trust::evaluate() post-processing complete");
-	} else {
-		mExtendedResult = NULL;
+	/* do post-processing for the evaluated certificate chain */
+	CFArrayRef fullChain = makeCFArray(convert, mCertChain);
+	CFDictionaryRef etResult = extendedTrustResults(fullChain, mResult, mTpReturn, isEVCandidate);
+	mExtendedResult = etResult; // assignment to CFRef type is an implicit retain
+	if (etResult) {
+		CFRelease(etResult);
 	}
-	
+	if (fullChain) {
+		CFRelease(fullChain);
+	}
+
 	/* Clean up Policies we created implicitly */
 	if(numSpecAdded) {
 		freeSpecifiedRevocationPolicies(allPolicies, numSpecAdded, context.allocator);
@@ -464,19 +467,20 @@ static const CSSM_RETURN recoverableErrors[] =
 SecTrustResultType Trust::diagnoseOutcome()
 {
 	StLock<Mutex>_(mMutex);
+
+	uint32 chainLength = 0;
+	if (mTpResult.count() == 3 &&
+		mTpResult[1].form() == CSSM_EVIDENCE_FORM_APPLE_CERTGROUP &&
+		mTpResult[2].form() == CSSM_EVIDENCE_FORM_APPLE_CERT_INFO)
+	{
+		const CertGroup &chain = *mTpResult[1].as<CertGroup>();
+		chainLength = chain.count();
+	}
+
     switch (mTpReturn) {
     case noErr:									// peachy
 		if (mUsingTrustSettings)
 		{
-			uint32 chainLength = 0;
-			if (mTpResult.count() == 3 &&
-				mTpResult[1].form() == CSSM_EVIDENCE_FORM_APPLE_CERTGROUP &&
-				mTpResult[2].form() == CSSM_EVIDENCE_FORM_APPLE_CERT_INFO)
-			{
-				const CertGroup &chain = *mTpResult[1].as<CertGroup>();
-				chainLength = chain.count();
-			}
-            
 			if (chainLength)
 			{
 				const CSSM_TP_APPLE_EVIDENCE_INFO *infoList = mTpResult[2].as<CSSM_TP_APPLE_EVIDENCE_INFO>();

@@ -13,11 +13,12 @@ host you can do it by editing 'mailbox_command' parameter in
 '/etc/postfix/main.cf' (postconf(5) [http://www.postfix.org/postconf.5.html]):
 
 ---%<-------------------------------------------------------------------------
-mailbox_command = /usr/local/libexec/dovecot/dovecot-lda
+mailbox_command = /usr/local/libexec/dovecot/dovecot-lda -f "$SENDER" -a
+"$RECIPIENT"
 #  or
-mailbox_command = /usr/libexec/dovecot/dovecot-lda
+mailbox_command = /usr/libexec/dovecot/dovecot-lda -f "$SENDER" -a "$RECIPIENT"
 #  or
-mailbox_command = /usr/lib/dovecot/dovecot-lda
+mailbox_command = /usr/lib/dovecot/dovecot-lda -f "$SENDER" -a "$RECIPIENT"
 #  or wherever it was installed in your system.
 ---%<-------------------------------------------------------------------------
 
@@ -197,8 +198,8 @@ need to manually maintain a file with valid recipients.
 *Info:* If you use "relay_domains" instead of "virtual_mailbox_domains" you
 have to use "relay_recipient_maps" instead of "virtual_mailbox_maps".
 
-Dynamic address verfication with LMTP
--------------------------------------
+Dynamic address verification with LMTP
+--------------------------------------
 
 With Dovecot 2.0 you can also use LMTP and the Postfix setting
 "reject_unverified_recipient" for dynamic address verification. It's really
@@ -226,4 +227,4 @@ If the recipient address exists (status=deliverable) Postfix accepts the mail.
 *Info:* you can not use "reject_unverified_recipient" with "pipe" so this
 doesn't work with the Dovecot LDA "deliver".
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

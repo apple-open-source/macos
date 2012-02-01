@@ -61,16 +61,17 @@ protected:
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
     virtual void layout();
     virtual void paint(PaintInfo&, int x, int y);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
 
 private:
     virtual bool isWidget() const { return true; }
 
     virtual void destroy();
     virtual void setSelectionState(SelectionState);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
     virtual void setOverlapTestResult(bool);
 
     bool setWidgetGeometry(const IntRect&, const IntSize&);
+    bool updateWidgetGeometry();
 
     RefPtr<Widget> m_widget;
     RefPtr<Image> m_substituteImage;

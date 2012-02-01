@@ -77,12 +77,12 @@ of a mailbox-specific limit if found. So for example:
 
 ---%<-------------------------------------------------------------------------
 quota_rule = *:storage=1G
-quota_rule2 = Trash:storage=100M
+quota_rule2 = Trash:storage=+100M
 quota_rule3 = SPAM:ignore
 ---%<-------------------------------------------------------------------------
 
 This means that the user has 1GB quota, but when saving messages to Trash
-mailbox it's possible to use up to 1,1GB of quota. The quota isn't specifically
+mailbox it's possible to use up to 1.1GB of quota. The quota isn't specifically
 assigned to Trash, so if you had 1GB of mails in Trash you could still save
 100MB of mails to Trash, but nothing to other mailboxes. The idea of this is
 mostly to allow the clients' move-to-Trash feature work while user is deleting
@@ -123,9 +123,9 @@ plugin {
   quota = maildir:User quota
   quota_rule = *:storage=1GB
   # 10% of 1GB = 100MB
-  quota_rule2 = Trash:storage=10%%
+  quota_rule2 = Trash:storage=+10%%
   # 20% of 1GB = 200MB
-  quota_rule3 = Spam:storage=20%%
+  quota_rule3 = Spam:storage=+20%%
 }
 ---%<-------------------------------------------------------------------------
 
@@ -149,7 +149,7 @@ example:
 plugin {
   quota = maildir:User quota
   quota_rule = *:storage=1G
-  quota_rule2 = Trash:storage=100M
+  quota_rule2 = Trash:storage=+100M
 }
 ---%<-------------------------------------------------------------------------
 
@@ -311,4 +311,4 @@ just insert ":noenforcing" to proper location in it. For example with dict
 quota, you can use something like:'-o "plugin/quota=dict:User
 quota::noenforcing:proxy::quota"'
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

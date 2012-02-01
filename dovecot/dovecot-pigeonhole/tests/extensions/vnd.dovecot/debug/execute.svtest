@@ -1,0 +1,6 @@
+require "vnd.dovecot.testsuite";
+require "vnd.dovecot.debug";
+
+test "Basic" {
+	debug_log "logging basic message.";
+}

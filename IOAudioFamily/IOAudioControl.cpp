@@ -30,6 +30,14 @@
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
 
+// <rdar://8518215>
+enum
+{
+	kCommandGateStatus_Normal				= 0,
+	kCommandGateStatus_RemovalPending,
+	kCommandGateStatus_Invalid
+};
+
 #define super IOService
 
 OSDefineMetaClassAndStructors(IOAudioControl, IOService)
@@ -219,6 +227,8 @@ bool IOAudioControl::init(UInt32 type,
 
 	reserved->providerEngine = NULL;
 	reserved->notificationQueue = NULL;
+	reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
+	reserved->commandGateUsage = 0;								// <rdar://8518215>
     isStarted = false;
 
     return true;
@@ -369,14 +379,21 @@ void IOAudioControl::stop(IOService *provider)
 	// <rdar://7233118>, <rdar://7029696> Remove the event source here as performing heavy workloop operation in free() could lead
 	// to deadlock since the context which free() is called is not known. stop() is called on the workloop, so it is safe to remove 
 	// the event source here.
-    if (commandGate) {
-        if (workLoop) {
-            workLoop->removeEventSource(commandGate);
-        }
-        
-        commandGate->release();
-        commandGate = NULL;
-    }
+	if (reserved->commandGateUsage == 0) {							// <rdar://8518215>
+		reserved->commandGateStatus = kCommandGateStatus_Invalid;	// <rdar://8518215>
+		
+		if (commandGate) {
+			if (workLoop) {
+				workLoop->removeEventSource(commandGate);
+			}
+			
+			commandGate->release();
+			commandGate = NULL;
+		}
+	}
+	else {	// <rdar://8518215>
+		reserved->commandGateStatus = kCommandGateStatus_RemovalPending;
+	}
 
     super::stop(provider);
 
@@ -430,7 +447,9 @@ IOReturn IOAudioControl::_setValueAction(OSObject *target, void *arg0, void *arg
             cg = audioControl->getCommandGate();
             
             if (cg) {
+				setCommandGateUsage(audioControl, true);	// <rdar://8518215>
                 result = cg->runAction(setValueAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(audioControl, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -888,7 +907,9 @@ IOReturn IOAudioControl::_addUserClientAction(OSObject *target, void *arg0, void
             cg = audioControl->getCommandGate();
             
             if (cg) {
+				setCommandGateUsage(audioControl, true);	// <rdar://8518215>
                 result = cg->runAction(addUserClientAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(audioControl, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -925,7 +946,9 @@ IOReturn IOAudioControl::_removeUserClientAction(OSObject *target, void *arg0, v
             cg = audioControl->getCommandGate();
             
             if (cg) {
+				setCommandGateUsage(audioControl, true);	// <rdar://8518215>
                 result = cg->runAction(removeUserClientAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(audioControl, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -1037,6 +1060,56 @@ IOReturn IOAudioControl::detachUserClients()
     
     audioDebugIOLog(3, "- IOAudioControl[%p]::detachUserClients() returns 0x%lX\n", this, (long unsigned int)result );
     return result;
+}
+
+// <rdar://8518215>
+void IOAudioControl::setCommandGateUsage(IOAudioControl *control, bool increment)
+{
+	if (control->reserved) {
+		if (increment) {
+			switch (control->reserved->commandGateStatus)
+			{
+				case kCommandGateStatus_Normal:
+				case kCommandGateStatus_RemovalPending:
+					control->reserved->commandGateUsage++;
+					break;
+				case kCommandGateStatus_Invalid:
+					// Should never be here. If so, something went bad...
+					break;
+			}
+		}
+		else {
+			switch (control->reserved->commandGateStatus)
+			{
+				case kCommandGateStatus_Normal:
+					if (control->reserved->commandGateUsage > 0) {
+						control->reserved->commandGateUsage--;
+					}
+					break;
+				case kCommandGateStatus_RemovalPending:
+					if (control->reserved->commandGateUsage > 0) {
+						control->reserved->commandGateUsage--;
+						
+						if (control->reserved->commandGateUsage == 0) {
+							control->reserved->commandGateStatus = kCommandGateStatus_Invalid;
+							
+							if (control->commandGate) {
+								if (control->workLoop) {
+									control->workLoop->removeEventSource(control->commandGate);
+								}
+								
+								control->commandGate->release();
+								control->commandGate = NULL;
+							}
+						}
+					}
+					break;
+				case kCommandGateStatus_Invalid:
+					// Should never be here. If so, something went bad...
+					break;
+			}
+		}
+	}
 }
 
 IOReturn IOAudioControl::setProperties(OSObject *properties)

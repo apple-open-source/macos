@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     28
+#define IOGRAPHICSTYPES_REV     29
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -138,6 +138,8 @@ typedef UInt32  IOAppleTimingID;
  *   kDisplayModeSimulscanFlag mode is available on multiple display connections. <br>
  *   kDisplayModeNotPresetFlag mode is not a factory preset for the display (geometry may need correction). <br>
  *   kDisplayModeStretchedFlag mode is stretched/distorted to match the display aspect ratio. <br>
+ * @field imageWidth Physical width of active image if known, in millimeters, otherwise zero. <br>
+ * @field imageHeight Physical height of active image if known, in millimeters, otherwise zero. <br>
  * @field reserved Set to zero.
  */
 
@@ -147,7 +149,9 @@ struct IODisplayModeInformation {
     IOFixed1616                 refreshRate;
     IOIndex                     maxDepthIndex;
     UInt32                      flags;
-    UInt32                      reserved[ 4 ];
+    UInt16						imageWidth;
+    UInt16						imageHeight;
+    UInt32                      reserved[ 3 ];
 };
 typedef struct IODisplayModeInformation IODisplayModeInformation;
 

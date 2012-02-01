@@ -50,10 +50,6 @@ static const struct sieve_operation_def *ext_include_operations[] = {
  
 /* Forward declaration */
 
-static bool ext_include_load
-	(const struct sieve_extension *ext, void **context);
-static void ext_include_unload
-	(const struct sieve_extension *ext);
 static bool ext_include_validator_load
 	(const struct sieve_extension *ext, struct sieve_validator *validator);
 static bool ext_include_generator_load
@@ -79,35 +75,6 @@ const struct sieve_extension_def include_extension = {
 	SIEVE_EXT_DEFINE_OPERATIONS(ext_include_operations),
 	SIEVE_EXT_DEFINE_NO_OPERANDS
 };
-
-/* Extension hooks */
-
-static bool ext_include_load
-(const struct sieve_extension *ext, void **context)
-{
-	struct ext_include_context *ctx;
-
-	if ( *context != NULL ) {
-		ctx = (struct ext_include_context *) ext->context;
-	} else {
-		ctx =  i_new(struct ext_include_context, 1);
-	}
-
-	/* Extension dependencies */	
-	ctx->var_ext = sieve_ext_variables_get_extension(ext->svinst);
-
-	*context = ctx;
-
-	return TRUE;
-}
-
-static void ext_include_unload
-(const struct sieve_extension *ext)
-{
-	struct ext_include_context *ctx = (struct ext_include_context *) ext->context;
-
-	i_free(ctx);
-}
 
 static bool ext_include_validator_load
 (const struct sieve_extension *ext, struct sieve_validator *valdtr)

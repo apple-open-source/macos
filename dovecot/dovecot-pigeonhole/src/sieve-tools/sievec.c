@@ -13,8 +13,6 @@
 #include "sieve-script.h"
 #include "sieve-tool.h"
 
-#include "sieve-ext-debug.h"
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -32,7 +30,7 @@
 static void print_help(void)
 {
 	printf(
-"Usage: sievec [-d] [-P <plugin>] [-x <extensions>] \n"
+"Usage: sievec  [-c <config-file>] [-d] [-P <plugin>] [-x <extensions>] \n"
 "              <script-file> [<out-file>]\n"
 	);
 }
@@ -50,9 +48,9 @@ int main(int argc, char **argv)
 	const char *scriptfile, *outfile;
 	int exit_status = EXIT_SUCCESS;
 	int c;
-		
-	sieve_tool = sieve_tool_init("sievec", &argc, &argv, "dP:x:u:", FALSE);
-		
+
+	sieve_tool = sieve_tool_init("sievec", &argc, &argv, "DdP:x:u:", FALSE);
+
 	scriptfile = outfile = NULL;
 	while ((c = sieve_tool_getopt(sieve_tool)) > 0) {
 		switch (c) {
@@ -82,8 +80,8 @@ int main(int argc, char **argv)
 
 	svinst = sieve_tool_init_finish(sieve_tool, FALSE);
 
-	/* Register debug extension */
-	(void) sieve_extension_register(svinst, &debug_extension, TRUE);
+	/* Enable debug extension */
+	sieve_enable_debug_extension(svinst);
 
 	if ( stat(scriptfile, &st) == 0 && S_ISDIR(st.st_mode) ) {
 		/* Script directory */

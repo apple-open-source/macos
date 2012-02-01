@@ -87,7 +87,8 @@ static const struct sieve_command_def envelope_test = {
 	2, 0, FALSE, FALSE,
 	tst_envelope_registered, 
 	NULL,
-	tst_envelope_validate, 
+	tst_envelope_validate,
+	NULL, 
 	tst_envelope_generate, 
 	NULL 
 };

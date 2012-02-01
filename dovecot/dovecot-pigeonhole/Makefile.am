@@ -123,6 +123,10 @@ test_cases = \
 	tests/extensions/spamvirustest/virustest.svtest \
 	tests/extensions/spamvirustest/spamtestplus.svtest \
 	tests/extensions/spamvirustest/errors.svtest \
+	tests/extensions/ihave/execute.svtest \
+	tests/extensions/ihave/errors.svtest \
+	tests/extensions/ihave/restrictions.svtest \
+	tests/extensions/vnd.dovecot/debug/execute.svtest \
 	tests/deprecated/notify/basic.svtest \
 	tests/deprecated/notify/mailto.svtest \
 	tests/deprecated/notify/errors.svtest \

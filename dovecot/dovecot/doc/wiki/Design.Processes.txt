@@ -144,4 +144,4 @@ it's usually more trouble than worth.
 See <mail process design> [Design.MailProcess.txt] for their internal design
 documentation.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

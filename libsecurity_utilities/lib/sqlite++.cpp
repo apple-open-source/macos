@@ -303,6 +303,11 @@ Statement::Binding Statement::bind(const char *name) const
 		throw std::logic_error("unknown parameter name");
 }
 
+void Statement::Binding::null()
+{
+	statement.check(::sqlite3_bind_null(statement.sql(), index));
+}
+
 void Statement::Binding::operator = (const Value &value)
 {
 	statement.check(::sqlite3_bind_value(statement.sql(), index, value.sql()));
@@ -314,6 +319,11 @@ void Statement::Binding::operator = (int value)
 }
 
 void Statement::Binding::operator = (sqlite3_int64 value)
+{
+	statement.check(::sqlite3_bind_int64(statement.sql(), index, value));
+}
+
+void Statement::Binding::integer(sqlite3_int64 value)
 {
 	statement.check(::sqlite3_bind_int64(statement.sql(), index, value));
 }
@@ -332,7 +342,7 @@ void Statement::Binding::operator = (const char *value)
 void Statement::Binding::blob(const void *data, size_t length, bool shared /* = false */)
 {
 	if (data == NULL)
-		statement.check(::sqlite3_bind_null(statement.sql(), index));
+		this->null();
 	else if (shared) {
 		statement.check(::sqlite3_bind_blob(statement.sql(), index, data, length, NULL));
 	} else if (void *copy = ::malloc(length)) {
@@ -345,7 +355,18 @@ void Statement::Binding::blob(const void *data, size_t length, bool shared /* = 
 
 void Statement::Binding::operator = (CFDataRef data)
 {
-	this->blob(CFDataGetBytePtr(data), CFDataGetLength(data));
+	if (data)
+		this->blob(CFDataGetBytePtr(data), CFDataGetLength(data));
+	else
+		this->null();
+}
+
+void Statement::Binding::operator = (CFStringRef value)
+{
+	if (value)
+		*this = cfString(value).c_str();
+	else
+		this->null();
 }
 
 const char *Statement::Binding::name() const

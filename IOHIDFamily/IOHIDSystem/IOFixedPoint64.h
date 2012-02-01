@@ -152,7 +152,7 @@ IOFixedPoint64& operator OP(SInt64 s) { \
 #undef ARITHMETIC_OPERATOR
     
 #define BOOL_OPERATOR(OP) \
-bool operator OP (const IOFixedPoint64 p) const { return (x OP p.x) && (y OP p.y); }
+bool operator OP (const IOFixedPoint64 p) const { return (x OP p.x) || (y OP p.y); }
     
     BOOL_OPERATOR(>)
     BOOL_OPERATOR(>=)

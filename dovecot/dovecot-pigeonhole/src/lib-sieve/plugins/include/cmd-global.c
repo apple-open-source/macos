@@ -28,13 +28,14 @@ static bool cmd_global_generate
 (const struct sieve_codegen_env *cgenv, struct sieve_command *cmd);
 
 const struct sieve_command_def cmd_global = {
-    "global",
-    SCT_COMMAND,
-    1, 0, FALSE, FALSE,
-    NULL, NULL,
-    cmd_global_validate,
-    cmd_global_generate,
-    NULL
+  "global",
+  SCT_COMMAND,
+  1, 0, FALSE, FALSE,
+  NULL, NULL,
+  cmd_global_validate,
+	NULL,
+  cmd_global_generate,
+  NULL
 };
 
 /* DEPRICATED:
@@ -50,7 +51,8 @@ const struct sieve_command_def cmd_import = {
 	SCT_COMMAND, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL,
-	cmd_global_validate, 
+	cmd_global_validate,
+	NULL,
 	cmd_global_generate, 
 	NULL
 };
@@ -65,7 +67,8 @@ const struct sieve_command_def cmd_export = {
 	SCT_COMMAND, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL, 
-	cmd_global_validate, 
+	cmd_global_validate,
+	NULL,
 	cmd_global_generate, 
 	NULL
 };
@@ -171,13 +174,13 @@ static bool cmd_global_validate
 			sieve_ast_argument_name(arg));
 		return FALSE;
 	}
-	
+
 	/* Join global commands with predecessors if possible */
 	if ( sieve_commands_equal(prev, cmd) ) {
 		/* Join this command's string list with the previous one */
 		prev->first_positional = sieve_ast_stringlist_join
 			(prev->first_positional, cmd->first_positional);
-		
+
 		if ( prev->first_positional == NULL ) {
 			/* Not going to happen unless MAXINT stringlist items are specified */
 			sieve_command_validate_error(valdtr, cmd, 

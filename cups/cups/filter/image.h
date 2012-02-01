@@ -1,5 +1,5 @@
 /*
- * "$Id: image.h 7306 2008-02-15 00:52:38Z mike $"
+ * "$Id: image.h 9771 2011-05-12 05:21:56Z mike $"
  *
  *   Image library definitions for CUPS.
  *
@@ -126,5 +126,5 @@ extern void		cupsImageWhiteToWhite(const cups_ib_t *in,
 #endif /* !_CUPS_IMAGE_H_ */
 
 /*
- * End of "$Id: image.h 7306 2008-02-15 00:52:38Z mike $".
+ * End of "$Id: image.h 9771 2011-05-12 05:21:56Z mike $".
  */

@@ -24,7 +24,7 @@ imap(user): expunged: uid=908, msgid=<123.foo@bar>
 You can enable the plugin by setting:
 
 ---%<-------------------------------------------------------------------------
-mail_plugins = $mail_plugins mail_log
+mail_plugins = $mail_plugins mail_log notify
 ---%<-------------------------------------------------------------------------
 
 Configuration
@@ -42,4 +42,4 @@ plugin {
 }
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

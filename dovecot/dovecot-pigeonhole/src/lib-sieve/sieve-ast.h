@@ -186,7 +186,7 @@ struct sieve_ast_extension {
 		void *context);
 };
 
-void sieve_ast_extension_link
+bool sieve_ast_extension_link
 	(struct sieve_ast *ast, const struct sieve_extension *ext);
 const struct sieve_extension * const *sieve_ast_extensions_get
 	(struct sieve_ast *ast, unsigned int *count_r);
@@ -194,6 +194,8 @@ const struct sieve_extension * const *sieve_ast_extensions_get
 void sieve_ast_extension_register
 	(struct sieve_ast *ast, const struct sieve_extension *ext,
 		const struct sieve_ast_extension *ast_ext, void *context);
+void sieve_ast_extension_set_context
+	(struct sieve_ast *ast, const struct sieve_extension *ext, void *context);
 void *sieve_ast_extension_get_context
 	(struct sieve_ast *ast, const struct sieve_extension *ext);
 

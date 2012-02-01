@@ -25,6 +25,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <unistd.h>
 #include <string.h>
+#include "utils.h"
 
 int main (int argc, const char * argv[]) {
 	OSStatus err = 0;
@@ -257,6 +258,7 @@ int main (int argc, const char * argv[]) {
                 CFDictionarySetValue (inDict, kKRBAllowKerberosUI,       kKRBOptionNoUI);
 
                 err = KRBCopyClientPrincipalInfo (krbHelper, inDict, &outDict);
+		CFRelease(inDict);
                 if (noErr != err) { lineNumber = __LINE__; goto Error; }
 
                 outPrincipal = CFDictionaryGetValue (outDict, kKRBClientPrincipalKey);

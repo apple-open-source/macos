@@ -19,7 +19,8 @@ Patches = configure.diff \
           DiskImages-6103805.patch \
           curl-config.in.diff \
           tests__runtests.pl.diff \
-          GAI-9112664.diff
+          GAI-9112664.diff \
+          curl-gssapi-delegation.patch
 
 Extra_Configure_Flags = --with-gssapi --enable-hidden-symbols --disable-static --enable-threaded-resolver
 

@@ -1,5 +1,5 @@
 /*
- * "$Id: image-pix.c 7221 2008-01-16 22:20:08Z mike $"
+ * "$Id: image-pix.c 9771 2011-05-12 05:21:56Z mike $"
  *
  *   Alias PIX image routines for CUPS.
  *
@@ -236,5 +236,5 @@ read_short(FILE *fp)			/* I - File to read from */
 
 
 /*
- * End of "$Id: image-pix.c 7221 2008-01-16 22:20:08Z mike $".
+ * End of "$Id: image-pix.c 9771 2011-05-12 05:21:56Z mike $".
  */

@@ -67,6 +67,44 @@ OpenDevice(const char *devname)
 		err(kBadExit, "cannot open device %s", devname);
 	}
 	/*
+	 * Attempt to flush the journal.  If it fails, we just warn, but don't abort.
+	 */
+	if (getvfsbyname("hfs", &vfc) == 0) {
+		int rv;
+		int mib[4];
+		char block_device[MAXPATHLEN+1];
+		int jfd;
+
+		/*
+		 * The journal replay code, sadly, requires a block device.
+		 * So we need to go from the raw device to block device, if
+		 * necessary.
+		 */
+		if (strncmp(devname, "/dev/rdisk", 10) == 0) {
+			snprintf(block_device, sizeof(block_device), "/dev/%s", devname+6);
+		} else {
+			snprintf(block_device, sizeof(block_device), "%s", devname);
+		}
+		jfd = open(block_device, O_RDWR);
+		if (jfd == -1) {
+			warn("Cannot open block device %s for read-write", block_device);
+		} else {
+			mib[0] = CTL_VFS;
+			mib[1] = vfc.vfc_typenum;
+			mib[2] = HFS_REPLAY_JOURNAL;
+			mib[3] = jfd;
+			if (debug)
+				fprintf(stderr, "about to replay journal\n");
+			rv = sysctl(mib, 4, NULL, NULL, NULL, 0);
+			if (rv == -1) {
+				warn("cannot replay journal");
+			}
+			/* This is probably not necessary, but we couldn't prove it. */
+			(void)fcntl(jfd, F_FULLFSYNC, 0);
+			close(jfd);
+		}
+	}
+	/*
 	 * We only allow a character device (e.g., /dev/rdisk1s2)
 	 * If we're given a non-character device, we'll try to turn
 	 * into a character device assuming a name pattern of /dev/rdisk*
@@ -98,26 +136,6 @@ OpenDevice(const char *devname)
 	}
 	if (ioctl(fd, DKIOCGETBLOCKCOUNT, &dev.blockCount) == -1) {
 		err(kBadExit, "cannot get size of device %s", dev.devname);
-	}
-	/*
-	 * Attempt to flush the journal.  If it fails, we just warn, but don't abort.
-	 */
-	if (getvfsbyname("hfs", &vfc) == 0) {
-		int rv;
-		int mib[4];
-
-		mib[0] = CTL_VFS;
-		mib[1] = vfc.vfc_typenum;
-		mib[2] = HFS_REPLAY_JOURNAL;
-		mib[3] = fd;
-		if (debug)
-			fprintf(stderr, "about to replay journal\n");
-		rv = sysctl(mib, 4, NULL, NULL, NULL, 0);
-		if (rv == -1) {
-			warn("cannot replay journal");
-		}
-		/* This is probably not necessary, but we couldn't prove it. */
-		(void)fcntl(fd, F_FULLFSYNC, 0);
 	}
 
 	dev.size = dev.blockCount * dev.blockSize;

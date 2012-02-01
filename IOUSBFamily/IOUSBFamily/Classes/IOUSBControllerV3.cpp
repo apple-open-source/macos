@@ -244,6 +244,10 @@ bool
 IOUSBControllerV3::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
 {
 	USBLog(5, "IOUSBControllerV3(%s)[%p]::didTerminate - isInactive(%s)", getName(), this, isInactive() ? "true" : "false");
+    
+    if (_onThunderbolt)
+        requireMaxBusStall(0);
+    
 	return super::didTerminate(provider, options, defer);
 }
 

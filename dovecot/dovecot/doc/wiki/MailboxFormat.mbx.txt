@@ -21,4 +21,4 @@ Downsides contain:
    of size on disk.) This is probably UW-IMAP -specific implementation problem
    rather than actual mailbox format issue.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

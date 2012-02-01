@@ -33,6 +33,7 @@ static const char *_default_message_data =
 
 static string_t *envelope_from;
 static string_t *envelope_to;
+static string_t *envelope_orig_to;
 static string_t *envelope_auth;
 
 pool_t message_pool;
@@ -82,6 +83,7 @@ void testsuite_message_init(void)
 	testsuite_message_set_data(testsuite_mail);
 
 	envelope_to = str_new(message_pool, 256);
+	envelope_orig_to = str_new(message_pool, 256);
 	envelope_from = str_new(message_pool, 256);
 	envelope_auth = str_new(message_pool, 256);
 }
@@ -111,7 +113,7 @@ void testsuite_message_set_mail
 
 	sieve_message_context_flush(renv->msgctx);
 }
-	
+
 void testsuite_message_deinit(void)
 {
 	pool_unref(&message_pool);
@@ -140,6 +142,19 @@ void testsuite_envelope_set_recipient
 
 	testsuite_msgdata.orig_envelope_to = str_c(envelope_to);
 	testsuite_msgdata.final_envelope_to = str_c(envelope_to);
+
+	sieve_message_context_flush(renv->msgctx);
+}
+
+void testsuite_envelope_set_orig_recipient
+(const struct sieve_runtime_env *renv, const char *value)
+{
+	str_truncate(envelope_orig_to, 0);
+
+	if ( value != NULL )
+		str_append(envelope_orig_to, value);
+
+	testsuite_msgdata.orig_envelope_to = str_c(envelope_orig_to);
 
 	sieve_message_context_flush(renv->msgctx);
 }

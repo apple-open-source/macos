@@ -35,7 +35,8 @@ const struct sieve_command_def cmd_test_config_set = {
 	SCT_COMMAND, 
 	2, 0, FALSE, FALSE,
 	NULL, NULL,
-	cmd_test_config_set_validate, 
+	cmd_test_config_set_validate,
+	NULL,
 	cmd_test_config_generate, 
 	NULL 
 };
@@ -54,7 +55,8 @@ const struct sieve_command_def cmd_test_config_unset = {
 	SCT_COMMAND, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL,
-	cmd_test_config_unset_validate, 
+	cmd_test_config_unset_validate,
+	NULL,
 	cmd_test_config_generate, 
 	NULL 
 };
@@ -74,7 +76,7 @@ const struct sieve_command_def cmd_test_config_reload = {
 	SCT_COMMAND, 
 	0, 0, FALSE, FALSE,
 	cmd_test_config_reload_registered, 
-	NULL, NULL, 
+	NULL, NULL, NULL,
 	cmd_test_config_generate, 
 	NULL 
 };

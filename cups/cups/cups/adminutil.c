@@ -1,5 +1,5 @@
 /*
- * "$Id: adminutil.c 7850 2008-08-20 00:07:25Z mike $"
+ * "$Id: adminutil.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   Administration utility API definitions for CUPS.
  *
@@ -2454,5 +2454,5 @@ write_option(cups_file_t     *dstfp,	/* I - PPD file */
 
 
 /*
- * End of "$Id: adminutil.c 7850 2008-08-20 00:07:25Z mike $".
+ * End of "$Id: adminutil.c 9793 2011-05-20 03:49:49Z mike $".
  */

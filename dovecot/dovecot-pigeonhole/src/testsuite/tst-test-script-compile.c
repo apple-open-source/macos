@@ -32,7 +32,8 @@ const struct sieve_command_def tst_test_script_compile = {
 	SCT_TEST, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL,
-	tst_test_script_compile_validate, 
+	tst_test_script_compile_validate,
+	NULL,
 	tst_test_script_compile_generate, 
 	NULL 
 };

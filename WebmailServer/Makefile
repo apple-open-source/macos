@@ -40,7 +40,7 @@ SETUP_DIR=$(NSLIBRARYDIR)/ServerSetup/CommonExtras/PostgreSQLExtras
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 0.5.3
+AEP_Version	= 0.6
 AEP_Patches	= editor.patch key.patch locstrings.patch \
 			identity.patch anti_XSS.patch IPv6.patch
 #AEP_ConfigDir	= $(PROJECT_DIR)/config
@@ -48,7 +48,7 @@ AEP_Patches	= editor.patch key.patch locstrings.patch \
 GnuNoConfigure = YES
 GnuNoBuild = YES
 GnuNoInstall = YES
-GnuAfterInstall	= configure-project install-project install-macosx
+GnuAfterInstall	= configure-project install-project install-loc install-macosx
 
 # Local targets that must be defined before including the following
 # files to get the dependency order correct
@@ -86,6 +86,12 @@ install-project: configure-project
 	$(INSTALL) -m 0750 -o _www -g $(Install_Directory_Group) -d $(DSTROOT)$(TEMP_DIR)
 	@echo "Project content installed."
 
+install-loc: install-project
+	@echo "Installing Apple-generated localiation files..."
+	$(_v) $(CP) $(SRCROOT)/plugins/managesieve $(DSTROOT)$(PROJECT_DIR)/plugins
+	$(_v) $(CHOWN) -R root:wheel $(DSTROOT)$(PROJECT_DIR)/plugins/managesieve
+	@echo "Localizations installed."
+
 install-macosx: install-project
 	@echo "Installing Apple-specific versions of project files..."
 	$(INSTALL_FILE) $(LOGO) $(DSTROOT)$(IMAGES_DIR)/roundcube_logo.png
@@ -97,4 +103,5 @@ install-macosx: install-project
 	$(INSTALL_FILE) $(WEBAPP_PLIST) $(DSTROOT)$(WEBAPP_DIR)
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(SETUP_DIR)
 	$(INSTALL_PROGRAM) $(SETUP_FILE) $(DSTROOT)$(SETUP_DIR)
+	$(_v) /usr/bin/find "$(DSTROOT)$(PROJECT_DIR)/plugins/jqueryui" -name "*.png" | xargs chmod 644
 	@echo "Install complete."

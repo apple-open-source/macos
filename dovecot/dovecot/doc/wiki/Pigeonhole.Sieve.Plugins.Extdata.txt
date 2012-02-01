@@ -1,7 +1,7 @@
 Pigeonhole Sieve Extdata Plugin
 ===============================
 
-The extdata plugin adds the vnd.dovecot.extdata extension to the Sieve
+The extdata plugin adds the *vnd.dovecot.extdata* extension to the Sieve
 language. It allows a Sieve script to lookup information from a datasource
 external to the script. This makes use of Dovecot's dict mechanism in a
 read-only manner, meaning that scripts cannot update dict data sources.
@@ -81,7 +81,10 @@ plugin {
 }
 ---%<-------------------------------------------------------------------------
 
-Sieve scripts can use the new extdata extension as follows:
+Usage
+-----
+
+Sieve scripts can use the new 'vnd.dovecot.extdata' extension as follows:
 
 ---%<-------------------------------------------------------------------------
 require ["variables", "vacation", "vnd.dovecot.extdata"];
@@ -94,4 +97,8 @@ keep;
 where "priv/vacation_subject" & "priv/cacation_message" would be looked up in
 the Dovecot dict.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+Read the (preliminary) specification
+[http://hg.rename-it.nl/pigeonhole-0.2-sieve-extdata/raw-file/tip/doc/rfc/spec-bosch-sieve-external-data.txt]
+for more information.
+
+(This file was created from the wiki on 2011-11-16 14:09)

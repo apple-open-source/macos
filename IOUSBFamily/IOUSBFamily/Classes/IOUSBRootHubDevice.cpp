@@ -230,21 +230,42 @@ IOUSBRootHubDevice::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *com
 IOReturn 
 IOUSBRootHubDevice::DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion)
 {
+	IOReturn	kr = kIOReturnSuccess;
+    
 	// We have to use IOUSBDevice::_expansionData->_commandGate, instead of the copy of it in _commandGate because this method will be called by 
 	// our super::start() BEFORE we're able to set the _commandGate to IOUSBDevice::_expansionData->_commandGate.
 	
-	if (!IOUSBDevice::_expansionData->_commandGate)
+	if ( IOUSBDevice::_expansionData && IOUSBDevice::_expansionData->_commandGate && IOUSBDevice::_expansionData->_workLoop)
 	{
-		USBLog(5, "IOUSBRootHubDevice[%p]::DeviceRequest - but no IOUSBDevice::_expansionData->_commandGate", this);
-		return kIOReturnNotResponding;
-	}
+		IOCommandGate *	gate = IOUSBDevice::_expansionData->_commandGate;
+		IOWorkLoop *	workLoop = IOUSBDevice::_expansionData->_workLoop;
 		
-	if (_myPolicyMaker && (_myPolicyMaker->getPowerState() == kIOUSBHubPowerStateLowPower))
-	{
-		// this is not usually an issue, but i want to make sure it doesn't become one
-		USBLog(5, "IOUSBRootHubDevice[%p]::DeviceRequest - doing a device request while in low power mode - should be OK", this);
+		retain();
+		workLoop->retain();
+		gate->retain();
+        
+        if (_myPolicyMaker && (_myPolicyMaker->getPowerState() == kIOUSBHubPowerStateLowPower))
+        {
+            // this is not usually an issue, but i want to make sure it doesn't become one
+            USBLog(5, "IOUSBRootHubDevice[%p]::DeviceRequest - doing a device request while in low power mode - should be OK", this);
+        }
+        
+        kr = gate->runAction(GatedDeviceRequest, request, (void*)noDataTimeout, (void*)completionTimeout, completion);       
+        if ( kr != kIOReturnSuccess )
+        {
+            USBLog(2,"IOUSBRootHubDevice[%p]::DeviceRequest GatedDeviceRequest runAction() failed (0x%x)",this, kr);
+        }
+		
+		gate->release();
+		workLoop->release();
+		release();
 	}
-	return (IOUSBDevice::_expansionData->_commandGate)->runAction(GatedDeviceRequest, request, (void*)noDataTimeout, (void*)completionTimeout, completion);
+    else
+    {
+        kr = kIOReturnNotResponding;
+    }
+    
+    return kr;
 }
 
 

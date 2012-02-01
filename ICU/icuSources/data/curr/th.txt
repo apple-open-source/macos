@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2011 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/th.xml
@@ -254,6 +254,10 @@ th{
         CSK{
             "CSK" /** ===  */,
             "ฮาร์ดโครูนาเช็กโกสโลวัก",
+        }
+        CUC{
+            "CUC",
+            "เปโซคิวบา (แปลงสภาพ)",
         }
         CUP{
             "CU$",
@@ -869,6 +873,10 @@ th{
         }
         TMM{
             "TMM",
+            "มานัตเติร์กเมนิสถาน (1993-2009)",
+        }
+        TMT{
+            "TMT",
             "มานัตเติร์กเมนิสถาน",
         }
         TND{

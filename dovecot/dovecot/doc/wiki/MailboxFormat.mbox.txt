@@ -268,4 +268,4 @@ References
  * CommuniGatePro mbox
    [http://www.communigate.com/CommuniGatePro/Mailboxes.html#mbox]
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

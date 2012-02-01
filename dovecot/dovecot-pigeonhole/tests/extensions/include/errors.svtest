@@ -94,11 +94,56 @@ test "Global Namespace" {
  */
 
 test "Invalid Script Names" {
-        if test_script_compile "errors/scriptname.sieve" {
-                test_fail "compile should have failed";
-        }
+	if test_script_compile "errors/scriptname.sieve" {
+		test_fail "compile should have failed";
+	}
 
-        if not test_error :count "eq" :comparator "i;ascii-numeric" "8" {
-                test_fail "wrong number of errors reported";
-        }
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "8" {
+		test_fail "wrong number of errors reported";
+	}
 }
+
+/* Include limit */
+
+test "Include limit" {
+	test_config_set "sieve_include_max_includes" "3";
+	test_config_reload :extension "include";
+
+	if test_script_compile "errors/include-limit.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "2" {
+		test_fail "wrong number of errors reported";
+	}
+
+	test_config_set "sieve_include_max_includes" "255";
+	test_config_reload :extension "include";
+
+	if not test_script_compile "errors/include-limit.sieve" {
+		test_fail "compile should have succeeded";
+	}
+}
+
+/* Depth limit */
+
+test "Depth limit" {
+	test_config_set "sieve_include_max_nesting_depth" "2";
+	test_config_reload :extension "include";
+
+	if test_script_compile "errors/depth-limit.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "4" {
+		test_fail "wrong number of errors reported";
+	}
+
+	test_config_set "sieve_include_max_nesting_depth" "10";
+	test_config_reload :extension "include";
+
+	if not test_script_compile "errors/depth-limit.sieve" {
+		test_fail "compile should have succeeded";
+	}
+}
+

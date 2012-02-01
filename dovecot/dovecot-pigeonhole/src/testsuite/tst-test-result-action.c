@@ -42,7 +42,8 @@ const struct sieve_command_def tst_test_result_action = {
 	1, 0, FALSE, FALSE,
 	tst_test_result_action_registered, 
 	NULL,
-	tst_test_result_action_validate, 
+	tst_test_result_action_validate,
+	NULL,
 	tst_test_result_action_generate, 
 	NULL 
 };

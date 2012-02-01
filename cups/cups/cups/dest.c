@@ -1,5 +1,5 @@
 /*
- * "$Id: dest.c 9568 2011-02-25 06:13:56Z mike $"
+ * "$Id: dest.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   User-defined destination (and option) support for CUPS.
  *
@@ -2165,5 +2165,5 @@ cups_make_string(
 
 
 /*
- * End of "$Id: dest.c 9568 2011-02-25 06:13:56Z mike $".
+ * End of "$Id: dest.c 9793 2011-05-20 03:49:49Z mike $".
  */

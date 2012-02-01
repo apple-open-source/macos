@@ -263,6 +263,7 @@ isakmp_frag_extract(iph1, msg)
 		vfree(buf);
 		return -1;
 	}
+	bzero(item, sizeof(*item));
 
 	data = (char *)(frag + 1);
 	memcpy(buf->v, data, buf->l);
@@ -281,14 +282,29 @@ isakmp_frag_extract(iph1, msg)
 		iph1->frag_chain = item;
 	} else {
 		struct isakmp_frag_item *current;
+		int dup = 0;
 
 		current = iph1->frag_chain;
+		if (!current->frag_next && current->frag_last) {
+			last_frag = current->frag_num;
+		}
 		while (current->frag_next) {
 			if (current->frag_last)
-				last_frag = item->frag_num;
+				last_frag = current->frag_num;
+			if (current->frag_num == item->frag_num) {
+				dup = 1;
+			}
 			current = current->frag_next;
 		}
-		current->frag_next = item;
+		// avoid duplicates
+		if (!dup) {
+			current->frag_next = item;
+		} else {
+			racoon_free(item);
+			vfree(buf);
+			item = NULL;
+			buf = NULL;
+		}
 	}
 
 	/* If we saw the last frag, check if the chain is complete */
@@ -322,7 +338,7 @@ isakmp_frag_reassembly(iph1)
 	struct isakmp_frag_item *item;
 	size_t len = 0;
 	vchar_t *buf = NULL;
-	int frag_count = 0;
+	int frag_count = 0, frag_max = 0;
 	int i;
 	char *data;
 
@@ -333,6 +349,9 @@ isakmp_frag_reassembly(iph1)
 
 	do {
 		frag_count++;
+		if (item->frag_num > frag_max && item->frag_last) {
+			frag_max = item->frag_num;
+		}
 		len += item->frag_packet->l;
 		item = item->frag_next;
 	} while (item != NULL);
@@ -343,7 +362,7 @@ isakmp_frag_reassembly(iph1)
 	}
 	data = buf->v;
 
-	for (i = 1; i <= frag_count; i++) {
+	for (i = 1; i <= frag_max; i++) {
 		item = iph1->frag_chain;
 		do {
 			if (item->frag_num == i)
@@ -356,7 +375,7 @@ isakmp_frag_reassembly(iph1)
 			    "Missing fragment #%d\n", i);
 			vfree(buf);
 			buf = NULL;
-			goto out;
+			return buf;
 		}
 		memcpy(data, item->frag_packet->v, item->frag_packet->l);
 		data += item->frag_packet->l;

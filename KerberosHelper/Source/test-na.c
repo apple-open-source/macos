@@ -26,6 +26,8 @@
 
 #include <err.h>
 
+#define IS_LOVE 0
+
 static void
 lkdc_classic(void)
 {
@@ -277,6 +279,7 @@ verify_result(bool expect_mech_kerberos,
 	CFShow(negToken);
 	CFDictionaryAddValue(info, kNAHNegTokenInit, negToken);
     }
+    CFRelease(serverToken);
 
     
     
@@ -415,8 +418,8 @@ main(int argc, char **argv)
     verify_result(true, true, false, true, false, false, false, CFSTR("cifs"), CFSTR("nutcracker.apple.com"), CFSTR("user"), CFSTR("password"), snowleopard, sizeof(snowleopard), NULL);
     verify_result(false, false, false, false, false, false, false, CFSTR("cifs"), CFSTR("nutcracker.apple.com"), NULL, NULL, snowleopard, sizeof(snowleopard), NULL);
     /* next two tests only really for N.N. when his laptop is turned on.... :-/ */
-#if 0
-    verify_result(true, true, false, false, true, false, false, CFSTR("cifs"), CFSTR("nutcracker.local"), CFSTR("user"), CFSTR("password"), snowleopard, sizeof(snowleopard), NULL);
+#if IS_LOVE
+    verify_result(true, true, false, true, true, false, false, CFSTR("cifs"), CFSTR("nutcracker.local"), CFSTR("user"), CFSTR("password"), snowleopard, sizeof(snowleopard), NULL);
     verify_result(true, true, false, false, true, false, false, CFSTR("cifs"), CFSTR("nutcracker.bitcollector.members.mac.com"), CFSTR("user"), CFSTR("password"), snowleopard, sizeof(snowleopard), NULL);
 #endif
 
@@ -424,19 +427,20 @@ main(int argc, char **argv)
     CFShow(CFSTR("VNC - snow leopard"));
     verify_result(true, false, false, true, false, true, false, CFSTR("vnc"), CFSTR("nutcracker.apple.com"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
     verify_result(false, false, false, false, false, false, false, CFSTR("vnc"), CFSTR("nutcracker.apple.com"), NULL, NULL, NULL, 0, NULL);
-#if 0
-    verify_result(true, false, false, false, true, true, false, CFSTR("vnc"), CFSTR("nutcracker.local"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
+#if IS_LOVE
+    verify_result(true, false, false, true, true, true, false, CFSTR("vnc"), CFSTR("nutcracker.local"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
     verify_result(true, false, false, false, true, true, false, CFSTR("vnc"), CFSTR("nutcracker.bitcollector.members.mac.com"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
+    verify_result(true, false, false, false, true, true, false, CFSTR("vnc"), CFSTR("nutcracker.bitcollector.members.btmm.icloud.com"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
 #endif
 
     CFShow(CFSTR("afpserver - No initial packet - snow leopard"));
     verify_result(true, false, false, true, false, false, true, CFSTR("afpserver"), CFSTR("nutcracker.apple.com"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
-#if 0
+#if IS_LOVE
     verify_result(true, false, false, true, true, false, false, CFSTR("afpserver"), CFSTR("nutcracker.local"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
 #endif
     verify_result(false, false, false, false, false, false, false, CFSTR("afpserver"), CFSTR("nutcracker.apple.com"), NULL, NULL, NULL, 0, NULL);
-#if 0
-    verify_result(false, false, false, false, true, false, false, CFSTR("afpserver"), CFSTR("nutcracker.local"), NULL, NULL, NULL, 0, NULL);
+#if IS_LOVE
+    verify_result(false, false, false, true, true, false, false, CFSTR("afpserver"), CFSTR("nutcracker.local"), NULL, NULL, NULL, 0, NULL);
 #endif
 
     CFShow(CFSTR("afpserver - Initial packet without IAKERB or SupportLKDC - 3rd party"));
@@ -446,8 +450,8 @@ main(int argc, char **argv)
     CFShow(CFSTR("afpserver - Initial packet with IAKERB or SupportLKDC - lion"));
     verify_result(true, false, true, true, false, false, false, CFSTR("afpserver"), CFSTR("nutcracker.apple.com"), CFSTR("user"), CFSTR("password"), lion, sizeof(lion), NULL);
     verify_result(false, false, false, false, false, false, false, CFSTR("afpserver"), CFSTR("nutcracker.apple.com"), NULL, NULL, lion, sizeof(lion), NULL);
-#if 0
-    verify_result(true, false, false, false, true, true, false, CFSTR("afpserver"), CFSTR("nutcracker.local"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
+#if IS_LOVE
+    verify_result(true, false, false, true, true, true, false, CFSTR("afpserver"), CFSTR("nutcracker.local"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
     verify_result(true, false, false, false, true, true, false, CFSTR("afpserver"), CFSTR("nutcracker.bitcollector.members.mac.com"), CFSTR("user"), CFSTR("password"), NULL, 0, NULL);
 #endif
 

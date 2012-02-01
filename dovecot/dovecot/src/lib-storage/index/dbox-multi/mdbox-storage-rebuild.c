@@ -500,6 +500,11 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	int ret;
 
 	name = mail_namespace_get_storage_name(ns, vname);
+	if (!mailbox_list_is_valid_existing_name(ns->list, name)) {
+		i_warning("Invalid mailbox name: %s", name);
+		return 0;
+	}
+
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_READONLY |
 			    MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);

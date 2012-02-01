@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-image.m4 6649 2007-07-11 21:46:42Z mike $"
+dnl "$Id: cups-image.m4 9750 2011-05-06 22:53:53Z mike $"
 dnl
 dnl   Image library/filter stuff for CUPS.
 dnl
@@ -108,5 +108,5 @@ AC_SUBST(EXPORT_LIBZ)
 AC_CHECK_HEADER(stdlib.h,AC_DEFINE(HAVE_STDLIB_H))
 
 dnl
-dnl End of "$Id: cups-image.m4 6649 2007-07-11 21:46:42Z mike $".
+dnl End of "$Id: cups-image.m4 9750 2011-05-06 22:53:53Z mike $".
 dnl

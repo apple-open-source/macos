@@ -299,6 +299,10 @@ bool CLASS::createRoot(void)
     root->secBusNum    = 0xff;
 
 	cpuPhysBits = cpuid_info()->cpuid_address_bits_physical;
+	if (cpuPhysBits > 44)
+	{
+		cpuPhysBits = 44;
+	}
 	start = (1ULL << cpuPhysBits) - PFM64_SIZE;
     size  = PFM64_SIZE;
 	IOLog("PFM64 (%d cpu) 0x%llx, 0x%llx\n", cpuPhysBits, start, size);
@@ -1181,13 +1185,19 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 
     if (!bootDefer && !noLink)
     {
+#if 0
+		static const uint8_t deviceMap[32] = {
+//		  0,   1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+		  0,   1,  3,  2,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+		  16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 };
+#endif
 		// Scan all PCI devices and functions on the secondary bus.
 		for (scanDevice = 0; scanDevice <= 31; scanDevice++)
 		{
 			lastFunction = 0;
 			for (scanFunction = 0; scanFunction <= lastFunction; scanFunction++)
 			{
-				space.s.deviceNum   = scanDevice;
+				space.s.deviceNum   = scanDevice; // deviceMap[scanDevice];
 				space.s.functionNum = scanFunction;
 	
 				bridgeProbeChild(bridge, space);
@@ -1776,6 +1786,14 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
         }
 
         range = device->ranges[barNum];
+
+#if 0
+		if ((0x91821b4b == configRead32(device->space, kIOPCIConfigVendorID))
+		 && (0x24 == barOffset))
+		{
+			size = 0x00400000;
+		}
+#endif
 #if 0
 		if ((0x8760105a == configRead32(device->space, kIOPCIConfigVendorID))
 		 && (0x20 == barOffset))
@@ -2423,10 +2441,10 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
     bzero(shortage, sizeof(shortage));
     bzero(shortageAlignments, sizeof(shortageAlignments));
 
-	if ((1 << kIOPCIResourceTypeBusNumber) & typeMask)
+	if (((1 << kIOPCIResourceTypeBusNumber) & typeMask)
+	 && (range = bridgeGetRange(bridge, kIOPCIResourceTypeBusNumber)))
 	{
-		if (!bridge->busResv.nextSubRange
-			&& (range = bridgeGetRange(bridge, kIOPCIResourceTypeBusNumber)))
+		if (!bridge->busResv.nextSubRange)
 		{
 			IOPCIRangeInit(&bridge->busResv, kIOPCIResourceTypeBusNumber,
 							bridge->secBusNum, 1, kPCIBridgeBusNumberAlignment);
@@ -2434,10 +2452,11 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
 			DLOG("  BUS: reserved(%sok) 0x%llx\n", ok ? "" : "!", bridge->busResv.start);
 		}
 
+		bool allReloc = (kPCIStatic != bridge->supportsHotPlug);
 		FOREACH_CHILD(bridge, child)
 		{
-			range = bridgeGetRange(child, kIOPCIResourceTypeBusNumber);
-			if (!range)
+			childRange = bridgeGetRange(child, kIOPCIResourceTypeBusNumber);
+			if (!childRange)
 				continue;
 			if ((!child->ranges[kIOPCIRangeBridgeMemory]
 					|| !child->ranges[kIOPCIRangeBridgeMemory]->nextSubRange)
@@ -2446,12 +2465,27 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
 				&& (!child->ranges[kIOPCIRangeBridgeIO]
 					|| !child->ranges[kIOPCIRangeBridgeIO]->nextSubRange))
 			{
-				range->flags |= kIOPCIRangeFlagRelocatable;
+				childRange->flags |= kIOPCIRangeFlagRelocatable;
 			}
 			else
 			{
-				range->flags &= ~kIOPCIRangeFlagRelocatable;
+				childRange->flags &= ~kIOPCIRangeFlagRelocatable;
+				allReloc = false;
 			}
+		}
+		if (allReloc) FOREACH_CHILD(bridge, child)
+		{
+			childRange = bridgeGetRange(child, kIOPCIResourceTypeBusNumber);
+			if (!childRange)
+				continue;
+			if (childRange->nextSubRange)
+			{
+				child->rangeBaseChanges |= (1 << kIOPCIRangeBridgeBusNumber);
+				ok = IOPCIRangeListDeallocateSubRange(range, childRange);
+				if (!ok) panic("IOPCIRangeListDeallocateSubRange");
+			}
+			childRange->start = 0;
+			childRange->size  = 0;
 		}
 	}
 

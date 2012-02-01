@@ -123,6 +123,8 @@
 		7434CA1A12554FE5001D7F9E /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
 		7434CA761255560B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		7434CA791255562B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
+		EB27C0B5143CA4AA003F6770 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
+		EB27C0BA143CA6C7003F6770 /* ServerInformation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72603596125BDE38000B0172 /* ServerInformation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -435,6 +437,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB27C0BA143CA6C7003F6770 /* ServerInformation.framework in Frameworks */,
 				7434CA1A12554FE5001D7F9E /* OpenDirectory.framework in Frameworks */,
 				7434C9A912554FBF001D7F9E /* CoreFoundation.framework in Frameworks */,
 				7434C8991255449C001D7F9E /* libpam.2.dylib in Frameworks */,
@@ -1037,6 +1040,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB27C0B5143CA4AA003F6770 /* Common.c in Sources */,
 				7434C8A11255452A001D7F9E /* pam_ntlm.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

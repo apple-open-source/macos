@@ -1,5 +1,5 @@
 /*
- * "$Id$"
+ * "$Id: testcups.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   CUPS API test program for CUPS.
  *
@@ -117,7 +117,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
     cupsFileClose(fp);
 
-    if (cupsFinishDocument(CUPS_HTTP_DEFAULT, argv[1]) != HTTP_OK)
+    if (cupsFinishDocument(CUPS_HTTP_DEFAULT, argv[1]) > IPP_OK_SUBST)
     {
       puts("Unable to finish document!");
       return (1);
@@ -412,5 +412,5 @@ show_diffs(cups_dest_t *a,		/* I - First destination */
 
 
 /*
- * End of "$Id$".
+ * End of "$Id: testcups.c 9793 2011-05-20 03:49:49Z mike $".
  */

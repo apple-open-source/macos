@@ -160,7 +160,7 @@ SecCodeStatus GenericCode::getGuestStatus(SecCode *guest)
 //
 void GenericCode::changeGuestStatus(SecCode *iguest, SecCodeStatusOperation operation, CFDictionaryRef arguments)
 {
-	if (GenericCode *guest = dynamic_cast<GenericCode *>(iguest))
+	if (/* GenericCode *guest = */dynamic_cast<GenericCode *>(iguest))
 		switch (operation) {
 		case kSecCodeOperationNull:
 			break;

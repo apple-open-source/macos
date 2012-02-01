@@ -1,9 +1,9 @@
 /*
- * "$Id: testrgb.c 1995 2010-03-24 16:25:12Z msweet $"
+ * "$Id: testrgb.c 3432 2011-09-20 20:45:38Z msweet $"
  *
  *   Test the new RGB color separation code for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1993-2006 by Easy Software Products, All Rights Reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -33,10 +33,9 @@
 
 
 void	test_gray(cups_sample_t *samples, int num_samples,
-	          int cube_size, int num_comps, const char *basename);
+	          int cube_size, int num_comps, const char *base);
 void	test_rgb(cups_sample_t *samples, int num_samples,
-		 int cube_size, int num_comps,
-		 const char *basename);
+		 int cube_size, int num_comps, const char *base);
 
 
 /*
@@ -92,7 +91,7 @@ test_gray(cups_sample_t *samples,	/* I - Sample values */
           int           num_samples,	/* I - Number of samples */
 	  int           cube_size,	/* I - Cube size */
           int           num_comps,	/* I - Number of components */
-	  const char    *basename)	/* I - Base filename of output */
+	  const char    *base)		/* I - Base filename of output */
 {
   int			i;		/* Looping var */
   char			filename[255];	/* Output filename */
@@ -135,13 +134,13 @@ test_gray(cups_sample_t *samples,	/* I - Sample values */
 
   for (i = 0; i < num_comps; i ++)
   {
-    sprintf(filename, "%s%d.pgm", basename, i);
+    sprintf(filename, "%s%d.pgm", base, i);
     out[i] = fopen(filename, "wb");
 
     fprintf(out[i], "P5\n%d %d 255\n", width, height);
   }
 
-  sprintf(filename, "%s.ppm", basename);
+  sprintf(filename, "%s.ppm", base);
   comp = fopen(filename, "wb");
 
   fprintf(comp, "P6\n%d %d 255\n", width, height);
@@ -222,7 +221,7 @@ test_rgb(cups_sample_t *samples,	/* I - Sample values */
          int           num_samples,	/* I - Number of samples */
 	 int           cube_size,	/* I - Cube size */
          int           num_comps,	/* I - Number of components */
-	 const char    *basename)	/* I - Base filename of output */
+	 const char    *base)		/* I - Base filename of output */
 {
   int			i;		/* Looping var */
   char			filename[255];	/* Output filename */
@@ -265,13 +264,13 @@ test_rgb(cups_sample_t *samples,	/* I - Sample values */
 
   for (i = 0; i < num_comps; i ++)
   {
-    sprintf(filename, "%s%d.pgm", basename, i);
+    sprintf(filename, "%s%d.pgm", base, i);
     out[i] = fopen(filename, "wb");
 
     fprintf(out[i], "P5\n%d %d 255\n", width, height);
   }
 
-  sprintf(filename, "%s.ppm", basename);
+  sprintf(filename, "%s.ppm", base);
   comp = fopen(filename, "wb");
 
   fprintf(comp, "P6\n%d %d 255\n", width, height);
@@ -344,5 +343,5 @@ test_rgb(cups_sample_t *samples,	/* I - Sample values */
 
 
 /*
- * End of "$Id: testrgb.c 1995 2010-03-24 16:25:12Z msweet $".
+ * End of "$Id: testrgb.c 3432 2011-09-20 20:45:38Z msweet $".
  */

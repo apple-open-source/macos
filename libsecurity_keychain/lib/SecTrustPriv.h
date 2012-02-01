@@ -145,7 +145,10 @@ OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result);
 /* local OCSP responder URI, value arbitrary string value */
 #define kSecOCSPLocalResponder				CFSTR("OCSPLocalResponder")
 
-#define kSecEVOrganizationName				CFSTR("Organization")
+/* Extended trust result keys */
+#define kSecEVOrganizationName				CFSTR("Organization")			/* validated EV organization name */
+#define kSecTrustEvaluationDate				CFSTR("TrustEvaluationDate")	/* date when this trust evaluation took place */
+#define kSecTrustExpirationDate				CFSTR("TrustExpirationDate")	/* date after which the trust result should be re-evaluated */
 
 #if defined(__cplusplus)
 }

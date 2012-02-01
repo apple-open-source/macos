@@ -1,6 +1,6 @@
 *PPD-Adobe: "4.3"
 *%
-*% "$Id: test2.ppd 7791 2008-07-24 00:55:30Z mike $"
+*% "$Id: test2.ppd 9771 2011-05-12 05:21:56Z mike $"
 *%
 *% Test PPD file #2 for CUPS.
 *%
@@ -248,5 +248,5 @@ help:anchor='foo'%20bookID=Vendor%20Help
 *Font ZapfChancery-MediumItalic: Standard "(001.007S)" Standard ROM
 *Font ZapfDingbats: Special "(001.004S)" Standard ROM
 *%
-*% End of "$Id: test2.ppd 7791 2008-07-24 00:55:30Z mike $".
+*% End of "$Id: test2.ppd 9771 2011-05-12 05:21:56Z mike $".
 *%

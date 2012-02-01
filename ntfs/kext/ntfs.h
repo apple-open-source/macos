@@ -75,6 +75,8 @@ static inline ntfs_volume *NTFS_MP(mount_t mp)
 	return (ntfs_volume*)vfs_fsprivate(mp);
 }
 
+__private_extern__ void ntfs_do_postponed_release(ntfs_volume *vol);
+
 #endif /* KERNEL */
 
 #include "ntfs_endian.h"

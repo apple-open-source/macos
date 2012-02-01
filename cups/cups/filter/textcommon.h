@@ -1,5 +1,5 @@
 /*
- * "$Id: textcommon.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: textcommon.h 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Common text filter definitions for CUPS.
  *
@@ -110,5 +110,5 @@ extern void	WriteProlog(const char *title, const char *user,
 
 
 /*
- * End of "$Id: textcommon.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: textcommon.h 9042 2010-03-24 00:45:34Z mike $".
  */

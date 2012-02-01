@@ -13,10 +13,10 @@
 #include <unistd.h>
 #include <pwd.h>
 
+#include <OpenDirectory/OpenDirectory.h>
+
 #include <GSS/gssapi_ntlm.h>
 #include <GSS/gssapi_spi.h>
-
-#include <dispatch/dispatch.h>
 
 #define	PAM_SM_AUTH
 #define	PAM_SM_ACCOUNT
@@ -25,6 +25,8 @@
 #include <security/pam_appl.h>
 #include <security/pam_modules.h>
 #include <security/openpam.h>
+
+#include "Common.h"
 
 #define PAM_OPT_DEBUG		"debug"
 
@@ -70,7 +72,6 @@ ac_complete(void *ctx, OM_uint32 major, gss_status_id_t status,
     gss_release_cred(&junk, &cred);
     gss_release_oid_set(&junk, &oids);
     PAM_LOG("ac_complete returned: %d for %d", major, geteuid());
-    dispatch_semaphore_signal((dispatch_semaphore_t)ctx);
 }
 
 
@@ -79,18 +80,21 @@ PAM_EXTERN int
 pam_sm_setcred(pam_handle_t *pamh, int flags,
     int argc __unused, const char *argv[] __unused)
 {
-    gss_auth_identity_desc identity;
+	gss_auth_identity_desc identity;
 	const char *user, *password;
-	dispatch_semaphore_t sema;
 	struct passwd *pwd;
 	struct passwd pwdbuf;
 	char pwbuffer[2 * PATH_MAX];
 	int retval;
 	uid_t euid = geteuid();
 	gid_t egid = getegid();
-	char hostname[_POSIX_HOST_NAME_MAX + 1];
+	ODRecordRef record = NULL;
+	CFArrayRef array = NULL;
+	CFIndex i, count;
 
 	PAM_LOG("pam_sm_setcred: ntlm");
+
+	memset(&identity, 0, sizeof(identity));
 
 	/* Get username */
 	retval = pam_get_item(pamh, PAM_USER, (const void **)&user);
@@ -112,14 +116,53 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		goto cleanup;
 	}
 
-   	sema = dispatch_semaphore_create(0);
+	retval = od_record_create_cstring(&record, user);
+	if (retval || record == NULL) {
+		retval = PAM_IGNORE;
+		goto cleanup;
+	}
 
-	gethostname(hostname, sizeof(hostname));
-	hostname[sizeof(hostname) - 1] = '\0';
+	array = ODRecordCopyValues(record, kODAttributeTypeAuthenticationAuthority, NULL);
+	if (array == NULL) {
+		PAM_LOG("pam_sm_setcred: ntlm user %s doesn't have auth authority", user);
+		retval = PAM_IGNORE;
+		goto cleanup;
+	}
 
 	identity.username = (char *)user;
-	identity.realm = hostname;
 	identity.password = (char *)password;
+
+	count = CFArrayGetCount(array);
+	for (i = 0; i < count && identity.realm == NULL; i++) {
+		CFStringRef val = CFArrayGetValueAtIndex(array, i);
+		if (NULL == val || CFGetTypeID(val) != CFStringGetTypeID())
+			break;
+
+		if (!CFStringHasPrefix(val, CFSTR(";NetLogon;")))
+			continue;
+
+		CFArrayRef parts = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, val, CFSTR(";"));
+		if (parts == NULL)
+			continue;
+
+		if (CFArrayGetCount(parts) < 4) {
+			CFRelease(parts);
+			continue;
+		}
+			
+		CFStringRef domain = CFArrayGetValueAtIndex(parts, 3);
+
+		retval = cfstring_to_cstring(domain, &identity.realm);
+		CFRelease(parts);
+		if (retval)
+			goto cleanup;
+	}
+
+	if (identity.realm == NULL) {
+		PAM_LOG("pam_sm_setcred: no domain found skipping");
+		retval = PAM_IGNORE;
+		goto cleanup;
+	}
 
 	if (euid == 0) {
 		if (setegid(pwd->pw_gid) != 0) {
@@ -139,19 +182,23 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 				    GSS_NTLM_MECHANISM,
 				    GSS_C_INITIATE,
 				    &identity,
-				    sema,
+				    NULL,
 				    ac_complete);
-	dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
-	dispatch_release(sema);
 
 	if (euid == 0) {
 		seteuid(euid);
 		setegid(egid);
 	}
 
-	PAM_LOG("pam_sm_setcred: ntlm done");
+	PAM_LOG("pam_sm_setcred: ntlm done, used domain: %s", identity.realm);
 
 cleanup:
+	if (record)
+		CFRelease(record);
+	if (array)
+		CFRelease(array);
+	if (identity.realm)
+		free(identity.realm);
 	pam_unsetenv(pamh, password_key);
 	return retval;
 }

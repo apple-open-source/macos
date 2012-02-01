@@ -14,6 +14,7 @@
 #include "director.h"
 #include "director-host.h"
 #include "director-request.h"
+#include "director-connection.h"
 #include "doveadm-connection.h"
 
 #include <unistd.h>
@@ -93,12 +94,31 @@ static void doveadm_cmd_host_list_removed(struct doveadm_connection *conn)
 
 static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 {
+	struct director *dir = conn->dir;
 	struct director_host *const *hostp;
 	string_t *str = t_str_new(1024);
+	const char *type;
+	bool left, right;
 
-	array_foreach(&conn->dir->dir_hosts, hostp) {
-		str_printfa(str, "%s\t%u\n",
-			    net_ip2addr(&(*hostp)->ip), (*hostp)->port);
+	array_foreach(&dir->dir_hosts, hostp) {
+		const struct director_host *host = *hostp;
+
+		left = dir->left != NULL &&
+			director_connection_get_host(dir->left) == host;
+		right = dir->right != NULL &&
+			 director_connection_get_host(dir->right) == host;
+
+		if (dir->self_host == host)
+			type = "self";
+		else if (left)
+			type = right ? "l+r" : "left";
+		else if (right)
+			type = "right";
+		else
+			type = "";
+		str_printfa(str, "%s\t%u\t%s\t%lu\n",
+			    net_ip2addr(&host->ip), host->port, type,
+			    (unsigned long)host->last_failed);
 	}
 	str_append_c(str, '\n');
 	o_stream_send(conn->output, str_data(str), str_len(str));
@@ -267,6 +287,41 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *line)
 	return TRUE;
 }
 
+static bool
+doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
+{
+	unsigned int username_hash;
+	const char *const *args;
+	struct user *user;
+	struct mail_host *host;
+	struct ip_addr ip;
+
+	args = t_strsplit(line, "\t");
+	if (args[0] == NULL || args[1] == NULL ||
+	    net_addr2ip(args[1], &ip) < 0) {
+		i_error("doveadm sent invalid USER-MOVE parameters: %s", line);
+		return FALSE;
+	}
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
+	if (host == NULL) {
+		o_stream_send_str(conn->output, "NOTFOUND\n");
+		return TRUE;
+	}
+
+	if (str_to_uint(args[0], &username_hash) < 0)
+		username_hash = user_directory_get_username_hash(line);
+	user = user_directory_lookup(conn->dir->users, username_hash);
+	if (user != NULL && user->kill_state != USER_KILL_STATE_NONE) {
+		o_stream_send_str(conn->output, "TRYAGAIN\n");
+		return TRUE;
+	}
+
+	director_move_user(conn->dir, conn->dir->self_host, NULL,
+			   username_hash, host);
+	o_stream_send(conn->output, "OK\n", 3);
+	return TRUE;
+}
+
 static void doveadm_connection_input(struct doveadm_connection *conn)
 {
 	const char *line, *cmd, *args;
@@ -315,6 +370,8 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 			ret = doveadm_cmd_user_lookup(conn, args);
 		else if (strcmp(cmd, "USER-LIST") == 0)
 			ret = doveadm_cmd_user_list(conn, args);
+		else if (strcmp(cmd, "USER-MOVE") == 0)
+			ret = doveadm_cmd_user_move(conn, args);
 		else {
 			i_error("doveadm sent unknown command: %s", line);
 			ret = FALSE;

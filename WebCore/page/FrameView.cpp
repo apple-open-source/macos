@@ -2234,14 +2234,31 @@ void FrameView::setVisibleScrollerThumbRect(const IntRect& scrollerThumb)
 
 bool FrameView::isOnActivePage() const
 {
+    if (!m_frame)
+        return false;
     if (m_frame->view() != this)
         return false;
-    return !m_frame->document()->inPageCache();
+    if (Document* document = m_frame->document())
+        return !document->inPageCache();
+    return false;
 }
 
 bool FrameView::shouldSuspendScrollAnimations() const
 {
     return m_frame->loader()->state() != FrameStateComplete;
+}
+
+void FrameView::scrollbarStyleChanged(int newStyle, bool forceUpdate)
+{
+    Page* page = m_frame->page();
+    if (!page)
+        return;
+    if (page->mainFrame() != m_frame)
+        return;
+    page->chrome()->client()->recommendedScrollbarStyleDidChange(newStyle);
+
+    if (forceUpdate)
+        ScrollView::scrollbarStyleChanged(newStyle, forceUpdate);
 }
 
 void FrameView::setAnimatorsAreActive()

@@ -2,6 +2,7 @@
 #include <KerberosHelper/KerberosHelper.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <GSS/gssapi.h>
+#include <err.h>
 
 int
 main(int argc, char **argv)

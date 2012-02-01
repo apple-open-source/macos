@@ -1,3 +1,52 @@
+v0.2.5 19-11-2011 Stephan Bosch <stephan@rename-it.nl>
+
+	+ Sieve vacation extension: made discard message for implicit delivery more
+	  verbose
+	- The sieve-test tool: mixed up original and final envelope recipient in
+	  implementation of command line arguments.
+	- Sieve vacation extension: resolved FIXME regarding the use of variables in
+	  the :handle argument. Variables are now handled correctly.
+	- Sieve body extension: fixed handling of :content "message/rfc822". This now
+	  yields the headers of the embedded message as required by the specification.
+		Handling of :content "multipart" remains to be fixed.
+	- LDA Sieve plugin: fixed problem with recipient_delimiter configuration. Now
+	  falls back to global recipient_delimiter setting if
+	  plugin/recipient_delimiter is not set.
+
+v0.2.4 13-09-2011 Stephan Bosch <stephan@rename-it.nl>
+
+	+ Vacation extension: finally added support for using the original recipient
+	  in vacation address check. It is also possible to disable the recipient
+	  address check entirely. Check doc/vacation.txt for configuration
+	  information.
+	+ Include extension: made limits on the include depth and the total number of
+	  included scripts configurable. Check doc/include.txt for configuration
+	  information.
+	+ Implemented ihave extension. This allows checking for the availability
+	  of Sieve language extensions at 'runtime'. Actually, this is checked
+	  at compile time. At runtime the interpreter checks whether extensions
+	  that were not previously available are still unavailable. If the situation
+	  changed, the script is re-compiled and the ihave tests are evaluated again. 
+	+ Sieve: optimized compilation of tests that yield constant results (i.e.
+	  known at compile tme), such as 'true' and 'false'. No code is produced
+	  anymore for script sections that are never executed. Also, semantics
+	  are not verified anymore in uncompiled script sections.
+	+ Made vnd.dovecot.debug extension available to the LDA plugin instead of
+	  only the command line tools.
+	+ Sieve: redirect action now adds X-Sieve-Redirected-From header (mainly for
+	  people using SPF/SRS).
+	- Sieve: fixed bug in handling flags and keywords; in case of error an
+	  assertion was triggered.
+	- Script storage: improved handling of unconfigured user home directory.
+	  Originally this would produce an unhelpful error message.
+	- Imap4flags extension: prevent forcibly enabling imap4flags when imapflags
+	  is enabled.
+	- Fixed various -Wunused-but-set-variable compiler warnings.
+	- Include extension: forgot to check variable identifier syntax for 'global'
+	  command.
+	- Sieve: fixed debug mode; no messages were logged in some situations.
+	- sievec tool: forgot to enable -D (debug) parameter.
+
 v0.2.3 14-04-2011 Stephan Bosch <stephan@rename-it.nl>
 
 	* Sieve filter tool: finished implementing basic functionality. It is not
@@ -10,7 +59,7 @@ v0.2.3 14-04-2011 Stephan Bosch <stephan@rename-it.nl>
 	+ Vacation extension: implemented the (draft) vacation-seconds extension.
 	  This also adds min/max period configuration settings. Refer to 
 	  doc/vacation.txt for configuration information. 
-    - ManageSieve: fixed bug in UTF-8 checking of string values. This is done
+	- ManageSieve: fixed bug in UTF-8 checking of string values. This is done
 	  by discarding the original implementation and migrating to the Dovecot
 	  API's UTF-8 functionality.  
 	- Sieve command line tools now avoid initializing the mail store unless

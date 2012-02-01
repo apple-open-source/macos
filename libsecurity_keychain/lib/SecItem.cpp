@@ -2395,6 +2395,8 @@ struct SecItemParams {
 	SecKeychainAttributeList *attrList;	// attribute list for this query
 	SecAccessRef access;				// access reference (for SecItemAdd only, not used to find items)
 	CFDataRef itemData;					// item data (for SecItemAdd only, not used to find items)
+	CFTypeRef itemRef;					// item reference (to add, update or delete, depending on context)
+	CFDataRef itemPersistentRef;		// item persistent reference (to add, update or delete, depending on context)
 };
 
 static OSStatus
@@ -2411,15 +2413,23 @@ _ValidateDictionaryEntry(CFDictionaryRef dict, CFTypeRef key, const void **value
 		// provided value is NULL (also not an error!)
 		return noErr;
 	}
-	else if (!((expectedTypeID == CFGetTypeID(*value)) || (altTypeID && altTypeID == CFGetTypeID(*value)))) {
-		// provided value does not have the expected (or alternate) CF type ID
-		return errSecItemInvalidValue; 
-	}
 	else {
-		// provided value is OK; retain it
-		CFRetain(*value);
+		CFTypeID actualTypeID = CFGetTypeID(*value);
+		if (!((expectedTypeID == actualTypeID) || (altTypeID && altTypeID == actualTypeID))) {
+			// provided value does not have the expected (or alternate) CF type ID
+			if ((expectedTypeID == SecKeychainItemGetTypeID()) &&
+				(actualTypeID == SecKeyGetTypeID() || actualTypeID == SecCertificateGetTypeID())) {
+				// provided value is a "floating" reference which is not yet in a keychain
+				CFRetain(*value);
+				return noErr;
+			}
+			return errSecItemInvalidValue;
+		}
+		else {
+			// provided value is OK; retain it
+			CFRetain(*value);
+		}
 	}
-
 	return noErr;
 }
 
@@ -2445,6 +2455,8 @@ _FreeSecItemParams(SecItemParams *itemParams)
 	if (itemParams->search) CFRelease(itemParams->search);
 	if (itemParams->access) CFRelease(itemParams->access);
 	if (itemParams->itemData) CFRelease(itemParams->itemData);
+	if (itemParams->itemRef) CFRelease(itemParams->itemRef);
+	if (itemParams->itemPersistentRef) CFRelease(itemParams->itemPersistentRef);
 
 	_FreeAttrList(itemParams->attrList);
 
@@ -2505,6 +2517,35 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 
 	// validate the payload (password, key or certificate data), used for SecItemAdd but not for finding items
 	require_noerr(status = _ValidateDictionaryEntry(dict, kSecValueData, (const void **)&itemParams->itemData, CFDataGetTypeID(), CFStringGetTypeID()), error_exit);
+
+	// validate item references
+	require_noerr(status = _ValidateDictionaryEntry(dict, kSecValueRef, (const void **)&itemParams->itemRef, SecKeychainItemGetTypeID(), NULL), error_exit);
+	require_noerr(status = _ValidateDictionaryEntry(dict, kSecValuePersistentRef, (const void **)&itemParams->itemPersistentRef, CFDataGetTypeID(), NULL), error_exit); 
+	if (itemParams->itemRef || itemParams->itemPersistentRef) {
+		// Caller is trying to add or find an item by reference.
+		// The supported method for doing that is to provide a kSecUseItemList array
+		// for SecItemAdd, or a kSecMatchItemList array for SecItemCopyMatching et al,
+		// so add the item reference to those arrays here.
+		if (itemParams->useItems) {
+			CFArrayRef tmpItems = itemParams->useItems;
+			itemParams->useItems = (CFArrayRef) CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, tmpItems);
+			CFRelease(tmpItems);
+		} else {
+			itemParams->useItems = (CFArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+		}
+		if (itemParams->itemRef) CFArrayAppendValue((CFMutableArrayRef)itemParams->useItems, itemParams->itemRef);
+		if (itemParams->itemPersistentRef) CFArrayAppendValue((CFMutableArrayRef)itemParams->useItems, itemParams->itemPersistentRef);
+
+		if (itemParams->itemList) {
+			CFArrayRef tmpItems = itemParams->itemList;
+			itemParams->itemList = (CFArrayRef) CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, tmpItems);
+			CFRelease(tmpItems);
+		} else {
+			itemParams->itemList = (CFArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+		}
+		if (itemParams->itemRef) CFArrayAppendValue((CFMutableArrayRef)itemParams->itemList, itemParams->itemRef);
+		if (itemParams->itemPersistentRef) CFArrayAppendValue((CFMutableArrayRef)itemParams->itemList, itemParams->itemPersistentRef);
+	}
 
 	// determine how to return the result
 	itemParams->numResultTypes = 0;

@@ -62,7 +62,6 @@ extern KernelDebugLevel	    gKernelDebugLevel;
 #define _GATE			_expansionData->_gate
 #define _WORKLOOP		_expansionData->_workLoop
 #define _NEED_TO_CLOSE	_expansionData->_needToClose
-#define _PIPEOBJLOCK	_expansionData->_pipeObjLock
 #define _OPEN_CLIENTS	_expansionData->_openClients
 
 
@@ -189,15 +188,27 @@ IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
     bool			res = true;
     IOReturn		error = kIOReturnSuccess;
 	
-    if ( _expansionData && _GATE )
+    if (_expansionData && _GATE && _WORKLOOP)
     {
-        USBLog(6,"%s[%p]::open calling super::open with gate", getName(), this);
-        error = _GATE->runAction( CallSuperOpen, (void *)forClient, (void *)options, (void *)arg );
+		IOCommandGate *	gate = _GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+		
+		USBLog(6,"%s[%p]::open calling super::open with gate", getName(), this);
+		
+		error = gate->runAction(CallSuperOpen, (void *)forClient, (void *)options, (void *)arg, (void *)NULL);
         if ( error != kIOReturnSuccess )
         {
             USBLog(2,"%s[%p]::open super::open failed (0x%x)", getName(), this, error);
             res = false;
         }
+		
+		gate->release();
+		workLoop->release();
+		release();
     }
     else
     {
@@ -293,8 +304,7 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
 void 
 IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 {
-	int			i;
-	IOUSBPipe	*pipe;
+	IOReturn	err = kIOReturnSuccess;
 	bool		exclusiveOpen = (options & kUSBOptionBitOpenExclusivelyMask) ? true : false;
 	
 	if (forClient->metaCast("IOUSBInterfaceUserClientV2") && !exclusiveOpen)
@@ -310,25 +320,50 @@ IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 		}
 		else
 		{
-			// before we go through the WL gate, we go ahead and grab the PIPEOBJLOCK and Abort the pipes
-			// this can help prevent a deadlock
-			
-			IOLockLock(_PIPEOBJLOCK);
-			
-			for( i=0; i < kUSBMaxPipes; i++) 
+			if (_expansionData && _GATE && _WORKLOOP)
 			{
-				if ( (pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]))) 
-					pipe->Abort(); 
+				IOCommandGate *	gate = _GATE;
+				IOWorkLoop *	workLoop = _WORKLOOP;
+				
+				retain();
+				workLoop->retain();
+				gate->retain();
+				
+				USBLog(6,"%s[%p]::close calling _AbortPipes with gate", getName(), this);
+				
+				err = gate->runAction(_AbortPipes, (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL);
+				if ( err != kIOReturnSuccess )
+				{
+					USBLog(2,"%s[%p]:message _AbortPipes runAction failed (0x%x)", getName(), this, err);
+				}
+				
+				gate->release();
+				workLoop->release();
+				release();
 			}
-			
-			IOLockUnlock(_PIPEOBJLOCK);
 		}
 	}
 	
-    if ( _expansionData && _GATE )
+    if (_expansionData && _GATE && _WORKLOOP)
     {
-        USBLog(6,"%s[%p]::close calling super::close with gate", getName(), this);
-        (void) _GATE->runAction( CallSuperClose, (void *)forClient, (void *)options);
+		IOCommandGate *	gate = _GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+		
+		USBLog(6,"%s[%p]::close calling super::close with gate", getName(), this);
+
+		err = gate->runAction(CallSuperClose, (void *)forClient, (void *)options, (void *)NULL, (void *)NULL);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(2,"%s[%p]:message CallSuperClose() runAction failed (0x%x)", getName(), this, err);
+		}
+	
+		gate->release();
+		workLoop->release();
+		release();
     }
     else
     {
@@ -450,10 +485,18 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 		break;
 		
 	case kIOUSBMessagePortHasBeenReset:
-		if ( _expansionData && _GATE )
+		if (_expansionData && _GATE && _WORKLOOP)
 		{
+			IOCommandGate *	gate = _GATE;
+			IOWorkLoop *	workLoop = _WORKLOOP;
+			
+			retain();
+			workLoop->retain();
+			gate->retain();
+			
 			USBLog(6,"%s[%p]::message calling _ResetPipes with gate", getName(), this);
-			err = _GATE->runAction( _ResetPipes, (void *)this, (void *)NULL, (void *)NULL );
+			
+			err = gate->runAction(_ResetPipes, (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL);
 			if ( err != kIOReturnSuccess )
 			{
 				USBLog(2,"%s[%p]:message _ResetPipes failed (0x%x)", getName(), this, err);
@@ -465,6 +508,9 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 				USBLog(6, "%s[%p]::message - received kIOUSBMessagePortHasBeenReset", getName(), this);
 				messageClients( kIOUSBMessagePortHasBeenReset, argument, sizeof(IOReturn) );
 			}
+			gate->release();
+			workLoop->release();
+			release();
 		}
 		break;
 		
@@ -561,8 +607,36 @@ IOUSBInterface::stop( IOService * provider )
     ClosePipes();
 	
 	if (_expansionData && _WORKLOOP && _GATE)
+	{
 		_WORKLOOP->removeEventSource(_GATE);
-
+		
+		if (_GATE)
+		{
+			_GATE->release();
+			_GATE = NULL;
+		}
+		
+		if (_WORKLOOP)
+		{
+			_WORKLOOP->release();
+			_WORKLOOP = NULL;
+		}
+		
+	}
+		
+	if (_OPEN_CLIENTS)
+	{
+		if (_OPEN_CLIENTS->getCount())
+		{
+			USBLog(4, "IOUSBInterface[%p]::free - called with %d _OPEN_CLIENTS", this, _OPEN_CLIENTS->getCount());
+		}
+		else
+		{
+			_OPEN_CLIENTS->release();
+			_OPEN_CLIENTS = NULL;
+		}
+	}
+	
 	super::stop(provider);
 	
     USBLog(5,"-%s[%p]::stop (provider = %p)", getName(), this, provider);
@@ -596,37 +670,6 @@ IOUSBInterface::free()
     //
     if (_expansionData)
     {
-		if (_GATE)
-		{
-			_GATE->release();
-			_GATE = NULL;
-		}
-		
-		if (_WORKLOOP)
-		{
-			_WORKLOOP->release();
-			_WORKLOOP = NULL;
-		}
-		
-		if (_PIPEOBJLOCK) 
-		{
-			IOLockFree(_PIPEOBJLOCK);
-			_PIPEOBJLOCK = 0;
-		}
-
-		if (_OPEN_CLIENTS)
-		{
-			if (_OPEN_CLIENTS->getCount())
-			{
-				USBLog(2, "IOUSBInterface[%p]::free - called with %d _OPEN_CLIENTS", this, _OPEN_CLIENTS->getCount());
-			}
-			else
-			{
-				_OPEN_CLIENTS->release();
-				_OPEN_CLIENTS = NULL;
-			}
-		}
-
         IOFree(_expansionData, sizeof(ExpansionData));
         _expansionData = NULL;
     }
@@ -748,13 +791,6 @@ IOUSBInterface::init(const IOUSBConfigurationDescriptor *cfdesc,
     _bInterfaceProtocol = _interfaceDesc->bInterfaceProtocol;
     _iInterface = _interfaceDesc->iInterface;
 
-	// Allocate our pipeObjLock
-    _PIPEOBJLOCK = IOLockAlloc();
-    if (!_PIPEOBJLOCK)
-	{
-        return false;
-	}
-	
     return true;
 }
 
@@ -889,24 +925,31 @@ IOUSBInterface::SetProperties(void)
 void 
 IOUSBInterface::ClosePipes(void)
 {
-    IOUSBPipe * pipe;
+    IOReturn		err = kIOReturnSuccess;
 
     USBLog(6,"+%s[%p]::ClosePipes", getName(), this);
 
-	IOLockLock(_PIPEOBJLOCK);
-
-    for( unsigned int i=0; i < kUSBMaxPipes; i++) 
-    {
-        if ( (pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]))) 
-        {
-            pipe->Abort(); 
-            pipe->ClosePipe();
-            pipe->release();
-            _pipeList[i] = NULL;
-        }
-    }
-
-	IOLockUnlock(_PIPEOBJLOCK);
+    if (_expansionData && _GATE && _WORKLOOP)
+	{
+		IOCommandGate *	gate = _GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+		
+		USBLog(6,"%s[%p]::ClosePipes calling _ClosePipes with gate", getName(), this);
+		
+		err = gate->runAction(_ClosePipes, (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(2,"%s[%p]:ClosePipes _ClosePipes runAction failed (0x%x)", getName(), this, err);
+		}
+		
+		gate->release();
+		workLoop->release();
+		release();
+	}
 
     USBLog(7,"-%s[%p]::ClosePipes", getName(), this);
 }
@@ -936,12 +979,8 @@ IOUSBInterface::ResetPipes(void)
 	IOUSBPipe*	pipe;
     IOReturn	ret = kIOReturnSuccess;
 
-	USBLog(7,"+%s[%p]::ResetPipes", getName(), this);
+	USBLog(6,"+%s[%p]::ResetPipes", getName(), this);
 
-	// First, reset all our pipes so that the UIM clears any state
-	//
-	IOLockLock(_PIPEOBJLOCK);
-	
 	for ( unsigned int i = 0; i < kUSBMaxPipes; i++ )
 	{
 		pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]);
@@ -953,9 +992,93 @@ IOUSBInterface::ResetPipes(void)
 		if(ret != kIOReturnSuccess) break;
 	}
 	
-	IOLockUnlock(_PIPEOBJLOCK);
-	
 	USBLog(7,"-%s[%p]::ResetPipes", getName(), this);
+	
+	return ret;
+}
+
+IOReturn
+IOUSBInterface::_AbortPipes(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param1, param2, param3, param4)
+	
+    IOUSBInterface*	me	= OSDynamicCast(IOUSBInterface, target);
+    IOReturn		ret = kIOReturnSuccess;
+	
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::_AbortPipes - invalid target");
+        return kIOReturnBadArgument;
+    }
+	
+    ret = me->AbortPipesGated();
+	
+    return ret;
+}
+
+IOReturn
+IOUSBInterface::AbortPipesGated(void)
+{
+	IOUSBPipe*	pipe;
+    IOReturn	ret = kIOReturnSuccess;
+	
+	USBLog(6,"+%s[%p]::AbortPipesGated", getName(), this);
+	
+	for ( unsigned int i = 0; i < kUSBMaxPipes; i++ )
+	{
+		pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]);
+		if ( pipe ) 
+		{
+			ret = pipe->Abort(); 
+		}
+		
+		if(ret != kIOReturnSuccess) break;
+	}
+	
+	USBLog(7,"-%s[%p]::AbortPipesGated", getName(), this);
+	
+	return ret;
+}
+
+IOReturn
+IOUSBInterface::_ClosePipes(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param1, param2, param3, param4)
+	
+    IOUSBInterface*	me	= OSDynamicCast(IOUSBInterface, target);
+    IOReturn		ret = kIOReturnSuccess;
+	
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::_ClosePipes - invalid target");
+        return kIOReturnBadArgument;
+    }
+	
+    ret = me->ClosePipesGated();
+	
+    return ret;
+}
+
+IOReturn
+IOUSBInterface::ClosePipesGated(void)
+{
+	IOUSBPipe*	pipe;
+    IOReturn	ret = kIOReturnSuccess;
+	
+	USBLog(6,"+%s[%p]::ClosePipesGated", getName(), this);
+	
+    for( unsigned int i=0; i < kUSBMaxPipes; i++) 
+    {
+        if ( (pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]))) 
+        {
+            pipe->Abort(); 
+            pipe->ClosePipe();
+            pipe->release();
+            _pipeList[i] = NULL;
+        }
+    }
+	
+	USBLog(7,"-%s[%p]::ClosePipesGated", getName(), this);
 	
 	return ret;
 }
@@ -1065,6 +1188,64 @@ IOUSBInterface::FindNextPipe(IOUSBPipe *current,
 							 IOUSBFindEndpointRequest *request,
 							 bool withRetain)
 {
+	IOUSBPipe *	thePipeObj = NULL;
+	IOReturn	err = kIOReturnSuccess;
+	
+    if (_expansionData && _GATE && _WORKLOOP)
+    {
+		IOCommandGate *	gate = _GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+		
+		USBLog(7,"%s[%p]::FindNextPipe  calling _FindNextPipe (&returnPipe %p) with gate", getName(), this, &thePipeObj);
+		
+		err = gate->runAction(_FindNextPipe, (void *)current, (void *)request, (void*)withRetain, (void*)&thePipeObj);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(2,"%s[%p]:FindNextPipe  _FindNextPipe runAction failed (0x%x)", getName(), this, err);
+		}
+ 		
+		gate->release();
+		workLoop->release();
+		release();
+   }
+	
+	USBLog(7,"%s[%p]::FindNextPipe  returning pipe %p", getName(), this, thePipeObj);
+	return thePipeObj;
+}
+
+
+IOReturn
+IOUSBInterface::_FindNextPipe(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param4)
+	
+    IOUSBInterface*				me	= OSDynamicCast(IOUSBInterface, target);
+    IOUSBPipe *					current = (IOUSBPipe *) param1;
+    IOUSBFindEndpointRequest * 	request = (IOUSBFindEndpointRequest *) param2;
+    bool						retain = (bool) param3;
+    IOUSBPipe **				thePipeObj = (IOUSBPipe **) param4;
+	
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::_FindNextPipe - invalid target");
+        return kIOReturnBadArgument;
+    }
+	
+    *thePipeObj = me->FindNextPipeGated(current, request, retain);
+	USBLog(7,"%s[%p]::_FindNextPipe  FindNextPipeGated pipe %p", me->getName(), me, *thePipeObj);
+
+    return kIOReturnSuccess;
+}
+
+IOUSBPipe*
+IOUSBInterface::FindNextPipeGated(IOUSBPipe *current,
+							 IOUSBFindEndpointRequest *request,
+							 bool withRetain)
+{
 	const IOUSBController::Endpoint *	endpoint;
 	IOUSBPipe *							pipe = NULL;
 	int									numEndpoints;
@@ -1074,8 +1255,6 @@ IOUSBInterface::FindNextPipe(IOUSBPipe *current,
 	
 	if (request == 0)
 		return NULL;
-	
-	IOLockLock(_PIPEOBJLOCK);
 	
 	if (current != 0)
 	{
@@ -1096,6 +1275,7 @@ IOUSBInterface::FindNextPipe(IOUSBPipe *current,
 	for ( ; (i < numEndpoints) && (i < kUSBMaxPipes) ; i++) 
 	{
 		pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]);
+		USBLog(6,"%s[%p]::FindNextPipeGated created pipe %p", getName(), this, pipe);
 		if (!pipe)
 			continue;
 		
@@ -1123,8 +1303,6 @@ IOUSBInterface::FindNextPipe(IOUSBPipe *current,
 	
 	if (pipe && withRetain)
 		pipe->retain();				// caller will release
-	
-	IOLockUnlock(_PIPEOBJLOCK);
 	
 	return pipe;
 }
@@ -1634,10 +1812,59 @@ IOUSBPipe *
 IOUSBInterface::GetPipeObj(UInt8 index) 
 { 
 	IOUSBPipe *	thePipeObj = NULL;
+	IOReturn	err = kIOReturnSuccess;
 	
-	IOLockLock(_PIPEOBJLOCK);
+    if (_expansionData && _GATE && _WORKLOOP)
+    {
+		IOCommandGate *	gate = _GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+
+		err = gate->runAction(_GetPipeObj, (void *)index, (void *)&thePipeObj, (void *)NULL, (void *)NULL);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(2,"%s[%p]:GetPipeObj _GetPipeObj runAction failed (0x%x)", getName(), this, err);
+		}
+		
+		gate->release();
+		workLoop->release();
+		release();
+	}
+	
+	return thePipeObj;
+}
+
+
+IOReturn
+IOUSBInterface::_GetPipeObj(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param3, param4)
+	
+    IOUSBInterface*				me	= OSDynamicCast(IOUSBInterface, target);
+    UInt8						index = (uintptr_t) param1;
+    IOUSBPipe **				thePipeObj = (IOUSBPipe **) param2;
+	
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::_GetPipeObj - invalid target");
+        return kIOReturnBadArgument;
+    }
+	
+    *thePipeObj = me->GetPipeObjGated(index);
+	
+    return kIOReturnSuccess;
+}
+
+
+IOUSBPipe * 
+IOUSBInterface::GetPipeObjGated(UInt8 index) 
+{ 
+	IOUSBPipe *	thePipeObj = NULL;
+	
     thePipeObj = (index < kUSBMaxPipes) ? _pipeList[index] : NULL ; 
-	IOLockUnlock(_PIPEOBJLOCK);
 	
 	return thePipeObj;
 }

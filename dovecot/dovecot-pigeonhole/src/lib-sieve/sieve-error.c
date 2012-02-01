@@ -144,13 +144,13 @@ void sieve_direct_vinfo
 void sieve_direct_vdebug
 (struct sieve_instance *svinst, struct sieve_error_handler *ehandler,
 	unsigned int flags, const char *location, const char *fmt, va_list args)
-{ 
+{
 	if ( (flags & SIEVE_ERROR_FLAG_GLOBAL) != 0 &&
-		(ehandler == NULL || ehandler->parent == NULL) && 
+		(ehandler == NULL || ehandler->parent == NULL) &&
 		svinst->system_ehandler != ehandler &&
 		svinst->system_ehandler->vdebug != NULL ) {
 		va_list args_copy;
-	
+
 		VA_COPY(args_copy, args);
 
 		svinst->system_ehandler->vdebug
@@ -159,8 +159,8 @@ void sieve_direct_vdebug
 
 	if ( ehandler == NULL ) return;
 
-	if ( ehandler->parent != NULL || ehandler->log_info ) {
-		if ( ehandler->vdebug != NULL )	
+	if ( ehandler->parent != NULL || ehandler->log_debug ) {
+		if ( ehandler->vdebug != NULL )
 			ehandler->vdebug(ehandler, flags, location, fmt, args);
 	}
 }
@@ -527,7 +527,7 @@ void sieve_error_handler_init
 	ehandler->svinst = svinst;
 	ehandler->refcount = 1;
 	ehandler->max_errors = max_errors;
-	
+
 	ehandler->errors = 0;
 	ehandler->warnings = 0;
 }
@@ -666,6 +666,8 @@ struct sieve_error_handler *sieve_master_ehandler_create
 
 	if ( prefix != NULL )
 		ehandler->prefix = p_strdup(pool, prefix);
+
+	ehandler->handler.log_debug = svinst->debug;
 
 	return &ehandler->handler;
 }

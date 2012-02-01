@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: cups.sh.in 3249 2011-05-12 06:35:27Z msweet $"
+# "$Id: cups.sh.in 3432 2011-09-20 20:45:38Z msweet $"
 #
 #   Startup/shutdown script for CUPS.
 #
@@ -172,6 +172,10 @@ esac
 case $1 in
 	start | restart | reload)
 		if $IS_ON cups; then
+			if test -x /sbin/portrelease; then
+				/sbin/portrelease cups
+			fi
+
 			if test "$pid" != ""; then
 				kill -HUP $pid
 			else
@@ -229,5 +233,5 @@ exit 0
 
 
 #
-# End of "$Id: cups.sh.in 3249 2011-05-12 06:35:27Z msweet $".
+# End of "$Id: cups.sh.in 3432 2011-09-20 20:45:38Z msweet $".
 #

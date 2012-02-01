@@ -177,7 +177,7 @@ static struct sieve_storage *_sieve_storage_create
 {
 	pool_t pool;
 	struct sieve_storage *storage;
-	const char *tmp_dir, *link_path;
+	const char *tmp_dir, *link_path, *path;
 	const char *sieve_data, *active_path, *active_fname, *storage_dir;
 	mode_t dir_create_mode, file_create_mode;
 	gid_t file_create_gid;
@@ -185,15 +185,11 @@ static struct sieve_storage *_sieve_storage_create
 	unsigned long long int uint_setting;
 	size_t size_setting;
 
-	/* 
-	 * Read settings 
+	/*
+	 * Configure active script path
 	 */
 
 	active_path = sieve_setting_get(svinst, "sieve");
-    sieve_data = sieve_setting_get(svinst, "sieve_dir");
-
-	if ( sieve_data == NULL )
-		sieve_data = sieve_setting_get(svinst, "sieve_storage");
 
 	/* Get path to active Sieve script */
 
@@ -201,20 +197,28 @@ static struct sieve_storage *_sieve_storage_create
 		if ( *active_path == '\0' ) {
 			/* disabled */
 			if ( debug ) 
-				i_debug("sieve-storage: sieve is disabled (sieve = \"\")");
+				i_debug("sieve-storage: sieve is disabled (sieve=\"\")");
 			return NULL;
 		}
 	} else {
-
-		if ( home == NULL ) {
-			/* we must have a home directory */
-			i_error("sieve-storage: userdb(%s) didn't return a home directory or "
-				"sieve script location", user);
-			return NULL;
+		if ( debug ) {
+			i_debug("sieve-storage: sieve active script path is unconfigured; "
+				"using default (sieve=%s)", SIEVE_DEFAULT_PATH);
 		}
 
 		active_path = SIEVE_DEFAULT_PATH;
 	}
+
+	/* Substitute home dir if necessary */
+
+	path = home_expand_tilde(active_path, home);
+	if ( path == NULL ) {
+		i_error("sieve-storage: userdb(%s) didn't return a home directory "
+			"for substitition in active script path (sieve=%s)", user, active_path);
+		return NULL;
+	}
+
+	active_path = path;
 
 	/* Get the filename for the active script link */
 
@@ -233,9 +237,20 @@ static struct sieve_storage *_sieve_storage_create
 		return NULL;
 	}
 
-	/* Find out where to put the script storage */
+	/*
+	 * Configure script storage directory
+	 */
 
 	storage_dir = NULL;
+
+	/* Read setting */
+
+	sieve_data = sieve_setting_get(svinst, "sieve_dir");
+
+	if ( sieve_data == NULL )
+		sieve_data = sieve_setting_get(svinst, "sieve_storage");
+
+	/* Determine location */
 
 	if ( sieve_data == NULL || *sieve_data == '\0' ) {
 		/* We'll need to figure out the storage location ourself.
@@ -250,7 +265,7 @@ static struct sieve_storage *_sieve_storage_create
 					i_debug("sieve-storage: root exists (%s)", home);
 				}
 
-				storage_dir = home_expand_tilde("~/sieve", home);
+				storage_dir = t_strconcat(home, "/sieve", NULL);
 			} else {
 				/* Don't have required access on the home directory */
 
@@ -262,26 +277,34 @@ static struct sieve_storage *_sieve_storage_create
 		} else {
 			if ( debug )
 				i_debug("sieve-storage: HOME not set");
-		}
 
-		if (access("/sieve", R_OK|W_OK|X_OK) == 0) {
-			storage_dir = "/sieve";
-			if ( debug )
-				i_debug("sieve-storage: /sieve exists, assuming chroot");
+			if (access("/sieve", R_OK|W_OK|X_OK) == 0) {
+				storage_dir = "/sieve";
+				if ( debug )
+					i_debug("sieve-storage: /sieve exists, assuming chroot");
+			}
 		}
 	} else {
 		storage_dir = sieve_data;
 	}
 
 	if (storage_dir == NULL || *storage_dir == '\0') {
-		if ( debug )
-			i_debug("sieve-storage: couldn't find storage dir");
+		i_error("sieve-storage: couldn't find storage root directory; "
+			"sieve_dir was left unconfigured and autodetection failed");
 		return NULL;
 	}
 
-	/* Expand home directories in path */
-	active_path = home_expand_tilde(active_path, home);
-	storage_dir = home_expand_tilde(storage_dir, home);
+	/* Expand home directory in path */
+
+	path = home_expand_tilde(storage_dir, home);
+	if ( path == NULL ) {
+		i_error("sieve-storage: userdb(%s) didn't return a home directory "
+			"for substitition in storage root directory (sieve_dir=%s)",
+			user, storage_dir);
+		return NULL;
+	}
+
+	storage_dir = path;
 
 	if ( debug ) {
 		i_debug("sieve-storage: "
@@ -300,19 +323,19 @@ static struct sieve_storage *_sieve_storage_create
 	 * Ensure sieve local directory structure exists (full autocreate):
 	 *  This currently currently only consists of a ./tmp direcory
 	 */
-	
-	tmp_dir = t_strconcat(storage_dir, "/tmp", NULL);	
+
+	tmp_dir = t_strconcat(storage_dir, "/tmp", NULL);
 
 	/*ret = maildir_check_tmp(box->storage, box->path);
 	if (ret < 0)
 		return -1;*/
 
-	if ( mkdir_verify(tmp_dir, dir_create_mode, file_create_gid, 
+	if ( mkdir_verify(tmp_dir, dir_create_mode, file_create_gid,
 		file_create_gid_origin, debug) < 0 )
 		return NULL;
-	
-	/* 
-	 * Create storage object 
+
+	/*
+	 * Create storage object
 	 */
 
 	pool = pool_alloconly_create("sieve-storage", 512+256);

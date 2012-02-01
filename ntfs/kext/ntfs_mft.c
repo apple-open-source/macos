@@ -112,13 +112,12 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 	 */
 	if (!mft_ni) {
 		/*
-		 * Avoid using @vol for anything from now on as we know we are
-		 * in the process of getting unmounted thus we derive the
-		 * mount_t from the vnode of the ntfs inode instead.
+		 * @vol->mp may be NULL now which is ok.  ntfs_error() deals
+		 * with this case gracefully.
 		 */
-		ntfs_error(vnode_mount(ni->vn), "The volume is being "
-				"unmounted, bailing out (you can ignore "
-				"any errors following this one).");
+		ntfs_error(vol->mp, "The volume is being unmounted, bailing "
+				"out (you can ignore any errors following "
+				"this one).");
 		return EINVAL;
 	}
 	/* Get an iocount reference on the $MFT vnode. */
@@ -138,8 +137,7 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 			vol->mft_record_size_shift)) {
 		lck_spin_unlock(&mft_ni->size_lock);
 		ntfs_error(vol->mp, "Attempt to read mft record 0x%llx, which "
-				"is beyond the end of the mft.  This is "
-				"probably a bug in the ntfs driver.",
+				"is beyond the end of the mft.",
 				(unsigned long long)ni->mft_no);
 		err = ENOENT;
 		goto err;
@@ -185,6 +183,7 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 	if (ntfs_is_mft_record(m->magic)) {
 		if (!mft_is_locked)
 			lck_rw_unlock_shared(&mft_ni->lock);
+		ni->mft_ni = mft_ni;
 		ni->m_buf = buf;
 		ni->m = m;
 		*mrec = m;
@@ -222,16 +221,18 @@ err:
  */
 void ntfs_mft_record_unmap(ntfs_inode *ni)
 {
-	ntfs_inode *mft_ni = ni->vol->mft_ni;
+	ntfs_inode *mft_ni;
 	buf_t buf;
 	errno_t err;
 
 	ntfs_debug("Entering for mft_no 0x%llx.",
 			(unsigned long long)ni->mft_no);
+	mft_ni = ni->mft_ni;
 	buf = ni->m_buf;
-	if (!buf || !ni->m)
+	if (!mft_ni || !buf || !ni->m)
 		panic("%s(): Mft record 0x%llx is not mapped.\n", __FUNCTION__,
 				(unsigned long long)ni->mft_no);
+	ni->mft_ni = NULL;
 	ni->m_buf = NULL;
 	ni->m = NULL;
 	err = buf_unmap(buf);

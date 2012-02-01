@@ -1,5 +1,5 @@
 /*
- * "$Id: cups-polld.c 7198 2008-01-08 00:12:17Z mike $"
+ * "$Id: cups-polld.c 9753 2011-05-06 23:07:28Z mike $"
  *
  *   Polling daemon for CUPS.
  *
@@ -465,5 +465,5 @@ sighup_handler(int sig)			/* I - Signal number */
 
 
 /*
- * End of "$Id: cups-polld.c 7198 2008-01-08 00:12:17Z mike $".
+ * End of "$Id: cups-polld.c 9753 2011-05-06 23:07:28Z mike $".
  */

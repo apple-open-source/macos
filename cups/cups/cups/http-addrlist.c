@@ -1,5 +1,5 @@
 /*
- * "$Id: http-addrlist.c 7910 2008-09-06 00:25:17Z mike $"
+ * "$Id: http-addrlist.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   HTTP address list routines for CUPS.
  *
@@ -169,7 +169,7 @@ httpAddrConnect(
   }
 
   if (!addrlist)
-    _cupsSetError(IPP_SERVICE_UNAVAILABLE, _("Unable to connect to server"), 1);
+    _cupsSetError(IPP_SERVICE_UNAVAILABLE, strerror(errno), 0);
 
   return (addrlist);
 }
@@ -673,5 +673,5 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 
 
 /*
- * End of "$Id: http-addrlist.c 7910 2008-09-06 00:25:17Z mike $".
+ * End of "$Id: http-addrlist.c 9793 2011-05-20 03:49:49Z mike $".
  */

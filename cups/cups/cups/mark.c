@@ -1,5 +1,5 @@
 /*
- * "$Id: mark.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: mark.c 9895 2011-08-12 00:16:55Z mike $"
  *
  *   Option marking routines for CUPS.
  *
@@ -257,11 +257,13 @@ cupsMarkOptions(
       * Map sides to duplex option...
       */
 
-      if (!strcmp(sides, "one-sided"))
+      if (!strcmp(sides, "one-sided") && cache->sides_1sided)
         ppd_mark_option(ppd, cache->sides_option, cache->sides_1sided);
-      else if (!strcmp(sides, "two-sided-long-edge"))
+      else if (!strcmp(sides, "two-sided-long-edge") &&
+               cache->sides_2sided_long)
         ppd_mark_option(ppd, cache->sides_option, cache->sides_2sided_long);
-      else if (!strcmp(sides, "two-sided-short-edge"))
+      else if (!strcmp(sides, "two-sided-short-edge") &&
+               cache->sides_2sided_short)
         ppd_mark_option(ppd, cache->sides_option, cache->sides_2sided_short);
     }
   }
@@ -1095,5 +1097,5 @@ ppd_mark_option(ppd_file_t *ppd,	/* I - PPD file */
 
 
 /*
- * End of "$Id: mark.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: mark.c 9895 2011-08-12 00:16:55Z mike $".
  */

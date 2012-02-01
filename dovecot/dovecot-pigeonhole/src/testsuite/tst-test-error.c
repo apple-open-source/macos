@@ -39,7 +39,8 @@ const struct sieve_command_def tst_test_error = {
 	1, 0, FALSE, FALSE,
 	tst_test_error_registered, 
 	NULL,
-	tst_test_error_validate, 
+	tst_test_error_validate,
+	NULL, 
 	tst_test_error_generate, 
 	NULL 
 };

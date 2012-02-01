@@ -1,5 +1,5 @@
 /*
- * "$Id: emit.c 7863 2008-08-26 03:39:59Z mike $"
+ * "$Id: emit.c 9901 2011-08-17 21:01:53Z mike $"
  *
  *   PPD code emission routines for CUPS.
  *
@@ -286,7 +286,7 @@ ppdEmitAfterOrder(
   * Get the string...
   */
 
-  buffer = ppdEmitString(ppd, section, limit ? min_order : 0.0);
+  buffer = ppdEmitString(ppd, section, limit ? min_order : 0.0f);
 
  /*
   * Write it as needed and return...
@@ -1213,5 +1213,5 @@ ppd_handle_media(ppd_file_t *ppd)	/* I - PPD file */
 
 
 /*
- * End of "$Id: emit.c 7863 2008-08-26 03:39:59Z mike $".
+ * End of "$Id: emit.c 9901 2011-08-17 21:01:53Z mike $".
  */

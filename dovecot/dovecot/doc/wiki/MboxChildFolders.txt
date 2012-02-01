@@ -184,4 +184,4 @@ folders with the names "mBoX-M ''eSsAgEs", "dovecot.index.*, or
 Unlike the Maildir++ layout approach above, because we are still using
 "filesystem" layout, the hierarchy separator remains as a slash.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

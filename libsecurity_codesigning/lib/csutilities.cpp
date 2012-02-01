@@ -153,5 +153,36 @@ void Copyfile::check(int rc)
 }
 
 
+//
+// MessageTracer support
+//
+MessageTrace::MessageTrace(const char *domain, const char *signature)
+{
+	mAsl = asl_new(ASL_TYPE_MSG);
+	if (domain)
+		asl_set(mAsl, "com.apple.message.domain", domain);
+	if (signature)
+		asl_set(mAsl, "com.apple.message.signature", signature);
+}
+
+void MessageTrace::add(const char *key, const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	char value[200];
+	vsnprintf(value, sizeof(value), format, args);
+	va_end(args);
+	asl_set(mAsl, (string("com.apple.message.") + key).c_str(), value);
+}
+	
+void MessageTrace::send(const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	asl_vlog(NULL, mAsl, ASL_LEVEL_NOTICE, format, args);
+	va_end(args);
+}
+
+
 } // end namespace CodeSigning
 } // end namespace Security

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -299,6 +299,7 @@ _SecKeychainItemModifyContent		(
 					const void			*data
 					);
 #define SecKeychainItemModifyContent _SecKeychainItemModifyContent
+
 
 OSStatus
 _SecTrustedApplicationCreateFromPath	(

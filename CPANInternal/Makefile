@@ -10,17 +10,17 @@ endif
 # Determine our OS major version.
 OS_VERSION  = $(shell perl -e 'my $$osVersion = `sw_vers -buildVersion`; chomp($$osVersion); $$osVersion =~ s|^(\d+).*|$$1|; print "$$osVersion"')
 SUPPORTED_OS     = NO
-LION           = NO
-LION_PLUS      = NO
+LION             = NO
+LION_PLUS        = NO
 SNOWLEOPARD      = NO
 SNOWLEOPARD_PLUS = NO
 LEOPARD          = NO
 TIGER            = NO
 PANTHER          = NO
 ifeq ($(OS_VERSION),11)
-	LION           = YES
+	LION             = YES
 	SUPPORTED_OS     = YES
-	LION_PLUS      = YES
+	LION_PLUS        = YES
 	SNOWLEOPARD_PLUS = YES
 endif
 ifeq ($(OS_VERSION),10)
@@ -59,7 +59,6 @@ endif
 #
 # If your module requires special treatment, add a custom target in the SPECIAL TARGETS section.
 #
-
 
 # Modules that build on Lion or later
 ifeq ($(LION_PLUS),YES)
@@ -1104,7 +1103,7 @@ install:: echo-config-info install-ditto-phase $(SUBDIRS) ConfigurationFiles
 install_config::
 	@if [ -d $(INSTALLEXTRAS) ]; then \
 	    echo Creating PrependToPath ... ; \
-		if [ $(LION) == "YES" ]; then \
+		if [ $(LION_PLUS) == "YES" ]; then \
 			for vers in $(VERSIONS); do \
 				export VERSIONER_PERL_VERSION=$$vers; \
 				INSTALL_SITE_LIB=`perl -MConfig -e 'print $$Config{installsitelib}'`; \
@@ -1169,7 +1168,7 @@ echo-config-info::
 	@echo "Building on Tiger:       $(TIGER)"
 	@echo "Building on Leopard:     $(LEOPARD)"
 	@echo "Building on SnowLeopard: $(SNOWLEOPARD)"
-	@echo "Building on Lion:      $(LION)"
+	@echo "Building on Lion:        $(LION)"
 	@echo ""
 	@echo "ARCHFLAGS:               $(ARCHFLAGS)"
 	@echo ""

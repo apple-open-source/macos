@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-pdf.m4 7449 2008-04-14 18:27:53Z mike $"
+dnl "$Id: cups-pdf.m4 9750 2011-05-06 22:53:53Z mike $"
 dnl
 dnl   PDF filter configuration stuff for CUPS.
 dnl
@@ -109,5 +109,5 @@ AC_SUBST(DEFAULT_PDFTOPS)
 AC_SUBST(PDFTOPS)
 
 dnl
-dnl End of "$Id: cups-pdf.m4 7449 2008-04-14 18:27:53Z mike $".
+dnl End of "$Id: cups-pdf.m4 9750 2011-05-06 22:53:53Z mike $".
 dnl

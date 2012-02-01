@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2011 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ca.xml
@@ -84,7 +84,9 @@ ca{
                 yMEd{"E d/M/yyyy"}
                 yMMM{"LLL y"}
                 yMMMEd{"EEE d MMM y"}
-                yMMMM{"LLLL 'del' y"}
+                yMMMM{"LLLL 'de' y"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/yyyy"}
                 yQ{"Q yyyy"}
                 yQQQ{"QQQ y"}
                 yyQ{"Q yy"}
@@ -100,6 +102,15 @@ ca{
                         "dj.",
                         "dv.",
                         "ds.",
+                    }
+                    narrow{
+                        "G",
+                        "l",
+                        "T",
+                        "C",
+                        "J",
+                        "V",
+                        "S",
                     }
                     wide{
                         "diumenge",
@@ -129,6 +140,15 @@ ca{
                         "j",
                         "v",
                         "s",
+                    }
+                    wide{
+                        "Diumenge",
+                        "Dilluns",
+                        "Dimarts",
+                        "Dimecres",
+                        "Dijous",
+                        "Divendres",
+                        "Dissabte",
                     }
                 }
             }
@@ -165,18 +185,33 @@ ca{
                 }
                 month{
                     dn{"mes"}
+                    relative{
+                        "-1"{"Últim mes"}
+                        "0"{"Aquest mes"}
+                        "1"{"Mes següent"}
+                    }
                 }
                 second{
                     dn{"segon"}
                 }
                 week{
                     dn{"setmana"}
+                    relative{
+                        "-1"{"Última setmana"}
+                        "0"{"Aquesta setmana"}
+                        "1"{"Setmana següent"}
+                    }
                 }
                 weekday{
                     dn{"dia de la setmana"}
                 }
                 year{
                     dn{"any"}
+                    relative{
+                        "-1"{"Última any"}
+                        "0"{"Aquest any"}
+                        "1"{"Any següent"}
+                    }
                 }
                 zone{
                     dn{"zona"}
@@ -214,9 +249,6 @@ ca{
                 MMMEd{
                     M{"E d MMM - E d MMM"}
                     d{"E d - E d MMM"}
-                }
-                MMMM{
-                    M{"LLLL-LLLL"}
                 }
                 MMMd{
                     M{"d MMM - d MMM"}
@@ -300,6 +332,20 @@ ca{
                         "de nov.",
                         "de des.",
                     }
+                    narrow{
+                        "G",
+                        "F",
+                        "M",
+                        "A",
+                        "M",
+                        "J",
+                        "G",
+                        "A",
+                        "S",
+                        "O",
+                        "N",
+                        "D",
+                    }
                     wide{
                         "de gener",
                         "de febrer",
@@ -368,6 +414,26 @@ ca{
                         "3T",
                         "4T",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
+                    wide{
+                        "1r trimestre",
+                        "2n trimestre",
+                        "3r trimestre",
+                        "4t trimestre",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "1T",
+                        "2T",
+                        "3T",
+                        "4T",
+                    }
                     wide{
                         "1r trimestre",
                         "2n trimestre",
@@ -391,6 +457,7 @@ ca{
         }
     }
     measurementSystemNames{
+        UK{"anglosaxó"}
         US{"imperial"}
         metric{"mètric"}
     }

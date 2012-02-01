@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,7 @@ extern "C" {
 CFArrayRef potentialEVChainWithCertificates(CFArrayRef certificates);
 CFArrayRef allowedEVRootsForLeafCertificate(CFArrayRef certificates);
 bool isRevocationServerMetaError(CSSM_RETURN statusCode);
-CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultType trustResult, OSStatus tpResult);
+CFDictionaryRef extendedTrustResults(CFArrayRef certChain, SecTrustResultType trustResult, OSStatus tpResult, bool isEVCandidate);
 
 #ifdef __cplusplus
 }

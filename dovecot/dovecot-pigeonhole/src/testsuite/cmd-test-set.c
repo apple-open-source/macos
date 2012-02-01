@@ -39,7 +39,8 @@ const struct sieve_command_def cmd_test_set = {
 	SCT_COMMAND,
 	2, 0, FALSE, FALSE, 
 	NULL, NULL,
-	cmd_test_set_validate, 
+	cmd_test_set_validate,
+	NULL, 
 	cmd_test_set_generate, 
 	NULL 
 };

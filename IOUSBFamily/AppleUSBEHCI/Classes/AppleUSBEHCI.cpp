@@ -457,7 +457,10 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 		
 		_outSlot = kEHCIPeriodicListEntries+1;							// No Isoc transactions currently
 		_frameNumber = 0;
-		_expansionData->_isochMaxBusStall = 25000;						// we need a requireMaxBusStall of 25 microseconds for EHCI
+        
+        // 10186556 - don't do rMBS during Isoch if we are on TBolt
+        if (!_v3ExpansionData->_onThunderbolt)
+            _expansionData->_isochMaxBusStall = 25000;						// we need a requireMaxBusStall of 25 microseconds for EHCI (but not on Tbolt)
 
 		// this is the "think time" needed for the controller to go from one QH to the next. It is used for periodic scheduling
 		_controllerThinkTime = 100;

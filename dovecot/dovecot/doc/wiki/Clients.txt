@@ -106,8 +106,10 @@ Thunderbird
     * You should enable 'tb-extra-mailbox-sep' workaround for IMAP. Bug report
       [https://bugzilla.mozilla.org/show_bug.cgi?id=29926].
  * If you're using <mbox> [MailboxFormat.mbox.txt]:
-    * You'll have to disable "Server supports folders that contain sub-folders
-      and messages" setting from Thunderbird.Enhancement request
+    * If you are not using a technique to allow folders that contain both
+      sub-folders and messages (e.g. see <MboxChildFolders.txt>) then you will
+      have to disable "Server supports folders that contain sub-folders and
+      messages" setting from Thunderbird.Enhancement request
       [https://bugzilla.mozilla.org/show_bug.cgi?id=284933].
 
 Mutt
@@ -162,4 +164,4 @@ Uses the namespace returned via Dovecot, full support via IMAP/POP3 using @Mail
 [http://atmail.com/]. Can also read mailbox quota via the getquotaroot IMAP
 command.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

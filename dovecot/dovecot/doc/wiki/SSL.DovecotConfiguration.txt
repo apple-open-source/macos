@@ -190,7 +190,7 @@ these settings:
 ssl_ca = </etc/ssl/ca.pem
 ssl_verify_client_cert = yes
 
-ssl_require_client_cert = yes
+auth_ssl_require_client_cert = yes
 #ssl_username_from_cert = yes
 ---%<-------------------------------------------------------------------------
 
@@ -331,4 +331,4 @@ B8A55EC91A060575CFB29503FBF7160C2DC8BCBFE02D20A7F704882F72D8D00272D8D002CE5CCC4B
 +OK Dovecot ready.
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

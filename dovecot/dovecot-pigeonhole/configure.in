@@ -1,4 +1,4 @@
-AC_INIT([Pigeonhole], [0.2.3], [dovecot@dovecot.org], [dovecot-2.0-pigeonhole])
+AC_INIT([Pigeonhole], [0.2.5], [dovecot@dovecot.org], [dovecot-2.0-pigeonhole])
 AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_MACRO_DIR([m4])
@@ -117,13 +117,15 @@ src/lib-sieve/plugins/environment/Makefile
 src/lib-sieve/plugins/mailbox/Makefile
 src/lib-sieve/plugins/date/Makefile
 src/lib-sieve/plugins/spamvirustest/Makefile
+src/lib-sieve/plugins/ihave/Makefile
+src/lib-sieve/plugins/vnd.dovecot/Makefile
+src/lib-sieve/plugins/vnd.dovecot/debug/Makefile
 src/lib-sieve-tool/Makefile
 src/lib-sievestorage/Makefile
 src/lib-managesieve/Makefile
 src/plugins/Makefile
 src/plugins/lda-sieve/Makefile
 src/sieve-tools/Makefile
-src/sieve-tools/debug/Makefile
 src/managesieve/Makefile
 src/managesieve-login/Makefile
 src/testsuite/Makefile

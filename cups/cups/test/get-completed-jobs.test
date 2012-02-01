@@ -1,5 +1,5 @@
 #
-# "$Id$"
+# "$Id: get-completed-jobs.test 9086 2010-04-07 18:46:04Z mike $"
 #
 #   Get list of completed jobs.
 #
@@ -47,5 +47,5 @@
 
 
 #
-# End of "$Id$".
+# End of "$Id: get-completed-jobs.test 9086 2010-04-07 18:46:04Z mike $".
 #

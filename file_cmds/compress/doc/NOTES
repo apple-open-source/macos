@@ -1,5 +1,5 @@
 
-  $FreeBSD: src/usr.bin/compress/doc/NOTES,v 1.2 2002/10/16 12:42:15 charnier Exp $
+  $FreeBSD: src/usr.bin/compress/doc/NOTES,v 1.3 2011/10/16 14:30:28 eadler Exp $
 
 From: James A. Woods <jaw@eos.arc.nasa.gov>
 
@@ -51,7 +51,7 @@ comprehensive survey of an area which will remain murky for some time.
 
 Until the dust clears, how you approach ideas which are patented depends
 on how paranoid you are of a legal onslaught.  Arbitrary?  Yes.  But
-the patent bar the the CCPA (Court of Customs and Patent Appeals)
+the patent bar the CCPA (Court of Customs and Patent Appeals)
 thanks you for any uncertainty as they, at least, stand to gain
 from any trouble.
 

@@ -1,5 +1,5 @@
 /*
- * "$Id: page.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: page.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   Page size functions for CUPS.
  *
@@ -392,5 +392,5 @@ ppdPageLength(ppd_file_t *ppd,	/* I - PPD file */
 
 
 /*
- * End of "$Id: page.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: page.c 9793 2011-05-20 03:49:49Z mike $".
  */

@@ -83,8 +83,11 @@ static void ssl_params_callback(const unsigned char *data, size_t size)
 		   ran us at startup to make sure ssl parameters are generated
 		   asap. if we're here because of that, don't bother hanging
 		   around to see if we get any client connections. */
-		to_startup = timeout_add(STARTUP_IDLE_TIMEOUT_MSECS,
-					 master_service_stop, master_service);
+		if (to_startup == NULL) {
+			to_startup = timeout_add(STARTUP_IDLE_TIMEOUT_MSECS,
+						 master_service_stop,
+						 master_service);
+		}
 		return;
 	}
 
@@ -109,7 +112,7 @@ static void sig_chld(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 
 static void main_init(const struct ssl_params_settings *set)
 {
-	lib_signals_set_handler(SIGCHLD, TRUE, sig_chld, NULL);
+	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE, sig_chld, NULL);
 
 	ssl_params = buffer_create_dynamic(default_pool, 1024);
 	param = ssl_params_init(PKG_STATEDIR"/"SSL_BUILD_PARAM_FNAME,

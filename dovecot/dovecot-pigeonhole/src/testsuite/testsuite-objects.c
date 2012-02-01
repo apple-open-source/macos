@@ -305,6 +305,7 @@ const struct testsuite_object_def envelope_testsuite_object = {
 enum testsuite_object_envelope_field {
 	TESTSUITE_OBJECT_ENVELOPE_FROM,
 	TESTSUITE_OBJECT_ENVELOPE_TO,
+	TESTSUITE_OBJECT_ENVELOPE_ORIG_TO,
 	TESTSUITE_OBJECT_ENVELOPE_AUTH_USER
 };
 
@@ -324,6 +325,8 @@ static int tsto_envelope_get_member_id(const char *identifier)
 		return TESTSUITE_OBJECT_ENVELOPE_FROM;
 	if ( strcasecmp(identifier, "to") == 0 )
 		return TESTSUITE_OBJECT_ENVELOPE_TO;
+	if ( strcasecmp(identifier, "orig_to") == 0 )
+		return TESTSUITE_OBJECT_ENVELOPE_ORIG_TO;
 	if ( strcasecmp(identifier, "auth") == 0 )
 		return TESTSUITE_OBJECT_ENVELOPE_AUTH_USER;	
 	
@@ -337,6 +340,8 @@ static const char *tsto_envelope_get_member_name(int id)
 		return "from";
 	case TESTSUITE_OBJECT_ENVELOPE_TO: 
 		return "to";
+	case TESTSUITE_OBJECT_ENVELOPE_ORIG_TO: 
+		return "orig_to";
 	case TESTSUITE_OBJECT_ENVELOPE_AUTH_USER: 
 		return "auth";
 	}
@@ -353,6 +358,9 @@ static bool tsto_envelope_set_member
 		return TRUE;
 	case TESTSUITE_OBJECT_ENVELOPE_TO:
 		testsuite_envelope_set_recipient(renv, str_c(value));
+		return TRUE;
+	case TESTSUITE_OBJECT_ENVELOPE_ORIG_TO:
+		testsuite_envelope_set_orig_recipient(renv, str_c(value));
 		return TRUE;
 	case TESTSUITE_OBJECT_ENVELOPE_AUTH_USER: 
 		testsuite_envelope_set_auth_user(renv, str_c(value));

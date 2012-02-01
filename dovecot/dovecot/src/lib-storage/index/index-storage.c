@@ -204,8 +204,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	box->opened = TRUE;
 
 	index_thread_mailbox_opened(box);
-	if (hook_mailbox_opened != NULL)
-		hook_mailbox_opened(box);
+	hook_mailbox_opened(box);
 
 	if ((box->flags & MAILBOX_FLAG_OPEN_DELETED) == 0) {
 		if (mail_index_is_deleted(box->index)) {
@@ -405,7 +404,7 @@ int index_storage_mailbox_update(struct mailbox *box,
 	}
 
 	if ((ret = mail_index_transaction_commit(&trans)) < 0)
-		mail_storage_set_internal_error(box->storage);
+		mail_storage_set_index_error(box);
 	mail_index_view_close(&view);
 	return ret;
 }

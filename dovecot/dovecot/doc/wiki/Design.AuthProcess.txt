@@ -362,4 +362,4 @@ auth_stream_reply_add(reply, "home", pw->pw_dir);
 callback(USERDB_RESULT_OK, reply, auth_request);
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

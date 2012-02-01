@@ -25,7 +25,8 @@ const struct sieve_command_def cmd_stop = {
 	SCT_COMMAND, 
 	0, 0, FALSE, FALSE,
 	NULL, NULL,  
-	cmd_stop_validate, 
+	cmd_stop_validate,
+	NULL, 
 	cmd_stop_generate, 
 	NULL 
 };

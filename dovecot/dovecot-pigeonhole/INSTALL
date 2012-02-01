@@ -268,6 +268,15 @@ Sieve Interpreter - Extension Configuration
   configuration options. Refer to doc/vacation.txt for settings specific to the
   vacation extension.
 
+- Include extension:
+
+	The Sieve include extension (draft) permits users to include one Sieve script
+	into another.
+
+  The include extension is available by default, but it has its own specific
+  configuration options. Refer to doc/include.txt for settings specific to the
+  include extension.
+
 - Spamtest and Virustest extensions:
 
   Using the spamtest and virustest extensions (RFC 5235), the Sieve language

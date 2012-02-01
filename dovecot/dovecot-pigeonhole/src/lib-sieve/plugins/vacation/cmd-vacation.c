@@ -68,7 +68,8 @@ const struct sieve_command_def vacation_command = {
 	1, 0, FALSE, FALSE, 
 	cmd_vacation_registered,
 	cmd_vacation_pre_validate, 
-	cmd_vacation_validate, 
+	cmd_vacation_validate,
+	NULL,
 	cmd_vacation_generate, 
 	NULL 
 };
@@ -230,7 +231,7 @@ struct cmd_vacation_context_data {
 	
 	bool mime;
 	
-	string_t *handle;
+	struct sieve_ast_argument *handle_arg;
 };
 
 /* 
@@ -347,10 +348,10 @@ static bool cmd_vacation_validate_string_tag
 		*arg = sieve_ast_argument_next(*arg);
 		
 	} else if ( sieve_argument_is(tag, vacation_handle_tag) ) {
-		ctx_data->handle = sieve_ast_argument_str(*arg);
-		
+		ctx_data->handle_arg = *arg;		
+
 		/* Detach optional argument (emitted as mandatory) */
-		*arg = sieve_ast_arguments_detach(*arg,1);
+		*arg = sieve_ast_arguments_detach(*arg, 1);
 	}
 			
 	return TRUE;
@@ -467,34 +468,48 @@ static bool cmd_vacation_validate
 		return FALSE;
 		
 	/* Construct handle if not set explicitly */
-	if ( ctx_data->handle == NULL ) {
-		string_t *reason = sieve_ast_argument_str(arg);
-		unsigned int size = str_len(reason);
+	if ( ctx_data->handle_arg == NULL ) {
+		T_BEGIN {
+			string_t *handle;
+			string_t *reason = sieve_ast_argument_str(arg);
+			unsigned int size = str_len(reason);
 		
-		/* Precalculate the size of it all */
-		size += ctx_data->subject == NULL ? 
-			sizeof(_handle_empty_subject) - 1 : str_len(ctx_data->subject);
-		size += ctx_data->from == NULL ? 
-			sizeof(_handle_empty_from) - 1 : str_len(ctx_data->from); 
-		size += ctx_data->mime ? 
-			sizeof(_handle_mime_enabled) - 1 : sizeof(_handle_mime_disabled) - 1; 
+			/* Precalculate the size of it all */
+			size += ctx_data->subject == NULL ? 
+				sizeof(_handle_empty_subject) - 1 : str_len(ctx_data->subject);
+			size += ctx_data->from == NULL ? 
+				sizeof(_handle_empty_from) - 1 : str_len(ctx_data->from); 
+			size += ctx_data->mime ? 
+				sizeof(_handle_mime_enabled) - 1 : sizeof(_handle_mime_disabled) - 1; 
 			
-		/* Construct the string */
-		ctx_data->handle = str_new(sieve_command_pool(cmd), size);
-		str_append_str(ctx_data->handle, reason);
+			/* Construct the string */
+			handle = t_str_new(size);
+			str_append_str(handle, reason);
 		
-		if ( ctx_data->subject != NULL )
-			str_append_str(ctx_data->handle, ctx_data->subject);
-		else
-			str_append(ctx_data->handle, _handle_empty_subject);
+			if ( ctx_data->subject != NULL )
+				str_append_str(handle, ctx_data->subject);
+			else
+				str_append(handle, _handle_empty_subject);
 		
-		if ( ctx_data->from != NULL )
-			str_append_str(ctx_data->handle, ctx_data->from);
-		else
-			str_append(ctx_data->handle, _handle_empty_from);
+			if ( ctx_data->from != NULL )
+				str_append_str(handle, ctx_data->from);
+			else
+				str_append(handle, _handle_empty_from);
 			
-		str_append(ctx_data->handle, 
-			ctx_data->mime ? _handle_mime_enabled : _handle_mime_disabled );
+			str_append(handle, 
+				ctx_data->mime ? _handle_mime_enabled : _handle_mime_disabled );
+		
+			/* Create positional handle argument */
+			ctx_data->handle_arg = sieve_ast_argument_string_create
+				(cmd->ast_node, handle, sieve_ast_node_line(cmd->ast_node));
+		} T_END;
+
+		if ( !sieve_validator_argument_activate
+			(valdtr, cmd, ctx_data->handle_arg, TRUE) )
+			return FALSE;
+	} else {
+		/* Attach explicit handle argument as positional */
+		(void)sieve_ast_argument_attach(cmd->ast_node, ctx_data->handle_arg);
 	}
 	
 	return TRUE;
@@ -506,18 +521,12 @@ static bool cmd_vacation_validate
  
 static bool cmd_vacation_generate
 (const struct sieve_codegen_env *cgenv, struct sieve_command *cmd) 
-{
-	struct cmd_vacation_context_data *ctx_data = 
-		(struct cmd_vacation_context_data *) cmd->data;
-		 
+{		 
 	sieve_operation_emit(cgenv->sblock, cmd->ext, &vacation_operation);
 
 	/* Generate arguments */
 	if ( !sieve_generate_arguments(cgenv, cmd, NULL) )
 		return FALSE;	
-
-	/* FIXME: this will not allow the handle to be a variable */
-	sieve_opr_string_emit(cgenv->sblock, ctx_data->handle);
 		
 	return TRUE;
 }
@@ -778,13 +787,13 @@ static void act_vacation_print
 		(struct act_vacation_context *) action->context;
 	
 	sieve_result_action_printf( rpenv, "send vacation message:");
-	sieve_result_printf(rpenv, "    => seconds   : %d\n", ctx->seconds);
+	sieve_result_printf(rpenv, "    => seconds : %d\n", ctx->seconds);
 	if ( ctx->subject != NULL )
-		sieve_result_printf(rpenv, "    => subject: %s\n", ctx->subject);
+		sieve_result_printf(rpenv, "    => subject : %s\n", ctx->subject);
 	if ( ctx->from != NULL )
-		sieve_result_printf(rpenv, "    => from   : %s\n", ctx->from);
+		sieve_result_printf(rpenv, "    => from    : %s\n", ctx->from);
 	if ( ctx->handle != NULL )
-		sieve_result_printf(rpenv, "    => handle : %s\n", ctx->handle);
+		sieve_result_printf(rpenv, "    => handle  : %s\n", ctx->handle);
 	sieve_result_printf(rpenv, "\nSTART MESSAGE\n%s\nEND MESSAGE\n", ctx->reason);
 }
 
@@ -1016,11 +1025,11 @@ static bool act_vacation_commit
 	const struct sieve_script_env *senv = aenv->scriptenv;
 	struct act_vacation_context *ctx = 
 		(struct act_vacation_context *) action->context;
-	const char *const *hdsp;
 	unsigned char dupl_hash[MD5_RESULTLEN];
-	const char *const *headers;
 	const char *sender = sieve_message_get_sender(aenv->msgctx);
 	const char *recipient = sieve_message_get_final_recipient(aenv->msgctx);
+	const char *const *hdsp;
+	const char *const *headers;
 	const char *reply_from = NULL;
 
 	/* Is the recipient unset? 
@@ -1036,14 +1045,14 @@ static bool act_vacation_commit
 	if ( sender == NULL ) {
 		sieve_result_global_log(aenv, "discarded vacation reply to <>");
 		return TRUE;
-	}    
-	
-	/* Are we perhaps trying to respond to ourselves ? 
+	}
+
+	/* Are we perhaps trying to respond to ourselves ?
 	 */
 	if ( sieve_address_compare(sender, recipient, TRUE) == 0 ) {
 		sieve_result_global_log(aenv,
 			"discarded vacation reply to own address <%s>",
-			str_sanitize(sender, 128));	
+			str_sanitize(sender, 128));
 		return TRUE;
 	}
 
@@ -1051,24 +1060,24 @@ static bool act_vacation_commit
 	 */
 	if ( ctx->addresses != NULL ) {
 		const char * const *alt_address = ctx->addresses;
-		
+
 		while ( *alt_address != NULL ) {
 			if ( sieve_address_compare(sender, *alt_address, TRUE) == 0 ) {
 				sieve_result_global_log(aenv,
 					"discarded vacation reply to own address <%s> "
 					"(as specified using :addresses argument)",
-					str_sanitize(sender, 128));	
+					str_sanitize(sender, 128));
 				return TRUE;
 			}
 			alt_address++;
-		}			
+		}
 	}
-	
+
 	/* Did whe respond to this user before? */
 	if ( sieve_action_duplicate_check_available(senv) ) {
 		act_vacation_hash(ctx, sender, dupl_hash);
-	
-		if ( sieve_action_duplicate_check(senv, dupl_hash, sizeof(dupl_hash)) ) 
+
+		if ( sieve_action_duplicate_check(senv, dupl_hash, sizeof(dupl_hash)) )
 		{
 			sieve_result_global_log(aenv,
 				"discarded duplicate vacation response to <%s>",
@@ -1076,7 +1085,7 @@ static bool act_vacation_commit
 			return TRUE;
 		}
 	}
-	
+
 	/* Are we trying to respond to a mailing list ? */
 	hdsp = _list_headers;
 	while ( *hdsp != NULL ) {
@@ -1100,7 +1109,7 @@ static bool act_vacation_commit
 			if ( strcasecmp(*hdsp, "no") != 0 ) {
 				sieve_result_global_log(aenv, 
 					"discarding vacation response to auto-submitted message from <%s>", 
-					str_sanitize(sender, 128));	
+ 					str_sanitize(sender, 128));	
 					return TRUE;				 
 			}
 			hdsp++;
@@ -1123,59 +1132,86 @@ static bool act_vacation_commit
 			hdsp++;
 		}
 	}
-	
+
 	/* Do not reply to system addresses */
 	if ( _is_system_address(sender) ) {
-		sieve_result_global_log(aenv, 
-			"not sending vacation response to system address <%s>", 
-			str_sanitize(sender, 128));	
-		return TRUE;				
-	} 
-	
-	/* Is the original message directly addressed to the user or the addresses
-	 * specified using the :addresses tag? 
-	 */
-	hdsp = _my_address_headers;
-	while ( *hdsp != NULL ) {
-		if ( mail_get_headers
-			(msgdata->mail, *hdsp, &headers) >= 0 && headers[0] != NULL ) {	
-			
-			if ( _contains_my_address(headers, recipient) ) {
-				reply_from = recipient;
-				break;
-			}
-			
-			if ( ctx->addresses != NULL ) {
-				bool found = FALSE;
-				const char * const *my_address = ctx->addresses;
-		
-				while ( !found && *my_address != NULL ) {
-					found = _contains_my_address(headers, *my_address);
-					reply_from = *my_address;
-					my_address++;
-				}
-				
-				if ( found ) break;
-			}
-		}
-		hdsp++;
-	}	
+		sieve_result_global_log(aenv,
+			"not sending vacation response to system address <%s>",
+			str_sanitize(sender, 128));
+		return TRUE;
+	}
 
-	if ( *hdsp == NULL ) {
-		/* No, bail out */
-		sieve_result_global_log(aenv, 
-			"discarding vacation response for message implicitly delivered to <%s>",
-			recipient );	
-		return TRUE;				 
-	}	
-	
+	/* Is the original message directly addressed to the user or the addresses
+	 * specified using the :addresses tag?
+	 */
+	if ( !config->dont_check_recipient ) {
+		const char *orig_recipient = NULL;
+
+		if ( config->use_original_recipient  )
+			orig_recipient = sieve_message_get_orig_recipient(aenv->msgctx);
+
+		hdsp = _my_address_headers;
+		while ( *hdsp != NULL ) {
+			if ( mail_get_headers
+				(msgdata->mail, *hdsp, &headers) >= 0 && headers[0] != NULL ) {	
+
+				if ( _contains_my_address(headers, recipient) ) {
+					reply_from = recipient;
+					break;
+				}
+
+				if ( orig_recipient != NULL && _contains_my_address(headers, orig_recipient) ) {
+					reply_from = orig_recipient;
+					break;
+				}
+
+				if ( ctx->addresses != NULL ) {
+					bool found = FALSE;
+					const char * const *my_address = ctx->addresses;
+
+					while ( !found && *my_address != NULL ) {
+						if ( (found=_contains_my_address(headers, *my_address)) )
+							reply_from = *my_address;
+						my_address++;
+					}
+
+					if ( found ) break;
+				}
+			}
+			hdsp++;
+		}
+
+
+		/* My address not found in the headers; we got an implicit delivery */
+		if ( *hdsp == NULL ) {
+			const char *original_recipient = "";
+
+			/* No, bail out */
+
+			if ( config->use_original_recipient ) {
+				original_recipient = t_strdup_printf("original-recipient=<%s>, ",
+					( orig_recipient == NULL ? "UNAVAILABLE" :
+						str_sanitize(orig_recipient, 128) ));
+			}
+
+			sieve_result_global_log(aenv,
+				"discarding vacation response for implicitly delivered message; "
+				"no known (envelope) recipient address found in message headers "
+				"(recipient=<%s>, %sand%s additional `:addresses' are specified)",
+				str_sanitize(recipient, 128), original_recipient,
+				(ctx->addresses == NULL ? " no" : ""));
+
+			return TRUE;
+		}
+	}
+
 	/* Send the message */
-	
+
 	if ( act_vacation_send(aenv, ctx, sender, reply_from) ) {
 		sieve_number_t seconds; 
 
 		sieve_result_global_log(aenv, "sent vacation response to <%s>", 
-			str_sanitize(sender, 128));	
+			str_sanitize(sender, 128));
 
 		/* Check period limits once more */
 		seconds = ctx->seconds;

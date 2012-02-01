@@ -2,34 +2,47 @@ Current activities:
 
 * Build a sieve tool to filter an entire existing mailbox through a Sieve 
   script.
+	> Needs to have single mail transaction for each destination folder for
+	  all moved messages. Otherwise, partial failure cannot be prevented.
+	- Implement ability to group Sieve execution results of all processed messages
+	  into one big `Sieve transaction' object, which (among other things) keeps
+	  track of opened mailboxes and transactions. Is probably also more efficient.
 
-Next (in order of descending priority/precedence):
+Parallel plugin-based efforts:
 
-* Improve error handling. 
-	- Implement dropping errors in the user's mailbox as a mail message.
+* Implement plugin to pipe messages to external programs. Will probably be
+  merged with the main tree eventually.
+* Implement enotify xmpp method as a plugin.
+* Implement metadata and servermetadata extensions as a plugin.
+	- Compiles against dovecot metadata plugin, as currently developed by
+	  Dennis Schridde. 
+
+Next (mostly in order of descending priority/precedence):
+
+* Update include extension to latest draft (v10 currently):
+	- Implement :optional tag.
+	- Implement required ManageSieve behavior
 * Add normalize() method to comparators to normalize the string before matching
   (for efficiency).
+* Improve error handling. 
+	- Implement dropping errors in the user's mailbox as a mail message.
+* Implement index extension
 * Further develop regex extension and update it to the latest draft:
 	- Implement the :quoteregex set modifier
 	- Investigate the use of the TRE regexp library to gain UTF-8 capability
+	  (posix regexes actually do support utf8, but only when locale is set
+	  accordingly)
 * Finish body extension:
 	- Implement proper :content "multipart" behavior
-	- Implement proper :content "message/rfc822" behavior
 	- Build test cases for decoding MIME encodings to UTF-8
 * Cleanup the test suite
 	- Restructure test scripts
 	- Add more comment on purpose of tests
-* Implement index extension
-* Update include extension to latest draft (v05 currently):
-	- Implement required ManageSieve behavior (pending IETF discussion)
 * Finish the ereject extension
 * Vacation extension improvements:
 	- Implement configurable sender exclusion list.
 	- Implement mechanism for implicitly including an account's aliases in the
 	  vacation command's :addresses list.
-* Optimize code containing true/false tests to omit explicit JMP opcodes
-  (i.e. optimize the test away and any code that negatively depends on it)
-* Implement ihave extension.
 * Fix remaining RFC deviations:
 	- Fix issues listed in doc/rfc/RFC-questions.txt based on answers
 	- Allow for the existence of dynamic comparators (i.e. specified by 
@@ -80,6 +93,8 @@ Next (in order of descending priority/precedence):
 * Warn during compile if using non-existent folders.
 
 * Implement IMAP plugin for IMAPSieve support:
+	- Requires the same Sieve transaction support as the sieve-filter tool needs.
+	- Requires (IMAP) metadata support in Dovecot.
 	- This may include support for manually running a script on a set of messages
 	  through IMAP (no specification for something like this is available; we will 
 	  have to provide our own)

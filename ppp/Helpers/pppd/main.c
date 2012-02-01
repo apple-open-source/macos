@@ -2370,6 +2370,32 @@ add_notifier(notif, func, arg)
     *notif = np;
 }
 
+void
+add_notifier_last(notif, func, arg)
+    struct notifier **notif;
+    notify_func func;
+    void *arg;
+{
+    struct notifier *np;
+    
+    np = malloc(sizeof(struct notifier));
+    if (np == 0)
+        novm("notifier struct");
+    
+    np->next = NULL;
+    np->func = func;
+    np->arg = arg;
+    
+    if (*notif == NULL)
+        *notif = np;
+    else {
+        struct notifier *cur = *notif;
+        while (cur->next != NULL)
+            cur = cur->next;
+        cur->next = np;
+    }
+}
+
 /*
  * remove_notifier - remove a function from the list of things to
  * be called when something happens.

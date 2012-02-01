@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2011 Pigeonhole authors, see the included COPYING file
-.TH "SIEVE\-TEST" 1 "2011-02-23" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
+.TH "SIEVE\-TEST" 1 "2011-10-04" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
 .SH NAME
 sieve\-test \- Pigeonhole\(aqs Sieve script tester
 .\"------------------------------------------------------------------------
@@ -32,6 +32,15 @@ evaluation of commands and tests respectively.
 .\"------------------------------------------------------------------------
 .SH OPTIONS
 .TP
+.BI \-a\  orig\-recipient\-address
+The original envelope recipient address. This is what Sieve\(aqs envelope test
+will compare to when the \(dqto\(dq envelope part is requested. Some tests and
+actions will also use this as the script owner\(aqs e\-mail address. If this
+option is omitted, the recipient address is retrieved from the
+\(dqEnvelope-To:\(dq, or \(dqTo:\(dq message headers. If none of these headers
+is present either, the recipient address defaults to
+\fIrecipient@example.com\fP.
+.TP
 .BI \-c\  config\-file
 Alternative Dovecot configuration file path.
 .TP
@@ -58,9 +67,12 @@ messages can be tested. Note that this will not transmit any messages to remote
 SMTP recipients. Such actions only print the outgoing message to \fBstdout\fP.
 .TP
 .BI \-f\  envelope\-sender
-The envelope sender or return path. This is what Sieve\(aqs envelope test will
-compare to when the \(dqfrom\(dq envelope part is requested. Also, this is
-where response messages are sent to.
+The envelope sender address (return path). This is what Sieve\(aqs envelope test
+will compare to when the \(dqfrom\(dq envelope part is requested. Also, this is
+where response messages are \(aqsent\(aq to. If this option is omitted, the sender
+address is retrieved from the \(dqReturn-Path:\(dq, \(dqSender:\(dq or
+\(dqFrom:\(dq message headers. If none of these headers is present either,
+the sender envelope address defaults to \fIsender@example.com\fP.
 .TP
 .BI \-l\  mail\-location
 The location of the user\(aqs mail store. The syntax of this option\(aqs
@@ -75,9 +87,11 @@ The mailbox where the keep action stores the message. This is \(dqINBOX\(dq
 by default.
 .TP
 .BI \-r\  recipient\-address
-The envelope recipient address. This is what Sieve\(aqs envelope test will compare
-to when the \(dqto\(dq envelope part is requested. Some tests and actions will also
-use this as the owner\(aqs e\-mail address.
+The final envelope recipient address. Some tests and actions will
+use this as the script owner\(aqs e\-mail address. For example, this is what is
+used by the vacation action to check whether a reply is appropriate. If the
+\fB\-r\fP option is omitted, the orignal envelope recipient address will be used
+in stead (see \fB\-a\fP option for more info). 
 .TP
 .BI \-s\  script\-file
 Specify additional scripts to be executed before the main script. Multiple
@@ -125,10 +139,10 @@ Specifies the file containing the e\-mail message to test with.
 .SH USAGE
 .SS RUNTIME TRACE DEBUGGING
 .PP
-Using the \fB\-t\fP option, the \fBsieve\-test\fP tool can be configured to print
-detailed trace information on the Sieve script execution to a file or standard
-output. For example, the encountered commands, the performed tests and the
-matched values can be printed.
+Using the \fB\-t\fP option, the \fBsieve\-test\fP tool can be configured to
+print detailed trace information on the Sieve script execution to a file or
+standard output. For example, the encountered commands, the performed tests and
+the matched values can be printed.
 .PP
 The runtime trace can be configured using the \fB\-T\fP option, which can be
 specified multiple times. It can be used as follows:
@@ -165,10 +179,9 @@ addresses are equal to those listed in a binary dump produced using the
 .\"------------------------------------------------------------------------
 .SS DEBUG SIEVE EXTENSION
 .PP
-To improve script debugging, the Sieve command line tools such as
-\fBsieve\-test\fP support a custom Sieve language extension called
-\(aqvnd.dovecot.debug\(aq. It adds the \fBdebug_print\fP command that allows
-printing debug messages to \fBstdout\fP.
+To improve script debugging, this Sieve implementation supports a custom Sieve 
+language extension called \(aqvnd.dovecot.debug\(aq. It adds the \fBdebug_log\fP
+command that allows logging debug messages.
 .PP
 Example:
 .PP
@@ -176,25 +189,28 @@ require \(dqvnd.dovecot.debug\(dq;
 .PP
 if header :contains \(dqsubject\(dq \(dqhello\(dq {
 .PP
-  debug_print \(dqSubject header contains hello!\(dq;
+  debug_log \(dqSubject header contains hello!\(dq;
 .PP
 }
 .PP
-Other tools like \fBsievec\fP and \fBsieve\-dump\fP also recognize the
-vnd.dovecot.debug extension. In contrast, the actual Sieve plugin for the
-Dovecot LDA (\fBdovecot\-lda\fR(1)) does not allow the use of the debug
-extension. So, keep in mind that scripts and compiled binaries that refer to de
-debug extension will fail to be run by the Sieve plugin itself.
-.PP
-Note that it is not necessary to enable nor possible to disable the availability
-of the debug extension with the \fB\-x\fP option.
+Tools such as \fBsieve\-test\fP, \fBsievec\fP and \fBsieve\-dump\fP have support
+for the vnd.dovecot.debug extension enabled by default and it is not necessary
+to enable nor possible to disable the availability of the debug extension with
+the \fB\-x\fP option. The logged messages are written to \fBstdout\fP in this
+case.
+
+In contrast, for the actual Sieve plugin for the Dovecot LDA
+(\fBdovecot\-lda\fR(1)) the vnd.dovecot.debug extension needs to be enabled 
+explicitly using the \fIsieve_extensions\fP setting. The messages are then
+logged to the user's private script log file. If used in a global script, the
+messages are logged through the default Dovecot logging facility.
 .\"------------------------------------------------------------------------
 .SH "EXIT STATUS"
 .B sieve\-test
 will exit with one of the following values:
 .TP 4
 .B 0
-Delivery was successful. (EX_OK, EXIT_SUCCES)
+Execution was successful. (EX_OK, EXIT_SUCCESS)
 .TP
 .B 1
 Operation failed. This is returned for almost all failures.

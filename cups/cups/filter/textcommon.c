@@ -1,5 +1,5 @@
 /*
- * "$Id: textcommon.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: textcommon.c 9793 2011-05-20 03:49:49Z mike $"
  *
  *   Common text filter routines for CUPS.
  *
@@ -1210,5 +1210,5 @@ getutf8(FILE *fp)	/* I - File to read from */
 
 
 /*
- * End of "$Id: textcommon.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: textcommon.c 9793 2011-05-20 03:49:49Z mike $".
  */

@@ -1,5 +1,5 @@
 .\"
-.\" "$Id$"
+.\" "$Id: ipptool.man 9354 2010-11-10 06:48:19Z mike $"
 .\"
 .\"   ipptool man page for CUPS.
 .\"
@@ -126,5 +126,5 @@ http://localhost:631/help
 .SH COPYRIGHT
 Copyright 2007-2010 by Apple Inc.
 .\"
-.\" End of "$Id$".
+.\" End of "$Id: ipptool.man 9354 2010-11-10 06:48:19Z mike $".
 .\"

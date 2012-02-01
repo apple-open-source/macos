@@ -1043,6 +1043,7 @@ SecKeyGenerateSymmetric(CFDictionaryRef parameters, CFErrorRef *error)
 	CSSM_KEYCLASS keyClass;
 	CFTypeRef value;
 	Boolean isPermanent;
+	Boolean isExtractable;
 	
 	// verify keychain parameter
 	if (!CFDictionaryGetValueIfPresent(parameters, kSecUseKeychain, (const void **)&keychain))
@@ -1055,11 +1056,29 @@ SecKeyGenerateSymmetric(CFDictionaryRef parameters, CFErrorRef *error)
 		CFRetain(keychain);
 
 	// verify permanent parameter
-	isPermanent = CFDictionaryGetValueIfPresent(parameters, kSecAttrIsPermanent, (const void **)&value) && value && CFEqual(kCFBooleanTrue, value);
-	if (isPermanent && keychain == NULL) {
-		// no keychain was specified, so use the default keychain
-		result = SecKeychainCopyDefault(&keychain);
+	if (!CFDictionaryGetValueIfPresent(parameters, kSecAttrIsPermanent, (const void **)&value))
+		isPermanent = false;
+	else if (!value || (CFBooleanGetTypeID() != CFGetTypeID(value)))
+		goto errorExit;
+	else
+		isPermanent = CFEqual(kCFBooleanTrue, value);
+	if (isPermanent) {
+		if (keychain == NULL) {
+			// no keychain was specified, so use the default keychain
+			result = SecKeychainCopyDefault(&keychain);
+		}
+		keyAttr |= CSSM_KEYATTR_PERMANENT;
 	}
+
+	// verify extractable parameter
+	if (!CFDictionaryGetValueIfPresent(parameters, kSecAttrIsExtractable, (const void **)&value))
+		isExtractable = true; // default to extractable if value not specified
+	else if (!value || (CFBooleanGetTypeID() != CFGetTypeID(value)))
+		goto errorExit;
+	else
+		isExtractable = CFEqual(kCFBooleanTrue, value);
+	if (isExtractable)
+		keyAttr |= CSSM_KEYATTR_EXTRACTABLE;
 
 	// verify access parameter
 	if (!CFDictionaryGetValueIfPresent(parameters, kSecAttrAccess, (const void **)&access))

@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.c 7944 2008-09-16 22:32:42Z mike $"
+ * "$Id: ipp.c 9825 2011-06-13 20:45:23Z mike $"
  *
  *   IPP routines for the CUPS scheduler.
  *
@@ -1974,9 +1974,8 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
   * Fill in the response info...
   */
 
-  snprintf(job_uri, sizeof(job_uri), "http://%s:%d/jobs/%d", ServerName,
-	   LocalPort, job->id);
-
+  httpAssembleURIf(HTTP_URI_CODING_ALL, job_uri, sizeof(job_uri), "ipp", NULL,
+                   con->servername, con->serverport, "/jobs/%d", job->id);
   ippAddString(con->response, IPP_TAG_JOB, IPP_TAG_URI, "job-uri", NULL,
                job_uri);
 
@@ -2026,7 +2025,7 @@ add_job_state_reasons(
     cupsd_job_t    *job)		/* I - Job info */
 {
   cupsd_printer_t	*dest;		/* Destination printer */
-
+  ipp_attribute_t	*attr;		/* job-hold attribute */
 
   cupsdLogMessage(CUPSD_LOG_DEBUG2, "add_job_state_reasons(%p[%d], %d)",
                   con, con->http.fd, job ? job->id : 0);
@@ -2045,10 +2044,11 @@ add_job_state_reasons(
         break;
 
     case IPP_JOB_HELD :
-        if (ippFindAttribute(job->attrs, "job-hold-until",
-	                     IPP_TAG_KEYWORD) != NULL ||
-	    ippFindAttribute(job->attrs, "job-hold-until",
-	                     IPP_TAG_NAME) != NULL)
+        if ((attr = ippFindAttribute(job->attrs, "job-hold-until",
+				     IPP_TAG_KEYWORD)) == NULL)
+	  attr = ippFindAttribute(job->attrs, "job-hold-until", IPP_TAG_NAME);
+
+	if (!attr || strcmp(attr->values[0].string.text, "no-hold"))
           ippAddString(con->response, IPP_TAG_JOB, IPP_TAG_KEYWORD,
 	               "job-state-reasons", NULL, "job-hold-until-specified");
         else
@@ -4735,6 +4735,9 @@ check_quotas(cupsd_client_t  *con,	/* I - Client connection */
 
   strlcpy(username, get_username(con), sizeof(username));
 
+  if ((name = strchr(username, '@')) != NULL)
+    *name = '\0';			/* Strip @REALM */
+
  /*
   * Check global active job limits for printers and users...
   */
@@ -5030,8 +5033,8 @@ close_job(cupsd_client_t  *con,		/* I - Client connection */
   * Fill in the response info...
   */
 
-  snprintf(job_uri, sizeof(job_uri), "http://%s:%d/jobs/%d", ServerName,
-	   LocalPort, job->id);
+  httpAssembleURIf(HTTP_URI_CODING_ALL, job_uri, sizeof(job_uri), "ipp", NULL,
+                   con->servername, con->serverport, "/jobs/%d", job->id);
   ippAddString(con->response, IPP_TAG_JOB, IPP_TAG_URI, "job-uri", NULL,
                job_uri);
 
@@ -10311,7 +10314,7 @@ save_auth_info(
   int			i;		/* Looping var */
   char			filename[1024];	/* Job authentication filename */
   cups_file_t		*fp;		/* Job authentication file */
-  char			line[2048];	/* Line for file */
+  char			line[65536];	/* Line for file */
   cupsd_printer_t	*dest;		/* Destination printer/class */
 
 
@@ -10589,6 +10592,14 @@ send_document(cupsd_client_t  *con,	/* I - Client connection */
   * Do we have a file to print?
   */
 
+  if ((attr = ippFindAttribute(con->request, "last-document",
+	                       IPP_TAG_BOOLEAN)) == NULL)
+  {
+    send_ipp_status(con, IPP_BAD_REQUEST,
+                    _("Missing last-document attribute in request."));
+    return;
+  }
+
   if (!con->filename)
   {
    /*
@@ -10596,10 +10607,7 @@ send_document(cupsd_client_t  *con,	/* I - Client connection */
     * used to close an "open" job by RFC 2911, section 3.3.2.
     */
 
-    if (job->num_files > 0 &&
-        (attr = ippFindAttribute(con->request, "last-document",
-	                         IPP_TAG_BOOLEAN)) != NULL &&
-        attr->values[0].boolean)
+    if (job->num_files > 0 && attr->values[0].boolean)
       goto last_document;
 
     send_ipp_status(con, IPP_BAD_REQUEST, _("No file in print request."));
@@ -10817,9 +10825,8 @@ send_document(cupsd_client_t  *con,	/* I - Client connection */
   * Fill in the response info...
   */
 
-  snprintf(job_uri, sizeof(job_uri), "http://%s:%d/jobs/%d", ServerName,
-	   LocalPort, jobid);
-
+  httpAssembleURIf(HTTP_URI_CODING_ALL, job_uri, sizeof(job_uri), "ipp", NULL,
+                   con->servername, con->serverport, "/jobs/%d", jobid);
   ippAddString(con->response, IPP_TAG_JOB, IPP_TAG_URI, "job-uri", NULL,
                job_uri);
 
@@ -12271,5 +12278,5 @@ validate_user(cupsd_job_t    *job,	/* I - Job */
 
 
 /*
- * End of "$Id: ipp.c 7944 2008-09-16 22:32:42Z mike $".
+ * End of "$Id: ipp.c 9825 2011-06-13 20:45:23Z mike $".
  */

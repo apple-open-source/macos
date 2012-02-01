@@ -26,6 +26,7 @@
        (literal "/Library/Security/Trust Settings/Admin.plist")
        (literal "/Library/Preferences/edu.mit.Kerberos")
        (literal "/Library/Preferences/com.apple.Kerberos.plist")
+       (literal "/Library/Preferences/com.apple.security.plist")
        (literal "/Library/Preferences/SystemConfiguration/preferences.plist")
        (literal "/dev/dtracehelper")
        (literal "/dev/null")
@@ -78,3 +79,13 @@
        (literal "/usr/local/heimdal/libexec/kdc"))
 
 (allow sysctl-read)
+
+
+;;
+;; Make more kdc quiet in syslog
+;;
+
+(deny file*
+      (subpath "/private/var/root")
+      (with no-log))
+

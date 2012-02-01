@@ -49,7 +49,8 @@ const struct sieve_command_def cmd_redirect = {
 	SCT_COMMAND,
 	1, 0, FALSE, FALSE, 
 	NULL, NULL,
-	cmd_redirect_validate, 
+	cmd_redirect_validate,
+	NULL,
 	cmd_redirect_generate, 
 	NULL 
 };
@@ -294,11 +295,13 @@ static void act_redirect_print
 static bool act_redirect_send	
 (const struct sieve_action_exec_env *aenv, struct act_redirect_context *ctx)
 {
-	static const char *hide_headers[] = { "Return-Path", "X-Sieve" };
+	static const char *hide_headers[] = 
+		{ "Return-Path", "X-Sieve", "X-Sieve-Redirected-From" };
 
 	const struct sieve_message_data *msgdata = aenv->msgdata;
 	const struct sieve_script_env *senv = aenv->scriptenv;
 	const char *sender = sieve_message_get_sender(aenv->msgctx);
+	const char *recipient = sieve_message_get_final_recipient(aenv->msgctx);
 	struct istream *input, *crlf_input;
 	void *smtp_handle;
 	FILE *f;
@@ -327,8 +330,10 @@ static bool act_redirect_send
 	/* Make sure the message contains CRLF consistently */
 	crlf_input = i_stream_create_crlf(input);
 
-	/* Prepend sieve version header (should not affect signatures) */
+	/* Prepend sieve headers (should not affect signatures) */
 	rfc2822_header_field_write(f, "X-Sieve", SIEVE_IMPLEMENTATION);
+	if ( recipient != NULL )
+		rfc2822_header_field_write(f, "X-Sieve-Redirected-From", recipient);
 
 	/* Pipe the message to the outgoing SMTP transport */
 	while ((ret = i_stream_read_data(crlf_input, &data, &size, 0)) > 0) {	

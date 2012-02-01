@@ -56,20 +56,20 @@ am__objects_1 = doveadm-mail.$(OBJEXT) doveadm-mail-altmove.$(OBJEXT) \
 	doveadm-mail-iter.$(OBJEXT) doveadm-mail-mailbox.$(OBJEXT) \
 	doveadm-mail-mailbox-status.$(OBJEXT) \
 	doveadm-mail-move.$(OBJEXT) doveadm-mail-list-iter.$(OBJEXT) \
-	doveadm-mail-search.$(OBJEXT) doveadm-print.$(OBJEXT) \
-	doveadm-settings.$(OBJEXT) doveadm-util.$(OBJEXT)
+	doveadm-mail-search.$(OBJEXT) doveadm-mail-server.$(OBJEXT) \
+	doveadm-print.$(OBJEXT) doveadm-settings.$(OBJEXT) \
+	doveadm-util.$(OBJEXT) server-connection.$(OBJEXT)
 am_doveadm_OBJECTS = $(am__objects_1) doveadm.$(OBJEXT) \
 	doveadm-auth.$(OBJEXT) doveadm-director.$(OBJEXT) \
 	doveadm-dump.$(OBJEXT) doveadm-dump-index.$(OBJEXT) \
 	doveadm-dump-log.$(OBJEXT) doveadm-dump-mailboxlog.$(OBJEXT) \
 	doveadm-dump-thread.$(OBJEXT) doveadm-kick.$(OBJEXT) \
 	doveadm-log.$(OBJEXT) doveadm-master.$(OBJEXT) \
-	doveadm-mail-server.$(OBJEXT) doveadm-mutf7.$(OBJEXT) \
-	doveadm-penalty.$(OBJEXT) doveadm-print-flow.$(OBJEXT) \
-	doveadm-print-pager.$(OBJEXT) doveadm-print-tab.$(OBJEXT) \
-	doveadm-print-table.$(OBJEXT) doveadm-pw.$(OBJEXT) \
-	doveadm-sis.$(OBJEXT) doveadm-who.$(OBJEXT) \
-	server-connection.$(OBJEXT)
+	doveadm-mutf7.$(OBJEXT) doveadm-penalty.$(OBJEXT) \
+	doveadm-print-flow.$(OBJEXT) doveadm-print-pager.$(OBJEXT) \
+	doveadm-print-tab.$(OBJEXT) doveadm-print-table.$(OBJEXT) \
+	doveadm-proxy.$(OBJEXT) doveadm-pw.$(OBJEXT) \
+	doveadm-sis.$(OBJEXT) doveadm-who.$(OBJEXT)
 doveadm_OBJECTS = $(am_doveadm_OBJECTS)
 am__DEPENDENCIES_1 =
 am__DEPENDENCIES_2 = $(am__DEPENDENCIES_1) $(unused_objects)
@@ -334,9 +334,11 @@ common = \
 	doveadm-mail-move.c \
 	doveadm-mail-list-iter.c \
 	doveadm-mail-search.c \
+	doveadm-mail-server.c \
 	doveadm-print.c \
 	doveadm-settings.c \
-	doveadm-util.c
+	doveadm-util.c \
+	server-connection.c
 
 doveadm_SOURCES = \
 	$(common) \
@@ -351,17 +353,16 @@ doveadm_SOURCES = \
 	doveadm-kick.c \
 	doveadm-log.c \
 	doveadm-master.c \
-	doveadm-mail-server.c \
 	doveadm-mutf7.c \
 	doveadm-penalty.c \
 	doveadm-print-flow.c \
 	doveadm-print-pager.c \
 	doveadm-print-tab.c \
 	doveadm-print-table.c \
+	doveadm-proxy.c \
 	doveadm-pw.c \
 	doveadm-sis.c \
-	doveadm-who.c \
-	server-connection.c
+	doveadm-who.c
 
 doveadm_server_SOURCES = \
 	$(common) \
@@ -549,6 +550,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/doveadm-print-tab.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/doveadm-print-table.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/doveadm-print.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/doveadm-proxy.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/doveadm-pw.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/doveadm-settings.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/doveadm-sis.Po@am__quote@

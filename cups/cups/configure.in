@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: configure.in 9382 2010-11-20 01:03:46Z mike $"
+dnl "$Id: configure.in 9939 2011-08-31 01:36:33Z mike $"
 dnl
 dnl   Configuration script for CUPS.
 dnl
@@ -56,7 +56,7 @@ if test "x$LANGUAGES" != x; then
 			LANGFILES="$LANGFILES templates/$lang/header.tmpl"
 		fi
 	done
-elif test "x$CUPS_BUNDLEDIR" != ""; then
+elif test "x$CUPS_BUNDLEDIR" != x; then
 	INSTALL_LANGUAGES="install-langbundle"
 	UNINSTALL_LANGUAGES="uninstall-langbundle"
 fi
@@ -94,5 +94,5 @@ AC_OUTPUT(Makedefs
 chmod +x cups-config
 
 dnl
-dnl End of "$Id: configure.in 9382 2010-11-20 01:03:46Z mike $".
+dnl End of "$Id: configure.in 9939 2011-08-31 01:36:33Z mike $".
 dnl

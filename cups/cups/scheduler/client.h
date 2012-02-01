@@ -1,5 +1,5 @@
 /*
- * "$Id: client.h 7935 2008-09-11 01:54:11Z mike $"
+ * "$Id: client.h 9652 2011-03-25 21:25:38Z mike $"
  *
  *   Client definitions for the CUPS scheduler.
  *
@@ -133,5 +133,5 @@ extern void	cupsdWriteClient(cupsd_client_t *con);
 
 
 /*
- * End of "$Id: client.h 7935 2008-09-11 01:54:11Z mike $".
+ * End of "$Id: client.h 9652 2011-03-25 21:25:38Z mike $".
  */

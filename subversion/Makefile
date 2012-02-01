@@ -3,7 +3,7 @@ RC_ProjectName = subversion
 endif
 
 Project               = subversion
-ProjectVersion        = 1.6.16
+ProjectVersion        = 1.6.17
 
 #-------------------------------------------------------------------------
 # build/get-py-info.py appends "-framework Python" to its --link and --libs

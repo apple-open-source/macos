@@ -1,5 +1,5 @@
 /*
- * "$Id: image-tiff.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: image-tiff.c 9771 2011-05-12 05:21:56Z mike $"
  *
  *   TIFF file routines for CUPS.
  *
@@ -1711,5 +1711,5 @@ _cupsImageReadTIFF(
 
 
 /*
- * End of "$Id: image-tiff.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: image-tiff.c 9771 2011-05-12 05:21:56Z mike $".
  */

@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-compiler.m4 7871 2008-08-27 21:12:43Z mike $"
+dnl "$Id: cups-compiler.m4 9818 2011-06-10 21:16:18Z mike $"
 dnl
 dnl   Compiler stuff for CUPS.
 dnl
@@ -156,8 +156,7 @@ if test -n "$GCC"; then
 
 		# Additional warning options for development testing...
 		if test -d .svn; then
-			OPTIM="-Wshadow $OPTIM"
-			CFLAGS="-Werror-implicit-function-declaration $CFLAGS"
+			OPTIM="-Wshadow -Werror $OPTIM"
 			PHPOPTIONS="-Wno-shadow"
 		else
 			AC_MSG_CHECKING(if GCC supports -Wno-tautological-compare)
@@ -560,5 +559,5 @@ case $uname in
 esac
 
 dnl
-dnl End of "$Id: cups-compiler.m4 7871 2008-08-27 21:12:43Z mike $".
+dnl End of "$Id: cups-compiler.m4 9818 2011-06-10 21:16:18Z mike $".
 dnl

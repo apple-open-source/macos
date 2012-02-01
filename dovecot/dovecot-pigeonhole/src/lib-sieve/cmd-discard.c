@@ -29,7 +29,7 @@ const struct sieve_command_def cmd_discard = {
 	"discard", 
 	SCT_COMMAND, 
 	0, 0, FALSE, FALSE,
-	NULL, NULL, NULL, 
+	NULL, NULL, NULL, NULL,
 	cmd_discard_generate, 
 	NULL 
 };

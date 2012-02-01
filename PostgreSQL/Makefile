@@ -8,7 +8,7 @@ Project         = postgresql
 ProjectName     = PostgreSQL
 UserType        = Administrator
 ToolType        = Commands
-Submission      = 25
+Submission      = 26.4
 
 # Variables only used by project
 DBDir = $(VARDIR)/pgsql
@@ -55,7 +55,7 @@ Extra_Make_Flags	=
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 9.0.4
+AEP_Version	= 9.0.5
 AEP_LicenseFile	= $(Sources)/COPYRIGHT
 AEP_Patches	= arches.patch pg_config_manual_h.patch \
 			radar7687126.patch radar7756388.patch radar8304089.patch \
@@ -66,7 +66,7 @@ AEP_Binaries	= $(addprefix /,$(shell cd $(DSTROOT) && $(FIND) usr -type f -perm 
 
 Configure_Products = config.log src/include/pg_config.h
 GnuAfterInstall	= install-docs install-contrib \
-			install-macosx install-backup install-wrapper archive-strip-binaries
+			install-macosx install-backup install-wrapper archive-strip-binaries 
 ContribTools	= hstore intarray pg_upgrade pg_upgrade_support
 
 # Local targets that must be defined before including the following
@@ -120,8 +120,8 @@ install-backup: install-macosx
 	$(INSTALL_FILE) Support/46-postgresql.plist $(DSTROOT)$(ETCDIR)/server_backup
 	@echo "Done."
 
-install-wrapper:
-	@echo "Installing wrapper"
-	$(MV) $(DSTROOT)/usr/bin/postgres $(DSTROOT)/usr/bin/postgres_real
-	$(INSTALL) -m 755 Support/postgres $(DSTROOT)/usr/bin/postgres
-	@echo "Done."
+install-wrapper: 
+	@echo "Installing wrapper" 
+	$(MV) $(DSTROOT)/usr/bin/postgres $(DSTROOT)/usr/bin/postgres_real 
+	$(INSTALL) -m 755 Support/postgres $(DSTROOT)/usr/bin/postgres 
+	@echo "Done." 

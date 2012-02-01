@@ -48,4 +48,4 @@ Once the 'maildirsize' reaches 5120 bytes, the quota is recalculated and the
 file is recreated. This makes sure that if quota happens to be broken (e.g.
 externally deleted files) it won't stay that way forever.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

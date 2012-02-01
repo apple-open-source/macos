@@ -40,6 +40,14 @@
 
 #define WATCHDOG_THREAD_LATENCY_PADDING_NS	(125000)	// 125us
 
+// <rdar://8518215>
+enum
+{
+	kCommandGateStatus_Normal				= 0,
+	kCommandGateStatus_RemovalPending,
+	kCommandGateStatus_Invalid
+};
+
 #define super IOService
 
 OSDefineMetaClassAndAbstractStructors(IOAudioEngine, IOService)
@@ -398,6 +406,8 @@ bool IOAudioEngine::init(OSDictionary *properties)
 			reserved->bytesInOutputBufferArrayDescriptor = NULL;
 			reserved->mixClipOverhead = 10;		// The default value is 10%
 			reserved->streams = NULL;
+			reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
+			reserved->commandGateUsage = 0;								// <rdar://8518215>
 
 			reserved->statusDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page_32(sizeof(IOAudioEngineStatus)), page_size);
 		//	reserved->statusDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page(sizeof(IOAudioEngineStatus)), page_size);
@@ -571,7 +581,6 @@ bool IOAudioEngine::start(IOService *provider, IOAudioDevice *device)
 					result = initHardware ( provider );
 					
 					duringStartup = false;
-					result = true;
 				}
 			}
 		}
@@ -602,18 +611,25 @@ void IOAudioEngine::stop(IOService *provider)
 	// <rdar://7233118>, <rdar://7029696> Remove the event source here as performing heavy workloop operation in free() could lead
 	// to deadlock since the context which free() is called is not known. stop() is called on the workloop, so it is safe to remove 
 	// the event source here.
-    if (commandGate)
-	{
-        if (workLoop)
+	if (reserved->commandGateUsage == 0) {							// <rdar://8518215>
+		reserved->commandGateStatus = kCommandGateStatus_Invalid;	// <rdar://8518215>
+		
+		if (commandGate)
 		{
-            workLoop->removeEventSource ( commandGate );
-			audioDebugIOLog(3, "  completed removeEventSource ( ... )\n" );
-        }
-        
-        commandGate->release();
-        commandGate = NULL;
-		audioDebugIOLog(3, "  completed release ()\n" );
-    }
+			if (workLoop)
+			{
+				workLoop->removeEventSource ( commandGate );
+				audioDebugIOLog(3, "  completed removeEventSource ( ... )\n" );
+			}
+			
+			commandGate->release();
+			commandGate = NULL;
+			audioDebugIOLog(3, "  completed release ()\n" );
+		}
+	}
+	else {	// <rdar://8518215>
+		reserved->commandGateStatus = kCommandGateStatus_RemovalPending;
+	}
 
     audioDebugIOLog(3, "  about to super::stop ( ... )\n" );
     super::stop ( provider );
@@ -945,7 +961,9 @@ IOReturn IOAudioEngine::_addUserClientAction(OSObject *target, void *arg0, void 
             cg = audioEngine->getCommandGate();
             
             if (cg) {
+				setCommandGateUsage(audioEngine, true);		// <rdar://8518215>
                 result = cg->runAction(addUserClientAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(audioEngine, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -985,7 +1003,9 @@ IOReturn IOAudioEngine::_removeUserClientAction(OSObject *target, void *arg0, vo
             cg = audioEngine->getCommandGate();
             
             if (cg) {
+				setCommandGateUsage(audioEngine, true);		// <rdar://8518215>
                 result = cg->runAction(removeUserClientAction, arg0, arg1, arg2, arg3);
+				setCommandGateUsage(audioEngine, false);	// <rdar://8518215>
             } else {
                 result = kIOReturnError;
             }
@@ -2487,3 +2507,52 @@ void IOAudioEngine::setWorkLoopOnAllAudioControls(IOWorkLoop *wl)
     }
 }
 
+// <rdar://8518215>
+void IOAudioEngine::setCommandGateUsage(IOAudioEngine *engine, bool increment)
+{
+	if (engine->reserved) {
+		if (increment) {
+			switch (engine->reserved->commandGateStatus)
+			{
+				case kCommandGateStatus_Normal:
+				case kCommandGateStatus_RemovalPending:
+					engine->reserved->commandGateUsage++;
+					break;
+				case kCommandGateStatus_Invalid:
+					// Should never be here. If so, something went bad...
+					break;
+			}
+		}
+		else {
+			switch (engine->reserved->commandGateStatus)
+			{
+				case kCommandGateStatus_Normal:
+					if (engine->reserved->commandGateUsage > 0) {
+						engine->reserved->commandGateUsage--;
+					}
+					break;
+				case kCommandGateStatus_RemovalPending:
+					if (engine->reserved->commandGateUsage > 0) {
+						engine->reserved->commandGateUsage--;
+						
+						if (engine->reserved->commandGateUsage == 0) {
+							engine->reserved->commandGateStatus = kCommandGateStatus_Invalid;
+							
+							if (engine->commandGate) {
+								if (engine->workLoop) {
+									engine->workLoop->removeEventSource(engine->commandGate);
+								}
+								
+								engine->commandGate->release();
+								engine->commandGate = NULL;
+							}
+						}
+					}
+					break;
+				case kCommandGateStatus_Invalid:
+					// Should never be here. If so, something went bad...
+					break;
+			}
+		}
+	}
+}

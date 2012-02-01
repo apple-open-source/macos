@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2011 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ro.xml
@@ -57,12 +57,54 @@ ro{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            availableFormats{
+                MMMEd{"E d MMM"}
+                MMMd{"d MMM"}
+            }
             eras{
                 abbreviated{
                     "e.b.",
                 }
                 wide{
                     "era budistă",
+                }
+            }
+        }
+        coptic{
+            monthNames{
+                format{
+                    wide{
+                        "Tout",
+                        "Baba",
+                        "Hator",
+                        "Kiahk",
+                        "Toba",
+                        "Amshir",
+                        "Baramhat",
+                        "Baramouda",
+                        "Bashans",
+                        "Paona",
+                        "Epep",
+                        "Mesra",
+                        "Nasie",
+                    }
+                }
+                stand-alone{
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                    }
                 }
             }
         }
@@ -89,8 +131,9 @@ ro{
             availableFormats{
                 EEEd{"EEE d"}
                 Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
                 M{"L"}
-                MEd{"E, d MMM"}
+                MEd{"E, dd.MM"}
                 MMM{"LLL"}
                 MMMEEEd{"EEE, d MMM"}
                 MMMEd{"E, d MMM"}
@@ -98,15 +141,19 @@ ro{
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 MMdd{"dd.MM"}
-                Md{"d.M"}
+                Md{"dd.MM"}
                 d{"d"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
                 ms{"mm:ss"}
                 y{"y"}
-                yM{"M.yyyy"}
-                yMEd{"EEE, d/M/yyyy"}
+                yM{"MM.yyyy"}
+                yMEd{"EEE, dd.MM.yyyy"}
                 yMMM{"MMM y"}
                 yMMMEd{"EEE, d MMM y"}
                 yMMMM{"MMMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"dd.MM.yyyy"}
                 yQ{"'trimestrul' Q y"}
                 yQQQ{"QQQ y"}
                 yyMM{"MM.yy"}
@@ -126,6 +173,15 @@ ro{
                         "Vi",
                         "Sâ",
                     }
+                    narrow{
+                        "D",
+                        "L",
+                        "M",
+                        "M",
+                        "J",
+                        "V",
+                        "S",
+                    }
                     wide{
                         "duminică",
                         "luni",
@@ -137,6 +193,15 @@ ro{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Du",
+                        "Lu",
+                        "Ma",
+                        "Mi",
+                        "Jo",
+                        "Vi",
+                        "Sâ",
+                    }
                     narrow{
                         "D",
                         "L",
@@ -145,6 +210,15 @@ ro{
                         "J",
                         "V",
                         "S",
+                    }
+                    wide{
+                        "duminică",
+                        "luni",
+                        "marți",
+                        "miercuri",
+                        "joi",
+                        "vineri",
+                        "sâmbătă",
                     }
                 }
             }
@@ -185,18 +259,33 @@ ro{
                 }
                 month{
                     dn{"lună"}
+                    relative{
+                        "-1"{"Luna trecută"}
+                        "0"{"Luna aceasta"}
+                        "1"{"Luna viitoare"}
+                    }
                 }
                 second{
                     dn{"secundă"}
                 }
                 week{
                     dn{"săptămână"}
+                    relative{
+                        "-1"{"Săptămâna trecută"}
+                        "0"{"Săptămâna aceasta"}
+                        "1"{"Săptămâna viitoare"}
+                    }
                 }
                 weekday{
                     dn{"zi a săptămânii"}
                 }
                 year{
                     dn{"an"}
+                    relative{
+                        "-1"{"Anul trecut"}
+                        "0"{"Anul acesta"}
+                        "1"{"Anul viitor"}
+                    }
                 }
                 zone{
                     dn{"zonă"}
@@ -234,9 +323,6 @@ ro{
                 MMMEd{
                     M{"E, d MMM - E, d MMM"}
                     d{"E, d MMM - E, d MMM"}
-                }
-                MMMM{
-                    M{"LLLL-LLLL"}
                 }
                 MMMd{
                     M{"d MMM - d MMM"}
@@ -350,6 +436,20 @@ ro{
                         "N",
                         "D",
                     }
+                    wide{
+                        "ianuarie",
+                        "februarie",
+                        "martie",
+                        "aprilie",
+                        "mai",
+                        "iunie",
+                        "iulie",
+                        "august",
+                        "septembrie",
+                        "octombrie",
+                        "noiembrie",
+                        "decembrie",
+                    }
                 }
             }
             quarters{
@@ -368,6 +468,12 @@ ro{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "T1",
+                        "T2",
+                        "T3",
+                        "T4",
+                    }
                     narrow{
                         "T1",
                         "T2",
@@ -377,6 +483,33 @@ ro{
                 }
             }
         }
+        hebrew{
+            monthNames{
+                format{
+                    wide{
+                        "Tișrei",
+                        "Heșvan",
+                        "Kislev",
+                        "Tevet",
+                        "Șevat",
+                        "Adar I",
+                        "Adar",
+                        "Nisan",
+                        "Iyar",
+                        "Sivan",
+                        "Tammuz",
+                        "Av",
+                        "Elul",
+                        "Adar II",
+                    }
+                }
+            }
+        }
+        islamic{
+            availableFormats{
+                yMEd{"EEE, dd.MM.yyyy"}
+            }
+        }
     }
     delimiters{
         alternateQuotationEnd{"»"}
@@ -384,7 +517,14 @@ ro{
         quotationEnd{"”"}
         quotationStart{"„"}
     }
+    listPattern{
+        standard{
+            2{"{0} şi {1}"}
+            end{"{0} şi {1}"}
+        }
+    }
     measurementSystemNames{
+        UK{"britanic"}
         US{"american"}
         metric{"metric"}
     }

@@ -112,8 +112,10 @@ bool cmd_copy(struct client_command_context *cmd)
 
 	/* open the destination mailbox */
 	dest_ns = client_find_namespace(cmd, mailbox, &storage_name, &status);
-	if (dest_ns == NULL)
+	if (dest_ns == NULL) {
+		mail_search_args_unref(&search_args);
 		return TRUE;
+	}
 
 	switch (status) {
 	case MAILBOX_NAME_EXISTS_MAILBOX:
@@ -126,6 +128,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	case MAILBOX_NAME_NOINFERIORS:
 		client_fail_mailbox_name_status(cmd, mailbox,
 						"TRYCREATE", status);
+		mail_search_args_unref(&search_args);
 		return TRUE;
 	}
 
@@ -139,6 +142,7 @@ bool cmd_copy(struct client_command_context *cmd)
 			client_send_storage_error(cmd,
 				mailbox_get_storage(destbox));
 			mailbox_free(&destbox);
+			mail_search_args_unref(&search_args);
 			return TRUE;
 		}
 		if (client->enabled_features != 0)

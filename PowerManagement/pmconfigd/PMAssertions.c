@@ -2129,7 +2129,7 @@ static void logASLAssertionSummary(void)
 #endif
 
 #define     kDarkWakeNetworkHoldForSeconds          30
-#define     kDeviceEnumerationHoldForSeconds        45
+#define     kDeviceEnumerationHoldForSeconds        (45LL)
 
 __private_extern__ IOReturn InternalCreateAssertion(
     CFDictionaryRef properties, 
@@ -2262,61 +2262,226 @@ static void  _DarkWakeHandleNetworkWake(void)
 }
 
 
-/*
- * This function waits for the completion of device enumertion. Without this wait,
- * system will go back into sleep before the newly inserted devices are completely
- * enumerated, leaving the stack in wrong states.
- *
- * IOKitWaitQuiet() blocks until all IOServices are idle, which indicates that 
- * enumeration is complete.
- */
-static void *_WaitForDeviceEnumeration(void *arg)
-{
-    IOPMAssertionID     assertionId = (uintptr_t)arg;
-    mach_timespec_t     waitTime = {kDeviceEnumerationHoldForSeconds, 0};
-    kern_return_t   rc;
-    uint32_t busyState = 0; 
-    uint32_t sleepCnt = 0;
 
-    /* First wait for IOServices to get busy. But, don't wait more than 5 secs */
-    while ( (IOKitGetBusyState(kIOMasterPortDefault, &busyState) == kIOReturnSuccess) &&
-            (busyState == 0) )
-    {
-        sleep(1);
-        if (++sleepCnt >= 5)
-            break;
+typedef struct notifyRegInfo {
+    IONotificationPortRef port;
+    io_object_t handle;
+} notifyRegInfo_st;
+
+static void _DeregisterForNotification(
+        notifyRegInfo_st *notifyInfo)
+{
+    if (notifyInfo->handle)
+        IOObjectRelease(notifyInfo->handle);
+
+    if (notifyInfo->port)
+        IONotificationPortDestroy(notifyInfo->port);
+
+    if (notifyInfo)
+        free(notifyInfo);
+}
+
+/*
+ * Register for specific interestType with service at specified 'path' */
+static notifyRegInfo_st * _RegisterForNotification( 
+        const io_string_t	path, const io_name_t 	interestType,
+        IOServiceInterestCallback callback, void *refCon)
+{
+
+    io_service_t	obj = MACH_PORT_NULL;
+    notifyRegInfo_st  *notifyInfo = NULL;
+    kern_return_t kr;
+
+    notifyInfo = calloc(sizeof(notifyRegInfo_st), 1);
+    if ( !notifyInfo )
+        goto exit;
+
+    notifyInfo->port = IONotificationPortCreate( kIOMasterPortDefault );
+    if ( !notifyInfo->port ) 
+        goto exit;
+    
+    obj = IORegistryEntryFromPath( kIOMasterPortDefault, path);
+    if ( !obj )
+        goto exit;
+
+    kr = IOServiceAddInterestNotification(
+            notifyInfo->port,
+            obj, interestType,
+            callback, refCon,
+            &notifyInfo->handle );
+
+    if (kr !=  KERN_SUCCESS)
+        goto exit;
+
+
+    IOObjectRelease(obj);
+    return  notifyInfo;
+
+exit:
+    if (notifyInfo->handle)
+        IOObjectRelease(notifyInfo->handle);
+
+    if (notifyInfo->port)
+        IONotificationPortDestroy(notifyInfo->port);
+
+    if (obj)
+        IOObjectRelease(obj);
+
+    if (notifyInfo)
+        free(notifyInfo);
+
+    return NULL;
+}
+
+typedef struct devEnumInfo {
+    dispatch_source_t   dispSrc; /* Dispatched 5sec after IOKit is quiet */
+    dispatch_source_t   dispSrc2; /* Dispatched 45sec after assertion is created */
+    notifyRegInfo_st    *notifyInfo;
+    IOPMAssertionID assertId;
+}devEnumInfo_st;
+
+/*
+ * Function that releases the assertion and cleans up all dispatch queues */
+static void devEnumerationDone( devEnumInfo_st *deInfo )
+{
+
+    /* First cancel the dispatch sources */
+    if (deInfo->dispSrc && (dispatch_source_testcancel(deInfo->dispSrc) == 0)) {
+        dispatch_source_cancel(deInfo->dispSrc);
     }
 
-    /* Then wait for IOServices to get idle, but not more than  'waitTime'*/
-    rc = IOKitWaitQuiet(kIOMasterPortDefault, &waitTime); /* Thread blocks here */
+    if (deInfo->dispSrc2 && (dispatch_source_testcancel(deInfo->dispSrc2) == 0)) {
+        dispatch_source_cancel(deInfo->dispSrc2);
+    }
+    /* De-register from IOkit busy state updates */
+    if (deInfo->notifyInfo) {
+        _DeregisterForNotification(deInfo->notifyInfo);
+        deInfo->notifyInfo = 0;
+    }
 
-    /* Release the assertion on CFRunLoop thread */
-    CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, ^{ doRelease(getpid(), assertionId); });
-    CFRunLoopWakeUp(_getPMRunLoop());
+    /* Release the assertion */
+    if (deInfo->assertId) {
+        doRelease(getpid(), deInfo->assertId);
+        deInfo->assertId = 0;
+        free(deInfo);
+    }
+}
 
-    pthread_exit(NULL);
+void ioKitStateCallback (
+	void *			refcon,
+	io_service_t		service,
+	uint32_t		messageType,
+	void *			messageArgument ) 
+{
+    devEnumInfo_st *deInfo = (devEnumInfo_st *)refcon;
+    long state = (long)messageArgument;
+    dispatch_source_t dispSrc;
+
+    if (messageType != kIOMessageServiceBusyStateChange)
+        return;
+
+
+    if (state) {
+        /* IOKit is busy. Suspend the timer until the Iokit is free */
+        if (deInfo->dispSrc)
+            dispatch_suspend(deInfo->dispSrc);
+    }
+    else {
+        /* 
+         * IOkit is free. Create/extend a timer to dispatch a function 
+         * that can release the device enumeration assertion.
+         */
+        if (deInfo->dispSrc == 0) {
+            dispSrc  = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 
+                                                        0, dispatch_get_main_queue());
+
+            dispatch_source_set_event_handler(dispSrc, ^{
+                devEnumerationDone(deInfo);
+            });
+
+            dispatch_source_set_cancel_handler(dispSrc, ^{
+                dispatch_release(dispSrc);
+            });
+
+            deInfo->dispSrc = dispSrc;
+        }
+        dispatch_source_set_timer(deInfo->dispSrc, dispatch_time(DISPATCH_TIME_NOW, 5LL * NSEC_PER_SEC), 
+                                                DISPATCH_TIME_FOREVER, 0);
+        dispatch_resume(deInfo->dispSrc);
+    }
+
+
 }
 
 
 static void _AssertForDeviceEnumeration( )
 {
-    pthread_t   tid;
     IOPMAssertionID     deviceEnumerationAssertion = kIOPMNullAssertionID;
-    int rc;
+    notifyRegInfo_st    *notifyInfo = NULL;
+    devEnumInfo_st *deInfo = NULL;
+    IOReturn rc;
+    dispatch_source_t dispSrc;
+        
+    rc = _localCreateAssertion(kIOPMAssertionTypePreventSystemSleep, kIOPMAssertionLevelOn, 
+                                CFSTR("PM configd - Wait for Device enumeration"), 
+                                &deviceEnumerationAssertion);
+    if (rc != kIOReturnSuccess)
+        return;
 
-    if (kIOReturnSuccess == _localCreateAssertion(kIOPMAssertionTypePreventSystemSleep, kIOPMAssertionLevelOn, 
-                                                CFSTR("PM configd - Wait for Device enumeration"), &deviceEnumerationAssertion))
-    {
-        /* Enable this assertion on battery power also */
-        _enableAssertionForLimitedPower(getpid(), deviceEnumerationAssertion);
+    /* Enable this assertion on battery power also */
+    _enableAssertionForLimitedPower(getpid(), deviceEnumerationAssertion);
 
-        /* Call IOKitWaitQuiet() on a separate thread to avoid blocking the callback thread */
-        if ((rc = pthread_create(&tid, NULL, &_WaitForDeviceEnumeration, (void *)(uintptr_t)deviceEnumerationAssertion))) 
-            /* Failed to create the thread. Remove the assertion immediately */
-            doRelease(getpid(), deviceEnumerationAssertion);
-        else 
-            pthread_detach(tid);
+    deInfo = calloc(sizeof(devEnumInfo_st), 1);
+    if (!deInfo) {
+        goto exit;
     }
+
+    /* Register IOService Busy/free notifications */
+    notifyInfo = _RegisterForNotification(kIOServicePlane ":/", 
+                        kIOBusyInterest, ioKitStateCallback, (void *)deInfo);
+    if ( !notifyInfo ) {
+        /* Failed to register for notification. Remove the assertion immediately */
+        goto exit;
+    }
+
+    deInfo->notifyInfo = notifyInfo;
+    deInfo->assertId = deviceEnumerationAssertion;
+
+    /* 
+     * Create a higher level timer dispatch, which guarantees that assertion is 
+     * released irrespective of the IOkit busy/quiet state.
+     */
+
+    dispSrc = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 
+                                                0, dispatch_get_main_queue());
+    dispatch_source_set_timer(dispSrc, 
+                                dispatch_time(DISPATCH_TIME_NOW, kDeviceEnumerationHoldForSeconds * NSEC_PER_SEC), 
+                                DISPATCH_TIME_FOREVER, 0);
+
+    dispatch_source_set_event_handler(dispSrc, ^{
+        devEnumerationDone(deInfo);
+    });
+
+    dispatch_source_set_cancel_handler(dispSrc, ^{
+        dispatch_release(dispSrc);
+    });
+
+    deInfo->dispSrc2 = dispSrc;
+    dispatch_resume(deInfo->dispSrc2);
+
+        
+    IONotificationPortSetDispatchQueue(notifyInfo->port, dispatch_get_main_queue());
+
+    return;
+
+exit:
+    if (deInfo) 
+        free(deInfo);
+
+    if (notifyInfo)
+        _DeregisterForNotification(notifyInfo);
+
+    doRelease(getpid(), deviceEnumerationAssertion); 
 }
 
 #define IS_DARK_STATE(cap)      ( (cap & kIOPMSystemCapabilityCPU) && !(cap & kIOPMSystemCapabilityGraphics) )

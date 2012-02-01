@@ -390,7 +390,9 @@ wikifiles = ACL.txt \
 	Pigeonhole.Sieve.Extensions.txt \
 	Pigeonhole.Sieve.Extensions.Vacation.txt \
 	Pigeonhole.Sieve.Plugins.Extdata.txt \
+	Pigeonhole.Sieve.Plugins.Pipe.txt \
 	Pigeonhole.Sieve.Plugins.txt \
+	Pigeonhole.Sieve.Troubleshooting.txt \
 	Pigeonhole.Sieve.txt \
 	Pigeonhole.Sieve.Usage.txt \
 	Pigeonhole.txt \
@@ -431,6 +433,7 @@ wikifiles = ACL.txt \
 	SSL.CertificateCreation.txt \
 	SSL.DovecotConfiguration.txt \
 	SSL.txt \
+	Statistics.txt \
 	SystemUsers.txt \
 	TestInstallation.txt \
 	TestPop3Installation.txt \

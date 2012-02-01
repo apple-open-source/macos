@@ -1,16 +1,120 @@
-diff -Naur Authen-Krb5/Krb5.xs /tmp/Krb5-1.6/Krb5.xs
---- Authen-Krb5/Krb5.xs	2007-11-02 12:32:46.000000000 -0500
-+++ /tmp/Krb5-1.6/Krb5.xs	2007-11-02 12:40:31.000000000 -0500
-@@ -108,7 +108,7 @@
+diff -Naur Authen-Krb5-1.6/Krb5.xs Authen-Krb5/Krb5.xs
+--- Authen-Krb5-1.6/Krb5.xs	2011-08-19 10:48:48.000000000 -0700
++++ Authen-Krb5/Krb5.xs	2011-08-19 10:40:15.000000000 -0700
+@@ -32,11 +32,71 @@
+ typedef krb5_cc_cursor          *Authen__Krb5__CcacheCursor;
+ typedef krb5_keyblock		*Authen__Krb5__KeyBlock;
+ 
+-static krb5_context context = 0;
++static krb5_context context = NULL;
+ static krb5_error_code err;
+ static krb5_keytab_entry keytab_entry_init;
+ 
+ /*
++ * These are internal Kerberos library functions that aren't prototyped and
++ * that we probably shouldn't be calling.  Prototype them with the arguments
++ * we expect and leave them for now pending an API cleanup.
++ *
++ * http://publib.boulder.ibm.com/iseries/v5r1/ic2924/index.htm?info/apis/krb5_free_krbhst.htm
++ * http://www.ncsa.illinois.edu/UserInfo/Resources/Software/kerberos/krb5api/krb5api4.html
++ */
++krb5_error_code krb5_free_krbhst(
++     krb5_context			context,
++     char * krb5_const *		host_list);
++
++krb5_error_code krb5_get_krbhst(
++     krb5_context			context,
++     krb5_const krb5_data *		realm,   
++     char ***				hostlist);
++
++krb5_error_code krb5_get_in_tkt_with_password(
++     krb5_context			context,
++     krb5_const krb5_flags		options,
++     krb5_address * krb5_const *	addrs,
++     krb5_enctype *			enctypes,
++     krb5_preauthtype *			pre_auth_types,   
++     krb5_const char *			password,
++     krb5_ccache			ccache,
++     krb5_creds *			creds,
++     krb5_kdc_rep **			ret_as_reply);
++
++krb5_error_code krb5_get_in_tkt_with_keytab(
++     krb5_context			context,
++     krb5_const krb5_flags		options,
++     krb5_address * krb5_const *	addrs,
++     krb5_enctype *			enctype,
++     krb5_preauthtype *			pre_auth_types,   
++     krb5_const krb5_keytab		keytab,
++     krb5_ccache			ccache,
++     krb5_creds *			creds,
++     krb5_kdc_rep **			ret_as_reply);
++
++krb5_error_code krb5_gen_replay_name(
++     krb5_context			context,
++     krb5_const krb5_address * 		inaddr,  
++     krb5_const char *			unique,
++     char **				string);
++
++void krb5_free_address(
++     krb5_context			context,  
++     krb5_address *			addr); 
++
++krb5_error_code krb5_gen_portaddr(/* IN */
++	krb5_context context,
++	const krb5_address * adr,
++	krb5_const_pointer ptr,
++	/* OUT */
++	krb5_address ** outaddr);
++
++void krb5_free_enc_tkt_part(/* IN/OUT */
++    krb5_context context,
++    krb5_enc_tkt_part * val);
++
++/*
+  * The following three routines implement a "safehouse" for nested Kerberos
+  * data structures which shouldn't be freed before their parent data
+  * structures are freed.  Without this, "Bad free() ignored" errors as well
+@@ -60,7 +120,7 @@
+ 
+ 	sprintf(key,"%p",sv);
+ 	if (!free_hash) free_hash = newHV();
+-	hv_store(free_hash,key,strlen(key),&PL_sv_yes,0);
++	(void)hv_store(free_hash,key,strlen(key),&PL_sv_yes,0);
+ }
+ 
+ int should_free(SV *sv)
+@@ -78,7 +138,7 @@
+ 
+ 	if (!free_hash) return;
+ 	sprintf(key,"%p",sv);
+-	hv_delete(free_hash,key,strlen(key),G_DISCARD);
++	(void)hv_delete(free_hash,key,strlen(key),G_DISCARD);
+ }
+ 
+ 
+@@ -99,7 +159,7 @@
+ 	}
+ 	else {
+ 		ST(0) = sv_2mortal(newSVpv((char *)error_message(err), 0));
+-		SvUPGRADE(ST(0), SVt_PVIV);
++		(void)SvUPGRADE(ST(0), SVt_PVIV);
+ 		SvIVX(ST(0)) = err;
+ 		SvIOK_on(ST(0));
+ 	}
+@@ -108,7 +168,11 @@
  krb5_init_context()
  
  	CODE:
 -	if (context) croak("Authen::Krb5 already initialized");
-+	if (context) krb5_free_context(context);
++	if (context)
++        {
++          krb5_free_context(context);
++          context = NULL;
++        }
  	err = krb5_init_context(&context);
  	if (err) XSRETURN_UNDEF;
  	XSRETURN_YES;
-@@ -142,6 +142,22 @@
+@@ -142,6 +206,22 @@
  	Safefree(realm);
  
  void
@@ -33,3 +137,150 @@ diff -Naur Authen-Krb5/Krb5.xs /tmp/Krb5-1.6/Krb5.xs
  krb5_get_host_realm(host)
  	char *host
  
+@@ -375,9 +455,11 @@
+ 
+ 	PREINIT:
+ 	krb5_data in_data, out_data;
++        STRLEN in_data_length;
+ 
+ 	CODE:
+-	in_data.data = SvPV(in,in_data.length);
++	in_data.data = SvPV(in,in_data_length);
++        in_data.length = in_data_length;
+ 	err = krb5_mk_req(context,&auth_context,ap_req_options,service,hostname,
+ 		&in_data,cc,&out_data);
+ 	if (err) XSRETURN_UNDEF;
+@@ -395,12 +477,14 @@
+ 
+ 	PREINIT:
+ 	krb5_data in_data;
++        STRLEN in_data_length;
+ 	krb5_ticket *t;
+ 	krb5_flags ap_req_options;
+ 
+ 	CODE:
+ 	if (!New(0,t,1,krb5_ticket)) XSRETURN_UNDEF;
+-	in_data.data = SvPV(in,in_data.length);
++	in_data.data = SvPV(in,in_data_length);
++        in_data.length = in_data_length;
+ 	err = krb5_rd_req(context,&auth_context,&in_data,server,keytab,
+ 		NULL,&t);
+ 	if (err) XSRETURN_UNDEF;
+@@ -457,9 +541,11 @@
+ 
+ 	PREINIT:
+ 	krb5_data in_data, out_data;
++        STRLEN in_data_length;
+ 
+ 	PPCODE:
+-	in_data.data = SvPV(in,in_data.length);
++	in_data.data = SvPV(in,in_data_length);
++        in_data.length = in_data_length;
+ 	err = krb5_mk_priv(context,auth_context,&in_data,&out_data,NULL);
+ 	if (err) XSRETURN_UNDEF;
+ 	XPUSHs(sv_2mortal(newSVpv(out_data.data,out_data.length)));
+@@ -472,9 +558,11 @@
+ 
+ 	PREINIT:
+ 	krb5_data in_data, out_data;
++        STRLEN in_data_length;
+ 
+ 	PPCODE:
+-	in_data.data = SvPV(in,in_data.length);
++	in_data.data = SvPV(in,in_data_length);
++        in_data.length = in_data_length;
+ 	err = krb5_rd_priv(context,auth_context,&in_data,&out_data,NULL);
+ 	if (err) XSRETURN_UNDEF;
+ 	XPUSHs(sv_2mortal(newSVpv(out_data.data,out_data.length)));
+@@ -485,9 +573,11 @@
+ 
+ 	PREINIT:
+ 	krb5_data rc_data;
++        STRLEN rc_data_length;
+ 
+ 	CODE:
+-	rc_data.data=SvPV(piece,rc_data.length);
++	rc_data.data=SvPV(piece,rc_data_length);
++        rc_data.length = rc_data_length;
+ 	err = krb5_get_server_rcache(context,&rc_data,&RETVAL);
+ 
+ 	if (err) XSRETURN_UNDEF;
+@@ -509,12 +599,14 @@
+ 
+ 	PREINIT:
+ 	krb5_data in_data;
++        STRLEN in_data_length;
+ 	krb5_creds *out_creds = NULL;
+ 	int fd;
+ 
+ 	PPCODE:
+ 	fd = fileno(fh);
+-	in_data.data = SvPV(in,in_data.length);
++	in_data.data = SvPV(in,in_data_length);
++	in_data.length = in_data_length;
+ 	err = krb5_sendauth(context,&auth_context,&fd,version,client,server,
+ 		options,&in_data,in_creds,cc,NULL,NULL,&out_creds);
+ 	if (err) XSRETURN_UNDEF;
+@@ -937,10 +1029,14 @@
+ 	unsigned int addrtype
+ 	SV *contents
+ 
++	PREINIT:
++        STRLEN length;
++
+ 	CODE:
+ 	if (!New(0,RETVAL,1,krb5_address)) XSRETURN_UNDEF;
+ 	RETVAL->addrtype = addrtype;
+-	RETVAL->contents = (krb5_octet *)SvPV(contents,RETVAL->length);
++	RETVAL->contents = (krb5_octet *)SvPV(contents,length);
++        RETVAL->length = length;
+ 	
+ 	OUTPUT:
+ 	RETVAL
+@@ -983,8 +1079,8 @@
+         Authen::Krb5::Keyblock keyblock
+ 
+         CODE:
+-        ST(0) = keyblock->contents
+-	    ? sv_2mortal(newSVpv(keyblock->contents, keyblock->length))
++        ST(0) = (keyblock->contents)
++	    ? sv_2mortal(newSVpv((char *)keyblock->contents, keyblock->length))
+             : &PL_sv_undef;
+ 
+ 
+diff -Naur Authen-Krb5-1.6/krb5_constants.c Authen-Krb5/krb5_constants.c
+--- Authen-Krb5-1.6/krb5_constants.c	2011-08-19 10:48:48.000000000 -0700
++++ Authen-Krb5/krb5_constants.c	2011-08-18 15:40:10.000000000 -0700
+@@ -1366,6 +1366,8 @@
+ #else
+ 	    goto not_there;
+ #endif
++#if 0
++        /* Returning these variables make no sense as they should be strings, not numbers. These macros get used to mark up function prototypes in krb5.h. */
+ 	if (strEQ(name, "KRB5_CALLCONV"))
+ #ifdef KRB5_CALLCONV
+ 	    return KRB5_CALLCONV;
+@@ -1378,6 +1380,7 @@
+ #else
+ 	    goto not_there;
+ #endif
++#endif
+ 	if (strEQ(name, "KRB5_CCACHE_BADVNO"))
+ #ifdef KRB5_CCACHE_BADVNO
+ 	    return KRB5_CCACHE_BADVNO;
+@@ -1558,12 +1561,15 @@
+ #else
+ 	    goto not_there;
+ #endif
++#if 0
++        /* This one is a header inclusion guard, not a number. So can't really return it. */
+ 	if (strEQ(name, "KRB5_GENERAL__"))
+ #ifdef KRB5_GENERAL__
+ 	    return KRB5_GENERAL__;
+ #else
+ 	    goto not_there;
+ #endif
++#endif
+ 	if (strEQ(name, "KRB5_GET_IN_TKT_LOOP"))
+ #ifdef KRB5_GET_IN_TKT_LOOP
+ 	    return KRB5_GET_IN_TKT_LOOP;

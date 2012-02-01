@@ -486,6 +486,7 @@ struct SSLSrvConfigRec {
 #ifdef HAVE_FIPS
     BOOL             fips;
 #endif
+    BOOL             allow_empty_fragments;
 };
 
 /**
@@ -570,6 +571,7 @@ const char  *ssl_cmd_SSLProxyCheckPeerExpire(cmd_parms *cmd, void *dcfg, int fla
 const char  *ssl_cmd_SSLProxyCheckPeerCN(cmd_parms *cmd, void *dcfg, int flag);
 
 const char *ssl_cmd_SSLFIPS(cmd_parms *cmd, void *dcfg, int flag);
+const char *ssl_cmd_SSLAllowEmptyFragments(cmd_parms *cmd, void *dcfg, int flag);
 
 /**  module initialization  */
 int          ssl_init_Module(apr_pool_t *, apr_pool_t *, apr_pool_t *, server_rec *);

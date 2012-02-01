@@ -88,4 +88,31 @@ passwords, read their mails, etc.
  * vsz_limit should be increased to avoid out of memory errors, especially if
    you're using SSL/TLS.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+Login access check sockets
+--------------------------
+
+Dovecot login processes can check via UNIX socket if the incoming connection
+should be allowed to log in. This is most importantly implemented to enable TCP
+wrappers support for Dovecot.
+
+TCP wrappers support
+--------------------
+
+You must have built Dovecot with support for TCP wrappers. You can do this by
+giving '--with-libwrap' parameter to 'configure'.
+
+Add to dovecot.conf:
+
+---%<-------------------------------------------------------------------------
+login_access_sockets = tcpwrap
+
+service tcpwrap {
+  unix_listener login/tcpwrap {
+    group = $default_login_user
+    mode = 0600
+    user = $default_login_user
+  }
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-11-16 14:09)

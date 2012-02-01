@@ -1,0 +1,23 @@
+require "vnd.dovecot.testsuite";
+
+/*
+ * Execution testing (currently just meant to trigger any segfaults)
+ */
+
+test "Basic" {
+	if not test_script_compile "execute/ihave.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script run failed";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+
+        test_binary_save "ihave-basic";
+        test_binary_load "ihave-basic";
+}
+

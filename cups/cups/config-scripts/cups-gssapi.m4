@@ -1,5 +1,5 @@
 dnl
-dnl   "$Id$"
+dnl   "$Id: cups-gssapi.m4 9771 2011-05-12 05:21:56Z mike $"
 dnl
 dnl   GSSAPI/Kerberos library detection for CUPS.
 dnl
@@ -71,10 +71,45 @@ if test x$enable_gssapi != xno; then
 	if test "x$LIBGSSAPI" != x; then
 		AC_CHECK_HEADER(krb5.h, AC_DEFINE(HAVE_KRB5_H))
 		if test -d /System/Library/Frameworks/GSS.framework; then
-			AC_CHECK_HEADER(GSS/gssapi.h, AC_DEFINE(HAVE_GSS_GSSAPI_H))
-			AC_CHECK_HEADER(GSS/gssapi_generic.h, AC_DEFINE(HAVE_GSSAPI_GENERIC_H))
-			AC_CHECK_HEADER(GSS/gssapi_krb5.h, AC_DEFINE(HAVE_GSSAPI_KRB5_H))
-			AC_CHECK_HEADER(GSS/gssapi_spi.h, AC_DEFINE(HAVE_GSS_GSSAPI_SPI_H))
+			gssdir="/System/Library/Frameworks/GSS.framework"
+			AC_MSG_CHECKING(for GSS/gssapi.h presence)
+			if test -f $gssdir/Headers/gssapi.h; then
+				AC_DEFINE(HAVE_GSS_GSSAPI_H)
+				AC_MSG_RESULT(yes)
+			else
+				AC_MSG_RESULT(no)
+			fi
+			AC_MSG_CHECKING(for GSS/gssapi_generic.h presence)
+			if test -f $gssdir/Headers/gssapi_generic.h; then
+				AC_DEFINE(HAVE_GSSAPI_GENERIC_H)
+				AC_MSG_RESULT(yes)
+			else
+				AC_MSG_RESULT(no)
+			fi
+			AC_MSG_CHECKING(for GSS/gssapi_krb5.h presence)
+			if test -f $gssdir/Headers/gssapi_krb5.h; then
+				AC_DEFINE(HAVE_GSSAPI_KRB5_H)
+				AC_MSG_RESULT(yes)
+			else
+				AC_MSG_RESULT(no)
+			fi
+			AC_MSG_CHECKING(for GSS/gssapi_spi.h presence)
+			if test -f $gssdir/PrivateHeaders/gssapi_spi.h; then
+				AC_MSG_RESULT(yes)
+				AC_MSG_CHECKING(for GSS/gssapi_spi.h usability)
+				if test -s $gssdir/PrivateHeaders/gssapi_spi.h; then
+					AC_MSG_RESULT(yes)
+					AC_DEFINE(HAVE_GSS_GSSAPI_SPI_H)
+				else
+					AC_MSG_RESULT(no)
+				fi
+			else
+				AC_MSG_RESULT(no)
+				if test $uversion -ge 110; then
+					# Broken public headers in 10.7...
+					AC_MSG_ERROR(Run 'sudo mkdir -p $gssdir/PrivateHeaders' and 'sudo touch $gssdir/PrivateHeaders/gssapi_spi.h' to build CUPS.)
+				fi
+			fi
 		else
 			AC_CHECK_HEADER(gssapi.h, AC_DEFINE(HAVE_GSSAPI_H))
 			AC_CHECK_HEADER(gssapi/gssapi.h, AC_DEFINE(HAVE_GSSAPI_GSSAPI_H))
@@ -131,5 +166,5 @@ fi
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_GSSSERVICENAME, "$CUPS_DEFAULT_GSSSERVICENAME")
 
 dnl
-dnl End of "$Id$".
+dnl End of "$Id: cups-gssapi.m4 9771 2011-05-12 05:21:56Z mike $".
 dnl

@@ -39,7 +39,8 @@ const struct sieve_command_def tst_hasflag = {
 	0, FALSE, FALSE, 
 	tst_hasflag_registered, 
 	NULL,
-	tst_hasflag_validate, 
+	tst_hasflag_validate,
+	NULL, 
 	tst_hasflag_generate, 
 	NULL 
 };

@@ -495,10 +495,24 @@ public:
 	 */
 	virtual	bool			DoLocationOverrideAndModelMatch();
 	
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  13);
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  14);
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  13);
+    /*!
+	 @function SetConfiguration
+	 Do a USB SetConfiguration call to the device. The caller must have the device open() in order to 
+	 actually cause a configuration change. If the device is currently configured, all IOUSBInterface objects
+	 associated with the device are freed. After the new configuration has been set, all of its IOUSBInterface objects are
+	 instantiated automatically.
+	 @param forClient The client requesting the configuration change
+	 @param configValue The desired configuration value.
+	 @param startInterfaceMatching A boolean specifying whether IOKit should begin the process of finding
+	 @param issueRemoteWakeup A boolean specifying whether we should issue the SetFeature(kUSBFeatureDeviceRemoteWakeup) immediately after setting the configuration, before loading any drivers.
+	 matching drivers for the new IOUSBInterface objects.
+	 */
+    virtual IOReturn SetConfiguration(IOService *forClient, UInt8 configValue, bool startInterfaceMatching, bool issueRemoteWakeup);
+    
+	OSMetaClassDeclareReservedUnused(IOUSBDevice,  14);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  15);
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  16);
+	OSMetaClassDeclareReservedUnused(IOUSBDevice,  16);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  17);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  18);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  19);

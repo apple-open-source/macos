@@ -1,0 +1,35 @@
+Pigeonhole Sieve Troubleshooting
+================================
+
+This page explains how to approach problems with the <Sieve interpreter>
+[Pigeonhole.Sieve.txt]. Currently, only common configuration problems and their
+solutions are described here.
+
+Checking Script Execution
+-------------------------
+
+When Sieve scripts are not being executed, there are several possibilities:
+
+Your MTA is not using Dovecot LDA or LMTP :
+  Sieve scripts are executed by the Dovecot <LDA (Local Delivery Agent)>
+  [LDA.txt] and/or the Dovecot <LMTP.txt> service. That is why you first need
+  to check whether the LDA or LMTP are actually being used. At least one of
+  these is supposed to be called/accessed from your <MTA.txt>, e.g. Exim or
+  Postfix, for local message delivery. Most MTAs have their own local delivery
+  agent, and without explicit configuration this is what is used. In that case,
+  your Sieve scripts are simply ignored. In summary, make sure your MTA is
+  using Dovecot for local delivery, using either Dovecot's <LDA.txt> or
+  <LMTP.txt>.
+
+The Sieve plugin is not enabled :
+  The Dovecot <LDA.txt> and <LMTP.txt> services do not provide Sieve support by
+  default. Sieve support is provided as a separate plugin that needs to be
+  enabled by adding it to the 'mail_plugins' setting in the 'protocol lda {...}
+  ' section for the LDA and the 'protocol lmtp {...} ' section for LMTP. If
+  this is omitted, Sieve scripts are ignored. Check the <configuration page>
+  [Pigeonhole.Sieve.Configuration.txt] for more information.
+
+/This page needs to be extended with more information on common problems and a
+step-wise approach to troubleshooting./
+
+(This file was created from the wiki on 2011-11-16 14:09)

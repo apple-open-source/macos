@@ -74,6 +74,7 @@ struct NAHSelectionData {
     int waiting;
     int have_cred;
     int canceled;
+    int done;
 
     enum NAHMechType mech;
     CFStringRef client;
@@ -96,6 +97,7 @@ struct NAHData {
     /* Input */
 
     CFMutableStringRef hostname;
+    CFMutableStringRef lchostname;
     CFStringRef service;
     CFStringRef username;
     CFStringRef specificname; 
@@ -169,6 +171,12 @@ naselrelease(NAHSelectionRef nasel)
     CFRELEASE(nasel->inferredLabel);
 }
 
+static CFStringRef naseldebug(NAHSelectionRef nasel) CF_RETURNS_RETAINED;
+static CFStringRef naselformatting(CFTypeRef cf, CFDictionaryRef formatOptions) CF_RETURNS_RETAINED;
+
+
+
+
 static CFStringRef
 naseldebug(NAHSelectionRef nasel)
 {
@@ -195,22 +203,22 @@ naselformatting(CFTypeRef cf, CFDictionaryRef formatOptions)
 
 const CFStringRef kNAHErrorDomain = CFSTR("com.apple.NetworkAuthenticationHelper");
 
-static void
-createError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFStringRef fmt, ...)
+static bool
+updateError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFStringRef fmt, ...)
 {
     void *keys[1] = { (void *)CFSTR("NetworkAuthenticationHelper") };
     void *values[1];
     va_list va;
 
     if (error == NULL)
-	return;
+	return false;
 
     va_start(va, fmt);
     values[0] = (void *)CFStringCreateWithFormatAndArguments(alloc, NULL, fmt, va);
     va_end(va);
     if (values[0] == NULL) {
 	*error = NULL;
-	return;
+	return false;
     }
     
     nalog(CFSTR("NAH: error: %@"), values[0]);
@@ -219,6 +227,8 @@ createError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFString
 						    (const void * const *)keys,
 						    (const void * const *)values, 1);
     CFRelease(values[0]);
+
+    return true;
 }
 
 static struct {
@@ -306,6 +316,7 @@ static void
 nahrelease(NAHRef na)
 {
     CFRELEASE(na->hostname);
+    CFRELEASE(na->lchostname);
     CFRELEASE(na->service);
     CFRELEASE(na->username);
     CFRELEASE(na->specificname);
@@ -486,6 +497,7 @@ addSelection(NAHRef na,
 	nasel->waiting = 0;
 	nasel->wait = dispatch_semaphore_create(0);
     }
+    nasel->done = 0;
     nasel->clienttype = clienttype;
     CFRetain(clienttype);
     nasel->servertype = servertype;
@@ -574,16 +586,36 @@ classic_lkdc_background(NAHSelectionRef nasel)
     signal_result(nasel);
 }
 
-static Boolean
-is_local_hostname(CFStringRef hostname)
+/*
+ * Returns true for those hostname that looks like those hostname
+ * where we should use LKDC hostnames instead. This check is only used
+ * for protocol where we don't know wether we should use LKDC or
+ * classic Kerberos.
+ */
+
+static bool
+have_lkdcish_hostname(NAHRef na, bool localIsLKDC)
 {
-    if (CFStringHasSuffix(hostname, CFSTR(".local")))
-	return true;
-    if (CFStringHasSuffix(hostname, CFSTR(".members.mac.com")))
-	return true;
-    if (CFStringHasSuffix(hostname, CFSTR(".members.me.com")))
-	return true;
-    return false;
+    bool ret = false;
+
+    if (na->lchostname == NULL) {
+	na->lchostname = CFStringCreateMutableCopy(NULL, 0, na->hostname);
+	if (na->lchostname == NULL)
+	    return false;
+    }
+
+    CFStringLowercase(na->lchostname, CFLocaleGetSystem());
+
+    if (localIsLKDC && CFStringHasSuffix(na->lchostname, CFSTR(".local")))
+	ret = true;
+    else if (CFStringHasSuffix(na->lchostname, CFSTR(".members.btmm.icloud.com")))
+	ret = true;
+    else if (CFStringHasSuffix(na->lchostname, CFSTR(".members.mac.com")))
+	ret = true;
+    else if (CFStringHasSuffix(na->lchostname, CFSTR(".members.me.com")))
+	ret = true;
+
+    return ret;
 }
 
 static void
@@ -594,7 +626,7 @@ classic_lkdc(NAHRef na, unsigned long flags)
     CFIndex n;
     int duplicate;
 
-    if (!is_local_hostname(na->hostname))
+    if (!have_lkdcish_hostname(na, true))
 	return;
 
     /* if we have certs, lets push those names too */
@@ -697,7 +729,7 @@ use_classic_kerberos(NAHRef na, unsigned long flags)
     char **realms, *str;
     int ret;
 
-    if (is_local_hostname(na->hostname))
+    if (have_lkdcish_hostname(na, false))
 	return;
 
     ret = __KRBCreateUTF8StringFromCFString(na->hostname, &str);
@@ -952,6 +984,7 @@ wellknown_lkdc(NAHRef na, enum NAHMechType mechtype, unsigned long flags)
 	} else {
 	    u = CFStringCreateWithFormat(na->alloc, NULL, CFSTR("%@@%@"),
 					 csstr, kWELLKNOWN_LKDC);
+	    CFRelease(csstr);
 	    if (u == NULL)
 		continue;
 	}
@@ -1127,7 +1160,7 @@ guess_ntlm(NAHRef na)
 
     if (na->password) {
 	CFRange range, ur, dr;
-	CFStringRef u;
+	CFStringRef u = NULL;
 	unsigned long flags2 = 0;
 
 	if (CFStringFindWithOptions(na->username, CFSTR("@"), CFRangeMake(0, CFStringGetLength(na->username)), 0, &range)) {
@@ -1254,6 +1287,7 @@ NAHCreate(CFAllocatorRef alloc,
     }
 
     na->hostname = CFStringCreateMutableCopy(alloc, 0, canonname);
+    CFRelease(canonname);
     if (na->hostname == NULL) {
 	CFRELEASE(na);
 	return NULL;
@@ -1628,7 +1662,7 @@ acquire_kerberos(NAHRef na,
  out:
     if (ret) {
 	const char *e = krb5_get_error_message(na->context, ret);
-	createError(NULL, error, ret, CFSTR("acquire_kerberos failed %@: %d - %s"),
+	updateError(NULL, error, ret, CFSTR("acquire_kerberos failed %@: %d - %s"),
 	      selection->client, ret, e);
 	krb5_free_error_message(na->context, e);
     } else {
@@ -1660,12 +1694,55 @@ acquire_kerberos(NAHRef na,
  */
 
 Boolean
-NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
-					CFDictionaryRef info,
-					dispatch_queue_t q,
-					void (^result)(CFErrorRef error))
+NAHSelectionAcquireCredentialAsync(NAHSelectionRef selection,
+				  CFDictionaryRef info,
+				  dispatch_queue_t q,
+				  void (^result)(CFErrorRef error))
 {
     void (^r)(CFErrorRef error) = (void (^)(CFErrorRef))Block_copy(result);
+
+    CFRetain(selection->na);
+
+    dispatch_async(selection->na->bgq, ^{
+	    CFErrorRef e = NULL;
+	    Boolean res;
+
+	    res = NAHSelectionAcquireCredential(selection, info, &e);
+	    if (!res) {
+		r(NULL);
+		CFRelease(selection->na);
+		Block_release(r);
+		return;
+	    }
+
+	    dispatch_async(q, ^{
+		    r(e);
+		    if (e)
+			CFRelease(e);
+		    CFRelease(selection->na);
+		    Block_release(r);
+		});
+	});
+
+    return true;
+}
+
+const CFStringRef kNAHForceRefreshCredential = CFSTR("kNAHForceRefreshCredential");
+
+Boolean
+NAHSelectionAcquireCredential(NAHSelectionRef selection,
+			     CFDictionaryRef info,
+			     CFErrorRef *error)
+{
+    if (error)
+	*error = NULL;
+
+    CFRetain(selection->na);
+
+    if (!wait_result(selection)) {
+	CFRelease(selection->na);
+	return false;
+    }
 
     if (selection->mech == GSS_KERBEROS) {
 
@@ -1676,41 +1753,27 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 	if (selection->ccache) {
 	    nalog(CFSTR("have ccache"));
 	    KRBCredChangeReferenceCount(selection->client, 1, 1);
-	    dispatch_async(q, ^{
-		    r(NULL);
-		    CFRelease(selection->na);
-		    Block_release(r);
-		});
 	    return true;
 	}
 
 	if (selection->na->password == NULL && selection->certificate == NULL) {
 	    nalog(CFSTR("krb5: no password or cert, punting"));
 	    CFRelease(selection->na);
-	    Block_release(r);
 	    return false;
 	}
 
-	dispatch_async(selection->na->bgq, ^{
-		CFErrorRef error = NULL;
-		int ret;
+	int ret; 
 
-		ret = acquire_kerberos(selection->na,
-				       selection,
-				       selection->na->password,
-				       selection->certificate,
-				       &error);
+	ret = acquire_kerberos(selection->na,
+			       selection,
+			       selection->na->password,
+			       selection->certificate,
+			       error);
 
-		dispatch_async(q, ^{
-			r(error);
-			Block_release(r);
-			CFRelease(selection->na);
-			if (error)
-			    CFRelease(error);
-		    });
-	    });
+	CFRelease(selection->na);
 
-	return true;
+	return (ret == 0) ? true : false;
+
     } else if (selection->mech == GSS_NTLM) {
 	gss_auth_identity_desc identity;
 	gss_name_t name = GSS_C_NO_NAME;
@@ -1723,16 +1786,11 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 	nalog(CFSTR("NAHSelectionAcquireCredential: ntlm"));
 
 	if (selection->have_cred) {
-	    dispatch_async(q, ^{
-		    r(NULL);
-		    CFRelease(selection->na);
-		    Block_release(r);
-		});
+	    CFRelease(selection->na);
 	    return true;
 	}
 
 	if (selection->na->password == NULL) {
-	    Block_release(r);
 	    CFRelease(selection->na);
 	    return false;
 	}
@@ -1745,7 +1803,6 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 	major = gss_import_name(&minor, &gbuf, GSS_C_NT_USER_NAME, &name);
 	__KRBReleaseUTF8String(user);
 	if (major) {
-	    Block_release(r);
 	    CFRelease(selection->na);
 	    return false;
 	}
@@ -1777,7 +1834,7 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 				    &identity,
 				    ^(gss_status_id_t status, gss_cred_id_t cred,
 				      gss_OID_set set, OM_uint32 flags) {
-					CFErrorRef error = NULL;
+
 					if (cred)  {
 					    gss_buffer_desc buffer;
 					    OM_uint32 min_stat;
@@ -1791,23 +1848,18 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 					    buffer.length = 1;
 					    gss_cred_label_set(&min_stat, cred, nah_created, &buffer);
 					} else {
-					    createError(NULL, &error, 1, CFSTR("failed to create ntlm cred"));
+					    updateError(NULL, error, 1, CFSTR("failed to create ntlm cred"));
 					}
 					
 					dispatch_semaphore_signal(s);
-					r(error);
 					CFRelease(selection->na);
-					Block_release(r);
 				    });
 	gss_release_name(&junk, &name);
 	if (major == GSS_S_COMPLETE) {
 	    dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER);
 	} else {
-	    CFErrorRef error;
-	    createError(NULL, &error, major, CFSTR("Failed to acquire NTLM credentials"));
-	    r(error);
+	    updateError(NULL, error, major, CFSTR("Failed to acquire NTLM credentials"));
 	    CFRelease(selection->na);
-	    Block_release(r);
 	    CFRELEASE(error);
 	}
 
@@ -1827,7 +1879,6 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 	
 	if (selection->have_cred || selection->na->password == NULL) {
 	    nalog(CFSTR("NAHSelectionAcquireCredential: iakerb no password"));
-	    Block_release(r);
 	    CFRelease(selection->na);
 	    return false;
 	}
@@ -1840,7 +1891,6 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 	major = gss_import_name(&minor, &gbuf, GSS_C_NT_USER_NAME, &name);
 	__KRBReleaseUTF8String(user);
 	if (major) {
-	    Block_release(r);
 	    CFRelease(selection->na);
 	    return false;
 	}
@@ -1859,7 +1909,6 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 	gss_release_name(&junk, &name);	
 	if (major) {
 	    nalog(CFSTR("NAHSelectionAcquireCredential: failed with %d"), major);
-	    Block_release(r);
 	    CFRelease(selection->na);
 	    return false;
 	}
@@ -1870,7 +1919,6 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 	if (major || dataset->count != 1) {
 	    nalog(CFSTR("NAHSelectionAcquireCredential: failed with no uuid"));
 	    gss_release_buffer_set(&junk, &dataset);
-	    Block_release(r);
 	    CFRelease(selection->na);
 	    return false;
 	}
@@ -1884,9 +1932,7 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
 	gss_release_buffer_set(&junk, &dataset);
 	gss_release_cred(&junk, &cred);
 
-	r(NULL);
 	CFRelease(selection->na);
-	Block_release(r);
 	
 	return true;
     } else {
@@ -1896,102 +1942,19 @@ NAHSelectionAcquireCredentialHaveResult(NAHSelectionRef selection,
     return false;
 }
 
-Boolean
-NAHSelectionAcquireCredentialAsync(NAHSelectionRef selection,
-				  CFDictionaryRef info,
-				  dispatch_queue_t q,
-				  void (^result)(CFErrorRef error))
-{
-    void (^r)(CFErrorRef error) = (void (^)(CFErrorRef))Block_copy(result);
-
-    CFRetain(selection->na);
-
-    dispatch_async(selection->na->bgq, ^{
-	    if (!wait_result(selection)) {
-		CFErrorRef error;
-		createError(NULL, &error, 1, CFSTR("Failed to get server for %@"), selection->client);
-		r(error);
-		CFRELEASE(error);
-		CFRelease(selection->na);
-	    } else {
-		NAHSelectionAcquireCredentialHaveResult(selection, info, q, r);
-	    }
-	    Block_release(r);
-	});
-
-    return true;
-}
-
-const CFStringRef kNAHForceRefreshCredential = CFSTR("kNAHForceRefreshCredential");
-
-Boolean
-NAHSelectionAcquireCredential(NAHSelectionRef selection,
-			     CFDictionaryRef info,
-			     CFErrorRef *error)
-{
-    __block Boolean b;
-    Boolean ret;
-
-    CFRetain(selection->na);
-
-    if (!wait_result(selection)) {
-	CFRelease(selection->na);
-	return false;
-    }
-
-    dispatch_sync(selection->na->q, ^{
-	    if (selection->waiting != 0)
-		abort();
-	    
-	    if (selection->wait == NULL)
-		selection->wait = dispatch_semaphore_create(0);
-	    selection->waiting = 1;
-	});
-
-    CFRetain(selection->na);
-    ret = NAHSelectionAcquireCredentialHaveResult(selection, info, selection->na->bgq, ^(CFErrorRef e) {
-	    if (e) {
-		CFRetain(e);
-		*error = e;
-		b = false;
-	    } else {
-		b = true;
-	    }
-	    signal_result(selection);
-	    CFRelease(selection->na);
-	});
-    if (ret == false) {
-	dispatch_sync(selection->na->q, ^{ 
-	    selection->waiting--;
-	    if (selection->waiting == 0) {
-		dispatch_release(selection->wait);
-		selection->wait = NULL;
-	    }
-	});
-	*error = NULL;
-	return false;
-    }
-
-    if (!wait_result(selection))
-	return false;
-
-    return b;
-}
-
 
 
 static void
 signal_result(NAHSelectionRef s)
 {
     dispatch_sync(s->na->q, ^{
-	    if (s->wait == NULL)
-		return;
+	    if (s->done)
+		abort();
+	    s->done = 1;
 	    while (s->waiting > 0) {
 		dispatch_semaphore_signal(s->wait);
 		s->waiting--;
 	    }
-	    dispatch_release(s->wait);
-	    s->wait = NULL;
 	});
 }
 
@@ -2001,7 +1964,7 @@ wait_result(NAHSelectionRef s)
     __block dispatch_semaphore_t sema;
 
     dispatch_sync(s->na->q, ^{
-	    if (s->canceled) {
+	    if (s->canceled || s->done) {
 		sema = NULL;
 	    } else {
 		sema = s->wait;
@@ -2109,9 +2072,18 @@ NAHSelectionCopyAuthInfo(NAHSelectionRef selection)
     else
 	gssdserver = GSSD_HOSTBASED;
 
+    
+    CFNumberRef num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &gssdclient);
+    if (num) {
+	CFDictionaryAddValue(dict, kNAHClientNameTypeGSSD, num);
+	CFRelease(num);
+    }
 
-    CFDictionaryAddValue(dict, kNAHClientNameTypeGSSD, CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &gssdclient));
-    CFDictionaryAddValue(dict, kNAHServerNameTypeGSSD, CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &gssdserver));
+    num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &gssdserver);
+    if (num) {
+	CFDictionaryAddValue(dict, kNAHServerNameTypeGSSD, num);
+	CFRelease(num);
+    }
 
     CFDictionaryAddValue(dict, kNAHClientPrincipal,
 			 NAHSelectionGetInfoForKey(selection, kNAHClientPrincipal));

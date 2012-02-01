@@ -1,5 +1,5 @@
 /*
- * "$Id: pwg-media.c 3287 2011-05-26 03:54:43Z msweet $"
+ * "$Id: pwg-media.c 3462 2011-10-19 06:24:49Z msweet $"
  *
  *   PWG media name API implementation for CUPS.
  *
@@ -103,8 +103,8 @@ static _pwg_media_t const cups_pwg_media[] =
   _PWG_MEDIA_IN("na_eur-edp_12x14in", NULL, NULL, 12, 14),
   _PWG_MEDIA_IN("na_arch-b_12x18in", "arch-b", "ARCHB", 12, 18),
   _PWG_MEDIA_IN("na_12x19_12x19in", NULL, "12x19", 12, 19),
-  _PWG_MEDIA_IN("na_b-plus_12x19.17in", NULL, NULL, 12, 19.17),
-  _PWG_MEDIA_IN("na_super-b_13x19in", "super-b", "SuperB", 13, 19),
+  _PWG_MEDIA_IN("na_b-plus_12x19.17in", NULL, "SuperB", 12, 19.17),
+  _PWG_MEDIA_IN("na_super-b_13x19in", "super-b", "13x19", 13, 19),
   _PWG_MEDIA_IN("na_c_17x22in", "c", "AnsiC", 17, 22),
   _PWG_MEDIA_IN("na_arch-c_18x24in", "arch-c", "ARCHC", 18, 24),
   _PWG_MEDIA_IN("na_d_22x34in", "d", "AnsiD", 22, 34),
@@ -847,5 +847,5 @@ pwg_compare_pwg(_pwg_media_t *a,	/* I - First size */
 
 
 /*
- * End of "$Id: pwg-media.c 3287 2011-05-26 03:54:43Z msweet $".
+ * End of "$Id: pwg-media.c 3462 2011-10-19 06:24:49Z msweet $".
  */

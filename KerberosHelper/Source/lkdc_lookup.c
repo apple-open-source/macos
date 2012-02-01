@@ -69,6 +69,8 @@ int main (int argc, char * const argv[])
 	}
 	argc -= optind;
 	argv += optind;
+    
+	error = 1;
 	
 	for (i = 0; i < argc; i++) {
 		char * argument = argv[i];

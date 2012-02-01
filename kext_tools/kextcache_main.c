@@ -284,7 +284,6 @@ int main(int argc, char * const * argv)
         if (result != EX_OK) {
             goto finish;
         }
-
     }
 
 finish:
@@ -879,9 +878,9 @@ Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs)
     const char * prelinkedKernelFile = NULL;
     size_t       length              = 0;
 
-    prelinkedKernelFile =
-        _kOSKextCachesRootFolder "/" _kOSKextStartupCachesSubfolder "/" 
-        _kOSKextPrelinkedKernelBasename;
+        prelinkedKernelFile =
+            _kOSKextCachesRootFolder "/" _kOSKextStartupCachesSubfolder "/" 
+            _kOSKextPrelinkedKernelBasename;
 
     length = strlcpy(toolArgs->prelinkedKernelPath, 
         prelinkedKernelFile, PATH_MAX);
@@ -1151,7 +1150,9 @@ void setDefaultArchesIfNeeded(KextcacheArgs * toolArgs)
 
     CFArrayRemoveAllValues(toolArgs->targetArchs);
     addArchForName(toolArgs, "x86_64");
-    addArchForName(toolArgs, "i386");
+
+        addArchForName(toolArgs, "i386");
+
     return;
 }
 #endif /* !NO_BOOT_ROOT */

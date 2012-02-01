@@ -76,12 +76,12 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 	user->host->user_count++;
 	user->timestamp = timestamp;
 
-	if (dir->tail == NULL || (time_t) dir->tail->timestamp <= timestamp)
+	if (dir->tail == NULL || (time_t)dir->tail->timestamp <= timestamp)
 		DLLIST2_APPEND(&dir->head, &dir->tail, user);
 	else {
 		/* need to insert to correct position */
 		for (pos = dir->tail; pos != NULL; pos = pos->prev) {
-			if ((time_t) pos->timestamp <= timestamp)
+			if ((time_t)pos->timestamp <= timestamp)
 				break;
 		}
 		if (pos == NULL)
@@ -122,6 +122,8 @@ void user_directory_remove_host(struct user_directory *dir,
 
 unsigned int user_directory_get_username_hash(const char *username)
 {
+	/* NOTE: If you modify this, modify also
+	   director_username_hash() in login-common/login-proxy.c */
 	unsigned char md5[MD5_RESULTLEN];
 	unsigned int i, hash = 0;
 

@@ -50,8 +50,9 @@ passdb {
 Parameters
 ----------
 
- * *scheme=<s>*: Allows you to specify the default password scheme. The default
-   is CRYPT. This is available only for passdb.
+ * *scheme=<s>*: Allows you to specify the default <password scheme>
+   [Authentication.PasswordSchemes.txt]. The default is CRYPT. This is
+   available only for passdb.
  * *username_format=<s>*: Look up usernames using this format instead of the
    full username ('%u'). If you want to enable user@domain logins but have only
    "user" in the file, set this to '%n'.
@@ -93,4 +94,4 @@ allow_nets=192.168.0.0/24
 user2:{plain}pass2:1001:1001::/home/user2
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

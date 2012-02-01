@@ -1,5 +1,5 @@
 .\"
-.\" "$Id$"
+.\" "$Id: notifier.man 8999 2010-02-24 01:01:04Z mike $"
 .\"
 .\"   notifier man page for CUPS.
 .\"
@@ -153,5 +153,5 @@ http://localhost:631/help
 .SH COPYRIGHT
 Copyright 2007-2009 by Apple Inc.
 .\"
-.\" End of "$Id$".
+.\" End of "$Id: notifier.man 8999 2010-02-24 01:01:04Z mike $".
 .\"

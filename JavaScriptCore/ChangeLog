@@ -1,3 +1,51 @@
+2011-12-02  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 93445
+
+    2011-08-19  Beth Dakin  <bdakin@apple.com>
+
+            https://bugs.webkit.org/show_bug.cgi?id=66590
+            Re-name scrollbar painter types
+
+            Reviewed by Sam Weinig.
+
+            WTF_USE_WK_SCROLLBAR_PAINTER is now WTF_USE_SCROLLBAR_PAINTER since WK no longer 
+            applies.
+            * wtf/Platform.h:
+
+2011-10-26  Lucas Forschler  <lforschler@apple.com>
+
+    Merge fix for 10351765.
+    
+    2011-10-26  Oliver Hunt  <oliver@apple.com>
+    
+            Restore structure-clearing behaviour of allocateCell<>
+            https://bugs.webkit.org/show_bug.cgi?id=70976
+    
+            This restores the logic that allows the markstack to filter
+            live objects that have not yet been initialised.
+    
+            * runtime/JSCell.h:
+            (JSC::JSCell::clearStructure):
+               Validation-safe method to clear a cell's structure.
+            (JSC::allocateCell):
+               Call the above method.
+            * runtime/Structure.h:
+            (JSC::MarkStack::internalAppend):
+               Don't visit cells that haven't been initialised.
+    
+2011-10-21  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 94298
+
+    2011-09-01  Ada Chan  <adachan@apple.com>
+
+            Export fastMallocStatistics and Heap::objectTypeCounts for https://bugs.webkit.org/show_bug.cgi?id=67160.
+
+            Reviewed by Darin Adler.
+
+            * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
 2011-09-06  Mark Rowe  <mrowe@apple.com>
 
         Merge r94251.

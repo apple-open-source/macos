@@ -1,5 +1,5 @@
 /*
- * "$Id: imagetoraster.c 7306 2008-02-15 00:52:38Z mike $"
+ * "$Id: imagetoraster.c 9808 2011-05-26 12:03:28Z mike $"
  *
  *   Image file to raster filter for CUPS.
  *
@@ -4364,5 +4364,5 @@ raster_cb(
 
 
 /*
- * End of "$Id: imagetoraster.c 7306 2008-02-15 00:52:38Z mike $".
+ * End of "$Id: imagetoraster.c 9808 2011-05-26 12:03:28Z mike $".
  */

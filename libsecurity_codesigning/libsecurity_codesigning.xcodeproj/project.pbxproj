@@ -3,10 +3,22 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		C26AC0EB143BCF01001C98CE /* SystemPolicy */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C26AC0EC143BCF01001C98CE /* Build configuration list for PBXAggregateTarget "SystemPolicy" */;
+			buildPhases = (
+				C26AC0F0143BCF18001C98CE /* ShellScript */,
+				C26AC0F4143BD1C4001C98CE /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = SystemPolicy;
+			productName = SystemPolicy;
+		};
 		C26AC7090DAEB3A7005BFB40 /* DTrace */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = C26AC70D0DAEB3C6005BFB40 /* Build configuration list for PBXAggregateTarget "DTrace" */;
@@ -38,6 +50,7 @@
 				C2E287410B5D8F97009336A0 /* PBXTargetDependency */,
 				C250F6C50B5EF4E40076098F /* PBXTargetDependency */,
 				C2E287430B5D8F9A009336A0 /* PBXTargetDependency */,
+				C26AC0F2143BD02B001C98CE /* PBXTargetDependency */,
 			);
 			name = Everything;
 			productName = Everything;
@@ -57,8 +70,11 @@
 		C22463610B86210100626F1B /* antlrplugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2CC31130B85254F005FA59D /* antlrplugin.cpp */; };
 		C236E3D70AD59446000F5140 /* signer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C236E3D50AD59446000F5140 /* signer.cpp */; };
 		C236E3DB0AD595C2000F5140 /* signerutils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C236E3D90AD595C2000F5140 /* signerutils.cpp */; };
+		C24EABAB1421432800C16AA9 /* policydb.h in Headers */ = {isa = PBXBuildFile; fileRef = C24EABAA1421432800C16AA9 /* policydb.h */; };
+		C24EABAD1421433700C16AA9 /* policydb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C24EABAC1421433700C16AA9 /* policydb.cpp */; };
 		C250F6C30B5EF1910076098F /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; };
 		C259DFD60AD6D9BA00C9ACC6 /* sigblob.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */; };
+		C26AC0F5143BD1C8001C98CE /* SystemPolicy in CopyFiles */ = {isa = PBXBuildFile; fileRef = C26AC0F3143BD1B3001C98CE /* SystemPolicy */; };
 		C26B45C10B8A9C0A003C0ACA /* ucspc in Frameworks */ = {isa = PBXBuildFile; fileRef = C26B45C00B8A9C00003C0ACA /* ucspc */; };
 		C26FF62D0E5B375A00F640A0 /* SecIntegrityLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C26FF62E0E5B375A00F640A0 /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -74,6 +90,12 @@
 		C26FF6380E5B376B00F640A0 /* SecCodeSigner.h in Headers */ = {isa = PBXBuildFile; fileRef = C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C26FF6390E5B376B00F640A0 /* SecCodeHost.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383190A237F47005C63A2 /* SecCodeHost.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C26FF63A0E5B376B00F640A0 /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C273601E1432A60B00A9A5FF /* policyengine.h in Headers */ = {isa = PBXBuildFile; fileRef = C273601D1432A60B00A9A5FF /* policyengine.h */; };
+		C273606E1433F09000A9A5FF /* SecAssessment.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C273606C1433F09000A9A5FF /* SecAssessment.cpp */; };
+		C273606F1433F09000A9A5FF /* SecAssessment.h in Headers */ = {isa = PBXBuildFile; fileRef = C273606D1433F09000A9A5FF /* SecAssessment.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C27360701433F09000A9A5FF /* SecAssessment.h in Headers */ = {isa = PBXBuildFile; fileRef = C273606D1433F09000A9A5FF /* SecAssessment.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C27360711433F0E600A9A5FF /* SecAssessment.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C273606D1433F09000A9A5FF /* SecAssessment.h */; };
+		C27360D51436866D00A9A5FF /* xpcengine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C27360D41436866C00A9A5FF /* xpcengine.cpp */; };
 		C28342E60E366E6800E54360 /* csdatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = C28342E50E366E6800E54360 /* csdatabase.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C28342E70E366E6800E54360 /* csdatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28342E40E366E6800E54360 /* csdatabase.cpp */; };
 		C28342ED0E36719D00E54360 /* detachedrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C28342EC0E36719D00E54360 /* detachedrep.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -150,6 +172,8 @@
 		C2D3839B0A238150005C63A2 /* CodeSigning.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2D383180A237F47005C63A2 /* CodeSigning.h */; };
 		C2D50CE10E155ABC0059A195 /* CSCommonPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2D50CE20E155AE60059A195 /* CSCommonPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2DC2DCA145F594000AD2A3A /* xar++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2353410145F1B110073F964 /* xar++.cpp */; };
+		C2DC2DCB145F5CD000AD2A3A /* policyengine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C27360201432A61900A9A5FF /* policyengine.cpp */; };
 		C2E2873D0B5D8D80009336A0 /* SecCodeHostLib.c in Sources */ = {isa = PBXBuildFile; fileRef = C2E2873C0B5D8D80009336A0 /* SecCodeHostLib.c */; };
 		C2E8AF2A0DE25D11000F6D3B /* SecCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2E8AF2B0DE25D11000F6D3B /* SecStaticCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF260DE25CA7000F6D3B /* SecStaticCodePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -189,6 +213,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = C2BC1F250B580D3A003EC9DC;
 			remoteInfo = libintegrity;
+		};
+		C26AC0F1143BD02B001C98CE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C26AC0EB143BCF01001C98CE;
+			remoteInfo = SystemPolicy;
 		};
 		C26AC70E0DAEB400005BFB40 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -250,6 +281,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C26AC0F4143BD1C4001C98CE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = private/var/db;
+			dstSubfolderSpec = 0;
+			files = (
+				C26AC0F5143BD1C8001C98CE /* SystemPolicy in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		C26C39D3068368EC00ED5782 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -264,6 +305,7 @@
 				C21EA3E00AD2F81300E6E31C /* SecCodeSigner.h in CopyFiles */,
 				C2A752B70B80EAFB004CF655 /* SecIntegrity.h in CopyFiles */,
 				C2A752B80B80EAFB004CF655 /* SecCodeHostLib.h in CopyFiles */,
+				C27360711433F0E600A9A5FF /* SecAssessment.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,16 +322,28 @@
 		C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCodeSigner.h; sourceTree = "<group>"; };
 		C21EA3E10AD2FA0900E6E31C /* CodeSigner.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CodeSigner.cpp; sourceTree = "<group>"; };
 		C21EA3E20AD2FA0900E6E31C /* CodeSigner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CodeSigner.h; sourceTree = "<group>"; };
+		C235340E145F1B050073F964 /* xar++.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "xar++.h"; sourceTree = "<group>"; };
+		C2353410145F1B110073F964 /* xar++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "xar++.cpp"; sourceTree = "<group>"; };
 		C236E3D50AD59446000F5140 /* signer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = signer.cpp; sourceTree = "<group>"; };
 		C236E3D60AD59446000F5140 /* signer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = signer.h; sourceTree = "<group>"; };
 		C236E3D90AD595C2000F5140 /* signerutils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = signerutils.cpp; sourceTree = "<group>"; };
 		C236E3DA0AD595C2000F5140 /* signerutils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = signerutils.h; sourceTree = "<group>"; };
+		C24EABAA1421432800C16AA9 /* policydb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = policydb.h; sourceTree = "<group>"; };
+		C24EABAC1421433700C16AA9 /* policydb.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = policydb.cpp; sourceTree = "<group>"; };
 		C250F6C20B5EF1910076098F /* SecIntegrity.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecIntegrity.h; sourceTree = "<group>"; };
 		C250F6C60B5EF5B50076098F /* SecIntegrity.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecIntegrity.cpp; sourceTree = "<group>"; };
 		C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = sigblob.cpp; sourceTree = "<group>"; };
 		C259DFD50AD6D9BA00C9ACC6 /* sigblob.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sigblob.h; sourceTree = "<group>"; };
+		C26AC0F3143BD1B3001C98CE /* SystemPolicy */ = {isa = PBXFileReference; lastKnownFileType = text; path = SystemPolicy; sourceTree = "<group>"; };
 		C26AC6FD0DAEB2C4005BFB40 /* security_codesigning.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; path = security_codesigning.d; sourceTree = "<group>"; };
 		C26B45C00B8A9C00003C0ACA /* ucspc */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = ucspc; sourceTree = "<group>"; };
+		C27249D2143237CD0058B552 /* syspolicy.sql */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = syspolicy.sql; sourceTree = "<group>"; };
+		C273601D1432A60B00A9A5FF /* policyengine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = policyengine.h; sourceTree = "<group>"; };
+		C27360201432A61900A9A5FF /* policyengine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = policyengine.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		C273606C1433F09000A9A5FF /* SecAssessment.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SecAssessment.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		C273606D1433F09000A9A5FF /* SecAssessment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = SecAssessment.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		C27360D41436866C00A9A5FF /* xpcengine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = xpcengine.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		C27360D71436868600A9A5FF /* xpcengine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xpcengine.h; sourceTree = "<group>"; };
 		C28342E40E366E6800E54360 /* csdatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = csdatabase.cpp; sourceTree = "<group>"; };
 		C28342E50E366E6800E54360 /* csdatabase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = csdatabase.h; sourceTree = "<group>"; };
 		C28342EB0E36719D00E54360 /* detachedrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = detachedrep.cpp; sourceTree = "<group>"; };
@@ -423,6 +477,7 @@
 				C2CCF0360A3F524B0085795A /* Local Utilities */,
 				C2CC31160B852554005FA59D /* Security Plugins */,
 				FEB30C9110DAC6C400557BA2 /* Entitlements */,
+				C24EABA914213FAF00C16AA9 /* System Policy */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -458,6 +513,22 @@
 				C236E3D90AD595C2000F5140 /* signerutils.cpp */,
 			);
 			name = "Signing Operations";
+			sourceTree = "<group>";
+		};
+		C24EABA914213FAF00C16AA9 /* System Policy */ = {
+			isa = PBXGroup;
+			children = (
+				C273606D1433F09000A9A5FF /* SecAssessment.h */,
+				C273606C1433F09000A9A5FF /* SecAssessment.cpp */,
+				C24EABAA1421432800C16AA9 /* policydb.h */,
+				C24EABAC1421433700C16AA9 /* policydb.cpp */,
+				C273601D1432A60B00A9A5FF /* policyengine.h */,
+				C27360201432A61900A9A5FF /* policyengine.cpp */,
+				C27360D71436868600A9A5FF /* xpcengine.h */,
+				C27360D41436866C00A9A5FF /* xpcengine.cpp */,
+				C27249D2143237CD0058B552 /* syspolicy.sql */,
+			);
+			name = "System Policy";
 			sourceTree = "<group>";
 		};
 		C26AC6FF0DAEB2D0005BFB40 /* DTrace */ = {
@@ -633,6 +704,8 @@
 				C2EF100E0A49BD89005A44BB /* renum.cpp */,
 				C2A976A90B8A2E36008B4EA0 /* csutilities.h */,
 				C2A976A80B8A2E36008B4EA0 /* csutilities.cpp */,
+				C235340E145F1B050073F964 /* xar++.h */,
+				C2353410145F1B110073F964 /* xar++.cpp */,
 			);
 			name = "Local Utilities";
 			sourceTree = "<group>";
@@ -648,6 +721,7 @@
 				C2B9F1D20D51646600CAB713 /* RequirementKeywords.h */,
 				C2D383F20A23A9D3005C63A2 /* RequirementParserTokenTypes.hpp */,
 				C2D383F30A23A9D3005C63A2 /* RequirementParserTokenTypes.txt */,
+				C26AC0F3143BD1B3001C98CE /* SystemPolicy */,
 				C26B45C00B8A9C00003C0ACA /* ucspc */,
 			);
 			path = cstemp;
@@ -709,7 +783,9 @@
 				C2BD519F0A9392FD000FE43D /* machorep.h in Headers */,
 				C2CC31050B8523AD005FA59D /* SecIntegrityLib.h in Headers */,
 				C28342E60E366E6800E54360 /* csdatabase.h in Headers */,
+				C27360701433F09000A9A5FF /* SecAssessment.h in Headers */,
 				C28342ED0E36719D00E54360 /* detachedrep.h in Headers */,
+				C273601E1432A60B00A9A5FF /* policyengine.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -732,7 +808,9 @@
 				C26FF63A0E5B376B00F640A0 /* SecIntegrity.h in Headers */,
 				C26FF62D0E5B375A00F640A0 /* SecIntegrityLib.h in Headers */,
 				C26FF62E0E5B375A00F640A0 /* SecCodeHostLib.h in Headers */,
+				C273606F1433F09000A9A5FF /* SecAssessment.h in Headers */,
 				C2A436160F2133B2007A41A6 /* slcrep.h in Headers */,
+				C24EABAB1421432800C16AA9 /* policydb.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -837,8 +915,11 @@
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
 			buildConfigurationList = C263E67909A2971B000043F1 /* Build configuration list for PBXProject "libsecurity_codesigning" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -859,6 +940,7 @@
 				C2BC1F250B580D3A003EC9DC /* libintegrity */,
 				C2BC1F2E0B580D4B003EC9DC /* libcodehost */,
 				C26AC7090DAEB3A7005BFB40 /* DTrace */,
+				C26AC0EB143BCF01001C98CE /* SystemPolicy */,
 			);
 		};
 /* End PBXProject section */
@@ -889,6 +971,22 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework\"\ndone";
+		};
+		C26AC0F0143BCF18001C98CE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/lib/syspolicy.sql",
+			);
+			outputPaths = (
+				"$(TEMPDIR)/SystemPolicy",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"$(dirname \"$SCRIPT_OUTPUT_FILE_0\")\"\nsqlite3 \"$SCRIPT_OUTPUT_FILE_0\" <<END\n.read \"$SCRIPT_INPUT_FILE_0\"\nEND\n";
+			showEnvVarsInLog = 0;
 		};
 		C26AC7080DAEB3A7005BFB40 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -988,6 +1086,11 @@
 				C28342EE0E36719D00E54360 /* detachedrep.cpp in Sources */,
 				C2A436150F2133B2007A41A6 /* slcrep.cpp in Sources */,
 				FEB30C9310DAC89D00557BA2 /* SecTask.c in Sources */,
+				C24EABAD1421433700C16AA9 /* policydb.cpp in Sources */,
+				C273606E1433F09000A9A5FF /* SecAssessment.cpp in Sources */,
+				C27360D51436866D00A9A5FF /* xpcengine.cpp in Sources */,
+				C2DC2DCA145F594000AD2A3A /* xar++.cpp in Sources */,
+				C2DC2DCB145F5CD000AD2A3A /* policyengine.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1024,6 +1127,11 @@
 			isa = PBXTargetDependency;
 			target = C2BC1F250B580D3A003EC9DC /* libintegrity */;
 			targetProxy = C250F6C40B5EF4E40076098F /* PBXContainerItemProxy */;
+		};
+		C26AC0F2143BD02B001C98CE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C26AC0EB143BCF01001C98CE /* SystemPolicy */;
+			targetProxy = C26AC0F1143BD02B001C98CE /* PBXContainerItemProxy */;
 		};
 		C26AC70F0DAEB400005BFB40 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1091,10 +1199,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55004;
+				CURRENT_PROJECT_VERSION = 55032;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
+					/System/Library/PrivateFrameworks,
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
@@ -1125,6 +1234,7 @@
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_codesigning;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1142,10 +1252,11 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55004;
+				CURRENT_PROJECT_VERSION = 55032;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
+					/System/Library/PrivateFrameworks,
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
@@ -1174,6 +1285,7 @@
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_codesigning;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1191,10 +1303,11 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55004;
+				CURRENT_PROJECT_VERSION = 55032;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
+					/System/Library/PrivateFrameworks,
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
@@ -1223,6 +1336,7 @@
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_codesigning;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1237,6 +1351,7 @@
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				OTHER_CFLAGS = "$(SEC_DEFINES)";
@@ -1249,6 +1364,7 @@
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				OTHER_CFLAGS = "$(SEC_DEFINES)";
@@ -1261,11 +1377,33 @@
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				OTHER_CFLAGS = "$(SEC_DEFINES)";
 				TEMPDIR = "$(BUILT_PRODUCTS_DIR)/cstemp";
 				UNSTRIPPED_PRODUCT = YES;
+			};
+			name = Default;
+		};
+		C26AC0ED143BCF01001C98CE /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		C26AC0EE143BCF01001C98CE /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		C26AC0EF143BCF01001C98CE /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Default;
 		};
@@ -1305,7 +1443,6 @@
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/lib;
-				PREBINDING = NO;
 				PRODUCT_NAME = integrity;
 				ZERO_LINK = YES;
 			};
@@ -1319,7 +1456,6 @@
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
-				PREBINDING = NO;
 				PRODUCT_NAME = integrity;
 				ZERO_LINK = NO;
 			};
@@ -1331,7 +1467,6 @@
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
-				PREBINDING = NO;
 				PRODUCT_NAME = integrity;
 				ZERO_LINK = YES;
 			};
@@ -1351,7 +1486,6 @@
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = codehost;
 				ZERO_LINK = YES;
 			};
@@ -1370,7 +1504,6 @@
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = codehost;
 				ZERO_LINK = NO;
 			};
@@ -1387,7 +1520,6 @@
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = codehost;
 				ZERO_LINK = YES;
 			};
@@ -1477,6 +1609,16 @@
 				C263E67A09A2971B000043F1 /* Development */,
 				C263E67B09A2971B000043F1 /* Deployment */,
 				C263E67C09A2971B000043F1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C26AC0EC143BCF01001C98CE /* Build configuration list for PBXAggregateTarget "SystemPolicy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C26AC0ED143BCF01001C98CE /* Development */,
+				C26AC0EE143BCF01001C98CE /* Deployment */,
+				C26AC0EF143BCF01001C98CE /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

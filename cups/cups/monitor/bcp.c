@@ -1,5 +1,5 @@
 /*
- * "$Id: bcp.c 6800 2007-08-16 18:28:44Z mike $"
+ * "$Id: bcp.c 9901 2011-08-17 21:01:53Z mike $"
  *
  *   TBCP port monitor for CUPS.
  *
@@ -288,5 +288,5 @@ pswrite(const char *buf,		/* I - Buffer to write */
 
 
 /*
- * End of "$Id: bcp.c 6800 2007-08-16 18:28:44Z mike $".
+ * End of "$Id: bcp.c 9901 2011-08-17 21:01:53Z mike $".
  */

@@ -42,8 +42,17 @@ You can change the default /dovecot/ user to something else from
 Mail users
 ==========
 
-You can use one or more system users for accessing users' mails. Most
-configurations can be placed to two categories:
+If Dovecot can find the UID (and GID) from the userdb, it will try to become
+that user by calling setuid() to access thatuser's mails. This is typically the
+way it works for <System users> [SystemUsers.txt]. However, even for <Virtual
+users> [VirtualUsers.txt], if a UID is returned, it will become that user even
+if the UID does NOT exist on the system! As this is probablynot what you want,
+for <Virtual users> [VirtualUsers.txt], you should make sure that the userdb
+does NOT return a UIDand configure the mail_uid (and mail_gid) parameter to a
+single system user, for example 'vmail'. This setting will be used as the
+default.
+
+In summary, most configurations can be placed to two categories:
 
  1. <System users> [SystemUsers.txt] where each Dovecot user has their own
     system user in '/etc/passwd'. For system user setups you generally don't
@@ -138,4 +147,4 @@ service auth-worker {
 }
 ---%<-------------------------------------------------------------------------
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

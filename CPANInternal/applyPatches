@@ -90,6 +90,7 @@ my (@patchesToApply) = (
     './PatchFiles/Inflect.pm.diff',
 
     # Added krb5_set_default_realm function to Authen::Krb5.xs
+    # <rdar://problem/8370128> CPANInternal-94 project fails to build with LLVM compiler 2.0.
     './PatchFiles/Authen-Krb5.diff',
 
     # DBIx-Class-Storage-DBI doesn't like to txn_commit when AutoCommit

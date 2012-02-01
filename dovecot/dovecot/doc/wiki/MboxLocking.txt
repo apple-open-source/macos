@@ -41,9 +41,9 @@ Postfix has two different ways to deliver to mboxes. One is the "mailbox"
 transport and another one is the "virtual" transport.
 
 ---%<-------------------------------------------------------------------------
-# postconf|grep mailbox_delivery_lock
+# postconf mailbox_delivery_lock
 mailbox_delivery_lock = fcntl, dotlock
-# postconf|grep virtual_mailbox_lock
+# postconf virtual_mailbox_lock
 virtual_mailbox_lock = fcntl
 ---%<-------------------------------------------------------------------------
 
@@ -67,4 +67,4 @@ Debian
 Debian's policy specifies that all software should use "fcntl and then dotlock"
 locking, but this probably applies only to most commonly used software.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

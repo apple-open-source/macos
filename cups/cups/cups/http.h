@@ -1,5 +1,5 @@
 /*
- * "$Id: http.h 7026 2007-10-19 00:57:45Z mike $"
+ * "$Id: http.h 9801 2011-05-21 04:02:41Z mike $"
  *
  *   Hyper-Text Transport Protocol definitions for CUPS.
  *
@@ -475,5 +475,5 @@ extern void		httpSetTimeout(http_t *http, double timeout,
 #endif /* !_CUPS_HTTP_H_ */
 
 /*
- * End of "$Id: http.h 7026 2007-10-19 00:57:45Z mike $".
+ * End of "$Id: http.h 9801 2011-05-21 04:02:41Z mike $".
  */

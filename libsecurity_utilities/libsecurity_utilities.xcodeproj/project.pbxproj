@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -646,8 +646,12 @@
 /* Begin PBXProject section */
 		4CA2A5330523D2CD00978A7B /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
 			buildConfigurationList = C27AD4140987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_utilities" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -857,7 +861,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55017;
+				CURRENT_PROJECT_VERSION = 55025;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -905,7 +909,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 55017;
+				CURRENT_PROJECT_VERSION = 55025;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DEBUGGING_SYMBOLS = default;
@@ -948,7 +952,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55017;
+				CURRENT_PROJECT_VERSION = 55025;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
@@ -993,7 +997,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 55017;
+				CURRENT_PROJECT_VERSION = 55025;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;

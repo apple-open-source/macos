@@ -1,5 +1,5 @@
 /*
- * "$Id: jobs.c 7237 2008-01-22 01:38:39Z mike $"
+ * "$Id: jobs.c 9771 2011-05-12 05:21:56Z mike $"
  *
  *   Job status CGI for CUPS.
  *
@@ -210,5 +210,5 @@ do_job_op(http_t      *http,		/* I - HTTP connection */
 
 
 /*
- * End of "$Id: jobs.c 7237 2008-01-22 01:38:39Z mike $".
+ * End of "$Id: jobs.c 9771 2011-05-12 05:21:56Z mike $".
  */

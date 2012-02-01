@@ -156,4 +156,4 @@ The returned permissions are:
 If changing the group fails with EPERM, 'eperm_error_get_chgrp()' can be used
 to log a nice and understandable error message.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

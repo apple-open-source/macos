@@ -503,6 +503,8 @@ bool IOPCIRangeAppendSubRange(IOPCIRange ** list,
             continue;
         if (newRange->start && !range->start)
             break;
+		if ((kIOPCIRangeFlagSplay & newRange->flags) && !(kIOPCIRangeFlagSplay & range->flags))
+			continue;
         if (newRange->alignment > range->alignment)
             break;
     }

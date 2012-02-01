@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2011 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/uk.xml
@@ -10,7 +10,7 @@
  *  ICU <specials> source: <path>/xml/main/uk.xml
  */
 uk{
-    AuxExemplarCharacters{"[a b c d e f g h i j k l m n o p q r s t u v w x y z]"}
+    AuxExemplarCharacters{"[]"}
     ExemplarCharacters{"[ʼ а б в г ґ д е є ж з и і ї й к л м н о п р с т у ф х ц ч ш щ ь ю я]"}
     ExemplarCharactersCurrency{"[a b c č d e f g h i j k l ł m n o º p q r s t u v w x y z]"}
     ExemplarCharactersIndex{"[А Б В Г Ґ Д Е Є Ж З И І Ї Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ю Я]"}
@@ -27,10 +27,12 @@ uk{
             }
             symbols{
                 decimal{","}
+                exponential{"Е"}
                 group{" "}
                 infinity{"∞"}
                 list{";"}
                 minusSign{"-"}
+                nan{"Не число"}
                 perMille{"‰"}
                 percentSign{"%"}
                 plusSign{"+"}
@@ -85,19 +87,31 @@ uk{
                 HHmm{"HH:mm"}
                 HHmmss{"HH:mm:ss"}
                 Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, dd.MM"}
                 MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMEd{"E, d MMMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 MMdd{"dd.MM"}
+                Md{"dd.MM"}
                 d{"d"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
                 y{"y"}
+                yM{"MM.yyyy"}
+                yMEd{"EEE, dd.MM.yyyy"}
                 yMMM{"LLL y"}
                 yMMMEd{"EEE, d MMM y"}
                 yMMMM{"LLLL y"}
+                yMMMd{"d MMM y"}
+                yMd{"dd.MM.yy"}
+                yQ{"Q yyyy"}
+                yQQQ{"QQQ y"}
                 yyMM{"MM.yy"}
                 yyMMM{"LLL yy"}
                 yyyyMMMM{"LLLL y"}
@@ -173,18 +187,33 @@ uk{
                 }
                 month{
                     dn{"Місяць"}
+                    relative{
+                        "-1"{"Минулого місяця"}
+                        "0"{"Цього місяця"}
+                        "1"{"Наступного місяця"}
+                    }
                 }
                 second{
                     dn{"Секунда"}
                 }
                 week{
                     dn{"Тиждень"}
+                    relative{
+                        "-1"{"Минулого тижня"}
+                        "0"{"Цього тижня"}
+                        "1"{"Наступного тижня"}
+                    }
                 }
                 weekday{
                     dn{"День тижня"}
                 }
                 year{
                     dn{"Рік"}
+                    relative{
+                        "-1"{"Минулого року"}
+                        "0"{"Цього року"}
+                        "1"{"Наступного року"}
+                    }
                 }
                 zone{
                     dn{"Зона"}
@@ -218,17 +247,21 @@ uk{
                 }
                 fallback{"{0} – {1}"}
                 h{
+                    a{"h a – h a"}
                     h{"h–h a"}
                 }
                 hm{
+                    a{"h:mm a – h:mm a"}
                     h{"h:mm–h:mm a"}
                     m{"h:mm–h:mm a"}
                 }
                 hmv{
+                    a{"h:mm a – h:mm a v"}
                     h{"h:mm–h:mm a v"}
                     m{"h:mm–h:mm a v"}
                 }
                 hv{
+                    a{"h a – h a v"}
                     h{"h–h a v"}
                 }
                 y{
@@ -251,6 +284,10 @@ uk{
                     M{"E, d MMM – E, d MMM y"}
                     d{"E, d – E, d MMM y"}
                     y{"E, d MMM y – E, d MMM y"}
+                }
+                yMMMM{
+                    M{"LLLL – LLLL y"}
+                    y{"LLLL y – LLLL y"}
                 }
                 yMMMd{
                     M{"d MMM – d MMM y"}
@@ -347,11 +384,31 @@ uk{
                         "III кв.",
                         "IV кв.",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
                     wide{
                         "I квартал",
                         "II квартал",
                         "III квартал",
                         "IV квартал",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "1-й кв.",
+                        "2-й кв.",
+                        "3-й кв.",
+                        "4-й кв.",
+                    }
+                    wide{
+                        "1-й квартал",
+                        "2-й квартал",
+                        "3-й квартал",
+                        "4-й квартал",
                     }
                 }
             }
@@ -432,6 +489,7 @@ uk{
         }
     }
     measurementSystemNames{
+        UK{"Британська"}
         US{"США"}
         metric{"Метрична"}
     }

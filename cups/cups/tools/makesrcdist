@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: makesrcdist 7776 2008-07-22 20:46:55Z mike $"
+# "$Id: makesrcdist 9852 2011-07-06 20:14:24Z mike $"
 #
 # makesrcdist - make a source distribution of CUPS.
 #
@@ -54,7 +54,6 @@ cd ..
 echo Configuring...
 autoconf -f
 rm -rf autom4te*.cache
-rm -rf standards
 rm -rf tools
 cd ..
 
@@ -87,5 +86,5 @@ rm -rf cups-$version
 echo "Done!"
 
 #
-# End of "$Id: makesrcdist 7776 2008-07-22 20:46:55Z mike $".
+# End of "$Id: makesrcdist 9852 2011-07-06 20:14:24Z mike $".
 #

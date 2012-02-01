@@ -329,8 +329,6 @@ main(int ac, char *av[])
 			fprintf(stderr, "Usage: [-d] [-t maxidle]\n");
 			exit(EXIT_FAILURE);
 		}
-	ac -= optind;
-	av += optind;
 
 	initialize_logging ();
 

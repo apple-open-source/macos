@@ -1,6 +1,5 @@
-diff -aur postgresql-9.0.2/src/backend/libpq/auth.c postgresql/src/backend/libpq/auth.c
---- postgresql-9.0.2/src/backend/libpq/auth.c	2010-12-13 18:55:50.000000000 -0800
-+++ postgresql/PostgreSQL/src/backend/libpq/auth.c	2010-12-17 02:27:23.000000000 -0800
+--- postgresql-9.0.5/src/backend/libpq/auth.c	2011-09-22 15:00:48.000000000 -0700
++++ postgresql/src/backend/libpq/auth.c	2011-10-19 15:12:25.000000000 -0700
 @@ -28,6 +28,7 @@
  #include <arpa/inet.h>
  #include <unistd.h>
@@ -9,7 +8,7 @@ diff -aur postgresql-9.0.2/src/backend/libpq/auth.c postgresql/src/backend/libpq
  
  #include "libpq/auth.h"
  #include "libpq/crypt.h"
-@@ -2618,7 +2619,7 @@
+@@ -2634,7 +2635,7 @@
  	struct addrinfo *serveraddrs;
  	char		portstr[128];
  	ACCEPT_TYPE_ARG3 addrsize;
@@ -18,7 +17,7 @@ diff -aur postgresql-9.0.2/src/backend/libpq/auth.c postgresql/src/backend/libpq
  	struct timeval endtime;
  	int			i,
  				r;
-@@ -2785,6 +2786,8 @@
+@@ -2801,6 +2802,8 @@
  	 */
  	gettimeofday(&endtime, NULL);
  	endtime.tv_sec += RADIUS_TIMEOUT;
@@ -27,7 +26,7 @@ diff -aur postgresql-9.0.2/src/backend/libpq/auth.c postgresql/src/backend/libpq
  
  	while (true)
  	{
-@@ -2801,13 +2804,10 @@
+@@ -2817,13 +2820,10 @@
  			closesocket(sock);
  			return STATUS_ERROR;
  		}

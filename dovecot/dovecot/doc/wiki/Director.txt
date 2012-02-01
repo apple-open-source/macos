@@ -130,6 +130,13 @@ lmtp_proxy = yes
 protocol lmtp {
   auth_socket_path = director-userdb
 }
+
+# If you want lmtp-proxy listening on the network, uncomment the following:
+#service lmtp {
+#  inet_listener lmtp {
+#    port = 24
+#  }
+#}
 ---%<-------------------------------------------------------------------------
 
 Passdb configuration
@@ -152,6 +159,39 @@ passdb {
 }
 ---%<-------------------------------------------------------------------------
 
+Doveadm server
+--------------
+
+Use these settings for both director and backends:
+
+---%<-------------------------------------------------------------------------
+service doveadm {
+  inet_listener {
+    # any port you want to use for this:
+    port = 24245
+  }
+}
+# same port as above
+doveadm_proxy_port = 24245
+local 10.10.10.0/24 {
+  # password to use for client authentication
+  doveadm_password = secret
+  # allow client to only use specified list of commands (default is all):
+  #doveadm_allowed_commands =
+}
+---%<-------------------------------------------------------------------------
+
+The director also needs the following configuration:
+
+---%<-------------------------------------------------------------------------
+protocol doveadm {
+  auth_socket_path = director-userdb
+}
+---%<-------------------------------------------------------------------------
+
+Now you can run doveadm commands on the director, and it'll run them
+automatically on the correct backend server.
+
 Health monitoring of backend servers
 ------------------------------------
 
@@ -159,4 +199,4 @@ Brad Davidson has written a small daemon for monitoring backend servers, and
 disable/enable them on demand.
 Ref:http://www.dovecot.org/list/dovecot/2010-August/051946.html
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

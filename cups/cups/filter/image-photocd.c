@@ -1,5 +1,5 @@
 /*
- * "$Id: image-photocd.c 7221 2008-01-16 22:20:08Z mike $"
+ * "$Id: image-photocd.c 9771 2011-05-12 05:21:56Z mike $"
  *
  *   PhotoCD routines for CUPS.
  *
@@ -329,5 +329,5 @@ _cupsImageReadPhotoCD(
 
 
 /*
- * End of "$Id: image-photocd.c 7221 2008-01-16 22:20:08Z mike $".
+ * End of "$Id: image-photocd.c 9771 2011-05-12 05:21:56Z mike $".
  */

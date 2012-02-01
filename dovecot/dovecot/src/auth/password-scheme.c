@@ -127,16 +127,22 @@ const char *password_get_scheme(const char **password)
 }
 
 int password_decode(const char *password, const char *scheme,
-		    const unsigned char **raw_password_r, size_t *size_r)
+		    const unsigned char **raw_password_r, size_t *size_r,
+		    const char **error_r)
 {
 	const struct password_scheme *s;
 	enum password_encoding encoding;
 	buffer_t *buf;
 	unsigned int len;
+	bool guessed_encoding;
+
+	*error_r = NULL;
 
 	s = password_scheme_lookup(scheme, &encoding);
-	if (s == NULL)
+	if (s == NULL) {
+		*error_r = "Unknown scheme";
 		return 0;
+	}
 
 	len = strlen(password);
 	if (encoding != PW_ENCODING_NONE && s->raw_password_len != 0 &&
@@ -145,8 +151,11 @@ int password_decode(const char *password, const char *scheme,
 		   base64 and hex encodings. the only problem is distinguishing
 		   2 character strings, but there shouldn't be any that short
 		   raw_password_lens. */
-		encoding = len == s->raw_password_len * 2 ? PW_ENCODING_HEX :
-			PW_ENCODING_BASE64;
+		encoding = len == s->raw_password_len * 2 ?
+			PW_ENCODING_HEX : PW_ENCODING_BASE64;
+		guessed_encoding = TRUE;
+	} else {
+		guessed_encoding = FALSE;
 	}
 
 	switch (encoding) {
@@ -162,14 +171,20 @@ int password_decode(const char *password, const char *scheme,
 			*size_r = buf->used;
 			break;
 		}
+		if (!guessed_encoding) {
+			*error_r = "Input isn't valid HEX encoded data";
+			return -1;
+		}
 		/* fall through, just in case it was base64-encoded after
 		   all. some input lengths produce matching hex and base64
 		   encoded lengths. */
 	case PW_ENCODING_BASE64:
 		buf = buffer_create_dynamic(pool_datastack_create(),
 					    MAX_BASE64_DECODED_SIZE(len));
-		if (base64_decode(password, len, NULL, buf) < 0)
+		if (base64_decode(password, len, NULL, buf) < 0) {
+			*error_r = "Input isn't valid base64 encoded data";
 			return -1;
+		}
 
 		*raw_password_r = buf->data;
 		*size_r = buf->used;
@@ -177,6 +192,9 @@ int password_decode(const char *password, const char *scheme,
 	}
 	if (s->raw_password_len != *size_r && s->raw_password_len != 0) {
 		/* password has invalid length */
+		*error_r = t_strdup_printf(
+			"Input length isn't valid (%u instead of %u)",
+			(unsigned int)*size_r, s->raw_password_len);
 		return -1;
 	}
 	return 1;
@@ -272,11 +290,13 @@ password_scheme_detect(const char *plain_password, const char *crypted_password,
 	unsigned int i, count;
 	const unsigned char *raw_password;
 	size_t raw_password_size;
+	const char *error;
 
 	schemes = array_get(&password_schemes, &count);
 	for (i = 0; i < count; i++) {
 		if (password_decode(crypted_password, schemes[i]->name,
-				    &raw_password, &raw_password_size) <= 0)
+				    &raw_password, &raw_password_size,
+				    &error) <= 0)
 			continue;
 
 		if (password_verify(plain_password, user, schemes[i]->name,
@@ -324,7 +344,7 @@ static bool
 md5_verify(const char *plaintext, const char *user,
 	   const unsigned char *raw_password, size_t size)
 {
-	const char *password, *str;
+	const char *password, *str, *error;
 	const unsigned char *md5_password;
 	size_t md5_size;
 
@@ -334,7 +354,7 @@ md5_verify(const char *plaintext, const char *user,
 		str = password_generate_md5_crypt(plaintext, password);
 		return strcmp(str, password) == 0;
 	} else if (password_decode(password, "PLAIN-MD5",
-				   &md5_password, &md5_size) < 0) {
+				   &md5_password, &md5_size, &error) < 0) {
 		i_error("md5_verify(%s): Not a valid MD5-CRYPT or "
 			"PLAIN-MD5 password", user);
 		return FALSE;

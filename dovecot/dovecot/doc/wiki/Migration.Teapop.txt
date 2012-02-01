@@ -70,4 +70,4 @@ with Status,X-Status,Lines and Content-Length, for each mail and insert the
 X-UIDL: after the Return-Path line. After that you can use the mb2md
 script.Important: You must set the 'pop3_reuse_xuidl=yes'.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

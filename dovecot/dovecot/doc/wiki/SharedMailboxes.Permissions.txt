@@ -105,6 +105,32 @@ only by looking at the mailbox root directories' permissions, not individual
 mail files. This may become a problem if the mail files' permissions aren't as
 Dovecot expects.
 
+Permissions to new user directories
+-----------------------------------
+
+If each user has different UIDs and you have '/var/mail/domain/user/' style
+directories, you run into a bit of trouble. The problem is that the first user
+who creates '/var/mail/domain/' will create it as 0700 mode, and other users
+can't create their own user/ directories under it anymore. The solution is to
+use a common group for the users and set '/var/mail/' directory's permissions
+properly (group-suid is required):
+
+---%<-------------------------------------------------------------------------
+chgrp dovemail /var/mail
+chmod 02770 /var/mail # or perhaps 03770 for extra security
+---%<-------------------------------------------------------------------------
+
+and in dovecot.conf:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:/var/vmail/%d/%n/Maildir
+mail_access_groups = dovemail
+---%<-------------------------------------------------------------------------
+
+Note that this requires that the mail_location setting is in its explicit
+format with %variables. Using 'maildir:~/Maildir' won't work, because Dovecot
+can't really know how far down it should copy the permissions from.
+
 Mail Delivery Agent permissions
 -------------------------------
 
@@ -125,4 +151,4 @@ initial permissions on parent directory's permissions. After the initial
 creation, the permissions are permanently preserved. So if you want to use
 different permissions, just chown/chmod the file.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

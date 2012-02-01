@@ -234,6 +234,8 @@ static bool ext_include_binary_open
 (const struct sieve_extension *ext, struct sieve_binary *sbin, void *context)
 {
 	struct sieve_instance *svinst = ext->svinst;
+	struct ext_include_context *ext_ctx =
+		(struct ext_include_context *)ext->context;
 	struct ext_include_binary_context *binctx = 
 		(struct ext_include_binary_context *) context;
 	struct sieve_binary_block *sblock;
@@ -254,10 +256,10 @@ static bool ext_include_binary_open
 	}
 	
 	/* Check include limit */	
-	if ( depcount > EXT_INCLUDE_MAX_INCLUDES ) {
+	if ( depcount > ext_ctx->max_includes ) {
 		sieve_sys_error(svinst,
 			"include: binary %s includes too many scripts (%u > %u)",
-			sieve_binary_path(sbin), depcount, EXT_INCLUDE_MAX_INCLUDES); 
+			sieve_binary_path(sbin), depcount, ext_ctx->max_includes); 
 		return FALSE;
 	}
 	

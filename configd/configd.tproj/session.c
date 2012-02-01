@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -391,8 +391,7 @@ hasEntitlement(serverSessionRef session, CFStringRef entitlement)
 			      CFSTR("hasEntitlement SecTaskCopyValueForEntitlement() %s, error domain=%@, error code=%lx"),
 			      (value == NULL) ? "failed" : "warned",
 			      CFErrorGetDomain(error),
-			      CFErrorGetCode(error),
-			      sessionName(session));
+			      CFErrorGetCode(error));
 			CFRelease(error);
 		}
 

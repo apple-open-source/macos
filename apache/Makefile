@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.2.20
+Version    = 2.2.21
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = patch-config.layout \
@@ -20,7 +20,8 @@ Patch_List = patch-config.layout \
              PR-6182207.diff \
              PR-7484748-EALREADY.diff \
              PR-7652362-ulimit.diff \
-             PR-6223104.diff
+             PR-6223104.diff \
+             PR-10154185.diff
 
 Configure_Flags = --prefix=/usr \
                   --enable-layout=Darwin \

@@ -652,7 +652,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         if (err != kIOReturnSuccess)
         {
             // any err coming back in the callback indicates a stalled pipe
-            if (err && (err != kIOUSBTransactionTimeout))
+            if (err && (err != kIOUSBTransactionTimeout) && (err != kIOReturnAborted))
             {
                 USBLog(2, "IOUSBPipe[%p]::Read  - i/o err (0x%x) on sync call - stalling pipe", this, err);
                 _CORRECTSTATUS = kIOUSBPipeStalled;
@@ -735,7 +735,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         if (err != kIOReturnSuccess)
         {
             // any err coming back in the callback indicates a stalled pipe
-            if (err && (err != kIOUSBTransactionTimeout))
+            if (err && (err != kIOUSBTransactionTimeout) && (err != kIOReturnAborted))
             {
                 USBLog(2, "IOUSBPipe[%p]::Read  - i/o err (0x%x) on sync call - stalling pipe", this, err);
                 _CORRECTSTATUS = kIOUSBPipeStalled;
@@ -836,7 +836,7 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
         if (err != kIOReturnSuccess)
         {
             // any err coming back in the callback indicates a stalled pipe
-            if (err && (err != kIOUSBTransactionTimeout))
+            if (err && (err != kIOUSBTransactionTimeout) && (err != kIOReturnAborted))
             {
                 USBLog(2, "IOUSBPipe[%p]::Write  - i/o err (0x%x) on sync call - stalling pipe", this, err);
                 _CORRECTSTATUS = kIOUSBPipeStalled;

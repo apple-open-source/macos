@@ -59,6 +59,10 @@ typedef struct _ntfs_inode ntfs_inode;
 typedef struct _ntfs_attr ntfs_attr;
 struct _ntfs_dirhint;
 
+/* Structures associated with ntfs inode caching. */
+typedef LIST_HEAD(, _ntfs_inode) ntfs_inode_list_head;
+typedef LIST_ENTRY(_ntfs_inode) ntfs_inode_list_entry;
+
 #include "ntfs_layout.h"
 #include "ntfs_runlist.h"
 #include "ntfs_sfm.h"
@@ -68,7 +72,7 @@ struct _ntfs_dirhint;
 
 /* The NTFS in-memory inode structure. */
 struct _ntfs_inode {
-	LIST_ENTRY(_ntfs_inode)	hash; /* Hash bucket list this inode is in. */
+	ntfs_inode_list_entry hash; /* Hash bucket list this inode is in. */
 	ntfs_volume *vol;	/* Pointer to the ntfs volume of this inode. */
 	vnode_t vn;		/* Vnode attached to the ntfs inode or NULL if
 				   this is an extent ntfs inode. */
@@ -189,6 +193,7 @@ struct _ntfs_inode {
 	 * The following fields are only valid for real inodes and extent
 	 * inodes.
 	 */
+	ntfs_inode *mft_ni;	/* Pointer to the ntfs inode of $MFT. */
 	buf_t m_buf;		/* Buffer containing the mft record of the
 				   inode.  This should only be touched by the
 				   ntfs_*mft_record_(un)map() functions. */
@@ -276,6 +281,8 @@ struct _ntfs_inode {
 							  NULL. */
 		};
 	};
+	ntfs_inode_list_entry inodes;	/* List of ntfs inodes attached to the
+					   ntfs volume. */
 };
 
 /*

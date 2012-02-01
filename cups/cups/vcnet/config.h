@@ -1,5 +1,5 @@
 /*
- * "$Id: config.h 9306 2010-09-16 21:43:57Z mike $"
+ * "$Id: config.h 9793 2011-05-20 03:49:49Z mike $"
  *
  *   Configuration file for CUPS on Windows.
  *
@@ -784,5 +784,5 @@
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h 9306 2010-09-16 21:43:57Z mike $".
+ * End of "$Id: config.h 9793 2011-05-20 03:49:49Z mike $".
  */

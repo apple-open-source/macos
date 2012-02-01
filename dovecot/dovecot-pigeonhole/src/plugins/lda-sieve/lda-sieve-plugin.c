@@ -42,13 +42,13 @@ static deliver_mail_func_t *next_deliver_mail;
 static const char *lda_sieve_get_homedir
 (void *context)
 {
-	struct mail_user *mail_user = (struct mail_user *) context;
+	struct mail_deliver_context *mdctx = (struct mail_deliver_context *)context;
 	const char *home = NULL;
 
-	if ( mail_user == NULL )
+	if ( mdctx == NULL || mdctx->dest_user == NULL )
 		return NULL;
 
-	if ( mail_user_get_home(mail_user, &home) <= 0 )
+	if ( mail_user_get_home(mdctx->dest_user, &home) <= 0 )
 		return NULL;
 
 	return home;
@@ -57,12 +57,19 @@ static const char *lda_sieve_get_homedir
 static const char *lda_sieve_get_setting
 (void *context, const char *identifier)
 {
-	struct mail_user *mail_user = (struct mail_user *) context;
+	struct mail_deliver_context *mdctx = (struct mail_deliver_context *)context;
+	const char *value = NULL;
 
-	if ( mail_user == NULL )
+	if ( mdctx == NULL )
 		return NULL;
 
-	return mail_user_plugin_getenv(mail_user, identifier);	
+	if ( mdctx->dest_user == NULL ||
+		(value=mail_user_plugin_getenv(mdctx->dest_user, identifier)) == NULL ) {
+		if ( strcmp(identifier, "recipient_delimiter") == 0 )
+			value = mdctx->set->recipient_delimiter;
+	}
+
+	return value;
 }
 
 static const struct sieve_environment lda_sieve_env = {
@@ -665,7 +672,7 @@ static int lda_sieve_deliver_mail
 
 	/* Initialize Sieve engine */
 
-	svinst = sieve_init(&lda_sieve_env, mdctx->dest_user, debug);
+	svinst = sieve_init(&lda_sieve_env, mdctx, debug);
 
 	/* Initialize master error handler */
 

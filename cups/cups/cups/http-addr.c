@@ -1,5 +1,5 @@
 /*
- * "$Id: http-addr.c 7910 2008-09-06 00:25:17Z mike $"
+ * "$Id: http-addr.c 9868 2011-08-06 04:53:00Z mike $"
  *
  *   HTTP address routines for CUPS.
  *
@@ -366,7 +366,12 @@ httpAddrString(const http_addr_t *addr,	/* I - Address to convert */
 
 #ifdef AF_LOCAL
   if (addr->addr.sa_family == AF_LOCAL)
-    strlcpy(s, addr->un.sun_path, slen);
+  {
+    if (addr->un.sun_path[0] == '/')
+      strlcpy(s, addr->un.sun_path, slen);
+    else
+      strlcpy(s, "localhost", slen);
+  }
   else
 #endif /* AF_LOCAL */
   if (addr->addr.sa_family == AF_INET)
@@ -696,5 +701,5 @@ httpGetHostname(http_t *http,		/* I - HTTP connection or NULL */
 
 
 /*
- * End of "$Id: http-addr.c 7910 2008-09-06 00:25:17Z mike $".
+ * End of "$Id: http-addr.c 9868 2011-08-06 04:53:00Z mike $".
  */

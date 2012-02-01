@@ -238,6 +238,8 @@ int ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
             sc->fips = FALSE;
         }
 #endif
+        if (sc->allow_empty_fragments == UNSET)
+            sc->allow_empty_fragments = TRUE;
     }
 
 #if APR_HAS_THREADS
@@ -484,6 +486,10 @@ static void ssl_init_ctx_protocol(server_rec *s,
     mctx->ssl_ctx = ctx;
 
     SSL_CTX_set_options(ctx, SSL_OP_ALL);
+
+    if (sc->allow_empty_fragments) {
+        SSL_CTX_clear_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
+    }
 
     if (!(protocol & SSL_PROTOCOL_SSLV2)) {
         SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);

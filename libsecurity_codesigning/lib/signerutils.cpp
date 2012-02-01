@@ -215,7 +215,7 @@ void MachOEditor::childAction()
 	for (Iterator it = architecture.begin(); it != architecture.end(); ++it) {
 		size_t size = LowLevelMemoryUtilities::alignUp(it->second->blobSize, csAlign);
 		char *ssize;			// we'll leak this (execv is coming soon)
-		asprintf(&ssize, "%d", size);
+		asprintf(&ssize, "%zd", size);
 
 		if (const char *arch = it->first.name()) {
 			CODESIGN_ALLOCATE_ARCH((char*)arch, size);

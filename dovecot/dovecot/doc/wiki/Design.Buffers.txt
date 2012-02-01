@@ -56,4 +56,4 @@ want to just temporarily shrink the buffer size and then change it back, you
 can use 'buffer_set_used_size()' to grow it back to its original size (but no
 larger).
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

@@ -1,5 +1,5 @@
 /*
- * "$Id: testhttp.c 7742 2008-07-15 20:23:09Z mike $"
+ * "$Id: testhttp.c 9731 2011-04-29 22:45:35Z mike $"
  *
  *   HTTP test program for CUPS.
  *
@@ -167,6 +167,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 {
   int		i, j, k;		/* Looping vars */
   http_t	*http;			/* HTTP connection */
+  http_encryption_t encryption;		/* Encryption type */
   http_status_t	status;			/* Status of GET command */
   int		failures;		/* Number of test failures */
   char		buffer[8192];		/* Input buffer */
@@ -541,7 +542,13 @@ main(int  argc,				/* I - Number of command-line arguments */
                     hostname, sizeof(hostname), &port,
 		    resource, sizeof(resource));
 
-    http = httpConnectEncrypt(hostname, port, HTTP_ENCRYPT_IF_REQUESTED);
+    if (!_cups_strcasecmp(scheme, "https") || !_cups_strcasecmp(scheme, "ipps") ||
+        port == 443)
+      encryption = HTTP_ENCRYPT_ALWAYS;
+    else
+      encryption = HTTP_ENCRYPT_IF_REQUESTED;
+
+    http = httpConnectEncrypt(hostname, port, encryption);
     if (http == NULL)
     {
       perror(hostname);
@@ -557,7 +564,6 @@ main(int  argc,				/* I - Number of command-line arguments */
       puts("GET OK:");
     else
       printf("GET failed with status %d...\n", status);
-
 
     start  = time(NULL);
     length = httpGetLength2(http);
@@ -590,5 +596,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: testhttp.c 7742 2008-07-15 20:23:09Z mike $".
+ * End of "$Id: testhttp.c 9731 2011-04-29 22:45:35Z mike $".
  */

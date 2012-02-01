@@ -55,7 +55,7 @@ enum {
 //
 // Diagnostics and utility helpers
 //
-void fail(const char *format, ...);
+void fail(const char *format, ...) __attribute((noreturn));
 void note(unsigned level, const char *format, ...);
 void diagnose(const char *context = NULL, int stop = 0);
 void diagnose(const char *context, CFErrorRef err);
@@ -68,14 +68,17 @@ struct Fail : public std::exception {	// thrown by fail() if continueOnErrors
 
 
 //
-// A helper class to handle CFError-returning API calls
+// Helper classes to handle CFError-returning API calls
 //
 class ErrorCheck {
 public:
 	ErrorCheck() : mError(NULL) { }
 	
 	operator CFErrorRef * () { return &mError; }
-	void operator () (OSStatus rc);
+	void operator () (OSStatus rc)
+		{ if (rc != noErr) throwError(); }
+	void operator () (Boolean success)
+		{ if (!success) throwError(); }
 	
 public:
 	struct Error {
@@ -83,8 +86,20 @@ public:
 		CFErrorRef error;
 	};
 	
-private:
+protected:
 	CFErrorRef mError;
+	void throwError();
+};
+
+template <class T>
+class CheckedRef : public CFRef<T>, public ErrorCheck {
+public:
+	void check(T value)
+	{
+		this->take(value);
+		if (value == NULL)
+			throwError();
+	}
 };
 
 

@@ -195,7 +195,6 @@ parse_entry(const char *key, const char *mapname, const char *mapopts,
 	char **stkptr = stack;
 	struct mapline ml;
 	bool_t iswildcard;
-	const char *p;
 	char defaultopts[AUTOFS_MAXOPTSLEN];
 
 	struct mapent *mapents = NULL;
@@ -276,20 +275,6 @@ parse_entry(const char *key, const char *mapname, const char *mapopts,
 		/*
 		 * All other maps.
 		 */
-
-		/*
-		 * Assure the key is only one token long.
-		 * This prevents options from sneaking in through the
-		 * command line or corruption of /etc/mnttab.
-		 */
-		for (p = key; *p != '\0'; p++) {
-			if (isspace(*p)) {
-				syslog(LOG_ERR,
-				"parse_entry: bad key in map %s: %s", mapname, key);
-				*err = EIO;
-				return ((struct mapent *)NULL);
-			}
-		}
 
 		/* Is there an entry for that map/key in the readdir cache? */
 		dirp = rddir_entry_lookup(mapname, key);

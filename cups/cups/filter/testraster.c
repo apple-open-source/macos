@@ -1,5 +1,5 @@
 /*
- * "$Id: testraster.c 7376 2008-03-19 21:07:45Z mike $"
+ * "$Id: testraster.c 9870 2011-08-06 06:32:26Z mike $"
  *
  *   Raster test program routines for CUPS.
  *
@@ -692,6 +692,12 @@ do_raster_tests(cups_mode_t mode)	/* O - Write mode */
     expected.cupsHeight       = 256;
     expected.cupsBytesPerLine = 256;
 
+    if (mode == CUPS_RASTER_WRITE_PWG)
+    {
+      strlcpy(expected.MediaClass, "PwgRaster", sizeof(expected.MediaClass));
+      expected.cupsInteger[7] = 0xffffff;
+    }
+
     if (page & 1)
     {
       expected.cupsBytesPerLine *= 2;
@@ -1074,5 +1080,5 @@ print_changes(
 
 
 /*
- * End of "$Id: testraster.c 7376 2008-03-19 21:07:45Z mike $".
+ * End of "$Id: testraster.c 9870 2011-08-06 06:32:26Z mike $".
  */

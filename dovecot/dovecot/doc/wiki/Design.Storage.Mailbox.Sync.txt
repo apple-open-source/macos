@@ -125,4 +125,4 @@ Implementing sync for a storage backend
 FIXME: talk about mail_index_sync_*() and how to change stuff and how to update
 internal state.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

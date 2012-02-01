@@ -1,8 +1,8 @@
 /*
  * ntfs_volume.h - Defines for volume structures in the NTFS kernel driver.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -196,6 +196,10 @@ struct _ntfs_volume {
 	ntfs_inode *usnjrnl_ni;		/* The ntfs inode of $UsnJrnl. */
 	ntfs_inode *usnjrnl_max_ni;	/* Attribute inode for $UsnJrnl/$Max. */
 	ntfs_inode *usnjrnl_j_ni;	/* Attribute inode for $UsnJrnl/$J. */
+
+	ntfs_inode_list_head inodes;	/* List of all loaded ntfs_inodes. */
+	lck_mtx_t inodes_lock;		/* Lock protecting access to inodes
+					   list. */
 };
 
 /*
@@ -217,6 +221,8 @@ enum {
 				      store security descriptors instead of
 				      storing them in the common system file
 				      $Secure. */
+	NV_PostponedRelease,	/* 1: Postponed release of volume has been
+				      scheduled. */
 };
 
 /*
@@ -249,5 +255,6 @@ DEFINE_NVOL_BIT_OPS(SparseEnabled)
 DEFINE_NVOL_BIT_OPS(CompressionEnabled)
 DEFINE_NVOL_BIT_OPS(ReadOnly)
 DEFINE_NVOL_BIT_OPS(UseSDAttr)
+DEFINE_NVOL_BIT_OPS(PostponedRelease)
 
 #endif /* !_OSX_NTFS_VOLUME_H */

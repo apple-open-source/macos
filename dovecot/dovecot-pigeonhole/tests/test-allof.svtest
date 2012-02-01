@@ -156,3 +156,291 @@ test "Basic functionality: dynamic" {
 	}
 }
 
+/*
+ * TEST: Basic functionality: static/dynamic
+ */
+
+test "Basic functionality: static/dynamic" {
+	/* All true */
+
+	if allof ( true, exists "to", exists "cc" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong all-true first-static outcome: false";
+	}
+
+	if allof ( exists "from", true, exists "cc" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong all-true second-static outcome: false";
+	}
+
+	if allof ( exists "from", exists "to", true ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong all-true third-static outcome: false";
+	}
+
+	/* All false */
+
+	if allof ( false, exists "frop", exists "frml" ) {
+		test_fail "chose wrong all-false first-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", false, exists "frml" ) {
+		test_fail "chose wrong all-false second-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", exists "frop", false ) {
+		test_fail "chose wrong all-false third-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	/* First true */
+
+	if allof ( true, exists "frop", exists "frml" ) {
+		test_fail "chose wrong first-true first-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "to", false, exists "frml" ) {
+		test_fail "chose wrong first-true second-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "to", exists "frop", false ) {
+		test_fail "chose wrong first-true third-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	/* Second true */
+	
+	if allof ( false, exists "from", exists "frml" ) {
+		test_fail "chose wrong second-true first-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", true, exists "frml" ) {
+		test_fail "chose wrong second-true second-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", exists "from", false ) {
+		test_fail "chose wrong second-true third-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	/* Last true */
+
+	if allof ( false, exists "frop", exists "cc" ) {
+		test_fail "chose wrong last-true first-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", false, exists "cc" ) {
+		test_fail "chose wrong last-true second-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", exists "frop", true ) {
+		test_fail "chose wrong last-true third-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	/* First false */
+
+	if allof ( false, exists "from", exists "cc" ) {
+		test_fail "chose wrong first-false first-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", true, exists "cc" ) {
+		test_fail "chose wrong first-false second-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", exists "from", true ) {
+		test_fail "chose wrong first-false third-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	/* Second false */
+	
+	if allof ( true, exists "frop", exists "cc" ) {
+		test_fail "chose wrong second-false first-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "to", false, exists "cc" ) {
+		test_fail "chose wrong second-false second-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "to", exists "frop", true ) {
+		test_fail "chose wrong second-false third-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	/* Last false */
+
+	if allof ( true, exists "from", exists "frml" ) {
+		test_fail "chose wrong last-false first-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "to", true, exists "frml" ) {
+		test_fail "chose wrong last-false second-static outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "to", exists "from", false ) {
+		test_fail "chose wrong last-false last-static outcome: true";
+	} else {
+		/* Correct */
+	}
+}
+
+/*
+ * TEST: Basic functionality: nesting
+ */
+
+test "Basic functionality: nesting" {
+	/* Static */
+
+	if allof ( allof(true, true), allof(true, true) ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong static nesting ((true, true),(true,true)) outcome: false";
+	}
+
+	if allof ( allof(false, true), allof(true, true) ) {
+		test_fail "chose wrong static nesting ((false, true),(true,true)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(true, false), allof(true, true) ) {
+		test_fail "chose wrong static nesting ((true,false),(true,true)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(true, true), allof(false, true) ) {
+		test_fail "chose wrong static nesting ((true, true),(false,true)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(true, true), allof(true, false) ) {
+		test_fail "chose wrong static nesting ((true, true),(true,false)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(true, false), allof(true, false) ) {
+		test_fail "chose wrong static nesting ((true, false),(true,false)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	/* Dynamic */
+
+	if allof ( allof(exists "to", exists "from"), allof(exists "cc", exists "subject") ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong dynamic nesting ((true, true),(true,true)) outcome: false";
+	}
+
+	if allof ( allof(exists "frop", exists "from"), allof(exists "cc", exists "subject") ) {
+		test_fail "chose wrong dynamic nesting ((false, true),(true,true)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(exists "to", exists "friep"), allof(exists "cc", exists "subject") ) {
+		test_fail "chose wrong dynamic nesting ((true,false),(true,true)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(exists "to", exists "from"), allof(exists "frml", exists "subject") ) {
+		test_fail "chose wrong dynamic nesting ((true, true),(false,true)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(exists "to", exists "from"), allof(exists "cc", exists "fruts") ) {
+		test_fail "chose wrong dynamic nesting ((true, true),(true,false)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(exists "to", exists "friep"), allof(exists "cc", exists "fruts") ) {
+		test_fail "chose wrong dynamic nesting ((true, false),(true,false)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	/* Static/Dynamic */
+
+	if allof ( allof(exists "to", true), allof(true, exists "subject") ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong static/dynamic nesting ((true, true),(true,true)) outcome: false";
+	}
+
+	if allof ( allof(false, exists "from"), allof(exists "cc", exists "subject") ) {
+		test_fail "chose wrong static/dynamic nesting ((false, true),(true,true)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(exists "to", false), allof(exists "cc", exists "subject") ) {
+		test_fail "chose wrong static/dynamic nesting ((true,false),(true,true)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(exists "to", exists "from"), allof(false, exists "subject") ) {
+		test_fail "chose wrong static/dynamic nesting ((true, true),(false,true)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(exists "to", exists "from"), allof(exists "cc", false) ) {
+		test_fail "chose wrong static/dynamic nesting ((true, true),(true,false)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( allof(exists "to", false), allof(true, exists "fruts") ) {
+		test_fail "chose wrong static/dynamic nesting ((true, false),(true,false)) outcome: true";
+	} else {
+		/* Correct */
+	}
+
+}
+
+

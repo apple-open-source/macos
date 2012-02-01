@@ -118,7 +118,8 @@ static const struct sieve_command_def reject_command = {
 	SCT_COMMAND, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL,
-	cmd_reject_validate, 
+	cmd_reject_validate,
+	NULL,
 	cmd_reject_generate, 
 	NULL 
 };
@@ -134,7 +135,8 @@ static const struct sieve_command_def ereject_command = {
 	SCT_COMMAND, 
 	1, 0, FALSE, FALSE,
 	NULL, NULL,
-	cmd_reject_validate, 
+	cmd_reject_validate,
+	NULL,
 	cmd_reject_generate, 
 	NULL 
 };

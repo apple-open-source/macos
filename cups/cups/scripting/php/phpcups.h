@@ -1,5 +1,5 @@
 /*
- * "$Id: phpcups.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: phpcups.h 9771 2011-05-12 05:21:56Z mike $"
  *
  *   PHP module include file for CUPS.
  *
@@ -63,5 +63,5 @@ PHP_FUNCTION(cups_print_files);
 
 
 /*
- * End of "$Id: phpcups.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: phpcups.h 9771 2011-05-12 05:21:56Z mike $".
  */

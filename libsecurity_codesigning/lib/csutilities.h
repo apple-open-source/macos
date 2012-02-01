@@ -35,6 +35,8 @@
 #include <security_utilities/unix++.h>
 #include <security_cdsa_utilities/cssmdata.h>
 #include <copyfile.h>
+#include <asl.h>
+#include <cstdarg>
 
 namespace Security {
 namespace CodeSigning {
@@ -111,6 +113,20 @@ private:
 	
 private:
 	copyfile_state_t mState;
+};
+
+
+//
+// MessageTracer support
+//
+class MessageTrace {
+public:
+	MessageTrace(const char *domain, const char *signature);
+	void add(const char *key, const char *format, ...);
+	void send(const char *format, ...);
+
+private:
+	aslmsg mAsl;
 };
 
 

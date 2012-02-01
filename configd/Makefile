@@ -39,3 +39,21 @@ snow :
 	  -release $(shell cat /usr/share/buildit/.releaseName)	\
 	  -othercflags "\"$(SNOW_CFLAGS)\""			\
 
+#----------------------------------------------------------------------
+#
+# Build for Lion, SULionXXX, ...
+#
+#----------------------------------------------------------------------
+
+LION_CFLAGS=
+
+lion :
+	/usr/local/bin/buildit .				\
+	  -noinstallsrc -noinstallhdrs -noverify -nosum		\
+	  -arch i386 -arch x86_64				\
+	  -target All						\
+	  -project ${PROJECT}-${VERSION}			\
+	  -configuration Debug					\
+	  -release $(shell cat /usr/share/buildit/.releaseName)	\
+	  -othercflags "$(LION_CFLAGS)"				\
+

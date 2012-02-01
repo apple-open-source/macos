@@ -1,6 +1,8 @@
 /* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
+#include "imap-utf7.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "doveadm-print.h"
@@ -45,7 +47,7 @@ cmd_move_box(struct move_cmd_context *ctx, struct mailbox *destbox,
 		if (mailbox_copy(&save_ctx, mail) == 0)
 			mail_expunge(mail);
 		else {
-			i_error("Copying messsage UID %u from '%s' failed: %s",
+			i_error("Copying message UID %u from '%s' failed: %s",
 				mail->uid, info->name,
 				mail_storage_get_last_error(deststorage, NULL));
 			ret = -1;
@@ -112,9 +114,15 @@ static void cmd_move_init(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct move_cmd_context *ctx = (struct move_cmd_context *)_ctx;
 	const char *destname = args[0];
+	string_t *str;
 
 	if (destname == NULL || args[1] == NULL)
 		doveadm_mail_help_name("move");
+
+	str = t_str_new(128);
+	if (imap_utf8_to_utf7(destname, str) < 0)
+		i_fatal("Mailbox name not valid UTF-8: %s", destname);
+	destname = str_c(str);
 
 	ctx->destname = p_strdup(ctx->ctx.pool, destname);
 	ctx->ctx.search_args = doveadm_mail_build_search_args(args + 1);

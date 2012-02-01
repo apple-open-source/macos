@@ -21,6 +21,7 @@
 
 #include <openssl/crypto.h>
 #include <openssl/x509.h>
+#include <openssl/x509v3.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -808,6 +809,87 @@ bool ssl_proxy_has_broken_client_cert(struct ssl_proxy *proxy)
 	return proxy->cert_received && proxy->cert_broken;
 }
 
+static const char *asn1_string_to_c(ASN1_STRING *asn_str)
+{
+	const char *cstr;
+	unsigned int len;
+
+	len = ASN1_STRING_length(asn_str);
+	cstr = t_strndup(ASN1_STRING_data(asn_str), len);
+	if (strlen(cstr) != len) {
+		/* NULs in the name - could be some MITM attack.
+		   never allow. */
+		return "";
+	}
+	return cstr;
+}
+
+static const char *get_general_dns_name(const GENERAL_NAME *name)
+{
+	if (ASN1_STRING_type(name->d.ia5) != V_ASN1_IA5STRING)
+		return "";
+
+	return asn1_string_to_c(name->d.ia5);
+}
+
+static const char *get_cname(X509 *cert)
+{
+	X509_NAME *name;
+	X509_NAME_ENTRY *entry;
+	ASN1_STRING *str;
+	int cn_idx;
+
+	name = X509_get_subject_name(cert);
+	if (name == NULL)
+		return "";
+	cn_idx = X509_NAME_get_index_by_NID(name, NID_commonName, -1);
+	if (cn_idx == -1)
+		return "";
+	entry = X509_NAME_get_entry(name, cn_idx);
+	i_assert(entry != NULL);
+	str = X509_NAME_ENTRY_get_data(entry);
+	i_assert(str != NULL);
+	return asn1_string_to_c(str);
+}
+
+static int openssl_cert_match_name(SSL *ssl, const char *verify_name)
+{
+	X509 *cert;
+	STACK_OF(GENERAL_NAME) *gnames;
+	const GENERAL_NAME *gn;
+	const char *dnsname;
+	bool dns_names = FALSE;
+	unsigned int i, count;
+
+	cert = SSL_get_peer_certificate(ssl);
+	i_assert(cert != NULL);
+
+	/* verify against SubjectAltNames */
+	gnames = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
+	count = gnames == NULL ? 0 : sk_GENERAL_NAME_num(gnames);
+	for (i = 0; i < count; i++) {
+		gn = sk_GENERAL_NAME_value(gnames, i);
+		if (gn->type == GEN_DNS) {
+			dns_names = TRUE;
+			dnsname = get_general_dns_name(gn);
+			if (strcmp(dnsname, verify_name) == 0)
+				break;
+		}
+	}
+	sk_GENERAL_NAME_pop_free(gnames, GENERAL_NAME_free);
+	/* verify against CommonName only when there wasn't any DNS
+	   SubjectAltNames */
+	if (dns_names)
+		return i < count ? 0 : -1;
+
+	return strcmp(get_cname(cert), verify_name) == 0 ? 0 : -1;
+}
+
+int ssl_proxy_cert_match_name(struct ssl_proxy *proxy, const char *verify_name)
+{
+	return openssl_cert_match_name(proxy->ssl, verify_name);
+}
+
 const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
 {
 	X509 *x509;
@@ -998,6 +1080,10 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		else
 			i_info("Valid certificate: %s", buf);
 	}
+	if (ctx->error == X509_V_ERR_UNABLE_TO_GET_CRL && proxy->client_proxy) {
+		/* no CRL given with the CA list. don't worry about it. */
+		preverify_ok = 1;
+	}
 	if (!preverify_ok)
 		proxy->cert_broken = TRUE;
 
@@ -1075,7 +1161,11 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set)
 	X509_STORE *store;
 	STACK_OF(X509_NAME) *xnames = NULL;
 
-	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL | SSL_OP_NO_SSLv2);
+	SSL_CTX_set_options(ssl_ctx, (SSL_OP_ALL &		/* APPLE */
+	    ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS) | SSL_OP_NO_SSLv2);
+#ifdef SSL_MODE_RELEASE_BUFFERS
+    SSL_CTX_set_mode(ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
+#endif
 	if (*set->ssl_ca != '\0') {
 		/* set trusted CA certs */
 		store = SSL_CTX_get_cert_store(ssl_ctx);
@@ -1268,9 +1358,13 @@ static void ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 
 	client = proxy->client;
-	client->set = login_settings_read(client->pool,
-					  &client->local_ip, &client->ip, host,
-					  &other_sets);
+	if (!client->ssl_servername_settings_read) {
+		client->ssl_servername_settings_read = TRUE;
+		client->set = login_settings_read(client->pool,
+						  &client->local_ip,
+						  &client->ip, host,
+						  &other_sets);
+	}
 	ctx = ssl_server_context_get(client->set);
 	SSL_set_SSL_CTX(ssl, ctx->ctx);
 }

@@ -804,30 +804,16 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	return ctx;
 }
 
-static bool
-fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
-				 struct mail *mail, bool *tryagain_r)
+static int fts_mailbox_search_build_more(struct mail_search_context *ctx)
 {
-	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
-	int ret;
-
-	if (!fctx->build_initialized) {
-		/* we're still waiting for this process (but another command)
-		   to finish building the indexes */
-		if (!fts_try_build_init(ctx, fctx)) {
-			*tryagain_r = TRUE;
-			return FALSE;
-		}
-	}
+	int ret = 1;
 
 	while (fctx->build_ctx != NULL) {
 		/* this command is still building the indexes */
 		ret = fts_build_more(fctx->build_ctx);
-		if (ret == 0) {
-			*tryagain_r = TRUE;
-			return FALSE;
-		}
+		if (ret == 0)
+			return 0;
 
 		/* finished / error */
 		ctx->progress_hidden = FALSE;
@@ -839,6 +825,29 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 				fts_search_init_lookup(ctx, fctx);
 			}
 		}
+	}
+	return ret;
+}
+
+static bool
+fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
+				 struct mail *mail, bool *tryagain_r)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
+	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
+
+	if (!fctx->build_initialized) {
+		/* we're still waiting for this process (but another command)
+		   to finish building the indexes */
+		if (!fts_try_build_init(ctx, fctx)) {
+			*tryagain_r = TRUE;
+			return FALSE;
+		}
+	}
+
+	if (fts_mailbox_search_build_more(ctx) == 0) {
+		*tryagain_r = TRUE;
+		return FALSE;
 	}
 
 	/* if we're here, the indexes are either built or they're not used */
@@ -1262,6 +1271,50 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 	return ret;
 }
 
+static int fts_update(struct mailbox *box)
+{
+	struct mailbox_transaction_context *t;
+	struct mail_search_args *search_args;
+	struct mail_search_arg *arg;
+	struct mail_search_context *ctx;
+	struct fts_search_context *fctx;
+	int ret = 0;
+
+	t = mailbox_transaction_begin(box, 0);
+	search_args = mail_search_build_init();
+	search_args->charset = "UTF-8";
+	mail_search_build_add_all(search_args);
+	arg = mail_search_build_add(search_args, SEARCH_BODY_FAST);
+	arg->value.str = "xyzzy";
+
+	ctx = mailbox_search_init(t, search_args, NULL);
+	mail_search_args_unref(&search_args);
+
+	fctx = FTS_CONTEXT(ctx);
+	if (fctx->build_initialized) {
+		while ((ret = fts_mailbox_search_build_more(ctx)) == 0) ;
+	}
+	(void)mailbox_search_deinit(&ctx);
+	(void)mailbox_transaction_commit(&t);
+
+	return ret < 0 ? -1 : 0;
+}
+
+static int fts_sync_deinit(struct mailbox_sync_context *ctx,
+			   struct mailbox_sync_status *status_r)
+{
+	struct mailbox *box = ctx->box;
+	struct fts_mailbox *fbox = FTS_CONTEXT(box);
+	bool precache;
+
+	precache = (ctx->flags & MAILBOX_SYNC_FLAG_PRECACHE) != 0;
+	if (fbox->module_ctx.super.sync_deinit(ctx, status_r) < 0)
+		return -1;
+	ctx = NULL;
+
+	return !precache ? 0 : fts_update(box);
+}
+
 #ifdef APPLE_OS_X_SERVER
 static int fts_save_finish(struct mail_save_context *ctx)
 {
@@ -1303,6 +1356,7 @@ static void fts_mailbox_init(struct mailbox *box, const char *env)
 	v->transaction_begin = fts_transaction_begin;
 	v->transaction_rollback = fts_transaction_rollback;
 	v->transaction_commit = fts_transaction_commit;
+	v->sync_deinit = fts_sync_deinit;
 
 #ifdef APPLE_OS_X_SERVER
 	v->save_finish = fts_save_finish;

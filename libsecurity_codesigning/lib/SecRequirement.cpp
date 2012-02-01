@@ -160,6 +160,31 @@ OSStatus SecRequirementCopyString(SecRequirementRef requirementRef, SecCSFlags f
 
 
 //
+CFStringRef kSecRequirementKeyInfoPlist = CFSTR("requirement:eval:info");
+CFStringRef kSecRequirementKeyEntitlements = CFSTR("requirement:eval:entitlements");
+
+OSStatus SecRequirementEvaluate(SecRequirementRef requirementRef,
+	CFArrayRef certificateChain, CFDictionaryRef context,
+	SecCSFlags flags)
+{
+	BEGIN_CSAPI
+
+	const Requirement *req = SecRequirement::required(requirementRef)->requirement();
+	checkFlags(flags);
+	CodeSigning::Required(certificateChain);
+	
+	Requirement::Context ctx(certificateChain,		// mandatory
+		context ? CFDictionaryRef(CFDictionaryGetValue(context, kSecRequirementKeyInfoPlist)) : NULL,
+		context ? CFDictionaryRef(CFDictionaryGetValue(context, kSecRequirementKeyEntitlements)) : NULL,
+		NULL	// can't specify a CodeDirectory here
+	);
+	req->validate(ctx);
+	
+	END_CSAPI
+}
+
+
+//
 // Assemble a requirement set (as a CFData) from a dictionary of requirement objects.
 // An empty set is allowed.
 //

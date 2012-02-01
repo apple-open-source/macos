@@ -15,7 +15,7 @@ You can copy example configuration from the location printed by doveconf. For
 example:
 
 ---%<-------------------------------------------------------------------------
-cp -r /usr/local/share/doc/dovecot/example-config/* /usr/local/etc/dovecot/
+cp -r /usr/local/share/doc/dovecot/example-config/* /etc/dovecot/
 ---%<-------------------------------------------------------------------------
 
 Authentication
@@ -46,7 +46,7 @@ If you used the example configuration files, switch to passwd-file by modifying
 !include auth-passwdfile.conf.ext
 ---%<-------------------------------------------------------------------------
 
-In auth-passwdfile.conf.ext you should have:
+In 'auth-passwdfile.conf.ext' you should have:
 
 ---%<-------------------------------------------------------------------------
 passdb {
@@ -72,22 +72,24 @@ userdb {
 Plaintext Authentication
 ------------------------
 
-Until SSL is configured, allow plaintext authentication. You probably want to
-switch this back to "yes" afterwards.
-
-If you didn't use the temporary passwd-file created above, don't do this if you
-don't want your password to be sent in clear to network. Instead get SSL
-configuration working and connect to Dovecot only using SSL.
+Until SSL is configured, allow plaintext authentication in the
+'conf.d/10-auth.conf' file. You probably want to switch this back to "yes"
+afterward.
 
 ---%<-------------------------------------------------------------------------
 disable_plaintext_auth = no
 ---%<-------------------------------------------------------------------------
 
+If you didn't use the temporary passwd-file created above, don't do this if you
+don't want your password to be sent in clear to network. Instead get SSL
+configuration working and connect to Dovecot only using SSL.
+
 Mail Location
 -------------
 
-Set the 'mail_location' as instructed by <FindMailLocation.txt>.
-('default_mail_env' in older Dovecot versions)
+Set the 'mail_location' in 'conf.d/10-mail.conf' as determined by the
+instructions in <FindMailLocation.txt>. ('default_mail_env' in older Dovecot
+versions)
 
 mbox
 ----
@@ -133,4 +135,4 @@ mail_privileged_group = mail
 Note: Specifying the privileged user must be done as shown. Simply adding
 'dovecot' user to the 'mail' group does /*not*/ grant write permission.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

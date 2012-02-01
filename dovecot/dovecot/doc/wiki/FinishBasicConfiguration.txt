@@ -9,4 +9,4 @@ Plaintext authentication is still allowed from localhost, so you can have your
 webmail application to connect to Dovecot without using SSL or even having to
 configure it.
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

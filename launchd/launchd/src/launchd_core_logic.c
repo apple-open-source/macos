@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 25247 $";
+static const char *const __rcs_file_version__ = "$Revision: 25397 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -643,7 +643,8 @@ struct job_s {
 	xpc_service					:1, /* The job is an XPC Service. */
 	shutdown_monitor			:1, /* The job is the Performance team's shutdown monitor. */
 	dirty_at_shutdown			:1, /* We should open a transaction for the job when shutdown begins. */
-	workaround9359725			:1; /* The job was sent SIGKILL but did not exit in a timely fashion, indicating a kernel bug. */
+	workaround9359725			:1, /* The job was sent SIGKILL but did not exit in a timely fashion, indicating a kernel bug. */
+	xpc_bootstrapper			:1;
 
 	mode_t mask;
 	pid_t tracing_pid;
@@ -759,6 +760,7 @@ static job_t workaround_5477111;
 static LIST_HEAD(, job_s) s_needing_sessions;
 static LIST_HEAD(, eventsystem) _s_event_systems;
 static job_t _s_event_monitor;
+static job_t _s_xpc_bootstrapper;
 static job_t _s_shutdown_monitor;
 static mach_port_t _s_event_update_port;
 mach_port_t g_audit_session_port = MACH_PORT_NULL;
@@ -1753,6 +1755,7 @@ job_new_subjob(job_t j, uuid_t identifier)
 		nj->currently_ignored = true;
 		nj->dedicated_instance = true;
 		nj->xpc_service = j->xpc_service;
+		nj->xpc_bootstrapper = j->xpc_bootstrapper;
 		
 		nj->mask = j->mask;
 		uuid_copy(nj->instance_id, identifier);
@@ -2244,6 +2247,22 @@ job_import_bool(job_t j, const char *key, bool value)
 			j->wait4debugger = value;
 			found_key = true;
 		}
+		break;
+	case 'x':
+	case 'X':
+		if (strcasecmp(key, LAUNCH_JOBKEY_XPCDOMAINBOOTSTRAPPER) == 0) {
+			if (pid1_magic) {
+				if (_s_xpc_bootstrapper) {
+					job_log(j, LOG_ERR, "This job tried to steal the XPC domain bootstrapper property from the following job: %s", _s_xpc_bootstrapper->label);
+				} else {
+					_s_xpc_bootstrapper = j;
+					j->xpc_bootstrapper = value;
+				}
+			} else {
+				job_log(j, LOG_ERR, "Non-daemon tried to claim XPC bootstrapper property.");
+			}
+		}
+		found_key = true;
 		break;
 	default:
 		break;
@@ -9728,6 +9747,10 @@ xpc_domain_import2(job_t j, mach_port_t reqport, mach_port_t dport)
 		jobmgr_log(root_jobmgr, LOG_ERR, "Attempt to create new domain while shutting down.");
 		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
+	if (!j->xpc_bootstrapper) {
+		job_log(j, LOG_ERR, "Attempt to create new XPC domain by unprivileged job.");
+		return BOOTSTRAP_NOT_PRIVILEGED;
+	}
 
 	kern_return_t kr = BOOTSTRAP_NO_MEMORY;
 	/* All XPC domains are children of the root job manager. What we're creating
@@ -9806,6 +9829,12 @@ xpc_domain_load_services(job_t j, vm_offset_t services_buff, mach_msg_type_numbe
 {
 	if (!j) {
 		return BOOTSTRAP_UNKNOWN_SERVICE;
+	}
+
+	job_t rootj = jobmgr_find_by_pid(root_jobmgr, j->p, false);
+	if (!(rootj && rootj->xpc_bootstrapper)) {
+		job_log(j, LOG_ERR, "Attempt to load services into XPC domain by unprivileged job.");
+		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
 
 	/* This is just for XPC domains (for now). */

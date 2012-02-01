@@ -18,6 +18,7 @@ Configuration and Use
  * <Sieve Usage Information> [Pigeonhole.Sieve.Usage.txt]
  * <Sieve Script Examples> [Pigeonhole.Sieve.Examples.txt]
  * <Sieve Interpreter Plugins> [Pigeonhole.Sieve.Plugins.txt]
+ * <Sieve Troubleshooting> [Pigeonhole.Sieve.Troubleshooting.txt]
 
 Supported Features
 ------------------
@@ -167,4 +168,4 @@ protocol. This is also provided by the <Pigeonhole.txt> project. It is
 available as a separate Dovecot service. Its configuration and use is explained
 on the <Pigeonhole ManageSieve page> [Pigeonhole.ManageSieve.txt].
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)

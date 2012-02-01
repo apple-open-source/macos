@@ -1,6 +1,6 @@
 require ["variables", "include", "relational", "fileinto"];
 global "test";
-global "test-mailbox";
+global "test_mailbox";
 
 # The included script may contain repetitive code that is
 # effectively a subroutine that can be factored out.

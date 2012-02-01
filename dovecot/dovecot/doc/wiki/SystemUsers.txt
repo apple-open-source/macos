@@ -109,4 +109,4 @@ path to specify the chroot path. For example '/home/./user' would chroot to
 'valid_chroot_dirs' setting ('/home' in the previous example). If this isn't
 done, Dovecot just ignores the "/./".
 
-(This file was created from the wiki on 2011-05-11 04:42)
+(This file was created from the wiki on 2011-11-16 14:09)
