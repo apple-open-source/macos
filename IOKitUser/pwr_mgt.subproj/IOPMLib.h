@@ -519,7 +519,9 @@ typedef uint32_t IOPMAssertionID;
  * @discussion      When asserted and set to level <code>@link kIOPMAssertionLevelOn@/link</code>,
  *                  will prevent the display from turning off due to a period of idle user activity.
  *                  Note that the display may still sleep from other reasons, like a user closing a
- *                  portable's lid or the machine sleeping.
+ *                  portable's lid or the machine sleeping. If the display is already off, this
+ *                  assertion does not light up the display. If display needs to be turned on, then 
+ *                  consider calling function <code>@link IOPMAssertionDeclareUserActivity@/link</code>.
  *
  *                  While the display is prevented from dimming, the system cannot go into idle sleep.
  *
@@ -556,7 +558,7 @@ typedef uint32_t IOPMAssertionID;
 
 #define kIOPMAssertionTypePreventSystemSleep            CFSTR("PreventSystemSleep")
 
- 
+
 /*!
  * @define          kIOPMAssertionTypeNoIdleSleep
  *
@@ -622,6 +624,11 @@ enum {
  };
 
 
+typedef enum {
+    kIOPMUserActiveLocal,   /* User is local on the system */
+    kIOPMUserActiveRemote   /* Remote User connected to the system */
+} IOPMUserActiveType;
+
 /*!
  * @functiongroup   Assertions
  */    
@@ -634,7 +641,7 @@ enum {
  *                      There are other keys that can further describe an assertion, but most developers don't need
  *                      to use them. Use <code>@link IOPMAssertionSetProperties @/link</code> or 
  *                      <code>@link IOPMAssertionCreateWithProperties @/link</code> if you need to specify properties
- *                      that aren't avilable here.
+ *                      that aren't available here.
  * 
  * @param AssertionType An assertion type constant. 
  *	                    Caller must specify this argument.
@@ -647,9 +654,9 @@ enum {
  *                      reasons for this assertion.
  *
  * @param HumanReadableReason
- *	                    A CFString value to correspond to key <code>@link kIOPMAssertionHumanReadableReasonKey@/link</code>.
- *	                    Caller may pass NULL, but if it's specified OS X may display it to users 
- *                      to describe the active assertions on their sysstem.
+ *                      A CFString value to correspond to key <code>@link kIOPMAssertionHumanReadableReasonKey@/link</code>.
+ *                      Caller may pass NULL, but if it's specified OS X may display it to users 
+ *                      to describe the active assertions on their system.
  *
  * @param LocalizationBundlePath
  *	                    A CFString value to correspond to key <code>@link kIOPMAssertionLocalizationBundlePathKey@/link</code>.
@@ -875,6 +882,44 @@ IOReturn IOPMAssertionCreateWithName(
                         IOPMAssertionID      *AssertionID)
                         AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;                           
                            
+/*!
+ * @function            IOPMAssertionDeclareUserActivity
+ *
+ * @abstract            Declares that the user is active on the system. This causes the display to 
+ *                      power on and postpone display sleep up to the user's display sleep Energy 
+ *                      Saver settings. If you prefer to hold the display awake for a longer period and you know 
+ *                      how long you'd like to hold it, consider taking assertion <code>@link 
+ *                      kIOPMAssertionTypePreventUserIdleDisplaySleep@/link</code> using 
+ *                      <code>@link IOPMAssertionCreateWithDescription@/link</code> API instead.
+ *
+ *
+ * @discussion          No special privileges are necessary to make this call - any process may
+ *                      call this API. Caller must specify an AssertionName - NULL is not
+ *                      a valid input.
+ *
+ * @param AssertionName     A string that describes the name of the caller and the activity being
+ *                          handled by this assertion (e.g. "Mail Compacting Mailboxes"). Name may be no longer 
+ *                          than 128 characters.
+ *
+ * @param   userType        This parameter specifies if the active user is located locally in front of the
+ *                          system or connected to the system over the network. Various components of the system
+ *                          are maintained at different power levels depending on user location.
+ *
+ * @param AssertionID       On Success, unique id will be returned in this parameter. Caller
+ *                          may call this function again with the unique id retured previously to report continous
+ *                          user activity. The unique id returned by this function may change on each call depending
+ *                          on how frequently this function call is repeated and the current display sleep timer value.
+ *                          If you make this call more than once, track the returned value for 
+ *                          assertionID, and pass it in as an argument on each call.
+ *
+ * @result                  Returns kIOReturnSuccess on success, any other return indicates
+ *                          PM could not successfully activate the specified assertion.
+ */
+IOReturn IOPMAssertionDeclareUserActivity(
+                        CFStringRef          AssertionName,
+                        IOPMUserActiveType   userType,
+                        IOPMAssertionID      *AssertionID)
+                        AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER;   /* This API is introduced in 10.7.3 */
 
 /*!
  * @functiongroup IOSystemLoadAdvisory

@@ -39,7 +39,7 @@
 **        E-Mail: furukawa@tcp-ip.or.jp
 **    まで御連絡をお願いします。
 ***********************************************************************/
-/* $Id: nkf.c 22067 2009-02-05 00:39:09Z shyouhei $ */
+/* $Id: nkf.c 28195 2010-06-07 10:45:46Z shyouhei $ */
 #define NKF_VERSION "2.0.8"
 #define NKF_RELEASE_DATE "2008-11-08"
 #include "config.h"
@@ -5004,7 +5004,7 @@ nkf_char numchar_getc(FILE *f)
     nkf_char (*g)(FILE *) = i_ngetc;
     nkf_char (*u)(nkf_char c ,FILE *f) = i_nungetc;
     int i = 0, j;
-    nkf_char buf[8];
+    nkf_char buf[10];
     long c = -1;
 
     buf[i] = (*g)(f);

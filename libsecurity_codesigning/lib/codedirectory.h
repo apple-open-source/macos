@@ -198,6 +198,8 @@ public:
 	char *identifier() { return at<char>(identOffset); }
 
 	// main hash array access
+	SpecialSlot maxSpecialSlot() const;
+		
 	unsigned char *operator [] (Slot slot)
 	{
 		assert(slot >= int(-nSpecialSlots) && slot < int(nCodeSlots));

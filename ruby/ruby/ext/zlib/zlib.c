@@ -3,7 +3,7 @@
  *
  *   Copyright (C) UENO Katsuhiro 2000-2003
  *
- * $Id: zlib.c 18089 2008-07-16 16:39:00Z shyouhei $
+ * $Id: zlib.c 31714 2011-05-23 04:49:42Z shyouhei $
  */
 
 #include <ruby.h>
@@ -302,7 +302,7 @@ do_checksum(argc, argv, func)
 /*
  * call-seq: Zlib.adler32(string, adler)
  *
- * Calculates Alder-32 checksum for +string+, and returns updated value of
+ * Calculates Adler-32 checksum for +string+, and returns updated value of
  * +adler+. If +string+ is omitted, it returns the Adler-32 initial value. If
  * +adler+ is omitted, it assumes that the initial value is given to +adler+.
  *
@@ -610,7 +610,8 @@ zstream_append_input(z, src, len)
 }
 
 #define zstream_append_input2(z,v)\
-    zstream_append_input((z), RSTRING(v)->ptr, RSTRING(v)->len)
+    RB_GC_GUARD(v),\
+    zstream_append_input((z), (Bytef*)RSTRING_PTR(v), RSTRING_LEN(v))
 
 static void
 zstream_discard_input(z, len)
@@ -733,6 +734,9 @@ zstream_run(z, src, len, flush)
     }
 
     for (;;) {
+        /* VC allocates err and guard to same address.  accessing err and guard
+           in same scope prevents it. */
+        RB_GC_GUARD(guard);
 	n = z->stream.avail_out;
 	err = z->func->run(&z->stream, flush);
 	z->buf_filled += n - z->stream.avail_out;
@@ -1374,6 +1378,7 @@ rb_deflate_params(obj, v_level, v_strategy)
     level = ARG_LEVEL(v_level);
     strategy = ARG_STRATEGY(v_strategy);
 
+    zstream_run(z, (Bytef*)"", 0, Z_SYNC_FLUSH);
     err = deflateParams(&z->stream, level, strategy);
     while (err == Z_BUF_ERROR) {
 	rb_warning("deflateParams() returned Z_BUF_ERROR");
@@ -2086,7 +2091,7 @@ gzfile_check_footer(gz)
     if (gz->crc != crc) {
 	rb_raise(cCRCError, "invalid compressed data -- crc error");
     }
-    if (gz->z.stream.total_out != length) {
+    if ((gz->z.stream.total_out & 0xFFFFFFFFUL) != length) {
 	rb_raise(cLengthError, "invalid compressed data -- length error");
     }
 }

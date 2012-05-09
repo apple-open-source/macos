@@ -40,8 +40,8 @@ class OSSet;
 class IOCommandGate;
 class IOAudioControl;
 
-typedef struct IOAudioClientBuffer;
-typedef struct IOAudioStreamFormatDesc;
+struct IOAudioClientBuffer;
+struct IOAudioStreamFormatDesc;
 
 /*!
  * @class IOAudioStream

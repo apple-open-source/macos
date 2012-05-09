@@ -324,6 +324,17 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 	bool			commandInProgress = false;
 	
 	
+	// Check to see if our expansion data is still valid. If we've already passed through free() it'll be NULL and 
+	// access its members will cause us to kernel panic. This check exists to guard against callbacks received after
+	// driver termination. 
+	if ( reserved == NULL )
+	{
+		
+		PANIC_NOW ( ( "IOUSBMassStorageClass::CBIProtocolCommandCompletion callback after driver has been freed" ) );
+		return;
+		
+	}
+
 	if ( ( cbiRequestBlock->request == NULL ) || ( fCBICommandStructInUse == false ) )
 	{
 		// The request field is NULL, this appears to be a double callback, do nothing.

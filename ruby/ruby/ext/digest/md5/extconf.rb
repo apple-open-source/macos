@@ -11,11 +11,11 @@ $objs = [ "md5init.#{$OBJEXT}" ]
 dir_config("openssl")
 
 #if !with_config("bundled-md5") &&
-#    have_library("crypto") && have_header("openssl/md5.h")
-#  $objs << "md5ossl.#{$OBJEXT}"
+    #have_library("crypto") && have_header("openssl/md5.h")
+  #$objs << "md5ossl.#{$OBJEXT}"
 
 #else
-  $objs << "md5.#{$OBJEXT}"
+  $objs << "md5cc.#{$OBJEXT}"
 #end
 
 have_header("sys/cdefs.h")

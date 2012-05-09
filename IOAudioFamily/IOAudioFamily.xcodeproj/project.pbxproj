@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		30958873126D4FC90024DE0C /* IOAudioBlitterLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 3095886D126D4FC90024DE0C /* IOAudioBlitterLib.c */; };
+		30958874126D4FC90024DE0C /* IOAudioBlitterLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 3095886E126D4FC90024DE0C /* IOAudioBlitterLib.h */; };
+		30958878126D4FC90024DE0C /* IOAudioBlitterLibX86.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 30958872126D4FC90024DE0C /* IOAudioBlitterLibX86.cpp */; };
+		30D6E62E145A427B00DBD097 /* IOAudioBlitterLibDispatch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 30CE74C0126E5931006D705F /* IOAudioBlitterLibDispatch.cpp */; };
+		30DA50441451D10A006CF664 /* IOAudioBlitterLibDispatch.h in Headers */ = {isa = PBXBuildFile; fileRef = 30DA50431451D10A006CF664 /* IOAudioBlitterLibDispatch.h */; };
+		8BAB7444145B2345000048A5 /* IOAudioBlitterLibDispatch.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 30DA50431451D10A006CF664 /* IOAudioBlitterLibDispatch.h */; };
 		D63C4CC90B20BFAE0047FE0F /* IOAudioControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E17FFE702AD11CA29EB /* IOAudioControl.h */; };
 		D63C4CCA0B20BFAE0047FE0F /* IOAudioControlUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E18FFE702AD11CA29EB /* IOAudioControlUserClient.h */; };
 		D63C4CCB0B20BFAE0047FE0F /* IOAudioDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E19FFE702AD11CA29EB /* IOAudioDevice.h */; };
@@ -74,6 +80,7 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/audio";
 			dstSubfolderSpec = 0;
 			files = (
+				8BAB7444145B2345000048A5 /* IOAudioBlitterLibDispatch.h in CopyFiles */,
 				D63C4CFF0B20BFAE0047FE0F /* IOAudioControl.h in CopyFiles */,
 				D63C4D000B20BFAE0047FE0F /* IOAudioControlUserClient.h in CopyFiles */,
 				D63C4D010B20BFAE0047FE0F /* IOAudioDevice.h in CopyFiles */,
@@ -130,8 +137,11 @@
 		1B71235C00570F9911CA29EB /* IOAudioToggleControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioToggleControl.cpp; sourceTree = "<group>"; };
 		1B71235D00570F9911CA29EB /* IOAudioSelectorControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioSelectorControl.h; sourceTree = "<group>"; };
 		1B71235E00570F9911CA29EB /* IOAudioToggleControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioToggleControl.h; sourceTree = "<group>"; };
-		401DA4E20119EA2005CA29EB /* Templates */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = folder; name = Templates; path = Examples/Templates; sourceTree = "<group>"; };
-		401DA4E50119EA6A05CA29EB /* Contents.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = Contents.rtf; path = Examples/Contents.rtf; sourceTree = "<group>"; };
+		3095886D126D4FC90024DE0C /* IOAudioBlitterLib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IOAudioBlitterLib.c; path = PCMBlitterLib/IOAudioBlitterLib.c; sourceTree = "<group>"; };
+		3095886E126D4FC90024DE0C /* IOAudioBlitterLib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAudioBlitterLib.h; path = PCMBlitterLib/IOAudioBlitterLib.h; sourceTree = "<group>"; };
+		30958872126D4FC90024DE0C /* IOAudioBlitterLibX86.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOAudioBlitterLibX86.cpp; path = PCMBlitterLib/IOAudioBlitterLibX86.cpp; sourceTree = "<group>"; };
+		30CE74C0126E5931006D705F /* IOAudioBlitterLibDispatch.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOAudioBlitterLibDispatch.cpp; path = PCMBlitterLib/IOAudioBlitterLibDispatch.cpp; sourceTree = "<group>"; };
+		30DA50431451D10A006CF664 /* IOAudioBlitterLibDispatch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAudioBlitterLibDispatch.h; path = PCMBlitterLib/IOAudioBlitterLibDispatch.h; sourceTree = "<group>"; };
 		4027DBB9010E532A05CA29EB /* HISTORY.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = HISTORY.rtf; sourceTree = "<group>"; };
 		4027DBBA010E55A905CA29EB /* IOAudioFamily-README.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = "IOAudioFamily-README.rtf"; sourceTree = "<group>"; };
 		79985E100B3B532700C7B13B /* Info-IOAudioFamily.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = "Info-IOAudioFamily.plist"; sourceTree = "<group>"; };
@@ -193,7 +203,7 @@
 				06F44E16FFE702AD11CA29EB /* Headers */,
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
-				401DA4E00119EA0805CA29EB /* Examples */,
+				3095886B126D4F9A0024DE0C /* BlitterLib */,
 				0118E627009F9D167F000001 /* Kernel.framework */,
 				4027DBBA010E55A905CA29EB /* IOAudioFamily-README.rtf */,
 				4027DBB9010E532A05CA29EB /* HISTORY.rtf */,
@@ -238,13 +248,16 @@
 			name = Source;
 			sourceTree = "<group>";
 		};
-		401DA4E00119EA0805CA29EB /* Examples */ = {
+		3095886B126D4F9A0024DE0C /* BlitterLib */ = {
 			isa = PBXGroup;
 			children = (
-				401DA4E50119EA6A05CA29EB /* Contents.rtf */,
-				401DA4E20119EA2005CA29EB /* Templates */,
+				3095886D126D4FC90024DE0C /* IOAudioBlitterLib.c */,
+				3095886E126D4FC90024DE0C /* IOAudioBlitterLib.h */,
+				30CE74C0126E5931006D705F /* IOAudioBlitterLibDispatch.cpp */,
+				30DA50431451D10A006CF664 /* IOAudioBlitterLibDispatch.h */,
+				30958872126D4FC90024DE0C /* IOAudioBlitterLibX86.cpp */,
 			);
-			name = Examples;
+			name = BlitterLib;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -267,6 +280,7 @@
 				D63C4CD30B20BFAE0047FE0F /* IOAudioDefines.h in Headers */,
 				D63C4CD40B20BFAE0047FE0F /* IOAudioSelectorControl.h in Headers */,
 				D63C4CD50B20BFAE0047FE0F /* IOAudioToggleControl.h in Headers */,
+				30DA50441451D10A006CF664 /* IOAudioBlitterLibDispatch.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -274,6 +288,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				30958874126D4FC90024DE0C /* IOAudioBlitterLib.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -357,7 +372,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0440;
 			};
 			buildConfigurationList = 306FEE6E090FDD0A00D6B7FE /* Build configuration list for PBXProject "IOAudioFamily" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -441,6 +456,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				30D6E62E145A427B00DBD097 /* IOAudioBlitterLibDispatch.cpp in Sources */,
 				D63C4CD90B20BFAE0047FE0F /* IOAudioControl.cpp in Sources */,
 				D63C4CDA0B20BFAE0047FE0F /* IOAudioControlUserClient.cpp in Sources */,
 				D63C4CDB0B20BFAE0047FE0F /* IOAudioDevice.cpp in Sources */,
@@ -459,6 +475,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				D63C4CF40B20BFAE0047FE0F /* IOAudioEngineMixer.cpp in Sources */,
+				30958873126D4FC90024DE0C /* IOAudioBlitterLib.c in Sources */,
+				30958878126D4FC90024DE0C /* IOAudioBlitterLibX86.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -527,9 +545,11 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_SSE41_EXTENSIONS = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 2;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_USE_STANDARD_INCLUDE_SEARCHING = YES;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOAudioFamily.plist";
 				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-I.";
@@ -541,7 +561,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.6fc6;
+				MODULE_VERSION = 1.8.6fc17;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -549,6 +569,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SDKROOT = macosx;
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
@@ -570,8 +591,10 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_ENABLE_SSE41_EXTENSIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_USE_STANDARD_INCLUDE_SEARCHING = YES;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOAudioFamily.plist";
 				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-I.";
@@ -585,7 +608,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.6fc6;
+				MODULE_VERSION = 1.8.6fc17;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -593,6 +616,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SDKROOT = macosx;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "x86_64 i386";
@@ -612,8 +636,10 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_ENABLE_SSE41_EXTENSIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_USE_STANDARD_INCLUDE_SEARCHING = YES;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOAudioFamily.plist";
 				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-I.";
@@ -625,7 +651,7 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.6fc6;
+				MODULE_VERSION = 1.8.6fc17;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -633,6 +659,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SDKROOT = macosx;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "x86_64 i386";
@@ -657,6 +684,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_SSE41_EXTENSIONS = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_INPUT_FILETYPE = sourcecode.cpp.cpp;
 				GCC_OPTIMIZATION_LEVEL = 2;
@@ -675,7 +703,6 @@
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
-					"-nostdinc",
 					"-finline",
 					"-fno-keep-inline-functions",
 					"-force_cpusubtype_ALL",
@@ -691,8 +718,10 @@
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mlong-branch";
 				PRODUCT_NAME = IOAudioFloatLib;
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				REZ_EXECUTABLE = YES;
-				SDKROOT = macosx;
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
+				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
 				UNSTRIPPED_PRODUCT = YES;
@@ -716,8 +745,9 @@
 				DYLIB_CURRENT_VERSION = 1;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_SSE41_EXTENSIONS = NO;
 				GCC_INPUT_FILETYPE = sourcecode.cpp.cpp;
-				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					KERNEL,
 					KERNEL_PRIVATE,
@@ -733,7 +763,6 @@
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
-					"-nostdinc",
 					"-finline",
 					"-fno-keep-inline-functions",
 					"-force_cpusubtype_ALL",
@@ -749,8 +778,10 @@
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mlong-branch";
 				PRODUCT_NAME = IOAudioFloatLib;
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				REZ_EXECUTABLE = YES;
-				SDKROOT = macosx;
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
+				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
 				VALID_ARCHS = "x86_64 ppc i386";
@@ -772,6 +803,7 @@
 				DYLIB_CURRENT_VERSION = 1;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_SSE41_EXTENSIONS = NO;
 				GCC_INPUT_FILETYPE = sourcecode.cpp.cpp;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -789,7 +821,6 @@
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
-					"-nostdinc",
 					"-finline",
 					"-fno-keep-inline-functions",
 					"-force_cpusubtype_ALL",
@@ -805,8 +836,10 @@
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mlong-branch";
 				PRODUCT_NAME = IOAudioFloatLib;
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				REZ_EXECUTABLE = YES;
-				SDKROOT = macosx;
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
+				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
 				VALID_ARCHS = "x86_64 ppc i386";

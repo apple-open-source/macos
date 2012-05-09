@@ -4,18 +4,14 @@ EMCOMPILER  = xcrun -sdk iphoneos llvm-gcc-4.2
 TOOLSDIR    = Tools
 SOURCESDIR  = Sources
 
-lion:
+osx:
 	make all CC='$(OSCOMPILER)' \
 		 CFLAGS='"-arch x86_64"' \
 	         LD='$(OSCOMPILER)' \
 	         USETARGET='os' \
 		     LDFLAGS='"-framework IOKit -framework CoreFoundation -framework SystemConfiguration"'
 
-iosfour:
-	make all CC='xcrun -sdk iphoneos llvm-gcc-4.2' \
-		CFLAGS='-isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS4.3.Internal.sdk/'
-
-iosfive:
+ios5:
 	make all CC='xcrun -sdk iphoneos $(EMCOMPILER)' \
 		     CFLAGS='-arch armv7 -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS5.0.Internal.sdk/' \
 		     LD='xcrun -sdk iphoneos $(EMCOMPILER)' \

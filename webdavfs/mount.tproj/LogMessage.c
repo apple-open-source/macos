@@ -5,7 +5,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 2001-2006 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2001-2011 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -31,8 +31,7 @@
 
 #include "LogMessage.h"
 #include "webdavd.h"
-
-extern char* createUTF8CStringFromCFString(CFStringRef in_string);
+#include "webdav_utils.h"
 
 /*	-------------------------------------------------------------------------
         Debug printing defines

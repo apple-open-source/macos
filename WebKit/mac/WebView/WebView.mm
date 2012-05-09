@@ -1501,6 +1501,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
     settings->setJavaScriptCanOpenWindowsAutomatically([preferences javaScriptCanOpenWindowsAutomatically]);
     settings->setMinimumFontSize([preferences minimumFontSize]);
     settings->setMinimumLogicalFontSize([preferences minimumLogicalFontSize]);
+    settings->setPictographFontFamily([preferences pictographFontFamily]);
     settings->setPluginsEnabled([preferences arePlugInsEnabled]);
 #if ENABLE(DATABASE)
     AbstractDatabase::setIsAvailable([preferences databasesEnabled]);
@@ -2762,6 +2763,16 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
 + (void)_registerURLSchemeAsSecure:(NSString *)scheme
 {
     SchemeRegistry::registerURLSchemeAsSecure(scheme);
+}
+
++ (void)_registerURLSchemeAsAllowingLocalStorageAccessInPrivateBrowsing:(NSString *)scheme
+{
+    SchemeRegistry::registerURLSchemeAsAllowingLocalStorageAccessInPrivateBrowsing(scheme);
+}
+
++ (void)_registerURLSchemeAsAllowingDatabaseAccessInPrivateBrowsing:(NSString *)scheme
+{
+    SchemeRegistry::registerURLSchemeAsAllowingDatabaseAccessInPrivateBrowsing(scheme);
 }
 
 - (void)_scaleWebView:(float)scale atOrigin:(NSPoint)origin
@@ -4718,11 +4729,11 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 {
     NSAppleEventDescriptor* aeDesc = 0;
     if (jsValue.isBoolean())
-        return [NSAppleEventDescriptor descriptorWithBoolean:jsValue.getBoolean()];
+        return [NSAppleEventDescriptor descriptorWithBoolean:jsValue.asBoolean()];
     if (jsValue.isString())
         return [NSAppleEventDescriptor descriptorWithString:ustringToString(jsValue.getString(exec))];
     if (jsValue.isNumber()) {
-        double value = jsValue.uncheckedGetNumber();
+        double value = jsValue.asNumber();
         int intValue = value;
         if (value == intValue)
             return [NSAppleEventDescriptor descriptorWithDescriptorType:typeSInt32 bytes:&intValue length:sizeof(intValue)];

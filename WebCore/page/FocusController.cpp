@@ -214,7 +214,7 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
 
     document->updateLayoutIgnorePendingStylesheets();
 
-    Node* node = (direction == FocusDirectionForward)
+    RefPtr<Node> node = (direction == FocusDirectionForward)
         ? document->nextFocusableNode(currentNode, event)
         : document->previousFocusableNode(currentNode, event);
             
@@ -237,7 +237,7 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
         frame = parentFrame;
     }
 
-    node = deepFocusableNode(direction, node, event);
+    node = deepFocusableNode(direction, node.get(), event);
 
     if (!node) {
         // We didn't find a node to focus, so we should try to pass focus to Chrome.
@@ -254,7 +254,7 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
             ? d->nextFocusableNode(0, event)
             : d->previousFocusableNode(0, event);
 
-        node = deepFocusableNode(direction, node, event);
+        node = deepFocusableNode(direction, node.get(), event);
 
         if (!node)
             return false;
@@ -273,7 +273,7 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
     if (node->isFrameOwnerElement()) {
         // We focus frames rather than frame owners.
         // FIXME: We should not focus frames that have no scrollbars, as focusing them isn't useful to the user.
-        HTMLFrameOwnerElement* owner = static_cast<HTMLFrameOwnerElement*>(node);
+        HTMLFrameOwnerElement* owner = static_cast<HTMLFrameOwnerElement*>(node.get());
         if (!owner->contentFrame())
             return false;
 
@@ -296,13 +296,13 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
         setFocusedFrame(newDocument->frame());
 
     if (caretBrowsing) {
-        Position position = firstPositionInOrBeforeNode(node);
+        Position position = firstPositionInOrBeforeNode(node.get());
         VisibleSelection newSelection(position, position, DOWNSTREAM);
         if (frame->selection()->shouldChangeSelection(newSelection))
             frame->selection()->setSelection(newSelection);
     }
 
-    static_cast<Element*>(node)->focus(false);
+    static_cast<Element*>(node.get())->focus(false);
     return true;
 }
 
@@ -406,6 +406,14 @@ bool FocusController::setFocusedNode(Node* node, PassRefPtr<Frame> newFocusedFra
     return true;
 }
 
+static void contentAreaDidShowOrHide(ScrollableArea* scrollableArea, bool didShow)
+{
+    if (didShow)
+        scrollableArea->scrollAnimator()->contentAreaDidShow();
+    else
+        scrollableArea->scrollAnimator()->contentAreaDidHide();
+}
+
 void FocusController::setActive(bool active)
 {
     if (m_isActive == active)
@@ -419,13 +427,22 @@ void FocusController::setActive(bool active)
             view->updateControlTints();
         }
 
-        if (const HashSet<ScrollableArea*>* scrollableAreas = m_page->scrollableAreaSet()) {
-            HashSet<ScrollableArea*>::const_iterator end = scrollableAreas->end(); 
-            for (HashSet<ScrollableArea*>::const_iterator it = scrollableAreas->begin(); it != end; ++it) {
-                if (!active)
-                    (*it)->scrollAnimator()->contentAreaDidHide();
-                else
-                    (*it)->scrollAnimator()->contentAreaDidShow();
+        contentAreaDidShowOrHide(view, !active);
+
+        for (Frame* frame = m_page->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
+            FrameView* frameView = frame->view();
+            if (!frameView)
+                continue;
+
+            const HashSet<ScrollableArea*>* scrollableAreas = frameView->scrollableAreas();
+            if (!scrollableAreas)
+                continue;
+
+            for (HashSet<ScrollableArea*>::const_iterator it = scrollableAreas->begin(), end = scrollableAreas->end(); it != end; ++it) {
+                ScrollableArea* scrollableArea = *it;
+                ASSERT(scrollableArea->isOnActivePage());
+
+                contentAreaDidShowOrHide(scrollableArea, !active);
             }
         }
     }

@@ -3274,7 +3274,8 @@ _IOFBInstallScaledResolution( IOFBConnectRef connectRef,
                                 IOFBDisplayModeDescription * baseDesc,
                                 float nativeWidth, float nativeHeight,
                                 float width, float height,
-                                IOOptionBits flags )
+                                IOOptionBits flags,
+                                uint32_t setModeFlags, uint32_t clrModeFlags )
 {
     IOFBDisplayModeDescription newDesc;
     IOFBDisplayModeDescription * desc = &newDesc;
@@ -3353,7 +3354,9 @@ _IOFBInstallScaledResolution( IOFBConnectRef connectRef,
     if( aspectDiff > 1.03125)
         desc->info.flags |= kDisplayModeNotPresetFlag;
 
-
+	desc->info.flags |= setModeFlags;
+	desc->info.flags &= ~clrModeFlags;
+	
     if( 0 == (kIOScaleStretchOnly & connectRef->scalerInfo->scalerFeatures))
     {
         IOFBInstallScaledMode( connectRef, desc, flags );
@@ -3362,6 +3365,7 @@ _IOFBInstallScaledResolution( IOFBConnectRef connectRef,
     if (okToStretch)
     {
         desc->info.flags |= kDisplayModeStretchedFlag;
+		desc->info.flags &= ~clrModeFlags;
         desc->timingInfo.detailedInfo.v2.scalerFlags |= kIOScaleStretchToFit;
         IOFBInstallScaledMode( connectRef, desc, flags );
     }
@@ -3374,11 +3378,13 @@ IOFBInstallScaledResolution( IOFBConnectRef connectRef,
                        IOFBDisplayModeDescription * desc,
                        float nativeWidth, float nativeHeight,
                        float width, float height,
-                       IOOptionBits flags )
+                       IOOptionBits flags,
+					   uint32_t setModeFlags, uint32_t clrModeFlags )
 {
     int diag1, diag2;
 
-    diag1 = _IOFBInstallScaledResolution(connectRef, desc, nativeWidth, nativeHeight, width, height, flags);
+    diag1 = _IOFBInstallScaledResolution(connectRef, desc, nativeWidth, nativeHeight, width, height,
+    												flags, setModeFlags, clrModeFlags);
     DEBG(connectRef, "(%d) %f x %f, %08x\n", diag1, width, height, (int) flags);
 
     if ((kIOFBSwapAxes | kIOScaleSwapAxes) & connectRef->transform)
@@ -3386,7 +3392,8 @@ IOFBInstallScaledResolution( IOFBConnectRef connectRef,
         if (ratioOver(width / height, 4.0 / 3.0) <= 1.03125)
         {
             flags |= kScaleInstallNoResTransform;
-            diag2 = _IOFBInstallScaledResolution(connectRef, desc, nativeWidth, nativeHeight, width, height, flags);
+            diag2 = _IOFBInstallScaledResolution(connectRef, desc, nativeWidth, nativeHeight, width, height,
+            										flags, setModeFlags, clrModeFlags);
             DEBG(connectRef, "(%d) %f x %f, %08x\n", diag2, width, height, (int) flags );
         }
     }
@@ -3485,36 +3492,37 @@ static kern_return_t
 IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * scaleBase )
 {
     IOReturn                    err = kIOReturnSuccess;
-    CFDictionaryRef             ovr;
-    CFArrayRef                  array, array1, array2 = 0;
-    CFMutableArrayRef           copyArray = 0;
-    CFIndex                     count, ovrCount = 0;
-    SInt32                      i;
+	IOFBConnectRef              next;
+    CFMutableArrayRef           arrays;
+    CFArrayRef                  iogArray = NULL;
+    CFArrayRef                  displayArray = NULL;
+    CFArrayRef                  otherArray;
+    CFIndex                     count, arraysCount;
+    SInt32                      i, arraysIdx;
     float                       h, v, nh, nv;
     Boolean                     displayNot4By3;
 
-    if( kOvrFlagDisableScaling & connectRef->ovrFlags)
-        return( kIOReturnSuccess );
+    if( !connectRef->scalerInfo) return( kIOReturnSuccess );
+    if( kOvrFlagDisableScaling & connectRef->ovrFlags) return( kIOReturnSuccess );
 
-    array1 = CFDictionaryGetValue( gIOGraphicsProperties, CFSTR("scale-resolutions") );
-    if( !array1)
-        return( kIOReturnSuccess );
+	arrays = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+    if (!arrays) return( kIOReturnNoMemory );
 
-    ovr = connectRef->overrides;
-    if( ovr)
-        array2 = CFDictionaryGetValue( ovr, CFSTR("scale-resolutions") );
-    if( array2)
-        copyArray = CFArrayCreateMutableCopy( kCFAllocatorDefault, 0, array2 );
-    if( copyArray) {
-        ovrCount = CFArrayGetCount(copyArray);
-        if( 0 == (kOvrFlagDisableGenerated & connectRef->ovrFlags))
-            CFArrayAppendArray( copyArray, array1, CFRangeMake( 0, CFArrayGetCount(array1) ));
-        array = copyArray;
-    } else
-        array = CFRetain(array1);
+	next = connectRef;
+	do {
+		if (next->overrides) {
+			otherArray = CFDictionaryGetValue( next->overrides, CFSTR("scale-resolutions") );
+			if (otherArray) CFArrayAppendValue( arrays, otherArray );
+			if (next == connectRef) displayArray = otherArray;
+		}
+		next = next->nextDependent;
+	} while( next && (next != connectRef) );
 
-    if( !connectRef->scalerInfo)
-        return( kIOReturnSuccess );
+	if( 0 == (kOvrFlagDisableGenerated & connectRef->ovrFlags)) {
+		iogArray = CFDictionaryGetValue( gIOGraphicsProperties, CFSTR("scale-resolutions") );
+		if( iogArray)
+			CFArrayAppendValue(arrays, iogArray);
+	}
 
     nh = (float) scaleBase->timingInfo.detailedInfo.v2.horizontalActive;
     nv = (float) scaleBase->timingInfo.detailedInfo.v2.verticalActive;
@@ -3522,62 +3530,83 @@ IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * 
     DEBG(connectRef, "Scaling mode (%f,%f)\n", nh, nv);
 
     if ((nh <= (2 * kAquaMinWidth)) || (nv >= (2 * kAquaMinHeight)))
-        IOFBInstallScaledResolution( connectRef, scaleBase, nh, nv, nh / 2.0, nv / 2.0, false );
+        IOFBInstallScaledResolution( connectRef, scaleBase, nh, nv, nh / 2.0, nv / 2.0, 0, 0, 0 );
 
     displayNot4By3 = (ratioOver(nh / nv, 4.0 / 3.0) > 1.03125);
 
-    count = CFArrayGetCount(array);
-    for( i = 0; i < count; i++) {
-        CFTypeRef obj;
-        IOReturn r;
-        IOOptionBits flags;
-
-        obj = CFArrayGetValueAtIndex(array, i);
-        if( CFNumberGetTypeID() == CFGetTypeID(obj)) {
-            SInt32      value;
-            CFNumberGetValue( (CFNumberRef) obj, kCFNumberSInt32Type, &value );
-            h     = (float)(value & 0xffff);
-            v     = (float)(value >> 16);
-
-            flags = (i < ovrCount) ? kScaleInstallAlways | kScaleInstallNoStretch : 0;
-
-        } else if( CFDataGetTypeID() == CFGetTypeID(obj)) {
-            UInt32 * value = (UInt32 *) CFDataGetBytePtr((CFDataRef) obj);
-            h     = (float) OSReadBigInt32(&value[0], 0);
-            v     = (float) OSReadBigInt32(&value[1], 0);
-            flags =         OSReadBigInt32(&value[2], 0);
-
-        } else
-            continue;
-
-		// downsampled modes from override only
-		if ((i >= ovrCount) && (h > nh)) continue;
-       
-        if( v) {
-			if ((i >= ovrCount) && (v > nv)) continue;
-            if( (h != (nh / 2.0)) || (v != (nv / 2.0))) {
-                r = IOFBInstallScaledResolution( connectRef, scaleBase, 
-                                                    nh, nv, h, v, flags );
-            }
-        } else {
-            if( displayNot4By3) {
-            	v = (h * 3.0) / 4.0;
-				if ((i < ovrCount) || (v < nv)) {
-					r = IOFBInstallScaledResolution( connectRef, scaleBase,
-	                                                    nh, nv, h, v, flags );
+    arraysCount = CFArrayGetCount(arrays);
+    for(arraysIdx = 0; arraysIdx < arraysCount; arraysIdx++)
+    {
+    	CFArrayRef array = CFArrayGetValueAtIndex(arrays, arraysIdx);
+		count = CFArrayGetCount(array);
+		for( i = 0; i < count; i++) {
+			CFTypeRef obj;
+			IOReturn r;
+			IOOptionBits flags;
+			uint32_t setModeFlags = 0;
+			uint32_t clrModeFlags = 0;
+	
+			obj = CFArrayGetValueAtIndex(array, i);
+			if( CFNumberGetTypeID() == CFGetTypeID(obj)) {
+				SInt32      value;
+				CFNumberGetValue( (CFNumberRef) obj, kCFNumberSInt32Type, &value );
+				h     = (float)(value & 0xffff);
+				v     = (float)(value >> 16);
+	
+				flags = (array == displayArray) ? (kScaleInstallAlways | kScaleInstallNoStretch) : 0;
+	
+			} else if( CFDataGetTypeID() == CFGetTypeID(obj)) {
+				UInt32 * value = (UInt32 *) CFDataGetBytePtr((CFDataRef) obj);
+				h     = (float) OSReadBigInt32(&value[0], 0);
+				v     = (float) OSReadBigInt32(&value[1], 0);
+				flags =         OSReadBigInt32(&value[2], 0);
+				if (CFDataGetLength((CFDataRef) obj) >= (CFIndex)(4 * sizeof(*value))) {
+					setModeFlags = OSReadBigInt32(&value[3], 0);
 				}
-            }
-            if((h != nh) && (h != (nh / 2.0))) {
-            	v = (h * nv) / nh;
-				if ((i < ovrCount) || (v < nv)) {
-					r = IOFBInstallScaledResolution( connectRef, scaleBase,
-                                                    nh, nv, h, v, flags );
+				if (CFDataGetLength((CFDataRef) obj) >= (CFIndex)(5 * sizeof(*value))) {
+					clrModeFlags = OSReadBigInt32(&value[4], 0);
 				}
-            }
-        }
-    }
+	
+			} else
+				continue;
 
-    CFRelease( array );
+			DEBG(connectRef, "Scaling to (%f,%f), 0x%x, |0x%x, &0x%x\n", h, v, (int) flags, setModeFlags, clrModeFlags);
+
+			if ((array == iogArray) || (array == displayArray)) {
+				if (kScaleInstallMirrorDeps & flags) continue;
+			} else {
+				if (!(kScaleInstallMirrorDeps & flags)) continue;
+			}
+
+			// downsampled modes from override only
+			if ((array == iogArray) && (h > nh)) continue;
+		   
+			if( v) {
+				if ((array == iogArray) && (v > nv)) continue;
+				if( (h != (nh / 2.0)) || (v != (nv / 2.0))) {
+					r = IOFBInstallScaledResolution( connectRef, scaleBase, 
+														nh, nv, h, v, flags, setModeFlags, clrModeFlags );
+				}
+			} else {
+				if( displayNot4By3) {
+					v = (h * 3.0) / 4.0;
+					if ((array != iogArray) || (v <= nv)) {
+						r = IOFBInstallScaledResolution( connectRef, scaleBase,
+															nh, nv, h, v, flags, setModeFlags, clrModeFlags );
+					}
+				}
+				if((h != nh) && (h != (nh / 2.0))) {
+					v = (h * nv) / nh;
+					if ((array != iogArray) || (v <= nv)) {
+						r = IOFBInstallScaledResolution( connectRef, scaleBase,
+														nh, nv, h, v, flags, setModeFlags, clrModeFlags );
+					}
+				}
+			}
+		}
+	}
+
+    CFRelease( arrays );
 
     return( err );
 }
@@ -3637,7 +3666,8 @@ IOFBDriverPreflight(IOFBConnectRef connectRef, IOFBDisplayModeDescription * desc
         desc->info.nominalHeight = descOut.info.nominalHeight;
 //      desc->info.refreshRate   = descOut.info.refreshRate;
         desc->info.maxDepthIndex = descOut.info.maxDepthIndex;
-//      desc->info.flags         = descOut.info.flags;
+        desc->info.flags         = desc->info.flags
+        			 | (kDisplayModeAcceleratorBackedFlag & descOut.info.flags);
 //      desc->info.reserved      = descOut.info.reserved;
     }
 
@@ -3757,7 +3787,7 @@ IOFBAdjustDisplayModeInformation(
             continue;
 
         // 2488698, 3052614
-        if( (appleTimingID == kIOTimingIDApple_FixedRateLCD)    
+        if( appleTimingID == kIOTimingIDApple_FixedRateLCD
             /*&& !CFDictionaryGetValue( ovr, CFSTR(kIODisplayIsDigitalKey))*/)
             continue;
 
@@ -3901,6 +3931,39 @@ IOFBGetDisplayModeInformation( io_connect_t connect,
     }
 
     return( kr );
+}
+
+kern_return_t
+IOFBGetDisplayModeTimingInformation( io_connect_t connect,
+        IODisplayModeID               displayMode,
+        IODetailedTimingInformation * out )
+{
+    kern_return_t                 kr = kIOReturnSuccess;
+    IOFBConnectRef                connectRef;
+    CFDataRef                     data;
+    CFMutableDictionaryRef        dict;
+    IODetailedTimingInformation * info;
+
+    connectRef = IOFBConnectToRef( connect);
+    if( !connectRef)
+        return( kIOReturnBadArgument );
+
+    dict = (CFMutableDictionaryRef) CFDictionaryGetValue( connectRef->modes,
+                                (const void *) (uintptr_t) (UInt32) displayMode );
+    if( dict && (data = CFDictionaryGetValue( dict, CFSTR(kIOFBModeTMKey) )))
+        info = (IODetailedTimingInformation *) CFDataGetBytePtr(data);
+    else
+    {
+        DEBG(connectRef, "invalid mode 0x%x\n", (int) displayMode);
+        kr = kIOReturnBadArgument;
+    }
+
+    if( kr == kIOReturnSuccess)
+    {
+        *out = *info;
+	}
+
+	return (kr);
 }
 
 __private_extern__

@@ -1252,7 +1252,7 @@ NetworkInterfaceCopyMediaOptions(CFStringRef		interfaceName,
 	SCNetworkInterfacePrivateRef	interfacePrivate;
 	Boolean				ok;
 
-	interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL, NULL);
+	interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL);
 	if (interfacePrivate == NULL) {
 		return FALSE;
 	}
@@ -1291,7 +1291,7 @@ NetworkInterfaceCopyMTU(CFStringRef	interfaceName,
 	SCNetworkInterfacePrivateRef	interfacePrivate;
 	Boolean				ok;
 
-	interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL, NULL);
+	interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL);
 	if (interfacePrivate == NULL) {
 		return FALSE;
 	}

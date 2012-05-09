@@ -42,6 +42,7 @@
 #include <Security/SecCmsContentInfo.h>
 #include <Security/SecCmsSignerInfo.h>
 #include <Security/SecCmsSignedData.h>
+#include <Security/cssmapplePriv.h>
 #include <security_utilities/unix++.h>
 #include <security_utilities/cfmunge.h>
 #include <Security/CMSDecoder.h>
@@ -58,7 +59,7 @@ using namespace UnixPlusPlus;
 //
 SecStaticCode::SecStaticCode(DiskRep *rep)
 	: mRep(rep),
-	  mValidated(false), mExecutableValidated(false),
+	  mValidated(false), mExecutableValidated(false), mResourcesValidated(false), mResourcesValidContext(NULL),
 	  mDesignatedReq(NULL), mGotResourceBase(false), mEvalDetails(NULL)
 {
 	CODESIGN_STATIC_CREATE(this, rep);
@@ -72,6 +73,8 @@ SecStaticCode::SecStaticCode(DiskRep *rep)
 SecStaticCode::~SecStaticCode() throw()
 try {
 	::free(const_cast<Requirement *>(mDesignatedReq));
+	if (mResourcesValidContext)
+		delete mResourcesValidContext;
 } catch (...) {
 	return;
 }
@@ -186,6 +189,11 @@ void SecStaticCode::resetValidity()
 	CODESIGN_EVAL_STATIC_RESET(this);
 	mValidated = false;
 	mExecutableValidated = false;
+	mResourcesValidated = false;
+	if (mResourcesValidContext) {
+		delete mResourcesValidContext;
+		mResourcesValidContext = NULL;
+	}
 	mDir = NULL;
 	mSignature = NULL;
 	for (unsigned n = 0; n < cdSlotCount; n++)
@@ -303,10 +311,7 @@ void SecStaticCode::validateDirectory()
 			CODESIGN_EVAL_STATIC_DIRECTORY(this);
 			mValidationExpired = verifySignature();
 			component(cdInfoSlot, errSecCSInfoPlistFailed);	// force load of Info Dictionary (if any)
-			CodeDirectory::SpecialSlot slot = codeDirectory()->nSpecialSlots;
-			if (slot > cdSlotMax)	// might have more special slots than we know about...
-				slot = cdSlotMax;	// ... but only process the ones we understand
-			for ( ; slot >= 1; --slot)
+			for (CodeDirectory::SpecialSlot slot = codeDirectory()->maxSpecialSlot(); slot >= 1; --slot)
 				if (mCache[slot])	// if we already loaded that resource...
 					validateComponent(slot); // ... then check it now
 			mValidated = true;			// we've done the deed...
@@ -329,6 +334,24 @@ void SecStaticCode::validateDirectory()
 				MacOSError::throwMe(CSSMERR_TP_CERT_EXPIRED);
 	} else
 		MacOSError::throwMe(mValidationResult);
+}
+
+
+//
+// Load and validate the CodeDirectory and all components *except* those related to the resource envelope.
+// Those latter components are checked by validateResources().
+//
+void SecStaticCode::validateNonResourceComponents()
+{
+	this->validateDirectory();
+	for (CodeDirectory::SpecialSlot slot = codeDirectory()->maxSpecialSlot(); slot >= 1; --slot)
+		switch (slot) {
+		case cdResourceDirSlot:		// validated by validateResources
+			break;
+		default:
+			this->component(slot);		// loads and validates
+			break;
+		}
 }
 
 
@@ -373,8 +396,9 @@ bool SecStaticCode::verifySignature()
 	MacOSError::check(CMSDecoderSetDetachedContent(cms, mDir));
 	MacOSError::check(CMSDecoderFinalizeMessage(cms));
 	MacOSError::check(CMSDecoderSetSearchKeychain(cms, cfEmptyArray()));
+	CFRef<CFTypeRef> policy = verificationPolicy(apiFlags());
     CMSSignerStatus status;
-    MacOSError::check(CMSDecoderCopySignerStatus(cms, 0, verificationPolicy(),
+    MacOSError::check(CMSDecoderCopySignerStatus(cms, 0, policy,
 		false, &status, &mTrust.aref(), NULL));
 	if (status != kCMSSignerValid)
 		MacOSError::throwMe(errSecCSSignatureFailed);
@@ -447,14 +471,47 @@ bool SecStaticCode::verifySignature()
 
 //
 // Return the TP policy used for signature verification.
-// This policy object is cached and reused.
+// This may be a simple SecPolicyRef or a CFArray of policies.
+// The caller owns the return value.
 //
-SecPolicyRef SecStaticCode::verificationPolicy()
+static SecPolicyRef makeCRLPolicy()
 {
-	if (!mPolicy)
-		MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3,
-			&CSSMOID_APPLE_TP_CODE_SIGNING, &mPolicy.aref()));
-	return mPolicy;
+	CFRef<SecPolicyRef> policy;
+	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_REVOCATION_CRL, &policy.aref()));
+	CSSM_APPLE_TP_CRL_OPTIONS options;
+	memset(&options, 0, sizeof(options));
+	options.Version = CSSM_APPLE_TP_CRL_OPTS_VERSION;
+	options.CrlFlags = CSSM_TP_ACTION_FETCH_CRL_FROM_NET | CSSM_TP_ACTION_CRL_SUFFICIENT;
+	CSSM_DATA optData = { sizeof(options), (uint8 *)&options };
+	MacOSError::check(SecPolicySetValue(policy, &optData));
+	return policy.yield();
+}
+
+static SecPolicyRef makeOCSPPolicy()
+{
+	CFRef<SecPolicyRef> policy;
+	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_REVOCATION_OCSP, &policy.aref()));
+	CSSM_APPLE_TP_OCSP_OPTIONS options;
+	memset(&options, 0, sizeof(options));
+	options.Version = CSSM_APPLE_TP_OCSP_OPTS_VERSION;
+	options.Flags = CSSM_TP_ACTION_OCSP_SUFFICIENT;
+	CSSM_DATA optData = { sizeof(options), (uint8 *)&options };
+	MacOSError::check(SecPolicySetValue(policy, &optData));
+	return policy.yield();
+}
+
+CFTypeRef SecStaticCode::verificationPolicy(SecCSFlags flags)
+{
+	CFRef<SecPolicyRef> core;
+	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3,
+			&CSSMOID_APPLE_TP_CODE_SIGNING, &core.aref()));
+	if (flags & kSecCSEnforceRevocationChecks) {
+		CFRef<SecPolicyRef> crl = makeCRLPolicy();
+		CFRef<SecPolicyRef> ocsp = makeOCSPPolicy();
+		return makeCFArray(3, core.get(), crl.get(), ocsp.get());
+	} else {
+		return core.yield();
+	}
 }
 
 
@@ -487,29 +544,43 @@ void SecStaticCode::validateComponent(CodeDirectory::SpecialSlot slot, OSStatus 
 //
 void SecStaticCode::validateExecutable()
 {
-	DTRACK(CODESIGN_EVAL_STATIC_EXECUTABLE, this,
-		(char*)this->mainExecutablePath().c_str(), codeDirectory()->nCodeSlots);
-	const CodeDirectory *cd = this->codeDirectory();
-	if (!cd)
-		MacOSError::throwMe(errSecCSUnsigned);
-	AutoFileDesc fd(mainExecutablePath(), O_RDONLY);
-	fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
-	if (Universal *fat = mRep->mainExecutableImage())
-		fd.seek(fat->archOffset());
-	size_t pageSize = cd->pageSize ? (1 << cd->pageSize) : 0;
-	size_t remaining = cd->codeLimit;
-	for (size_t slot = 0; slot < cd->nCodeSlots; ++slot) {
-		size_t size = min(remaining, pageSize);
-		if (!cd->validateSlot(fd, size, slot)) {
-			CODESIGN_EVAL_STATIC_EXECUTABLE_FAIL(this, slot);
-			mExecutableValidated = true;	// we tried
-			mExecutableValid = false;		// it failed
-			MacOSError::throwMe(errSecCSSignatureFailed);
+	if (!validatedExecutable()) {
+		try {
+			DTRACK(CODESIGN_EVAL_STATIC_EXECUTABLE, this,
+				(char*)this->mainExecutablePath().c_str(), codeDirectory()->nCodeSlots);
+			const CodeDirectory *cd = this->codeDirectory();
+			if (!cd) 
+				MacOSError::throwMe(errSecCSUnsigned);
+			AutoFileDesc fd(mainExecutablePath(), O_RDONLY);
+			fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
+			if (Universal *fat = mRep->mainExecutableImage())
+				fd.seek(fat->archOffset());
+			size_t pageSize = cd->pageSize ? (1 << cd->pageSize) : 0;
+			size_t remaining = cd->codeLimit;
+			for (size_t slot = 0; slot < cd->nCodeSlots; ++slot) {
+				size_t size = min(remaining, pageSize);
+				if (!cd->validateSlot(fd, size, slot)) {
+					CODESIGN_EVAL_STATIC_EXECUTABLE_FAIL(this, slot);
+					MacOSError::throwMe(errSecCSSignatureFailed);
+				}
+				remaining -= size;
+			}
+			mExecutableValidated = true;
+			mExecutableValidResult = noErr;
+		} catch (const CommonError &err) {
+			mExecutableValidated = true;
+			mExecutableValidResult = err.osStatus();
+			throw;
+		} catch (...) {
+			secdebug("staticCode", "%p executable validation threw non-common exception", this);
+			mExecutableValidated = true;
+			mExecutableValidResult = errSecCSInternalError;
+			throw;
 		}
-		remaining -= size;
 	}
-	mExecutableValidated = true;	// we tried
-	mExecutableValid = true;		// it worked
+	assert(validatedExecutable());
+	if (mExecutableValidResult != noErr)
+		MacOSError::throwMe(mExecutableValidResult);
 }
 
 
@@ -522,48 +593,68 @@ void SecStaticCode::validateExecutable()
 //
 void SecStaticCode::validateResources()
 {
-	// sanity first
-	CFDictionaryRef sealedResources = resourceDictionary();
-	if (this->resourceBase())		// disk has resources
-		if (sealedResources)
-			/* go to work below */;
-		else
-			MacOSError::throwMe(errSecCSResourcesNotFound);
-	else							// disk has no resources
-		if (sealedResources)
-			MacOSError::throwMe(errSecCSResourcesNotFound);
-		else
-			return;					// no resources, not sealed - fine (no work)
+	if (!validatedResources()) {
+		try {
+			// sanity first
+			CFDictionaryRef sealedResources = resourceDictionary();
+			if (this->resourceBase())		// disk has resources
+				if (sealedResources)
+					/* go to work below */;
+				else
+					MacOSError::throwMe(errSecCSResourcesNotFound);
+			else							// disk has no resources
+				if (sealedResources)
+					MacOSError::throwMe(errSecCSResourcesNotFound);
+				else
+					return;					// no resources, not sealed - fine (no work)
+		
+			// found resources, and they are sealed
+			CFDictionaryRef rules = cfget<CFDictionaryRef>(sealedResources, "rules");
+			CFDictionaryRef files = cfget<CFDictionaryRef>(sealedResources, "files");
+			DTRACK(CODESIGN_EVAL_STATIC_RESOURCES, this,
+				(char*)this->mainExecutablePath().c_str(), int(CFDictionaryGetCount(files)));
+		
+			// make a shallow copy of the ResourceDirectory so we can "check off" what we find
+			CFRef<CFMutableDictionaryRef> resourceMap = makeCFMutableDictionary(files);
+		
+			// scan through the resources on disk, checking each against the resourceDirectory
+			mResourcesValidContext = new CollectingContext(*this);		// collect all failures in here
+			ResourceBuilder resources(cfString(this->resourceBase()), rules, codeDirectory()->hashType);
+			mRep->adjustResources(resources);
+			string path;
+			ResourceBuilder::Rule *rule;
+		
+			while (resources.next(path, rule)) {
+				validateResource(path, *mResourcesValidContext);
+				CFDictionaryRemoveValue(resourceMap, CFTempString(path));
+			}
+			
+			if (CFDictionaryGetCount(resourceMap) > 0) {
+				secdebug("staticCode", "%p sealed resource(s) not found in code", this);
+				CFDictionaryApplyFunction(resourceMap, SecStaticCode::checkOptionalResource, mResourcesValidContext);
+			}
+			
+			// now check for any errors found in the reporting context
+			mResourcesValidated = true;
+			if (mResourcesValidContext->osStatus() != noErr)
+				mResourcesValidContext->throwMe();
 
-	// found resources, and they are sealed
-	CFDictionaryRef rules = cfget<CFDictionaryRef>(sealedResources, "rules");
-	CFDictionaryRef files = cfget<CFDictionaryRef>(sealedResources, "files");
-	DTRACK(CODESIGN_EVAL_STATIC_RESOURCES, this,
-		(char*)this->mainExecutablePath().c_str(), int(CFDictionaryGetCount(files)));
-
-	// make a shallow copy of the ResourceDirectory so we can "check off" what we find
-	CFRef<CFMutableDictionaryRef> resourceMap = makeCFMutableDictionary(files);
-
-	// scan through the resources on disk, checking each against the resourceDirectory
-	CollectingContext ctx(*this);		// collect all failures in here
-	ResourceBuilder resources(cfString(this->resourceBase()), rules, codeDirectory()->hashType);
-	mRep->adjustResources(resources);
-	string path;
-	ResourceBuilder::Rule *rule;
-
-	while (resources.next(path, rule)) {
-		validateResource(path, ctx);
-		CFDictionaryRemoveValue(resourceMap, CFTempString(path));
+		} catch (const CommonError &err) {
+			mResourcesValidated = true;
+			mResourcesValidResult = err.osStatus();
+			throw;
+		} catch (...) {
+			secdebug("staticCode", "%p executable validation threw non-common exception", this);
+			mResourcesValidated = true;
+			mResourcesValidResult = errSecCSInternalError;
+			throw;
+		}
 	}
-	
-	if (CFDictionaryGetCount(resourceMap) > 0) {
-		secdebug("staticCode", "%p sealed resource(s) not found in code", this);
-		CFDictionaryApplyFunction(resourceMap, SecStaticCode::checkOptionalResource, &ctx);
-	}
-	
-	// now check for any errors found in the reporting context
-	if (ctx)
-		ctx.throwMe();
+	assert(!validatedResources());
+	if (mResourcesValidResult)
+		MacOSError::throwMe(mResourcesValidResult);
+	if (mResourcesValidContext->osStatus() != noErr)
+		mResourcesValidContext->throwMe();
 }
 
 
@@ -1149,7 +1240,7 @@ void SecStaticCode::CollectingContext::reportProblem(OSStatus rc, CFStringRef ty
 void SecStaticCode::CollectingContext::throwMe()
 {
 	assert(mStatus != noErr);
-	throw CSError(mStatus, mCollection.yield());
+	throw CSError(mStatus, mCollection.retain());
 }
 
 

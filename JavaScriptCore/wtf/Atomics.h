@@ -60,14 +60,18 @@
 #define Atomics_h
 
 #include "Platform.h"
+#include "StdLibExtras.h"
+#include "UnusedParam.h"
 
 #if OS(WINDOWS)
 #include <windows.h>
 #elif OS(DARWIN)
 #include <libkern/OSAtomic.h>
+#elif OS(QNX)
+#include <atomic.h>
 #elif OS(ANDROID)
-#include <cutils/atomic.h>
-#elif COMPILER(GCC) && !OS(SYMBIAN)
+#include <sys/atomics.h>
+#elif COMPILER(GCC)
 #if (__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2))
 #include <ext/atomicity.h>
 #else
@@ -94,17 +98,94 @@ inline int atomicDecrement(int volatile* addend) { return InterlockedDecrement(r
 inline int atomicIncrement(int volatile* addend) { return OSAtomicIncrement32Barrier(const_cast<int*>(addend)); }
 inline int atomicDecrement(int volatile* addend) { return OSAtomicDecrement32Barrier(const_cast<int*>(addend)); }
 
+#elif OS(QNX)
+#define WTF_USE_LOCKFREE_THREADSAFEREFCOUNTED 1
+
+// Note, atomic_{add, sub}_value() return the previous value of addend's content.
+inline int atomicIncrement(int volatile* addend) { return static_cast<int>(atomic_add_value(reinterpret_cast<unsigned volatile*>(addend), 1)) + 1; }
+inline int atomicDecrement(int volatile* addend) { return static_cast<int>(atomic_sub_value(reinterpret_cast<unsigned volatile*>(addend), 1)) - 1; }
+
 #elif OS(ANDROID)
 
-inline int atomicIncrement(int volatile* addend) { return android_atomic_inc(addend); }
-inline int atomicDecrement(int volatile* addend) { return android_atomic_dec(addend); }
+inline int atomicIncrement(int volatile* addend) { return __atomic_inc(addend); }
+inline int atomicDecrement(int volatile* addend) { return __atomic_dec(addend); }
 
-#elif COMPILER(GCC) && !CPU(SPARC64) && !OS(SYMBIAN) // sizeof(_Atomic_word) != sizeof(int) on sparc64 gcc
+#elif COMPILER(GCC) && !CPU(SPARC64) // sizeof(_Atomic_word) != sizeof(int) on sparc64 gcc
 #define WTF_USE_LOCKFREE_THREADSAFEREFCOUNTED 1
 
 inline int atomicIncrement(int volatile* addend) { return __gnu_cxx::__exchange_and_add(addend, 1) + 1; }
 inline int atomicDecrement(int volatile* addend) { return __gnu_cxx::__exchange_and_add(addend, -1) - 1; }
 
+#endif
+
+inline bool weakCompareAndSwap(volatile unsigned* location, unsigned expected, unsigned newValue)
+{
+#if ENABLE(COMPARE_AND_SWAP)
+    bool result;
+#if CPU(X86) || CPU(X86_64)
+    asm volatile(
+        "lock; cmpxchgl %3, %2\n\t"
+        "sete %1"
+        : "+a"(expected), "=q"(result), "+m"(*location)
+        : "r"(newValue)
+        : "memory"
+        );
+#elif CPU(ARM_THUMB2)
+    unsigned tmp;
+    asm volatile(
+        "movw %1, #1\n\t"
+        "ldrex %2, %0\n\t"
+        "cmp %3, %2\n\t"
+        "bne.n 0f\n\t"
+        "strex %1, %4, %0\n\t"
+        "0:"
+        : "+m"(*location), "=&r"(result), "=&r"(tmp)
+        : "r"(expected), "r"(newValue)
+        : "memory");
+    result = !result;
+#else
+#error "Bad architecture for compare and swap."
+#endif
+    return result;
+#else
+    UNUSED_PARAM(location);
+    UNUSED_PARAM(expected);
+    UNUSED_PARAM(newValue);
+    CRASH();
+    return 0;
+#endif
+}
+
+inline bool weakCompareAndSwap(void*volatile* location, void* expected, void* newValue)
+{
+#if ENABLE(COMPARE_AND_SWAP)
+#if CPU(X86_64)
+    bool result;
+    asm volatile(
+        "lock; cmpxchgq %3, %2\n\t"
+        "sete %1"
+        : "+a"(expected), "=q"(result), "+m"(*location)
+        : "r"(newValue)
+        : "memory"
+        );
+    return result;
+#else
+    return weakCompareAndSwap(bitwise_cast<unsigned*>(location), bitwise_cast<unsigned>(expected), bitwise_cast<unsigned>(newValue));
+#endif
+#else // ENABLE(COMPARE_AND_SWAP)
+    UNUSED_PARAM(location);
+    UNUSED_PARAM(expected);
+    UNUSED_PARAM(newValue);
+    CRASH();
+    return 0;
+#endif // ENABLE(COMPARE_AND_SWAP)
+}
+
+#if CPU(X86_64)
+inline bool weakCompareAndSwap(volatile uintptr_t* location, uintptr_t expected, uintptr_t newValue)
+{
+    return weakCompareAndSwap(reinterpret_cast<void*volatile*>(location), reinterpret_cast<void*>(expected), reinterpret_cast<void*>(newValue));
+}
 #endif
 
 } // namespace WTF

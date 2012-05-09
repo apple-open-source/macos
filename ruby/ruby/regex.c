@@ -1203,7 +1203,8 @@ read_special(p, pend, pp)
     else if (c == -1) return ~0;
     return c & 0x9f;
   default:
-    *pp = p + 1;
+    PATFETCH_RAW(c);
+    *pp = p;
     return read_backslash(c);
   }
 
@@ -2150,6 +2151,12 @@ re_compile_pattern(pattern, size, bufp)
       { /* If the upper bound is > 1, we need to insert
 	   more at the end of the loop.  */
 	unsigned nbytes = upper_bound == 1 ? 10 : 20;
+
+	if (lower_bound == 0 && greedy == 0) {
+	    GET_BUFFER_SPACE(3);
+	    insert_jump(try_next, laststart, b + 3, b);
+	    b += 3;
+	}
 
 	GET_BUFFER_SPACE(nbytes);
 	/* Initialize lower bound of the `succeed_n', even

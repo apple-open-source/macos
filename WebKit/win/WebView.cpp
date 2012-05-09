@@ -4577,6 +4577,21 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     settings->setFixedFontFamily(AtomicString(str, SysStringLen(str)));
     SysFreeString(str);
 
+    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
+    if (prefsPrivate) {
+        hr = prefsPrivate->localStorageDatabasePath(&str);
+        if (FAILED(hr))
+            return hr;
+        settings->setLocalStorageDatabasePath(String(str, SysStringLen(str)));
+        SysFreeString(str);
+    }
+
+    hr = preferences->pictographFontFamily(&str);
+    if (FAILED(hr))
+        return hr;
+    settings->setPictographFontFamily(AtomicString(str, SysStringLen(str)));
+    SysFreeString(str);
+
     hr = preferences->isJavaEnabled(&enabled);
     if (FAILED(hr))
         return hr;
@@ -4728,7 +4743,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     settings->setAVFoundationEnabled(enabled);
 #endif
 
-    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
     if (prefsPrivate) {
         hr = prefsPrivate->authorAndUserStylesEnabled(&enabled);
         if (FAILED(hr))
@@ -6121,7 +6135,7 @@ static KURL toKURL(BSTR bstr)
 
 void WebView::enterFullscreenForNode(Node* node)
 {
-    if (!node->hasTagName(HTMLNames::videoTag))
+    if (!node->hasTagName(HTMLNames::videoTag) || !node->isElementNode() || !static_cast<Element*>(node)->isMediaElement())
         return;
 
 #if ENABLE(VIDEO)
@@ -6583,6 +6597,18 @@ HRESULT WebView::setDomainRelaxationForbiddenForURLScheme(BOOL forbidden, BSTR s
 HRESULT WebView::registerURLSchemeAsSecure(BSTR scheme)
 {
     SchemeRegistry::registerURLSchemeAsSecure(toString(scheme));
+    return S_OK;
+}
+
+HRESULT WebView::registerURLSchemeAsAllowingLocalStorageAccessInPrivateBrowsing(BSTR scheme)
+{
+    SchemeRegistry::registerURLSchemeAsAllowingLocalStorageAccessInPrivateBrowsing(toString(scheme));
+    return S_OK;
+}
+
+HRESULT WebView::registerURLSchemeAsAllowingDatabaseAccessInPrivateBrowsing(BSTR scheme)
+{
+    SchemeRegistry::registerURLSchemeAsAllowingDatabaseAccessInPrivateBrowsing(toString(scheme));
     return S_OK;
 }
 

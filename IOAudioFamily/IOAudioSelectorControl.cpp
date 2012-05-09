@@ -58,12 +58,12 @@ IOAudioSelectorControl *IOAudioSelectorControl::createOutputClockSelector(SInt32
 {
 	IOAudioSelectorControl *clockControl;
 
-	if (clockControl = create (initialValue, 
+	if ((clockControl = create (initialValue, 
                     channelID, 
                     channelName, 
                     cntrlID, 
                     kIOAudioSelectorControlSubTypeClockSource, 
-                    kIOAudioControlUsageOutput)) {
+                    kIOAudioControlUsageOutput))) {
         clockControl->setProperty(kIOAudioSelectorControlClockSourceKey, clockSource);
 	}
 
@@ -78,12 +78,12 @@ IOAudioSelectorControl *IOAudioSelectorControl::createInputClockSelector(SInt32 
 {
 	IOAudioSelectorControl *clockControl;
 
-	if (clockControl = create (initialValue, 
+	if ((clockControl = create (initialValue, 
                     channelID, 
                     channelName, 
                     cntrlID, 
                     kIOAudioSelectorControlSubTypeClockSource, 
-                    kIOAudioControlUsageInput)) {
+                    kIOAudioControlUsageInput))) {
         clockControl->setProperty(kIOAudioSelectorControlClockSourceKey, clockSource);
 	}
 
@@ -123,7 +123,7 @@ IOReturn IOAudioSelectorControl::removeAvailableSelection(SInt32 selectionValue)
 		UInt32			index;
 
 		index = 0;
-        while (selection = (OSDictionary *)iterator->getNextObject()) {
+        while ( (selection = (OSDictionary *)iterator->getNextObject()) ) {
             OSNumber *	sValue;
 
             sValue = (OSNumber *)selection->getObject(kIOAudioSelectorControlSelectionValueKey);
@@ -188,7 +188,7 @@ IOReturn IOAudioSelectorControl::replaceAvailableSelection(SInt32 selectionValue
 		UInt32			index;
 
 		index = 0;
-        while (selection = (OSDictionary *)iterator->getNextObject()) {
+        while ( (selection = (OSDictionary *)iterator->getNextObject() )) {
             OSNumber *	sValue;
 
             sValue = (OSNumber *)selection->getObject(kIOAudioSelectorControlSelectionValueKey);
@@ -440,7 +440,7 @@ bool IOAudioSelectorControl::valueExists(SInt32 selectionValue)
     if (iterator) {
         OSDictionary *selection;
         
-        while (selection = (OSDictionary *)iterator->getNextObject()) {
+        while ( (selection = (OSDictionary *)iterator->getNextObject()) ) {
             OSNumber *sValue;
             
             sValue = (OSNumber *)selection->getObject(kIOAudioSelectorControlSelectionValueKey);

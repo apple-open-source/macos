@@ -35,6 +35,7 @@
 #include <sys/sysctl.h>
 #include "webdav_requestqueue.h"
 #include "webdav_network.h"
+#include "webdav_cookie.h"
 
 /*****************************************************************************/
 
@@ -455,6 +456,16 @@ static void handle_filesystem_request(int so)
 					error = filesystem_write_seq((struct webdav_request_writeseq *)key);
 					send_reply(so, (void *)0, 0, error);
 					break;
+					
+				case WEBDAV_DUMP_COOKIES:
+					dump_cookies((struct webdav_request_cookies *)key);
+					send_reply(so, (void *)0, 0, error);
+					break;
+					
+				case WEBDAV_CLEAR_COOKIES:
+					reset_cookies((struct webdav_request_cookies *)key);
+					send_reply(so, (void *)0, 0, error);
+					break;
 				
 				default:
 					error = ENOTSUP;
@@ -550,6 +561,7 @@ static void pulse_thread(void *arg)
 		/* Ok, unlock so that we can restart the loop */
 		error = pthread_mutex_unlock(&pulse_lock);
 		require_noerr(error, pthread_mutex_unlock);
+		purge_expired_cookies();
 	}
 
 pthread_mutex_lock:

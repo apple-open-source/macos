@@ -197,7 +197,8 @@ OSStatus SecCodeCheckValidityWithErrors(SecCodeRef codeRef, SecCSFlags flags,
 	BEGIN_CSAPI
 	
 	checkFlags(flags,
-		kSecCSConsiderExpiration);
+		  kSecCSConsiderExpiration
+		| kSecCSEnforceRevocationChecks);
 	SecPointer<SecCode> code = SecCode::required(codeRef);
 	code->checkValidity(flags);
 	if (const SecRequirement *req = SecRequirement::optional(requirementRef))

@@ -87,6 +87,7 @@
 #include "Threading.h"
 #include "DateMath.h"
 #include "dtoa.h"
+#include "dtoa/cached-powers.h"
 
 #include "MainThread.h"
 #include "ThreadFunctionInvocation.h"
@@ -127,6 +128,10 @@ typedef struct tagTHREADNAME_INFO {
 
 void initializeCurrentThreadInternal(const char* szThreadName)
 {
+#if COMPILER(MINGW)
+    // FIXME: Implement thread name setting with MingW.
+    UNUSED_PARAM(szThreadName);
+#else
     THREADNAME_INFO info;
     info.dwType = 0x1000;
     info.szName = szThreadName;
@@ -137,6 +142,7 @@ void initializeCurrentThreadInternal(const char* szThreadName)
         RaiseException(MS_VC_EXCEPTION, 0, sizeof(info)/sizeof(ULONG_PTR), reinterpret_cast<ULONG_PTR*>(&info));
     } __except (EXCEPTION_CONTINUE_EXECUTION) {
     }
+#endif
 }
 
 static Mutex* atomicallyInitializedStaticMutex;
@@ -163,6 +169,7 @@ void initializeThreading()
     if (atomicallyInitializedStaticMutex)
         return;
 
+    WTF::double_conversion::initialize();
     // StringImpl::empty() does not construct its static string in a threadsafe fashion,
     // so ensure it has been initialized from here.
     StringImpl::empty();
@@ -170,11 +177,8 @@ void initializeThreading()
     threadMapMutex();
     initializeRandomNumberGenerator();
     wtfThreadData();
-#if ENABLE(WTF_MULTIPLE_THREADS)
     s_dtoaP5Mutex = new Mutex;
     initializeDates();
-#endif
-
 }
 
 static HashMap<DWORD, HANDLE>& threadMap()

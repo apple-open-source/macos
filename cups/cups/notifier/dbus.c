@@ -1,9 +1,9 @@
 /*
- * "$Id: dbus.c 3453 2011-10-04 07:01:41Z msweet $"
+ * "$Id: dbus.c 3648 2012-02-13 17:37:38Z msweet $"
  *
  *   D-Bus notifier for CUPS.
  *
- *   Copyright 2008-2010 by Apple Inc.
+ *   Copyright 2008-2011 by Apple Inc.
  *   Copyright (C) 2011 Red Hat, Inc.
  *   Copyright (C) 2007 Tim Waugh <twaugh@redhat.com>
  *   Copyright 1997-2005 by Easy Software Products.
@@ -220,6 +220,8 @@ main(int  argc,				/* I - Number of command-line args */
     const char		*signame = NULL;/* DBUS signal name */
     char		*printer_reasons = NULL;
 					/* Printer reasons string */
+    char		*job_reasons = NULL;
+					/* Job reasons string */
     const char		*nul = "";	/* Empty string value */
     int			no = 0;		/* Boolean "no" value */
     int			params = PARAMS_NONE;
@@ -363,7 +365,8 @@ main(int  argc,				/* I - Number of command-line args */
     attr = ippFindAttribute(msg, "notify-text", IPP_TAG_TEXT);
     if (!attr)
       goto bail;
-    dbus_message_iter_append_string(&iter, &(attr->values[0].string.text));
+    if (!dbus_message_iter_append_string(&iter, &(attr->values[0].string.text)))
+      goto bail;
 
     if (params >= PARAMS_PRINTER)
     {
@@ -375,7 +378,11 @@ main(int  argc,				/* I - Number of command-line args */
       /* STRING printer-uri or "" */
       attr = ippFindAttribute(msg, "notify-printer-uri", IPP_TAG_URI);
       if (attr)
-	dbus_message_iter_append_string(&iter, &(attr->values[0].string.text));
+      {
+	if (!dbus_message_iter_append_string(&iter,
+	                                     &(attr->values[0].string.text)))
+          goto bail;
+      }
       else
       {
 	have_printer_params = 0;
@@ -387,8 +394,11 @@ main(int  argc,				/* I - Number of command-line args */
       {
 	attr = ippFindAttribute(msg, "printer-name", IPP_TAG_NAME);
 	if (attr)
-	  dbus_message_iter_append_string(&iter,
-					  &(attr->values[0].string.text));
+	{
+	  if (!dbus_message_iter_append_string(&iter,
+					       &(attr->values[0].string.text)))
+	    goto bail;
+	}
 	else
 	  goto bail;
       }
@@ -429,7 +439,8 @@ main(int  argc,				/* I - Number of command-line args */
 	    strcpy(p, attr->values[i].string.text);
 	    p += strlen(p);
 	  }
-	  dbus_message_iter_append_string(&iter, &printer_reasons);
+	  if (!dbus_message_iter_append_string(&iter, &printer_reasons))
+	    goto bail;
 	}
 	else
 	  goto bail;
@@ -453,6 +464,10 @@ main(int  argc,				/* I - Number of command-line args */
 
     if (params >= PARAMS_JOB)
     {
+      char	*p;			/* Pointer into job_reasons */
+      size_t	reasons_length;		/* Required size of job_reasons */
+      int	i;			/* Looping var */
+
       /* UINT32 job-id */
       attr = ippFindAttribute(msg, "notify-job-id", IPP_TAG_INTEGER);
       if (!attr)
@@ -467,14 +482,37 @@ main(int  argc,				/* I - Number of command-line args */
 
       /* STRING job-state-reasons */
       attr = ippFindAttribute(msg, "job-state-reasons", IPP_TAG_KEYWORD);
-      if (!attr)
+      if (attr)
+      {
+	for (reasons_length = 0, i = 0; i < attr->num_values; i++)
+	  /* All need commas except the last, which needs a nul byte. */
+	  reasons_length += 1 + strlen(attr->values[i].string.text);
+	job_reasons = malloc(reasons_length);
+	if (!job_reasons)
+	  goto bail;
+	p = job_reasons;
+	for (i = 0; i < attr->num_values; i++)
+	{
+	  if (i)
+	    *p++ = ',';
+
+	  strcpy(p, attr->values[i].string.text);
+	  p += strlen(p);
+	}
+	if (!dbus_message_iter_append_string(&iter, &job_reasons))
+	  goto bail;
+      }
+      else
 	goto bail;
-      dbus_message_iter_append_string(&iter, &(attr->values[0].string.text));
 
       /* STRING job-name or "" */
       attr = ippFindAttribute(msg, "job-name", IPP_TAG_NAME);
       if (attr)
-	dbus_message_iter_append_string(&iter, &(attr->values[0].string.text));
+      {
+        if (!dbus_message_iter_append_string(&iter,
+                                             &(attr->values[0].string.text)))
+          goto bail;
+      }
       else
 	dbus_message_iter_append_string(&iter, &nul);
 
@@ -495,10 +533,14 @@ main(int  argc,				/* I - Number of command-line args */
 
     bail:
 
+    dbus_message_unref(message);
+
     if (printer_reasons)
       free(printer_reasons);
 
-    dbus_message_unref(message);
+    if (job_reasons)
+      free(job_reasons);
+
     ippDelete(msg);
   }
 
@@ -549,5 +591,5 @@ acquire_lock(int    *fd,		/* O - Lock file descriptor */
 
 
 /*
- * End of "$Id: dbus.c 3453 2011-10-04 07:01:41Z msweet $".
+ * End of "$Id: dbus.c 3648 2012-02-13 17:37:38Z msweet $".
  */

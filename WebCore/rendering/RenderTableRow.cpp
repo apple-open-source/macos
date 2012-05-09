@@ -74,31 +74,40 @@ void RenderTableRow::updateBeforeAndAfterContent()
 void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBox::styleDidChange(diff, oldStyle);
+    propagateStyleToAnonymousChildren();
 
     if (parent())
         updateBeforeAndAfterContent();
-
 }
 
 void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
 {
     // Make sure we don't append things after :after-generated content if we have it.
-    if (!beforeChild && isAfterContent(lastChild()))
-        beforeChild = lastChild();
+    if (!beforeChild)
+        beforeChild = afterPseudoElementRenderer();
 
     if (!child->isTableCell()) {
         RenderObject* last = beforeChild;
         if (!last)
             last = lastChild();
-        if (last && last->isAnonymous() && last->isTableCell()) {
+        if (last && last->isAnonymous() && last->isTableCell() && !last->isBeforeOrAfterContent()) {
             if (beforeChild == last)
                 beforeChild = last->firstChild();
             last->addChild(child, beforeChild);
             return;
         }
 
+        if (beforeChild && !beforeChild->isAnonymous() && beforeChild->parent() == this) {
+            RenderObject* cell = beforeChild->previousSibling();
+            if (cell && cell->isTableCell()) {
+                ASSERT(cell->isAnonymous());
+                cell->addChild(child);
+                return;
+            }
+        }
+
         // If beforeChild is inside an anonymous cell, insert into the cell.
-        if (last && !last->isTableCell() && last->parent() && last->parent()->isAnonymous()) {
+        if (last && !last->isTableCell() && last->parent() && last->parent()->isAnonymous() && !last->parent()->isBeforeOrAfterContent()) {
             last->parent()->addChild(child, beforeChild);
             return;
         }

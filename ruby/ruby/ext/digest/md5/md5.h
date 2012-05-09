@@ -48,8 +48,6 @@
 
 #include "defs.h"
 
-#include <CommonCrypto/CommonDigest.h>
-
 /*
  * This code has some adaptations for the Ghostscript environment, but it
  * will compile and run correctly in any environment with 8-bit chars and

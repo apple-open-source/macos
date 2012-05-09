@@ -31,9 +31,13 @@
 #include "CodeBlock.h"
 
 #include "BytecodeGenerator.h"
+#include "DFGCapabilities.h"
+#include "DFGNode.h"
+#include "DFGRepatch.h"
 #include "Debugger.h"
 #include "Interpreter.h"
 #include "JIT.h"
+#include "JITStubs.h"
 #include "JSActivation.h"
 #include "JSFunction.h"
 #include "JSStaticScopeObject.h"
@@ -76,7 +80,7 @@ static UString valueToSourceString(ExecState* exec, JSValue val)
     if (val.isString())
         return makeUString("\"", escapeQuotes(val.toString(exec)), "\"");
 
-    return val.toString(exec);
+    return val.description();
 }
 
 static CString constantName(ExecState* exec, int k, JSValue value)
@@ -253,7 +257,8 @@ static void printStructureStubInfo(const StructureStubInfo& stubInfo, unsigned i
     case access_get_by_id_proto_list:
         printf("  [%4d] %s: %s (%d)\n", instructionOffset, "op_get_by_id_proto_list", pointerToSourceString(stubInfo.u.getByIdProtoList.structureList).utf8().data(), stubInfo.u.getByIdProtoList.listSize);
         return;
-    case access_put_by_id_transition:
+    case access_put_by_id_transition_normal:
+    case access_put_by_id_transition_direct:
         printf("  [%4d] %s: %s, %s, %s\n", instructionOffset, "put_by_id_transition", pointerToSourceString(stubInfo.u.putByIdTransition.previousStructure).utf8().data(), pointerToSourceString(stubInfo.u.putByIdTransition.structure).utf8().data(), pointerToSourceString(stubInfo.u.putByIdTransition.chain).utf8().data());
         return;
     case access_put_by_id_replace:
@@ -282,14 +287,14 @@ static void printStructureStubInfo(const StructureStubInfo& stubInfo, unsigned i
 
 void CodeBlock::printStructure(const char* name, const Instruction* vPC, int operand) const
 {
-    unsigned instructionOffset = vPC - m_instructions.begin();
+    unsigned instructionOffset = vPC - instructions().begin();
     printf("  [%4d] %s: %s\n", instructionOffset, name, pointerToSourceString(vPC[operand].u.structure).utf8().data());
 }
 
 void CodeBlock::printStructures(const Instruction* vPC) const
 {
     Interpreter* interpreter = m_globalData->interpreter;
-    unsigned instructionOffset = vPC - m_instructions.begin();
+    unsigned instructionOffset = vPC - instructions().begin();
 
     if (vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id)) {
         printStructure("get_by_id", vPC, 4);
@@ -334,23 +339,23 @@ void CodeBlock::printStructures(const Instruction* vPC) const
 
 void CodeBlock::dump(ExecState* exec) const
 {
-    if (m_instructions.isEmpty()) {
+    if (!m_instructions) {
         printf("No instructions available.\n");
         return;
     }
 
     size_t instructionCount = 0;
 
-    for (size_t i = 0; i < m_instructions.size(); i += opcodeLengths[exec->interpreter()->getOpcodeID(m_instructions[i].u.opcode)])
+    for (size_t i = 0; i < instructions().size(); i += opcodeLengths[exec->interpreter()->getOpcodeID(instructions()[i].u.opcode)])
         ++instructionCount;
 
     printf("%lu m_instructions; %lu bytes at %p; %d parameter(s); %d callee register(s)\n\n",
         static_cast<unsigned long>(instructionCount),
-        static_cast<unsigned long>(m_instructions.size() * sizeof(Instruction)),
+        static_cast<unsigned long>(instructions().size() * sizeof(Instruction)),
         this, m_numParameters, m_numCalleeRegisters);
 
-    Vector<Instruction>::const_iterator begin = m_instructions.begin();
-    Vector<Instruction>::const_iterator end = m_instructions.end();
+    Vector<Instruction>::const_iterator begin = instructions().begin();
+    Vector<Instruction>::const_iterator end = instructions().end();
     for (Vector<Instruction>::const_iterator it = begin; it != end; ++it)
         dump(exec, begin, it);
 
@@ -388,14 +393,14 @@ void CodeBlock::dump(ExecState* exec) const
     if (!m_globalResolveInfos.isEmpty()) {
         size_t i = 0;
         do {
-             printGlobalResolveInfo(m_globalResolveInfos[i], instructionOffsetForNth(exec, m_instructions, i + 1, isGlobalResolve));
+             printGlobalResolveInfo(m_globalResolveInfos[i], instructionOffsetForNth(exec, instructions(), i + 1, isGlobalResolve));
              ++i;
         } while (i < m_globalResolveInfos.size());
     }
     if (!m_structureStubInfos.isEmpty()) {
         size_t i = 0;
         do {
-            printStructureStubInfo(m_structureStubInfos[i], instructionOffsetForNth(exec, m_instructions, i + 1, isPropertyAccess));
+            printStructureStubInfo(m_structureStubInfos[i], instructionOffsetForNth(exec, instructions(), i + 1, isPropertyAccess));
              ++i;
         } while (i < m_structureStubInfos.size());
     }
@@ -407,14 +412,14 @@ void CodeBlock::dump(ExecState* exec) const
     if (!m_globalResolveInstructions.isEmpty()) {
         size_t i = 0;
         do {
-             printStructures(&m_instructions[m_globalResolveInstructions[i]]);
+             printStructures(&instructions()[m_globalResolveInstructions[i]]);
              ++i;
         } while (i < m_globalResolveInstructions.size());
     }
     if (!m_propertyAccessInstructions.isEmpty()) {
         size_t i = 0;
         do {
-            printStructures(&m_instructions[m_propertyAccessInstructions[i]]);
+            printStructures(&instructions()[m_propertyAccessInstructions[i]]);
              ++i;
         } while (i < m_propertyAccessInstructions.size());
     }
@@ -542,7 +547,11 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         case op_new_regexp: {
             int r0 = (++it)->u.operand;
             int re0 = (++it)->u.operand;
-            printf("[%4d] new_regexp\t %s, %s\n", location, registerName(exec, r0).data(), regexpName(re0, regexp(re0)).data());
+            printf("[%4d] new_regexp\t %s, ", location, registerName(exec, r0).data());
+            if (r0 >=0 && r0 < (int)numberOfRegExps())
+                printf("%s\n", regexpName(re0, regexp(re0)).data());
+            else
+                printf("bad_regexp(%d)\n", re0);
             break;
         }
         case op_mov: {
@@ -1071,6 +1080,10 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printf("[%4d] loop_if_greatereq\t %s, %s, %d(->%d)\n", location, registerName(exec, r0).data(), registerName(exec, r1).data(), offset, location + offset);
             break;
         }
+        case op_loop_hint: {
+            printf("[%4d] loop_hint\n", location);
+            break;
+        }
         case op_switch_imm: {
             int tableIndex = (++it)->u.operand;
             int defaultTarget = (++it)->u.operand;
@@ -1120,14 +1133,11 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             break;
         }
         case op_call_varargs: {
-            int func = (++it)->u.operand;
-            int argCount = (++it)->u.operand;
-            int registerOffset = (++it)->u.operand;
-            printf("[%4d] call_varargs\t %s, %s, %d\n", location, registerName(exec, func).data(), registerName(exec, argCount).data(), registerOffset);
-            break;
-        }
-        case op_load_varargs: {
-            printUnaryOp(exec, location, it, "load_varargs");
+            int callee = (++it)->u.operand;
+            int thisValue = (++it)->u.operand;
+            int arguments = (++it)->u.operand;
+            int firstFreeRegister = (++it)->u.operand;
+            printf("[%4d] call_varargs\t %s, %s, %s, %d\n", location, registerName(exec, callee).data(), registerName(exec, thisValue).data(), registerName(exec, arguments).data(), firstFreeRegister);
             break;
         }
         case op_tear_off_activation: {
@@ -1397,18 +1407,75 @@ void CodeBlock::dumpStatistics()
 #endif
 }
 
-CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, CodeType codeType, JSGlobalObject *globalObject, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset, SymbolTable* symTab, bool isConstructor)
+CodeBlock::CodeBlock(CopyParsedBlockTag, CodeBlock& other, SymbolTable* symTab)
+    : m_globalObject(other.m_globalObject)
+    , m_heap(other.m_heap)
+    , m_numCalleeRegisters(other.m_numCalleeRegisters)
+    , m_numVars(other.m_numVars)
+    , m_numCapturedVars(other.m_numCapturedVars)
+    , m_numParameters(other.m_numParameters)
+    , m_isConstructor(other.m_isConstructor)
+    , m_shouldDiscardBytecode(false)
+    , m_ownerExecutable(*other.m_globalData, other.m_ownerExecutable.get(), other.m_ownerExecutable.get())
+    , m_globalData(other.m_globalData)
+    , m_instructions(other.m_instructions)
+    , m_instructionCount(other.m_instructionCount)
+    , m_thisRegister(other.m_thisRegister)
+    , m_argumentsRegister(other.m_argumentsRegister)
+    , m_activationRegister(other.m_activationRegister)
+    , m_needsFullScopeChain(other.m_needsFullScopeChain)
+    , m_usesEval(other.m_usesEval)
+    , m_isNumericCompareFunction(other.m_isNumericCompareFunction)
+    , m_isStrictMode(other.m_isStrictMode)
+    , m_codeType(other.m_codeType)
+    , m_source(other.m_source)
+    , m_sourceOffset(other.m_sourceOffset)
+#if ENABLE(JIT)
+    , m_globalResolveInfos(other.m_globalResolveInfos)
+#endif
+#if ENABLE(VALUE_PROFILER)
+    , m_executionEntryCount(0)
+#endif
+    , m_jumpTargets(other.m_jumpTargets)
+    , m_loopTargets(other.m_loopTargets)
+    , m_identifiers(other.m_identifiers)
+    , m_constantRegisters(other.m_constantRegisters)
+    , m_functionDecls(other.m_functionDecls)
+    , m_functionExprs(other.m_functionExprs)
+    , m_symbolTable(symTab)
+    , m_speculativeSuccessCounter(0)
+    , m_speculativeFailCounter(0)
+    , m_optimizationDelayCounter(0)
+    , m_reoptimizationRetryCounter(0)
+{
+    optimizeAfterWarmUp();
+    
+    if (other.m_rareData) {
+        createRareDataIfNecessary();
+        
+        m_rareData->m_exceptionHandlers = other.m_rareData->m_exceptionHandlers;
+        m_rareData->m_regexps = other.m_rareData->m_regexps;
+        m_rareData->m_constantBuffers = other.m_rareData->m_constantBuffers;
+        m_rareData->m_immediateSwitchJumpTables = other.m_rareData->m_immediateSwitchJumpTables;
+        m_rareData->m_characterSwitchJumpTables = other.m_rareData->m_characterSwitchJumpTables;
+        m_rareData->m_stringSwitchJumpTables = other.m_rareData->m_stringSwitchJumpTables;
+        m_rareData->m_expressionInfo = other.m_rareData->m_expressionInfo;
+        m_rareData->m_lineInfo = other.m_rareData->m_lineInfo;
+    }
+}
+
+CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, CodeType codeType, JSGlobalObject *globalObject, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset, SymbolTable* symTab, bool isConstructor, PassOwnPtr<CodeBlock> alternative)
     : m_globalObject(globalObject->globalData(), ownerExecutable, globalObject)
     , m_heap(&m_globalObject->globalData().heap)
     , m_numCalleeRegisters(0)
     , m_numVars(0)
     , m_numParameters(0)
     , m_isConstructor(isConstructor)
+    , m_shouldDiscardBytecode(false)
     , m_ownerExecutable(globalObject->globalData(), ownerExecutable, ownerExecutable)
     , m_globalData(0)
-#ifndef NDEBUG
+    , m_instructions(adoptRef(new Instructions))
     , m_instructionCount(0)
-#endif
     , m_argumentsRegister(-1)
     , m_needsFullScopeChain(ownerExecutable->needsActivation())
     , m_usesEval(ownerExecutable->usesEval())
@@ -1417,9 +1484,19 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, CodeType codeType, JSGlo
     , m_codeType(codeType)
     , m_source(sourceProvider)
     , m_sourceOffset(sourceOffset)
+#if ENABLE(VALUE_PROFILER)
+    , m_executionEntryCount(0)
+#endif
     , m_symbolTable(symTab)
+    , m_alternative(alternative)
+    , m_speculativeSuccessCounter(0)
+    , m_speculativeFailCounter(0)
+    , m_optimizationDelayCounter(0)
+    , m_reoptimizationRetryCounter(0)
 {
     ASSERT(m_source);
+    
+    optimizeAfterWarmUp();
 
 #if DUMP_CODE_BLOCK_STATISTICS
     liveCodeBlockSet.add(this);
@@ -1428,7 +1505,30 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, CodeType codeType, JSGlo
 
 CodeBlock::~CodeBlock()
 {
+#if ENABLE(DFG_JIT)
+    // Remove myself from the set of DFG code blocks. Note that I may not be in this set
+    // (because I'm not a DFG code block), in which case this is a no-op anyway.
+    m_globalData->heap.m_dfgCodeBlocks.m_set.remove(this);
+#endif
+    
+#if ENABLE(VERBOSE_VALUE_PROFILE)
+    dumpValueProfiles();
+#endif
+    
 #if ENABLE(JIT)
+    // We may be destroyed before any CodeBlocks that refer to us are destroyed.
+    // Consider that two CodeBlocks become unreachable at the same time. There
+    // is no guarantee about the order in which the CodeBlocks are destroyed.
+    // So, if we don't remove incoming calls, and get destroyed before the
+    // CodeBlock(s) that have calls into us, then the CallLinkInfo vector's
+    // destructor will try to remove nodes from our (no longer valid) linked list.
+    while (m_incomingCalls.begin() != m_incomingCalls.end())
+        m_incomingCalls.begin()->remove();
+    
+    // Note that our outgoing calls will be removed from other CodeBlocks'
+    // m_incomingCalls linked lists through the execution of the ~CallLinkInfo
+    // destructors.
+
     for (size_t size = m_structureStubInfos.size(), i = 0; i < size; ++i)
         m_structureStubInfos[i].deref();
 #endif // ENABLE(JIT)
@@ -1494,6 +1594,227 @@ void EvalCodeCache::visitAggregate(SlotVisitor& visitor)
 
 void CodeBlock::visitAggregate(SlotVisitor& visitor)
 {
+    if (!!m_alternative)
+        m_alternative->visitAggregate(visitor);
+
+    // There are three things that may use unconditional finalizers: lazy bytecode freeing,
+    // inline cache clearing, and jettisoning. The probability of us wanting to do at
+    // least one of those things is probably quite close to 1. So we add one no matter what
+    // and when it runs, it figures out whether it has any work to do.
+    visitor.addUnconditionalFinalizer(this);
+    
+    if (shouldImmediatelyAssumeLivenessDuringScan()) {
+        // This code block is live, so scan all references strongly and return.
+        stronglyVisitStrongReferences(visitor);
+        stronglyVisitWeakReferences(visitor);
+        return;
+    }
+    
+#if ENABLE(DFG_JIT)
+    // We get here if we're live in the sense that our owner executable is live,
+    // but we're not yet live for sure in another sense: we may yet decide that this
+    // code block should be jettisoned based on its outgoing weak references being
+    // stale. Set a flag to indicate that we're still assuming that we're dead, and
+    // perform one round of determining if we're live. The GC may determine, based on
+    // either us marking additional objects, or by other objects being marked for
+    // other reasons, that this iteration should run again; it will notify us of this
+    // decision by calling harvestWeakReferences().
+    
+    m_dfgData->livenessHasBeenProved = false;
+    m_dfgData->allTransitionsHaveBeenMarked = false;
+    
+    performTracingFixpointIteration(visitor);
+
+    // GC doesn't have enough information yet for us to decide whether to keep our DFG
+    // data, so we need to register a handler to run again at the end of GC, when more
+    // information is available.
+    if (!(m_dfgData->livenessHasBeenProved && m_dfgData->allTransitionsHaveBeenMarked))
+        visitor.addWeakReferenceHarvester(this);
+    
+#else // ENABLE(DFG_JIT)
+    ASSERT_NOT_REACHED();
+#endif // ENABLE(DFG_JIT)
+}
+
+void CodeBlock::performTracingFixpointIteration(SlotVisitor& visitor)
+{
+    UNUSED_PARAM(visitor);
+    
+#if ENABLE(DFG_JIT)
+    // Evaluate our weak reference transitions, if there are still some to evaluate.
+    if (!m_dfgData->allTransitionsHaveBeenMarked) {
+        bool allAreMarkedSoFar = true;
+        for (unsigned i = 0; i < m_dfgData->transitions.size(); ++i) {
+            if ((!m_dfgData->transitions[i].m_codeOrigin
+                 || Heap::isMarked(m_dfgData->transitions[i].m_codeOrigin.get()))
+                && Heap::isMarked(m_dfgData->transitions[i].m_from.get())) {
+                // If the following three things are live, then the target of the
+                // transition is also live:
+                // - This code block. We know it's live already because otherwise
+                //   we wouldn't be scanning ourselves.
+                // - The code origin of the transition. Transitions may arise from
+                //   code that was inlined. They are not relevant if the user's
+                //   object that is required for the inlinee to run is no longer
+                //   live.
+                // - The source of the transition. The transition checks if some
+                //   heap location holds the source, and if so, stores the target.
+                //   Hence the source must be live for the transition to be live.
+                visitor.append(&m_dfgData->transitions[i].m_to);
+            } else
+                allAreMarkedSoFar = false;
+        }
+        
+        if (allAreMarkedSoFar)
+            m_dfgData->allTransitionsHaveBeenMarked = true;
+    }
+    
+    // Check if we have any remaining work to do.
+    if (m_dfgData->livenessHasBeenProved)
+        return;
+    
+    // Now check all of our weak references. If all of them are live, then we
+    // have proved liveness and so we scan our strong references. If at end of
+    // GC we still have not proved liveness, then this code block is toast.
+    bool allAreLiveSoFar = true;
+    for (unsigned i = 0; i < m_dfgData->weakReferences.size(); ++i) {
+        if (!Heap::isMarked(m_dfgData->weakReferences[i].get())) {
+            allAreLiveSoFar = false;
+            break;
+        }
+    }
+    
+    // If some weak references are dead, then this fixpoint iteration was
+    // unsuccessful.
+    if (!allAreLiveSoFar)
+        return;
+    
+    // All weak references are live. Record this information so we don't
+    // come back here again, and scan the strong references.
+    m_dfgData->livenessHasBeenProved = true;
+    stronglyVisitStrongReferences(visitor);
+#endif // ENABLE(DFG_JIT)
+}
+
+void CodeBlock::visitWeakReferences(SlotVisitor& visitor)
+{
+    performTracingFixpointIteration(visitor);
+}
+
+void CodeBlock::finalizeUnconditionally()
+{
+#if ENABLE(JIT)
+#if ENABLE(JIT_VERBOSE_OSR)
+    static const bool verboseUnlinking = true;
+#else
+    static const bool verboseUnlinking = false;
+#endif
+#endif
+    
+#if ENABLE(DFG_JIT)
+    // Check if we're not live. If we are, then jettison.
+    if (!(shouldImmediatelyAssumeLivenessDuringScan() || m_dfgData->livenessHasBeenProved)) {
+        if (verboseUnlinking)
+            printf("Code block %p has dead weak references, jettisoning during GC.\n", this);
+
+        // Make sure that the baseline JIT knows that it should re-warm-up before
+        // optimizing.
+        alternative()->optimizeAfterWarmUp();
+        
+        jettison();
+        return;
+    }
+#endif // ENABLE(DFG_JIT)
+    
+#if ENABLE(JIT)
+    // Handle inline caches.
+    if (!!getJITCode()) {
+        RepatchBuffer repatchBuffer(this);
+        for (unsigned i = 0; i < numberOfCallLinkInfos(); ++i) {
+            if (callLinkInfo(i).isLinked() && !Heap::isMarked(callLinkInfo(i).callee.get())) {
+                if (verboseUnlinking)
+                    printf("Clearing call from %p.\n", this);
+                callLinkInfo(i).unlink(*m_globalData, repatchBuffer);
+            }
+            if (!!callLinkInfo(i).lastSeenCallee
+                && !Heap::isMarked(callLinkInfo(i).lastSeenCallee.get()))
+                callLinkInfo(i).lastSeenCallee.clear();
+        }
+        for (size_t size = m_globalResolveInfos.size(), i = 0; i < size; ++i) {
+            if (m_globalResolveInfos[i].structure && !Heap::isMarked(m_globalResolveInfos[i].structure.get())) {
+                if (verboseUnlinking)
+                    printf("Clearing resolve info in %p.\n", this);
+                m_globalResolveInfos[i].structure.clear();
+            }
+        }
+
+        for (size_t size = m_structureStubInfos.size(), i = 0; i < size; ++i) {
+            StructureStubInfo& stubInfo = m_structureStubInfos[i];
+            
+            AccessType accessType = static_cast<AccessType>(stubInfo.accessType);
+            
+            if (stubInfo.visitWeakReferences())
+                continue;
+            
+            if (verboseUnlinking)
+                printf("Clearing structure cache (kind %d) in %p.\n", stubInfo.accessType, this);
+            
+            if (isGetByIdAccess(accessType)) {
+                if (getJITCode().jitType() == JITCode::DFGJIT)
+                    DFG::dfgResetGetByID(repatchBuffer, stubInfo);
+                else
+                    JIT::resetPatchGetById(repatchBuffer, &stubInfo);
+            } else {
+                ASSERT(isPutByIdAccess(accessType));
+                if (getJITCode().jitType() == JITCode::DFGJIT)
+                    DFG::dfgResetPutByID(repatchBuffer, stubInfo);
+                else 
+                    JIT::resetPatchPutById(repatchBuffer, &stubInfo);
+            }
+            
+            stubInfo.reset();
+        }
+
+        for (size_t size = m_methodCallLinkInfos.size(), i = 0; i < size; ++i) {
+            if (!m_methodCallLinkInfos[i].cachedStructure)
+                continue;
+            
+            ASSERT(m_methodCallLinkInfos[i].seenOnce());
+            ASSERT(!!m_methodCallLinkInfos[i].cachedPrototypeStructure);
+
+            if (!Heap::isMarked(m_methodCallLinkInfos[i].cachedStructure.get())
+                || !Heap::isMarked(m_methodCallLinkInfos[i].cachedPrototypeStructure.get())
+                || !Heap::isMarked(m_methodCallLinkInfos[i].cachedFunction.get())
+                || !Heap::isMarked(m_methodCallLinkInfos[i].cachedPrototype.get())) {
+                if (verboseUnlinking)
+                    printf("Clearing method call in %p.\n", this);
+                m_methodCallLinkInfos[i].reset(repatchBuffer, getJITType());
+
+                StructureStubInfo& stubInfo = getStubInfo(m_methodCallLinkInfos[i].bytecodeIndex);
+
+                AccessType accessType = static_cast<AccessType>(stubInfo.accessType);
+
+                if (accessType != access_unset) {
+                    ASSERT(isGetByIdAccess(accessType));
+                    if (getJITCode().jitType() == JITCode::DFGJIT)
+                        DFG::dfgResetGetByID(repatchBuffer, stubInfo);
+                    else
+                        JIT::resetPatchGetById(repatchBuffer, &stubInfo);
+                    stubInfo.reset();
+                }
+            }
+        }
+    }
+#endif
+
+    // Handle the bytecode discarding chore.
+    if (m_shouldDiscardBytecode) {
+        discardBytecode();
+        m_shouldDiscardBytecode = false;
+    }
+}
+
+void CodeBlock::stronglyVisitStrongReferences(SlotVisitor& visitor)
+{
     visitor.append(&m_globalObject);
     visitor.append(&m_ownerExecutable);
     if (m_rareData) {
@@ -1508,39 +1829,48 @@ void CodeBlock::visitAggregate(SlotVisitor& visitor)
         visitor.append(&m_functionExprs[i]);
     for (size_t i = 0; i < m_functionDecls.size(); ++i)
         visitor.append(&m_functionDecls[i]);
-#if ENABLE(JIT)
-    for (unsigned i = 0; i < numberOfCallLinkInfos(); ++i)
-        if (callLinkInfo(i).isLinked())
-            visitor.append(&callLinkInfo(i).callee);
-#endif
 #if ENABLE(INTERPRETER)
     for (size_t size = m_propertyAccessInstructions.size(), i = 0; i < size; ++i)
-        visitStructures(visitor, &m_instructions[m_propertyAccessInstructions[i]]);
+        visitStructures(visitor, &instructions()[m_propertyAccessInstructions[i]]);
     for (size_t size = m_globalResolveInstructions.size(), i = 0; i < size; ++i)
-        visitStructures(visitor, &m_instructions[m_globalResolveInstructions[i]]);
+        visitStructures(visitor, &instructions()[m_globalResolveInstructions[i]]);
 #endif
-#if ENABLE(JIT)
-    for (size_t size = m_globalResolveInfos.size(), i = 0; i < size; ++i) {
-        if (m_globalResolveInfos[i].structure)
-            visitor.append(&m_globalResolveInfos[i].structure);
-    }
 
-    for (size_t size = m_structureStubInfos.size(), i = 0; i < size; ++i)
-        m_structureStubInfos[i].visitAggregate(visitor);
-
-    for (size_t size = m_methodCallLinkInfos.size(), i = 0; i < size; ++i) {
-        if (m_methodCallLinkInfos[i].cachedStructure) {
-            // These members must be filled at the same time, and only after
-            // the MethodCallLinkInfo is set as seen.
-            ASSERT(m_methodCallLinkInfos[i].seenOnce());
-            visitor.append(&m_methodCallLinkInfos[i].cachedStructure);
-            ASSERT(!!m_methodCallLinkInfos[i].cachedPrototypeStructure);
-            visitor.append(&m_methodCallLinkInfos[i].cachedPrototypeStructure);
-            visitor.append(&m_methodCallLinkInfos[i].cachedFunction);
-            visitor.append(&m_methodCallLinkInfos[i].cachedPrototype);
+#if ENABLE(DFG_JIT)
+    if (hasCodeOrigins()) {
+        // Make sure that executables that we have inlined don't die.
+        // FIXME: If they would have otherwise died, we should probably trigger recompilation.
+        for (size_t i = 0; i < inlineCallFrames().size(); ++i) {
+            visitor.append(&inlineCallFrames()[i].executable);
+            visitor.append(&inlineCallFrames()[i].callee);
         }
     }
 #endif
+
+#if ENABLE(VALUE_PROFILER)
+    for (unsigned profileIndex = 0; profileIndex < numberOfValueProfiles(); ++profileIndex)
+        valueProfile(profileIndex)->computeUpdatedPrediction();
+#endif
+}
+
+void CodeBlock::stronglyVisitWeakReferences(SlotVisitor& visitor)
+{
+    UNUSED_PARAM(visitor);
+
+#if ENABLE(DFG_JIT)
+    if (!m_dfgData)
+        return;
+
+    for (unsigned i = 0; i < m_dfgData->transitions.size(); ++i) {
+        if (!!m_dfgData->transitions[i].m_codeOrigin)
+            visitor.append(&m_dfgData->transitions[i].m_codeOrigin); // Almost certainly not necessary, since the code origin should also be a weak reference. Better to be safe, though.
+        visitor.append(&m_dfgData->transitions[i].m_from);
+        visitor.append(&m_dfgData->transitions[i].m_to);
+    }
+    
+    for (unsigned i = 0; i < m_dfgData->weakReferences.size(); ++i)
+        visitor.append(&m_dfgData->weakReferences[i]);
+#endif    
 }
 
 HandlerInfo* CodeBlock::handlerForBytecodeOffset(unsigned bytecodeOffset)
@@ -1667,7 +1997,7 @@ bool CodeBlock::hasGlobalResolveInfoAtBytecodeOffset(unsigned bytecodeOffset)
 
 void CodeBlock::shrinkToFit()
 {
-    m_instructions.shrinkToFit();
+    instructions().shrinkToFit();
 
 #if ENABLE(INTERPRETER)
     m_propertyAccessInstructions.shrinkToFit();
@@ -1706,8 +2036,42 @@ void CodeBlock::createActivation(CallFrame* callFrame)
 }
     
 #if ENABLE(JIT)
+void CallLinkInfo::unlink(JSGlobalData& globalData, RepatchBuffer& repatchBuffer)
+{
+    ASSERT(isLinked());
+    
+    if (isDFG) {
+#if ENABLE(DFG_JIT)
+        repatchBuffer.relink(CodeLocationCall(callReturnLocation), callType == Construct ? operationLinkConstruct : operationLinkCall);
+#else
+        ASSERT_NOT_REACHED();
+#endif
+    } else
+        repatchBuffer.relink(CodeLocationNearCall(callReturnLocation), callType == Construct ? globalData.jitStubs->ctiVirtualConstructLink() : globalData.jitStubs->ctiVirtualCallLink());
+    hasSeenShouldRepatch = false;
+    callee.clear();
+
+    // It will be on a list if the callee has a code block.
+    if (isOnList())
+        remove();
+}
+
+void MethodCallLinkInfo::reset(RepatchBuffer& repatchBuffer, JITCode::JITType jitType)
+{
+    cachedStructure.clearToMaxUnsigned();
+    cachedPrototype.clear();
+    cachedPrototypeStructure.clearToMaxUnsigned();
+    cachedFunction.clear();
+    
+    ASSERT_UNUSED(jitType, jitType == JITCode::BaselineJIT);
+    
+    repatchBuffer.relink(callReturnLocation, cti_op_get_by_id_method_check);
+}
+
 void CodeBlock::unlinkCalls()
 {
+    if (!!m_alternative)
+        m_alternative->unlinkCalls();
     if (!(m_callLinkInfos.size() || m_methodCallLinkInfos.size()))
         return;
     if (!m_globalData->canUseJIT())
@@ -1716,24 +2080,258 @@ void CodeBlock::unlinkCalls()
     for (size_t i = 0; i < m_callLinkInfos.size(); i++) {
         if (!m_callLinkInfos[i].isLinked())
             continue;
-        if (getJITCode().jitType() == JITCode::DFGJIT) {
-#if ENABLE(DFG_JIT)
-            repatchBuffer.relink(CodeLocationCall(m_callLinkInfos[i].callReturnLocation), m_callLinkInfos[i].isCall ? operationLinkCall : operationLinkConstruct);
-#else
-            ASSERT_NOT_REACHED();
-#endif
-        } else
-            repatchBuffer.relink(CodeLocationNearCall(m_callLinkInfos[i].callReturnLocation), m_callLinkInfos[i].isCall ? m_globalData->jitStubs->ctiVirtualCallLink() : m_globalData->jitStubs->ctiVirtualConstructLink());
-        m_callLinkInfos[i].unlink();
+        m_callLinkInfos[i].unlink(*m_globalData, repatchBuffer);
     }
+}
+
+void CodeBlock::unlinkIncomingCalls()
+{
+    RepatchBuffer repatchBuffer(this);
+    while (m_incomingCalls.begin() != m_incomingCalls.end())
+        m_incomingCalls.begin()->unlink(*m_globalData, repatchBuffer);
 }
 #endif
 
 void CodeBlock::clearEvalCache()
 {
+    if (!!m_alternative)
+        m_alternative->clearEvalCache();
     if (!m_rareData)
         return;
     m_rareData->m_evalCodeCache.clear();
 }
+
+template<typename T>
+inline void replaceExistingEntries(Vector<T>& target, Vector<T>& source)
+{
+    ASSERT(target.size() <= source.size());
+    for (size_t i = 0; i < target.size(); ++i)
+        target[i] = source[i];
+}
+
+void CodeBlock::copyPostParseDataFrom(CodeBlock* alternative)
+{
+    if (!alternative)
+        return;
+    
+    replaceExistingEntries(m_constantRegisters, alternative->m_constantRegisters);
+    replaceExistingEntries(m_functionDecls, alternative->m_functionDecls);
+    replaceExistingEntries(m_functionExprs, alternative->m_functionExprs);
+    if (!!m_rareData && !!alternative->m_rareData)
+        replaceExistingEntries(m_rareData->m_constantBuffers, alternative->m_rareData->m_constantBuffers);
+}
+
+void CodeBlock::copyPostParseDataFromAlternative()
+{
+    copyPostParseDataFrom(m_alternative.get());
+}
+
+#if ENABLE(JIT)
+CodeBlock* ProgramCodeBlock::replacement()
+{
+    return &static_cast<ProgramExecutable*>(ownerExecutable())->generatedBytecode();
+}
+
+CodeBlock* EvalCodeBlock::replacement()
+{
+    return &static_cast<EvalExecutable*>(ownerExecutable())->generatedBytecode();
+}
+
+CodeBlock* FunctionCodeBlock::replacement()
+{
+    return &static_cast<FunctionExecutable*>(ownerExecutable())->generatedBytecodeFor(m_isConstructor ? CodeForConstruct : CodeForCall);
+}
+
+JSObject* ProgramCodeBlock::compileOptimized(ExecState* exec, ScopeChainNode* scopeChainNode)
+{
+    if (replacement()->getJITType() == JITCode::nextTierJIT(getJITType()))
+        return 0;
+    JSObject* error = static_cast<ProgramExecutable*>(ownerExecutable())->compileOptimized(exec, scopeChainNode);
+    return error;
+}
+
+JSObject* EvalCodeBlock::compileOptimized(ExecState* exec, ScopeChainNode* scopeChainNode)
+{
+    if (replacement()->getJITType() == JITCode::nextTierJIT(getJITType()))
+        return 0;
+    JSObject* error = static_cast<EvalExecutable*>(ownerExecutable())->compileOptimized(exec, scopeChainNode);
+    return error;
+}
+
+JSObject* FunctionCodeBlock::compileOptimized(ExecState* exec, ScopeChainNode* scopeChainNode)
+{
+    if (replacement()->getJITType() == JITCode::nextTierJIT(getJITType()))
+        return 0;
+    JSObject* error = static_cast<FunctionExecutable*>(ownerExecutable())->compileOptimizedFor(exec, scopeChainNode, m_isConstructor ? CodeForConstruct : CodeForCall);
+    return error;
+}
+
+bool ProgramCodeBlock::canCompileWithDFG()
+{
+    return DFG::canCompileProgram(this);
+}
+
+bool EvalCodeBlock::canCompileWithDFG()
+{
+    return DFG::canCompileEval(this);
+}
+
+bool FunctionCodeBlock::canCompileWithDFG()
+{
+    if (m_isConstructor)
+        return DFG::canCompileFunctionForConstruct(this);
+    return DFG::canCompileFunctionForCall(this);
+}
+
+void ProgramCodeBlock::jettison()
+{
+    ASSERT(getJITType() != JITCode::BaselineJIT);
+    ASSERT(this == replacement());
+    static_cast<ProgramExecutable*>(ownerExecutable())->jettisonOptimizedCode(*globalData());
+}
+
+void EvalCodeBlock::jettison()
+{
+    ASSERT(getJITType() != JITCode::BaselineJIT);
+    ASSERT(this == replacement());
+    static_cast<EvalExecutable*>(ownerExecutable())->jettisonOptimizedCode(*globalData());
+}
+
+void FunctionCodeBlock::jettison()
+{
+    ASSERT(getJITType() != JITCode::BaselineJIT);
+    ASSERT(this == replacement());
+    static_cast<FunctionExecutable*>(ownerExecutable())->jettisonOptimizedCodeFor(*globalData(), m_isConstructor ? CodeForConstruct : CodeForCall);
+}
+#endif
+
+#if ENABLE(VALUE_PROFILER)
+bool CodeBlock::shouldOptimizeNow()
+{
+#if ENABLE(JIT_VERBOSE_OSR)
+    printf("Considering optimizing %p...\n", this);
+#endif
+
+#if ENABLE(VERBOSE_VALUE_PROFILE)
+    dumpValueProfiles();
+#endif
+
+    if (m_optimizationDelayCounter >= Options::maximumOptimizationDelay)
+        return true;
+    
+    unsigned numberOfNonArgumentValueProfiles = 0;
+    unsigned numberOfLiveNonArgumentValueProfiles = 0;
+    unsigned numberOfSamplesInProfiles = 0; // If this divided by ValueProfile::numberOfBuckets equals numberOfValueProfiles() then value profiles are full.
+    for (unsigned i = 0; i < numberOfValueProfiles(); ++i) {
+        ValueProfile* profile = valueProfile(i);
+        unsigned numSamples = profile->totalNumberOfSamples();
+        if (numSamples > ValueProfile::numberOfBuckets)
+            numSamples = ValueProfile::numberOfBuckets; // We don't want profiles that are extremely hot to be given more weight.
+        numberOfSamplesInProfiles += numSamples;
+        if (profile->m_bytecodeOffset < 0) {
+            profile->computeUpdatedPrediction();
+            continue;
+        }
+        numberOfNonArgumentValueProfiles++;
+        if (profile->numberOfSamples() || profile->m_prediction != PredictNone)
+            numberOfLiveNonArgumentValueProfiles++;
+        profile->computeUpdatedPrediction();
+    }
+
+#if ENABLE(JIT_VERBOSE_OSR)
+    printf("Profile hotness: %lf, %lf\n", (double)numberOfLiveNonArgumentValueProfiles / numberOfNonArgumentValueProfiles, (double)numberOfSamplesInProfiles / ValueProfile::numberOfBuckets / numberOfValueProfiles());
+#endif
+
+    if ((!numberOfNonArgumentValueProfiles || (double)numberOfLiveNonArgumentValueProfiles / numberOfNonArgumentValueProfiles >= Options::desiredProfileLivenessRate)
+        && (!numberOfValueProfiles() || (double)numberOfSamplesInProfiles / ValueProfile::numberOfBuckets / numberOfValueProfiles() >= Options::desiredProfileFullnessRate)
+        && static_cast<unsigned>(m_optimizationDelayCounter) + 1 >= Options::minimumOptimizationDelay)
+        return true;
+    
+    ASSERT(m_optimizationDelayCounter < std::numeric_limits<uint8_t>::max());
+    m_optimizationDelayCounter++;
+    optimizeAfterWarmUp();
+    return false;
+}
+#endif
+
+#if ENABLE(DFG_JIT)
+void CodeBlock::tallyFrequentExitSites()
+{
+    ASSERT(getJITType() == JITCode::DFGJIT);
+    ASSERT(alternative()->getJITType() == JITCode::BaselineJIT);
+    ASSERT(!!m_dfgData);
+    
+    CodeBlock* profiledBlock = alternative();
+    
+    for (unsigned i = 0; i < m_dfgData->osrExit.size(); ++i) {
+        DFG::OSRExit& exit = m_dfgData->osrExit[i];
+        
+        if (!exit.considerAddingAsFrequentExitSite(this, profiledBlock))
+            continue;
+        
+#if DFG_ENABLE(DEBUG_VERBOSE)
+        fprintf(stderr, "OSR exit #%u (bc#%u, @%u, %s) for code block %p occurred frequently; counting as frequent exit site.\n", i, exit.m_codeOrigin.bytecodeIndex, exit.m_nodeIndex, DFG::exitKindToString(exit.m_kind), this);
+#endif
+    }
+}
+#endif // ENABLE(DFG_JIT)
+
+#if ENABLE(VERBOSE_VALUE_PROFILE)
+void CodeBlock::dumpValueProfiles()
+{
+    fprintf(stderr, "ValueProfile for %p:\n", this);
+    for (unsigned i = 0; i < numberOfValueProfiles(); ++i) {
+        ValueProfile* profile = valueProfile(i);
+        if (profile->m_bytecodeOffset < 0) {
+            ASSERT(profile->m_bytecodeOffset == -1);
+            fprintf(stderr, "   arg = %u: ", i);
+        } else
+            fprintf(stderr, "   bc = %d: ", profile->m_bytecodeOffset);
+        if (!profile->numberOfSamples() && profile->m_prediction == PredictNone) {
+            fprintf(stderr, "<empty>\n");
+            continue;
+        }
+        profile->dump(stderr);
+        fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "RareCaseProfile for %p:\n", this);
+    for (unsigned i = 0; i < numberOfRareCaseProfiles(); ++i) {
+        RareCaseProfile* profile = rareCaseProfile(i);
+        fprintf(stderr, "   bc = %d: %u\n", profile->m_bytecodeOffset, profile->m_counter);
+    }
+    fprintf(stderr, "SpecialFastCaseProfile for %p:\n", this);
+    for (unsigned i = 0; i < numberOfSpecialFastCaseProfiles(); ++i) {
+        RareCaseProfile* profile = specialFastCaseProfile(i);
+        fprintf(stderr, "   bc = %d: %u\n", profile->m_bytecodeOffset, profile->m_counter);
+    }
+}
+#endif
+
+#ifndef NDEBUG
+bool CodeBlock::usesOpcode(OpcodeID opcodeID)
+{
+    Interpreter* interpreter = globalData()->interpreter;
+    Instruction* instructionsBegin = instructions().begin();
+    unsigned instructionCount = instructions().size();
+    
+    for (unsigned bytecodeOffset = 0; bytecodeOffset < instructionCount; ) {
+        switch (interpreter->getOpcodeID(instructionsBegin[bytecodeOffset].u.opcode)) {
+#define DEFINE_OP(curOpcode, length)        \
+        case curOpcode:                     \
+            if (curOpcode == opcodeID)      \
+                return true;                \
+            bytecodeOffset += length;       \
+            break;
+            FOR_EACH_OPCODE_ID(DEFINE_OP)
+#undef DEFINE_OP
+        default:
+            ASSERT_NOT_REACHED();
+            break;
+        }
+    }
+    
+    return false;
+}
+#endif
 
 } // namespace JSC

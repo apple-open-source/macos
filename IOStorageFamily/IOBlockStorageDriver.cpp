@@ -950,14 +950,16 @@ IOBlockStorageDriver::acceptNewMedia(void)
                 }
             }
 
-            lockForArbitration();    
+            lockForArbitration();
             _mediaObject = m;
-            _mediaObject->registerService(kIOServiceAsynchronous);		/* enable matching */
-            unlockForArbitration();    
+            _mediaObject->retain();
+            unlockForArbitration();
+
+            m->registerService(kIOServiceAsynchronous);		/* enable matching */
         } else {
-            m->release();
-            return(kIOReturnNoMemory);	/* give up now */
+            result = kIOReturnNoMemory;	/* give up now */
         }
+        m->release();
     }
 
     return(result);
@@ -3340,12 +3342,6 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
     if (attributes)
     {
         if ((attributes->options & kIOStorageOptionReserved))
-        {
-            complete(completion, kIOReturnBadArgument);
-            return;
-        }
-
-        if (attributes->bufattr)
         {
             complete(completion, kIOReturnBadArgument);
             return;

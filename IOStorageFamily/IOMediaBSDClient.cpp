@@ -1982,6 +1982,16 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        case DKIOCGETTHROTTLEMASK:                               // (uint64_t *)
+        {
+            //
+            // This ioctl returns the throttle mask for the media object.
+            //
+
+            *( ( uint64_t * ) data ) = _IOMediaBSDClientGetThrottleMask( minor->media );
+
+        } break;
+
         default:
         {
             //
@@ -2068,16 +2078,6 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                       minor->bdevBlockSize    );
             else
                 *(uint64_t *)data = 0;
-
-        } break;
-
-        case DKIOCGETTHROTTLEMASK:                               // (uint64_t *)
-        {
-            //
-            // This ioctl returns the throttle mask for the media object.
-            //
-
-            *( ( uint64_t * ) data ) = _IOMediaBSDClientGetThrottleMask( minor->media );
 
         } break;
 
@@ -2349,8 +2349,11 @@ inline IOStorageAttributes DKR_GET_ATTRIBUTES(dkr_t dkr, dkrtype_t dkrtype)
 
         flags = buf_flags(bp);
 
+        attributes.bufattr = buf_attr(bp);
+
         attributes.options |= (flags & B_FUA         ) ? kIOStorageOptionForceUnitAccess : 0;
         attributes.options |= (flags & B_ENCRYPTED_IO) ? kIOStorageOptionIsEncrypted     : 0;
+        attributes.options |= (flags & B_META        ) ? kIOStorageOptionIsMeta          : 0;
     }
 
     return attributes;

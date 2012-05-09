@@ -4,7 +4,7 @@
   iconv.c -
 
   $Author: shyouhei $
-  $Date: 2009-11-24 16:18:40 +0900 (Tue, 24 Nov 2009) $
+  $Date: 2010-06-08 17:45:59 +0900 (Tue, 08 Jun 2010) $
   created at: Wed Dec  1 20:28:09 JST 1999
 
   All the files in this distribution are covered under the Ruby's
@@ -145,6 +145,18 @@ map_charset
     }
     return StringValuePtr(*code);
 }
+
+NORETURN(static void rb_iconv_sys_fail(const char *s));
+static void
+rb_iconv_sys_fail(const char *s)
+{
+    if (errno == 0) {
+	rb_exc_raise(iconv_fail(rb_eIconvBrokenLibrary, Qnil, Qnil, NULL, s));
+    }
+    rb_sys_fail(s);
+}
+
+#define rb_sys_fail(s) rb_iconv_sys_fail(s)
 
 static iconv_t
 iconv_create

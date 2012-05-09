@@ -36,10 +36,8 @@
 		950BD12F0A1E582B00395116 /* suicide.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1F02F917A901D8996C /* suicide.opn */; };
 		950BD1300A1E582B00395116 /* zbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A2002F917A901D8996C /* zbook.db */; };
 		950BD1420A1E582B00395116 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = F598AC41035A958501000102 /* Defaults.plist */; };
-		950BD1430A1E582B00395116 /* chess.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95C10123043A066700CA17DD /* chess.icns */; };
 		950BD1450A1E582B00395116 /* sjeng.rc in Resources */ = {isa = PBXBuildFile; fileRef = 9595B6C00458E2CD00A8D2EE /* sjeng.rc */; };
 		950BD1460A1E582B00395116 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D6CE62045BBDBE0045D5FC /* Localizable.strings */; };
-		950BD1470A1E582B00395116 /* handCursor.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 9586675C048AF5A5007B50FB /* handCursor.tiff */; };
 		950BD1480A1E582B00395116 /* Styles in Resources */ = {isa = PBXBuildFile; fileRef = 95C85026048F342500A9DF4F /* Styles */; };
 		950BD1490A1E582B00395116 /* About.nib in Resources */ = {isa = PBXBuildFile; fileRef = 95C4076104B2B86A0015A26B /* About.nib */; };
 		950BD14A0A1E582B00395116 /* SpeechHelp.xml in Resources */ = {isa = PBXBuildFile; fileRef = 9594A40504C76CA4005DC0DD /* SpeechHelp.xml */; };
@@ -70,6 +68,8 @@
 		950BD1660A1E582B00395116 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5529B030314493B01CA17FB /* Carbon.framework */; };
 		950BD1680A1E582B00395116 /* Chess.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 950EE08807769701004ED524 /* Chess.plist */; };
 		950BD16A0A1E582B00395116 /* Chess.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 950EE08907769701004ED524 /* Chess.txt */; };
+		9556A24914FC2016000219D4 /* GeoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B81B7C11F65D2B0047D0A0 /* GeoKit.framework */; };
+		9556A24A14FC2069000219D4 /* sjeng.ChessEngine in Resources */ = {isa = PBXBuildFile; fileRef = 95844C900A670C1E0068CA82 /* sjeng.ChessEngine */; };
 		956195E90EB12AD70097627D /* 1.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195D80EB12AD70097627D /* 1.png */; };
 		956195EA0EB12AD70097627D /* 2.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195D90EB12AD70097627D /* 2.png */; };
 		956195EB0EB12AD70097627D /* 3.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DA0EB12AD70097627D /* 3.png */; };
@@ -162,10 +162,8 @@
 		95844CB40A670C280068CA82 /* suicide.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1F02F917A901D8996C /* suicide.opn */; };
 		95844CB50A670C280068CA82 /* zbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A2002F917A901D8996C /* zbook.db */; };
 		95844CC70A670C280068CA82 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = F598AC41035A958501000102 /* Defaults.plist */; };
-		95844CC80A670C280068CA82 /* chess.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95C10123043A066700CA17DD /* chess.icns */; };
 		95844CCA0A670C280068CA82 /* sjeng.rc in Resources */ = {isa = PBXBuildFile; fileRef = 9595B6C00458E2CD00A8D2EE /* sjeng.rc */; };
 		95844CCB0A670C280068CA82 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D6CE62045BBDBE0045D5FC /* Localizable.strings */; };
-		95844CCC0A670C280068CA82 /* handCursor.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 9586675C048AF5A5007B50FB /* handCursor.tiff */; };
 		95844CCD0A670C280068CA82 /* Tuner.nib in Resources */ = {isa = PBXBuildFile; fileRef = 95A35D03048EEF8900D1AB5E /* Tuner.nib */; };
 		95844CCE0A670C280068CA82 /* About.nib in Resources */ = {isa = PBXBuildFile; fileRef = 95C4076104B2B86A0015A26B /* About.nib */; };
 		95844CCF0A670C280068CA82 /* SpeechHelp.xml in Resources */ = {isa = PBXBuildFile; fileRef = 9594A40504C76CA4005DC0DD /* SpeechHelp.xml */; };
@@ -209,6 +207,8 @@
 		95D4D51B1327E29E0063FA06 /* Spoken.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D4D5191327E29E0063FA06 /* Spoken.strings */; };
 		95D4D51C1327E29E0063FA06 /* Spoken.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D4D5191327E29E0063FA06 /* Spoken.strings */; };
 		95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */ = {isa = PBXBuildFile; fileRef = 95844C900A670C1E0068CA82 /* sjeng.ChessEngine */; };
+		95F803001500077C008AB166 /* selected_piece_texture@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 95F802FF1500077C008AB166 /* selected_piece_texture@2x.png */; };
+		95F803011500077C008AB166 /* selected_piece_texture@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 95F802FF1500077C008AB166 /* selected_piece_texture@2x.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -301,7 +301,6 @@
 		95844C900A670C1E0068CA82 /* sjeng.ChessEngine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sjeng.ChessEngine; sourceTree = BUILT_PRODUCTS_DIR; };
 		95844CF10A670C280068CA82 /* Info-ChessTuner.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-ChessTuner.plist"; path = "Resources/Info-ChessTuner.plist"; sourceTree = "<group>"; };
 		95844CF20A670C280068CA82 /* Chess Tuner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Chess Tuner.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		9586675C048AF5A5007B50FB /* handCursor.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; name = handCursor.tiff; path = Resources/handCursor.tiff; sourceTree = "<group>"; };
 		9594A40504C76CA4005DC0DD /* SpeechHelp.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = SpeechHelp.xml; path = Resources/SpeechHelp.xml; sourceTree = "<group>"; };
 		9595B6C00458E2CD00A8D2EE /* sjeng.rc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sjeng.rc; path = sjeng/sjeng.rc; sourceTree = "<group>"; };
 		95A35CFF048EEA7300D1AB5E /* MBCTuner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCTuner.h; path = Sources/MBCTuner.h; sourceTree = "<group>"; };
@@ -340,7 +339,6 @@
 		95B65050046F289700EF3E85 /* MBCGameInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCGameInfo.h; path = Sources/MBCGameInfo.h; sourceTree = "<group>"; };
 		95B65051046F289700EF3E85 /* MBCGameInfo.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCGameInfo.mm; path = Sources/MBCGameInfo.mm; sourceTree = "<group>"; };
 		95B81B7C11F65D2B0047D0A0 /* GeoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GeoKit.framework; path = /System/Library/PrivateFrameworks/GeoKit.framework; sourceTree = "<absolute>"; };
-		95C10123043A066700CA17DD /* chess.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = chess.icns; path = Resources/chess.icns; sourceTree = "<group>"; };
 		95C31C56125E2E020085159C /* MBCMoveTableView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCMoveTableView.h; path = Sources/MBCMoveTableView.h; sourceTree = "<group>"; };
 		95C31C57125E2E020085159C /* MBCMoveTableView.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMoveTableView.mm; path = Sources/MBCMoveTableView.mm; sourceTree = "<group>"; };
 		95C31D67125E7B8B0085159C /* MBCStretchyTextCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCStretchyTextCell.h; path = Sources/MBCStretchyTextCell.h; sourceTree = "<group>"; };
@@ -356,6 +354,7 @@
 		95E9EE6D045797010091A3D7 /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = English; path = sjeng/English.lproj/COPYING; sourceTree = "<group>"; };
 		95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewAccessibility.h; path = Sources/MBCBoardViewAccessibility.h; sourceTree = "<group>"; };
 		95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewAccessibility.mm; path = Sources/MBCBoardViewAccessibility.mm; sourceTree = "<group>"; };
+		95F802FF1500077C008AB166 /* selected_piece_texture@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "selected_piece_texture@2x.png"; path = "Textures/selected_piece_texture@2x.png"; sourceTree = "<group>"; };
 		F505DC4103032B9F01F7F1A0 /* MBCEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCEngine.h; path = Sources/MBCEngine.h; sourceTree = "<group>"; };
 		F505DC4203032B9F01F7F1A0 /* MBCEngine.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCEngine.mm; path = Sources/MBCEngine.mm; sourceTree = "<group>"; };
 		F50CB520030CE23701D20FFB /* MBCBoardViewDraw.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewDraw.h; path = Sources/MBCBoardViewDraw.h; sourceTree = "<group>"; };
@@ -419,6 +418,7 @@
 				95844CEA0A670C280068CA82 /* Cocoa.framework in Frameworks */,
 				95844CEB0A670C280068CA82 /* OpenGL.framework in Frameworks */,
 				95844CEC0A670C280068CA82 /* Carbon.framework in Frameworks */,
+				9556A24914FC2016000219D4 /* GeoKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -534,6 +534,7 @@
 		29B97317FDCFA39411CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				95F802FF1500077C008AB166 /* selected_piece_texture@2x.png */,
 				956195D80EB12AD70097627D /* 1.png */,
 				956195D90EB12AD70097627D /* 2.png */,
 				956195DA0EB12AD70097627D /* 3.png */,
@@ -556,7 +557,6 @@
 				950EE08807769701004ED524 /* Chess.plist */,
 				950EE08907769701004ED524 /* Chess.txt */,
 				959212FA12B0676D0021B5BA /* COPYING */,
-				95C10123043A066700CA17DD /* chess.icns */,
 				29B97318FDCFA39411CA2CEA /* MainMenu.nib */,
 				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
 				95D6CE62045BBDBE0045D5FC /* Localizable.strings */,
@@ -568,7 +568,6 @@
 				F5775A2002F917A901D8996C /* zbook.db */,
 				9595B6C00458E2CD00A8D2EE /* sjeng.rc */,
 				F598AC41035A958501000102 /* Defaults.plist */,
-				9586675C048AF5A5007B50FB /* handCursor.tiff */,
 				95C85026048F342500A9DF4F /* Styles */,
 				95A35D03048EEF8900D1AB5E /* Tuner.nib */,
 				95C4076104B2B86A0015A26B /* About.nib */,
@@ -749,6 +748,7 @@
 				950BD1630A1E582B00395116 /* Frameworks */,
 				950BD1670A1E582B00395116 /* CopyFiles */,
 				950BD1690A1E582B00395116 /* CopyFiles */,
+				95AC35A31501964C00D81DC7 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -843,11 +843,9 @@
 				950BD12F0A1E582B00395116 /* suicide.opn in Resources */,
 				950BD1300A1E582B00395116 /* zbook.db in Resources */,
 				950BD1420A1E582B00395116 /* Defaults.plist in Resources */,
-				950BD1430A1E582B00395116 /* chess.icns in Resources */,
 				959212FB12B0676D0021B5BA /* COPYING in Resources */,
 				950BD1450A1E582B00395116 /* sjeng.rc in Resources */,
 				950BD1460A1E582B00395116 /* Localizable.strings in Resources */,
-				950BD1470A1E582B00395116 /* handCursor.tiff in Resources */,
 				950BD1480A1E582B00395116 /* Styles in Resources */,
 				950BD1490A1E582B00395116 /* About.nib in Resources */,
 				950BD14A0A1E582B00395116 /* SpeechHelp.xml in Resources */,
@@ -869,6 +867,7 @@
 				956195F80EB12AD70097627D /* h.png in Resources */,
 				956195F90EB12AD70097627D /* selected_piece_texture.png in Resources */,
 				95D4D51B1327E29E0063FA06 /* Spoken.strings in Resources */,
+				95F803001500077C008AB166 /* selected_piece_texture@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -884,11 +883,9 @@
 				95844CB40A670C280068CA82 /* suicide.opn in Resources */,
 				95844CB50A670C280068CA82 /* zbook.db in Resources */,
 				95844CC70A670C280068CA82 /* Defaults.plist in Resources */,
-				95844CC80A670C280068CA82 /* chess.icns in Resources */,
 				959212FC12B0676D0021B5BA /* COPYING in Resources */,
 				95844CCA0A670C280068CA82 /* sjeng.rc in Resources */,
 				95844CCB0A670C280068CA82 /* Localizable.strings in Resources */,
-				95844CCC0A670C280068CA82 /* handCursor.tiff in Resources */,
 				95844CCD0A670C280068CA82 /* Tuner.nib in Resources */,
 				95844CCE0A670C280068CA82 /* About.nib in Resources */,
 				95844CCF0A670C280068CA82 /* SpeechHelp.xml in Resources */,
@@ -910,6 +907,8 @@
 				956196090EB12AD70097627D /* h.png in Resources */,
 				9561960A0EB12AD70097627D /* selected_piece_texture.png in Resources */,
 				95D4D51C1327E29E0063FA06 /* Spoken.strings in Resources */,
+				9556A24A14FC2069000219D4 /* sjeng.ChessEngine in Resources */,
+				95F803011500077C008AB166 /* selected_piece_texture@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -924,6 +923,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		95AC35A31501964C00D81DC7 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Build all icons\n/usr/local/bin/iconcompiler -b \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\" -r \"$PROJECT_DIR/Resources/Icons\" || exit 1\n# In textures, preserve only the highest resolution\nshopt -s nullglob\nfor tex in \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\"/Contents/Resources/{,Styles/*/}*2x*\ndo \n    mv \"$tex\" \"${tex%@2x.png}.png\"\ndone";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		950BD14C0A1E582B00395116 /* Sources */ = {
@@ -1098,6 +1113,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
@@ -1128,6 +1144,7 @@
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
@@ -1156,6 +1173,7 @@
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
@@ -1331,9 +1349,10 @@
 		95844CEE0A670C280068CA82 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -1361,9 +1380,10 @@
 		95844CEF0A670C280068CA82 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -1388,8 +1408,9 @@
 		95844CF00A670C280068CA82 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";

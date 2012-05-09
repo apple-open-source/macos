@@ -3,7 +3,7 @@
  *
  *   Job management routines for the CUPS scheduler.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -1815,32 +1815,52 @@ cupsdLoadJob(cupsd_job_t *job)		/* I - Job */
 
     if ((fp = cupsFileOpen(jobfile, "r")) != NULL)
     {
-      int	bytes;			/* Size of auth data */
+      int	bytes,			/* Size of auth data */
+		linenum = 1;		/* Current line number */
       char	line[65536],		/* Line from file */
+		*value,			/* Value from line */
 		data[65536];		/* Decoded data */
 
 
-      for (i = 0;
-           i < destptr->num_auth_info_required &&
-	       i < (int)(sizeof(job->auth_env) / sizeof(job->auth_env[0])) &&
-	       cupsFileGets(fp, line, sizeof(line));
-	   i ++)
+      if (cupsFileGets(fp, line, sizeof(line)) &&
+          !strcmp(line, "CUPSD-AUTH-V2"))
       {
-        bytes = sizeof(data);
-        httpDecode64_2(data, &bytes, line);
+        i = 0;
+        while (cupsFileGetConf(fp, line, sizeof(line), &value, &linenum))
+        {
+         /*
+          * Decode value...
+          */
 
-	if (!strcmp(destptr->auth_info_required[i], "username"))
-	  cupsdSetStringf(job->auth_env + i, "AUTH_USERNAME=%s", data);
-	else if (!strcmp(destptr->auth_info_required[i], "domain"))
-	  cupsdSetStringf(job->auth_env + i, "AUTH_DOMAIN=%s", data);
-	else if (!strcmp(destptr->auth_info_required[i], "password"))
-	  cupsdSetStringf(job->auth_env + i, "AUTH_PASSWORD=%s", data);
-        else if (!strcmp(destptr->auth_info_required[i], "negotiate"))
-	  cupsdSetStringf(job->auth_env + i, "AUTH_NEGOTIATE=%s", line);
+	  bytes = sizeof(data);
+	  httpDecode64_2(data, &bytes, value);
+
+         /*
+          * Assign environment variables...
+          */
+
+          if (!strcmp(line, "uid"))
+          {
+            cupsdSetStringf(&job->auth_uid, "AUTH_UID=%s", value);
+            continue;
+          }
+          else if (i >= (int)(sizeof(job->auth_env) / sizeof(job->auth_env[0])))
+            break;
+          
+	  if (!strcmp(line, "username"))
+	    cupsdSetStringf(job->auth_env + i, "AUTH_USERNAME=%s", data);
+	  else if (!strcmp(line, "domain"))
+	    cupsdSetStringf(job->auth_env + i, "AUTH_DOMAIN=%s", data);
+	  else if (!strcmp(line, "password"))
+	    cupsdSetStringf(job->auth_env + i, "AUTH_PASSWORD=%s", data);
+	  else if (!strcmp(line, "negotiate"))
+	    cupsdSetStringf(job->auth_env + i, "AUTH_NEGOTIATE=%s", line);
+	  else
+	    continue;
+
+	  i ++;
+	}
       }
-
-      if (cupsFileGets(fp, line, sizeof(line)) && isdigit(line[0] & 255))
-        cupsdSetStringf(&job->auth_uid, "AUTH_UID=%s", line);
 
       cupsFileClose(fp);
     }
@@ -3306,9 +3326,6 @@ get_options(cupsd_job_t *job,		/* I - Job */
       if ((ppd = _ppdCacheGetInputSlot(pc, job->attrs, NULL)) != NULL)
 	num_pwgppds = cupsAddOption(pc->source_option, ppd, num_pwgppds,
 				    &pwgppds);
-      else if (!ippFindAttribute(job->attrs, "AP_D_InputSlot", IPP_TAG_ZERO))
-	num_pwgppds = cupsAddOption("AP_D_InputSlot", "", num_pwgppds,
-	                            &pwgppds);
     }
     if (!ippFindAttribute(job->attrs, "MediaType", IPP_TAG_ZERO) &&
 	(ppd = _ppdCacheGetMediaType(pc, job->attrs, NULL)) != NULL)
@@ -3356,6 +3373,14 @@ get_options(cupsd_job_t *job,		/* I - Job */
         num_pwgppds = cupsAddOption(pc->sides_option, pc->sides_2sided_short,
 				    num_pwgppds, &pwgppds);
     }
+
+   /*
+    * Map finishings values...
+    */
+
+    num_pwgppds = _ppdCacheGetFinishingOptions(pc, job->attrs,
+                                               IPP_FINISHINGS_NONE, num_pwgppds,
+                                               &pwgppds);
   }
 
  /*
@@ -4116,6 +4141,10 @@ start_job(cupsd_job_t     *job,		/* I - Job ID */
   if (!cupsdLoadJob(job))
     return;
 
+  if (!job->printer_message)
+    job->printer_message = ippFindAttribute(job->attrs,
+                                            "job-printer-state-message",
+                                            IPP_TAG_TEXT);
   if (job->printer_message)
     cupsdSetString(&(job->printer_message->values[0].string.text), "");
 

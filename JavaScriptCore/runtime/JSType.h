@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ *  Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -23,22 +23,39 @@
 
 namespace JSC {
 
-    /**
-     * Primitive types
-     */
-    enum JSType {
-        UnspecifiedType   = 0,
-        UndefinedType     = 1,
-        BooleanType       = 2,
-        NumberType        = 3,
-        NullType          = 4,
-        StringType        = 5,
-        LeafType          = 6,
-        // The CompoundType value must come before any JSType that may have children
-        CompoundType      = 7,
-        ObjectType        = 8,
-        GetterSetterType  = 9
-    };
+enum JSType {
+    UnspecifiedType,
+    UndefinedType,
+    BooleanType,
+    NumberType,
+    NullType,
+    StringType,
+    LeafType,
+
+    // The CompoundType value must come before any JSType that may have children.
+    CompoundType,
+    GetterSetterType,
+    APIValueWrapperType,
+
+    EvalExecutableType,
+    ProgramExecutableType,
+    FunctionExecutableType,
+
+    // The ObjectType value must come before any JSType that is a subclass of JSObject.
+    ObjectType,
+    FinalObjectType,
+    JSFunctionType,
+    NumberObjectType,
+    ErrorInstanceType,
+    GlobalThisType,
+
+    StaticScopeObjectType,
+    // VariableObjectType must be less than MOST of the types of its subclasses and only its subclasses.
+    // We use >=VariableObjectType checks to test for Global & Activation objects, but exclude StaticScopes.
+    VariableObjectType,
+    GlobalObjectType,
+    ActivationObjectType,
+};
 
 } // namespace JSC
 

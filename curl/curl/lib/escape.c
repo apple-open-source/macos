@@ -35,6 +35,7 @@
 #include "urldata.h"
 #include "easyif.h"
 #include "warnless.h"
+#include "escape.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -88,7 +89,7 @@ char *curl_easy_escape(CURL *handle, const char *string, int inlength)
   char *testing_ptr = NULL;
   unsigned char in; /* we need to treat the characters unsigned */
   size_t newlen = alloc;
-  int strindex=0;
+  size_t strindex=0;
   size_t length;
 
 #ifndef CURL_DOES_CONVERSIONS
@@ -143,26 +144,33 @@ char *curl_easy_escape(CURL *handle, const char *string, int inlength)
 }
 
 /*
- * Unescapes the given URL escaped string of given length. Returns a
- * pointer to a malloced string with length given in *olen.
- * If length == 0, the length is assumed to be strlen(string).
- * If olen == NULL, no output length is stored.
+ * Curl_urldecode() URL decodes the given string.
+ *
+ * Optionally detects control characters (byte codes lower than 32) in the
+ * data and rejects such data.
+ *
+ * Returns a pointer to a malloced string in *ostring with length given in
+ * *olen. If length == 0, the length is assumed to be strlen(string).
+ *
  */
-char *curl_easy_unescape(CURL *handle, const char *string, int length,
-                         int *olen)
+CURLcode Curl_urldecode(struct SessionHandle *data,
+                        const char *string, size_t length,
+                        char **ostring, size_t *olen,
+                        bool reject_ctrl)
 {
-  int alloc = (length?length:(int)strlen(string))+1;
+  size_t alloc = (length?length:strlen(string))+1;
   char *ns = malloc(alloc);
   unsigned char in;
-  int strindex=0;
+  size_t strindex=0;
   unsigned long hex;
+  CURLcode res;
 
 #ifndef CURL_DOES_CONVERSIONS
   /* avoid compiler warnings */
-  (void)handle;
+  (void)data;
 #endif
   if( !ns )
-    return NULL;
+    return CURLE_OUT_OF_MEMORY;
 
   while(--alloc > 0) {
     in = *string;
@@ -181,15 +189,19 @@ char *curl_easy_unescape(CURL *handle, const char *string, int length,
 #ifdef CURL_DOES_CONVERSIONS
 /* escape sequences are always in ASCII so convert them on non-ASCII hosts */
       if(!handle ||
-          (Curl_convert_from_network(handle, &in, 1) != CURLE_OK)) {
+          ((res = Curl_convert_from_network(data, &in, 1)) != CURLE_OK)) {
         /* Curl_convert_from_network calls failf if unsuccessful */
         free(ns);
-        return NULL;
+        return res;
       }
 #endif /* CURL_DOES_CONVERSIONS */
 
       string+=2;
       alloc-=2;
+    }
+    if(reject_ctrl && (in < 0x20)) {
+      free(ns);
+      return CURLE_URL_MALFORMAT;
     }
 
     ns[strindex++] = in;
@@ -200,7 +212,33 @@ char *curl_easy_unescape(CURL *handle, const char *string, int length,
   if(olen)
     /* store output size */
     *olen = strindex;
-  return ns;
+
+  if(ostring)
+    /* store output string */
+    *ostring = ns;
+
+  return CURLE_OK;
+}
+
+/*
+ * Unescapes the given URL escaped string of given length. Returns a
+ * pointer to a malloced string with length given in *olen.
+ * If length == 0, the length is assumed to be strlen(string).
+ * If olen == NULL, no output length is stored.
+ */
+char *curl_easy_unescape(CURL *handle, const char *string, int length,
+                         int *olen)
+{
+  char *str = NULL;
+  size_t inputlen = length;
+  size_t outputlen;
+  CURLcode res = Curl_urldecode(handle, string, inputlen, &str, &outputlen,
+                                FALSE);
+  if(res)
+    return NULL;
+  if(olen)
+    *olen = curlx_uztosi(outputlen);
+  return str;
 }
 
 /* For operating systems/environments that use different malloc/free

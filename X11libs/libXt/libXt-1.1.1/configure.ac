@@ -62,30 +62,6 @@ AC_SUBST(CFLAGS_FOR_BUILD)
 LDFLAGS_FOR_BUILD=${LDFLAGS_FOR_BUILD-${LDFLAGS}}
 AC_SUBST(LDFLAGS_FOR_BUILD)
 
-# Map function checks to old Imake #defines
-case $host_os in
-	# darwin through Snow Leopard has poll() but can't be used to poll character devices.
-	darwin@<:@789@:>@*|darwin10*) ;;
-	darwin*)
-		_ac_xorg_macosx_version_min=""
-		if echo $CPPFLAGS $CFLAGS | grep -q mmacosx-version-min ; then
-			_ac_xorg_macosx_version_min=`echo $CPPFLAGS $CFLAGS | sed 's/^.*-mmacosx-version-min=\(@<:@^ @:>@*\).*$/\1/'`
-		else
-			_ac_xorg_macosx_version_min=$MACOSX_DEPLOYMENT_TARGET
-		fi
-		case $_ac_xorg_macosx_version_min in
-			10.@<:@0123456@:>@|10.@<:@0123456@:>@.*) ;;
-			*)
-				AC_CHECK_FUNC(poll, [AC_DEFINE(USE_POLL, 1, [poll() function is available])], )
-			;;
-		esac
-		unset _ac_xorg_macosx_version_min
-		;;
-	*)
-		AC_CHECK_FUNC(poll, [AC_DEFINE(USE_POLL, 1, [poll() function is available])], )
-	;;
-esac
-
 AC_HAVE_LIBRARY(ws2_32)
 
 # Options

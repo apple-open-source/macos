@@ -339,7 +339,13 @@ public:
     
     void started();
 
-    bool pageDismissalEventBeingDispatched() const { return m_pageDismissalEventBeingDispatched; }
+    enum PageDismissalType {
+        NoDismissal = 0,
+        BeforeUnloadDismissal = 1,
+        PageHideDismissal = 2,
+        UnloadDismissal = 3
+    };
+    PageDismissalType pageDismissalEventBeingDispatched() const { return m_pageDismissalEventBeingDispatched; }
 
     NetworkingContext* networkingContext() const;
 
@@ -356,7 +362,7 @@ private:
     void updateFirstPartyForCookies();
     void setFirstPartyForCookies(const KURL&);
     
-    void addExtraFieldsToRequest(ResourceRequest&, FrameLoadType loadType, bool isMainResource, bool cookiePolicyURLFromRequest);
+    void addExtraFieldsToRequest(ResourceRequest&, FrameLoadType, bool isMainResource);
 
     // Also not cool.
     void stopLoadingSubframes(ClearProvisionalItemPolicy);
@@ -468,7 +474,7 @@ private:
 
     bool m_didCallImplicitClose;
     bool m_wasUnloadEventEmitted;
-    bool m_pageDismissalEventBeingDispatched;
+    PageDismissalType m_pageDismissalEventBeingDispatched;
     bool m_isComplete;
     bool m_isLoadingMainResource;
 

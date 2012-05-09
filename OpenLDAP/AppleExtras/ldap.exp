@@ -132,6 +132,7 @@ _ldap_url_desc2str
 _ldap_free_urldesc
 _ldap_cancel
 _ldap_cancel_s
+_ldap_create_assertion_control_value
 _ldap_create_sort_keylist
 _ldap_free_sort_keylist
 _ldap_create_sort_control

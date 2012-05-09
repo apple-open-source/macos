@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -196,7 +196,7 @@ void IOAudioClientBufferSet::setWatchdogTimeout(AbsoluteTime *timeout)
     
 	userClient->lockBuffers();
 
-		retain();
+	retain();
     
     timerPending = true;
 
@@ -766,6 +766,8 @@ bool IOAudioEngineUserClient::initWithAudioEngine(IOAudioEngine *engine, task_t 
 						{
 							reserved->extendedInfo = NULL;
 							reserved->classicMode = 0;
+							reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
+							reserved->commandGateUsage = 0;								// <rdar://8518215>
 
 							workLoop->addEventSource(commandGate);
 							
@@ -1488,6 +1490,36 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer64(IOAudioStream *audioStr
             return kIOReturnExclusiveAccess;
         }
         
+		// <rdar://10282154> Check if the source buffer is already registered in the
+		// buffer set. If it is already registered, unregister the existing source 
+		// buffer from the buffer set.
+		lockBuffers();
+		
+        clientBufferSet = findBufferSet(bufferSetID);
+		if (clientBufferSet) {
+			if (audioStream->getDirection() == kIOAudioStreamDirectionOutput) {
+				clientBufferList = &clientBufferSet->outputBufferList;
+			} else {
+				clientBufferList = &clientBufferSet->inputBufferList;
+			}
+			
+			assert(clientBufferList);
+			
+			if (*clientBufferList != NULL) {
+				IOAudioClientBuffer64 *clientBufPtr = *clientBufferList;
+				while (clientBufPtr != NULL) {
+					if (clientBufPtr->mUnmappedSourceBuffer64 == sourceBuffer) {
+						audioDebugIOLog(3, "  source buffer (0x%llx) already registered in buffer set 0x%lx. Unregister existing source buffer...\n", sourceBuffer, (long unsigned int)bufferSetID);
+						unregisterClientBuffer64(&sourceBuffer, bufferSetID);
+						break;
+					}
+					clientBufPtr = clientBufPtr->mNextBuffer64;
+				}
+			}
+		}
+		
+		unlockBuffers();
+
         // allocate IOAudioClientBuffer to hold buffer descriptor, etc...
         clientBuffer = (IOAudioClientBuffer64 *)IOMallocAligned(sizeof(IOAudioClientBuffer64), sizeof (IOAudioClientBuffer64 *));
         if (!clientBuffer) 
@@ -1515,7 +1547,7 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer64(IOAudioStream *audioStr
             goto Exit;
         }
         
-        if ( result = clientBuffer->mAudioClientBuffer32.sourceBufferDescriptor->prepare( kIODirectionOutIn ) != kIOReturnSuccess) 
+        if ( kIOReturnSuccess != (result = clientBuffer->mAudioClientBuffer32.sourceBufferDescriptor->prepare( kIODirectionOutIn ) ) ) 
 		{
 				audioDebugIOLog(3, "  prepare error \n");
 				goto Exit;
@@ -1918,11 +1950,8 @@ static inline IOAudioBufferDataDescriptor * FlipBufferDataDescriptor(IOAudioBuff
 
 IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, UInt32 loopCount, IOAudioClientBufferSet *bufferSet, UInt32 sampleIntervalHi, UInt32 sampleIntervalLo)
 {
-    IOReturn result = kIOReturnSuccess;
-#if 0
-	IOAudioClientBufferExtendedInfo		*extendedInfo;
-	IOAudioStreamDataDescriptor			*dataDescriptor;
-#endif
+    IOReturn tmpResult, result = kIOReturnSuccess;
+
 	// <rdar://9725460>
 	audioDebugIOLog ( 4, "+ IOAudioEngineUserClient[%p]::performClientOutput ( firstSampleFrame %ld, loopCount %ld,  bufferSet %p, sampleIntervalHi %ld, sampleIntervalLo %ld )\n",
 					this,
@@ -1931,173 +1960,183 @@ IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, U
 					bufferSet, 
 					(long int)sampleIntervalHi, 
 					(long int)sampleIntervalLo );
-#if __LP64__
-	UInt64 tempHI = sampleIntervalHi;
-	bufferSet->sampleInterval = tempHI << 32 | sampleIntervalLo;
+    
+	assert(audioEngine != NULL);
 
+	if ( loopCount >= audioEngine->status->fCurrentLoopCount ) {			// <rdar://10145205> Sanity check the loop count
+#if __LP64__
+		UInt64 tempHI = sampleIntervalHi;
+		bufferSet->sampleInterval = tempHI << 32 | sampleIntervalLo;
 #else
-	bufferSet->sampleInterval.hi = sampleIntervalHi;
-    bufferSet->sampleInterval.lo = sampleIntervalLo;
+		bufferSet->sampleInterval.hi = sampleIntervalHi;
+		bufferSet->sampleInterval.lo = sampleIntervalLo;
 #endif
     
-    if (bufferSet->outputBufferList != NULL) {
-        IOAudioEnginePosition			outputEndingPosition;
-		IOAudioClientBuffer64			*clientBuf;
-        UInt32							numSampleFrames, numSampleFramesPerBuffer;
-        UInt32							clientIndex;
-		
-        assert(audioEngine != NULL);
+        if (bufferSet->outputBufferList != NULL) {
+            IOAudioEnginePosition			outputEndingPosition;
+            IOAudioClientBuffer64			*clientBuf;
+            UInt32							numSampleFrames, numSampleFramesPerBuffer;
+            UInt32							clientIndex;
 
-		clientIndex = 0;
-		
-		clientBuf = bufferSet->outputBufferList;    
-
-		IOAudioBufferDataDescriptor localBufferDataDescriptor;
-		IOAudioBufferDataDescriptor * localBufferDataDescriptorPtr = FlipBufferDataDescriptor ( clientBuf->mAudioClientBuffer32.bufferDataDescriptor, &localBufferDataDescriptor, reserved->classicMode );
-
-		if (NULL != localBufferDataDescriptorPtr) {
-			audioDebugIOLog(6, "  performClientOutput -------------%ld-----------------\n", (long int)clientIndex);
-			audioDebugIOLog ( 6, "  actual frames = %ld, actual bytes = %ld, nominal bytes = %ld, total bytes = %ld\n",
-								(long int)localBufferDataDescriptorPtr->fActualNumSampleFrames, 
-								(long int)localBufferDataDescriptorPtr->fActualDataByteSize, 
-								(long int)localBufferDataDescriptorPtr->fNominalDataByteSize, 
-								(long int)localBufferDataDescriptorPtr->fTotalDataByteSize );
-			numSampleFrames = localBufferDataDescriptorPtr->fActualNumSampleFrames;
-		} else {
-			audioDebugIOLog(6, "  no buffer descriptor found, using bufferSet->outputBufferList->numSampleFrames\n"); 
-			numSampleFrames = bufferSet->outputBufferList->mAudioClientBuffer32.numSampleFrames;
-		}
-
-		numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
-        
-        outputEndingPosition.fLoopCount = loopCount;
-        outputEndingPosition.fSampleFrame = firstSampleFrame + numSampleFrames;
-        
-        if (outputEndingPosition.fSampleFrame >= numSampleFramesPerBuffer) {
-            outputEndingPosition.fSampleFrame -= numSampleFramesPerBuffer;
-            outputEndingPosition.fLoopCount++;
-        }
-        
-        // We only want to do output if we haven't already gone past the new samples
-        // If the samples are late, the watchdog will already have skipped them
-        if (CMP_IOAUDIOENGINEPOSITION(&outputEndingPosition, &bufferSet->nextOutputPosition) >= 0) 
-		{
-            IOAudioClientBuffer64 *clientBuf;
-            AbsoluteTime outputTimeout;
+            clientIndex = 0;
             
- 			audioDebugIOLog(6, "  CMP_IOAUDIOENGINEPOSITION >= 0 \n"); 
-            clientBuf = bufferSet->outputBufferList;
+            clientBuf = bufferSet->outputBufferList;    
+
+            IOAudioBufferDataDescriptor localBufferDataDescriptor;
+            IOAudioBufferDataDescriptor * localBufferDataDescriptorPtr = FlipBufferDataDescriptor ( clientBuf->mAudioClientBuffer32.bufferDataDescriptor, &localBufferDataDescriptor, reserved->classicMode );
+
+            if (NULL != localBufferDataDescriptorPtr) {
+                audioDebugIOLog(6, "  performClientOutput -------------%ld-----------------\n", (long int)clientIndex);
+                audioDebugIOLog ( 6, "  actual frames = %ld, actual bytes = %ld, nominal bytes = %ld, total bytes = %ld\n",
+                                    (long int)localBufferDataDescriptorPtr->fActualNumSampleFrames, 
+                                    (long int)localBufferDataDescriptorPtr->fActualDataByteSize, 
+                                    (long int)localBufferDataDescriptorPtr->fNominalDataByteSize, 
+                                    (long int)localBufferDataDescriptorPtr->fTotalDataByteSize );
+                numSampleFrames = localBufferDataDescriptorPtr->fActualNumSampleFrames;
+            } else {
+                audioDebugIOLog(6, "  no buffer descriptor found, using bufferSet->outputBufferList->numSampleFrames\n"); 
+                numSampleFrames = bufferSet->outputBufferList->mAudioClientBuffer32.numSampleFrames;
+            }
+
+            numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
             
-            while (clientBuf) {
-                IOAudioStream *					audioStream;
-				UInt32							maxNumSampleFrames;
-				IOReturn						tmpResult;
-				
-                audioStream = clientBuf->mAudioClientBuffer32.audioStream;
-        
-                assert(audioStream);
-                assert(audioStream->getDirection() == kIOAudioStreamDirectionOutput);
-                assert(clientBuf->mAudioClientBuffer32.sourceBuffer != NULL);
-                
-                audioStream->lockStreamForIO();
-                
-				maxNumSampleFrames = clientBuf->mAudioClientBuffer32.numSampleFrames;
-				// <rdar://6865619>, <rdar://6917678> Validate the parameters passed in IOAudioBufferDataDescriptor vs the maximum buffer size.
-				if ( numSampleFrames > maxNumSampleFrames )
-				{
-					audioDebugIOLog ( 1, "  **** VBR OUTPUT ERROR! - actual sample frames (%ld) is larger than max sample frames (%ld)\n", (long int)numSampleFrames, (long int)maxNumSampleFrames);
-					audioStream->unlockStreamForIO();
-					result = kIOReturnBadArgument;
-					goto Exit;
-				}
-				// get the per buffer info
-				if (NULL != localBufferDataDescriptorPtr) {
-					audioDebugIOLog ( 6, "  clientBuffer = %p: actual frames = %lu, actual bytes = %lu, nominal bytes = %lu, total bytes = %lu, source buffer size = %lu\n", 
-											clientBuf, 
-											(long unsigned int)localBufferDataDescriptorPtr->fActualNumSampleFrames, 
-											(long unsigned int)localBufferDataDescriptorPtr->fActualDataByteSize, 
-											(long unsigned int)localBufferDataDescriptorPtr->fNominalDataByteSize, 
-											(long unsigned int)localBufferDataDescriptorPtr->fTotalDataByteSize, 
-											(long unsigned int)clientBuf->mAudioClientBuffer32.sourceBufferDescriptor->getLength () - offsetof ( IOAudioBufferDataDescriptor, fData ) );
-
-					clientBuf->mAudioClientBuffer32.numSampleFrames = numSampleFrames;
-					
-					if ((localBufferDataDescriptorPtr->fActualDataByteSize > (clientBuf->mAudioClientBuffer32.sourceBufferDescriptor->getLength () - offsetof(IOAudioBufferDataDescriptor, fData))) ||
-						(localBufferDataDescriptorPtr->fActualDataByteSize > localBufferDataDescriptorPtr->fTotalDataByteSize) ||
-						(localBufferDataDescriptorPtr->fNominalDataByteSize > localBufferDataDescriptorPtr->fTotalDataByteSize)) {
-						audioDebugIOLog ( 1, "  **** VBR OUTPUT ERROR! clientBuffer = %p: actual frames = %ld, actual bytes = %ld, nominal bytes = %ld, total bytes = %ld, source buffer size = %ld\n", 
-											clientBuf, 
-											(long unsigned int)localBufferDataDescriptorPtr->fActualNumSampleFrames, 
-											(long unsigned int)localBufferDataDescriptorPtr->fActualDataByteSize, 
-											(long unsigned int)localBufferDataDescriptorPtr->fNominalDataByteSize, 
-											(long unsigned int)localBufferDataDescriptorPtr->fTotalDataByteSize, 
-											(long unsigned int)clientBuf->mAudioClientBuffer32.sourceBufferDescriptor->getLength () - offsetof(IOAudioBufferDataDescriptor, fData ) );
-						audioStream->unlockStreamForIO();
-						result = kIOReturnBadArgument;
-						goto Exit;
-					}	
-#ifdef DEBUG					
-					if (clientBuf->mAudioClientBuffer32.numSampleFrames != localBufferDataDescriptorPtr->fActualDataByteSize / (audioStream->format.fNumChannels * sizeof(float))) {
-						audioDebugIOLog ( 6, "  DEBUGGING - calculated sample frames (%ld) does not match actual sample frames (%ld)\n",
-											(long unsigned int)localBufferDataDescriptorPtr->fActualDataByteSize / (audioStream->format.fNumChannels * sizeof(float)), 
-											(long unsigned int)clientBuf->mAudioClientBuffer32.numSampleFrames);
-					}
-#endif
-				}
-
-#if __i386__ || __x86_64__	// <rdar://6612182>
-                if (reserved->classicMode && clientBuf->mAudioClientBuffer32.sourceBuffer != NULL) {
-					const IOAudioStreamFormat *fmt = audioStream->getFormat();
-					if (fmt->fIsMixable && fmt->fSampleFormat == kIOAudioStreamSampleFormatLinearPCM)
-					{
-						FlipFloats(clientBuf->mAudioClientBuffer32.sourceBuffer, clientBuf->mAudioClientBuffer32.numSampleFrames * clientBuf->mAudioClientBuffer32.numChannels);
-					}
-				}
-#endif
-
-				tmpResult = audioStream->processOutputSamples( &( clientBuf->mAudioClientBuffer32 ), firstSampleFrame, loopCount, true);
-
-				clientBuf->mAudioClientBuffer32.numSampleFrames = maxNumSampleFrames;
-				
-                audioStream->unlockStreamForIO();
-                
-                if (tmpResult != kIOReturnSuccess) {
-					audioDebugIOLog ( 3, "  processOutputSamples failed - result 0x%x\n", tmpResult );
-					result = tmpResult;
-                }
-                
-                clientBuf = clientBuf->mNextBuffer64;
-				
-				if (clientBuf) {  // need to update localBufferDataDescriptor for the current client buffer
-					localBufferDataDescriptorPtr = FlipBufferDataDescriptor ( clientBuf->mAudioClientBuffer32.bufferDataDescriptor, &localBufferDataDescriptor, reserved->classicMode );
-					
-					if (NULL != localBufferDataDescriptorPtr) {
-						numSampleFrames = localBufferDataDescriptorPtr->fActualNumSampleFrames;
-					} else {
-						numSampleFrames = clientBuf->mAudioClientBuffer32.numSampleFrames;
-					}
-				}
-				
-				clientIndex++;
+            outputEndingPosition.fLoopCount = loopCount;
+            outputEndingPosition.fSampleFrame = firstSampleFrame + numSampleFrames;
+            
+            if (outputEndingPosition.fSampleFrame >= numSampleFramesPerBuffer) {
+                outputEndingPosition.fSampleFrame -= numSampleFramesPerBuffer;
+                outputEndingPosition.fLoopCount++;
             }
             
-            bufferSet->nextOutputPosition = outputEndingPosition;
+            // We only want to do output if we haven't already gone past the new samples
+            // If the samples are late, the watchdog will already have skipped them
+            if (CMP_IOAUDIOENGINEPOSITION(&outputEndingPosition, &bufferSet->nextOutputPosition) >= 0)  {
+                IOAudioClientBuffer64 *clientBuf;
+                AbsoluteTime outputTimeout;
+                
+                audioDebugIOLog(6, "  CMP_IOAUDIOENGINEPOSITION >= 0 \n"); 
+                clientBuf = bufferSet->outputBufferList;
+                
+                while (clientBuf) {
+                    IOAudioStream *					audioStream;
+                    UInt32							maxNumSampleFrames;
+                    
+                    audioStream = clientBuf->mAudioClientBuffer32.audioStream;
             
-            audioEngine->calculateSampleTimeout(&bufferSet->sampleInterval, numSampleFrames, &bufferSet->nextOutputPosition, &outputTimeout);
-            
-            // We better have a thread call if we are doing output
-            assert(bufferSet->watchdogThreadCall != NULL);
+                    assert(audioStream);
+                    assert(audioStream->getDirection() == kIOAudioStreamDirectionOutput);
+                    assert(clientBuf->mAudioClientBuffer32.sourceBuffer != NULL);
+                    
+                    audioStream->lockStreamForIO();
+                    
+                    maxNumSampleFrames = clientBuf->mAudioClientBuffer32.numSampleFrames;
+                    // <rdar://6865619>, <rdar://6917678> Validate the parameters passed in IOAudioBufferDataDescriptor vs the maximum buffer size.
+                    if ( numSampleFrames > maxNumSampleFrames ) {
+                        audioDebugIOLog ( 1, "  **** VBR OUTPUT ERROR! - actual sample frames (%ld) is larger than max sample frames (%ld)\n", (long int)numSampleFrames, (long int)maxNumSampleFrames);
+                        audioStream->unlockStreamForIO();
+                        result = kIOReturnBadArgument;
+                        goto Exit;
+                    }
+                    // get the per buffer info
+                    if (NULL != localBufferDataDescriptorPtr) {
+                        audioDebugIOLog ( 6, "  clientBuffer = %p: actual frames = %lu, actual bytes = %lu, nominal bytes = %lu, total bytes = %lu, source buffer size = %lu\n", 
+                                                clientBuf, 
+                                                (long unsigned int)localBufferDataDescriptorPtr->fActualNumSampleFrames, 
+                                                (long unsigned int)localBufferDataDescriptorPtr->fActualDataByteSize, 
+                                                (long unsigned int)localBufferDataDescriptorPtr->fNominalDataByteSize, 
+                                                (long unsigned int)localBufferDataDescriptorPtr->fTotalDataByteSize, 
+                                                (long unsigned int)clientBuf->mAudioClientBuffer32.sourceBufferDescriptor->getLength () - offsetof ( IOAudioBufferDataDescriptor, fData ) );
 
-            bufferSet->setWatchdogTimeout(&outputTimeout);
-        } else {
-			audioDebugIOLog(3, "  performClientOutput(%lx,%lx) - missed samples (%lx,%lx)\n", 
-							(long unsigned int)loopCount, 
-							(long unsigned int)firstSampleFrame, 
-							(long unsigned int)bufferSet->nextOutputPosition.fLoopCount, 
-							(long unsigned int)bufferSet->nextOutputPosition.fSampleFrame);
-            result = kIOReturnIsoTooOld;
+                        clientBuf->mAudioClientBuffer32.numSampleFrames = numSampleFrames;
+                        
+                        if ((localBufferDataDescriptorPtr->fActualDataByteSize > (clientBuf->mAudioClientBuffer32.sourceBufferDescriptor->getLength () - offsetof(IOAudioBufferDataDescriptor, fData))) ||
+                            (localBufferDataDescriptorPtr->fActualDataByteSize > localBufferDataDescriptorPtr->fTotalDataByteSize) ||
+                            (localBufferDataDescriptorPtr->fNominalDataByteSize > localBufferDataDescriptorPtr->fTotalDataByteSize)) {
+                            audioDebugIOLog ( 1, "  **** VBR OUTPUT ERROR! clientBuffer = %p: actual frames = %ld, actual bytes = %ld, nominal bytes = %ld, total bytes = %ld, source buffer size = %ld\n", 
+                                                clientBuf, 
+                                                (long unsigned int)localBufferDataDescriptorPtr->fActualNumSampleFrames, 
+                                                (long unsigned int)localBufferDataDescriptorPtr->fActualDataByteSize, 
+                                                (long unsigned int)localBufferDataDescriptorPtr->fNominalDataByteSize, 
+                                                (long unsigned int)localBufferDataDescriptorPtr->fTotalDataByteSize, 
+                                                (long unsigned int)clientBuf->mAudioClientBuffer32.sourceBufferDescriptor->getLength () - offsetof(IOAudioBufferDataDescriptor, fData ) );
+                            audioStream->unlockStreamForIO();
+                            result = kIOReturnBadArgument;
+                            goto Exit;
+                        }	
+#ifdef DEBUG					
+                        if (clientBuf->mAudioClientBuffer32.numSampleFrames != localBufferDataDescriptorPtr->fActualDataByteSize / (audioStream->format.fNumChannels * sizeof(float))) {
+                            audioDebugIOLog ( 6, "  DEBUGGING - calculated sample frames (%ld) does not match actual sample frames (%ld)\n",
+                                                (long unsigned int)localBufferDataDescriptorPtr->fActualDataByteSize / (audioStream->format.fNumChannels * sizeof(float)), 
+                                                (long unsigned int)clientBuf->mAudioClientBuffer32.numSampleFrames);
+                        }
+#endif
+                    }
+
+ #if __i386__ || __x86_64__	// <rdar://6612182>
+                    if (reserved->classicMode && clientBuf->mAudioClientBuffer32.sourceBuffer != NULL) {
+                        const IOAudioStreamFormat *fmt = audioStream->getFormat();
+                        if (fmt->fIsMixable && fmt->fSampleFormat == kIOAudioStreamSampleFormatLinearPCM) {
+                            FlipFloats(clientBuf->mAudioClientBuffer32.sourceBuffer, clientBuf->mAudioClientBuffer32.numSampleFrames * clientBuf->mAudioClientBuffer32.numChannels);
+                        }
+                    }
+#endif
+
+                    tmpResult = audioStream->processOutputSamples( &( clientBuf->mAudioClientBuffer32 ), firstSampleFrame, loopCount, true);
+
+                    clientBuf->mAudioClientBuffer32.numSampleFrames = maxNumSampleFrames;
+                    
+                    audioStream->unlockStreamForIO();
+                    
+                    if (tmpResult != kIOReturnSuccess) {
+                        audioDebugIOLog ( 3, "  processOutputSamples failed - result 0x%x\n", tmpResult );
+                        result = tmpResult;
+                    }
+                    
+                    clientBuf = clientBuf->mNextBuffer64;
+                    
+                    if (clientBuf) {		// need to update localBufferDataDescriptor for the current client buffer
+                        localBufferDataDescriptorPtr = FlipBufferDataDescriptor ( clientBuf->mAudioClientBuffer32.bufferDataDescriptor, &localBufferDataDescriptor, reserved->classicMode );
+                        
+                        if (NULL != localBufferDataDescriptorPtr) {
+                            numSampleFrames = localBufferDataDescriptorPtr->fActualNumSampleFrames;
+                        } else {
+                            numSampleFrames = clientBuf->mAudioClientBuffer32.numSampleFrames;
+                        }
+                    }
+                    
+                    clientIndex++;
+                }
+                
+                bufferSet->nextOutputPosition = outputEndingPosition;
+				
+                tmpResult = audioEngine->calculateSampleTimeout(&bufferSet->sampleInterval, numSampleFrames, &bufferSet->nextOutputPosition, &outputTimeout);
+				
+				if (tmpResult == kIOReturnSuccess) {
+					assert(bufferSet->watchdogThreadCall != NULL);			// We better have a thread call if we are doing output
+
+					bufferSet->setWatchdogTimeout(&outputTimeout);
+				} else {
+					audioDebugIOLog ( 3, "  calculateSampleTimeout failed - result 0x%x\n", tmpResult );
+					result = tmpResult;
+				}
+            } else {
+                audioDebugIOLog(3, "  performClientOutput(%lx,%lx) - missed samples (%lx,%lx)\n", 
+                                (long unsigned int)loopCount, 
+                                (long unsigned int)firstSampleFrame, 
+                                (long unsigned int)bufferSet->nextOutputPosition.fLoopCount, 
+                                (long unsigned int)bufferSet->nextOutputPosition.fSampleFrame);
+                result = kIOReturnIsoTooOld;
+            }
         }
-    }	
+    } else {
+		audioDebugIOLog(3, "  performClientOutput(%lx,%lx) - missed samples (%lx,%lx). fCurrentLoopCount=%lx\n", 
+						(long unsigned int)loopCount,
+						(long unsigned int)firstSampleFrame, 
+						(long unsigned int)bufferSet->nextOutputPosition.fLoopCount, 
+						(long unsigned int)bufferSet->nextOutputPosition.fSampleFrame,
+						(long unsigned int)audioEngine->status->fCurrentLoopCount);
+		result = kIOReturnIsoTooOld;
+	}
 
 Exit:
 	// <rdar://9725460>
@@ -2246,12 +2285,14 @@ IOReturn IOAudioEngineUserClient::performClientInput(UInt32 firstSampleFrame, IO
     }
 
 Exit:    
-	audioDebugIOLog ( 3, "-  IOAudioEngineUserClient[%p]::performClientInput ( firstSampleFrame %ld,  bufferSet %p) returns 0x%lX\n", this, (long int)firstSampleFrame, bufferSet, (long unsigned int)result );
+	audioDebugIOLog ( 4, "-  IOAudioEngineUserClient[%p]::performClientInput ( firstSampleFrame %ld,  bufferSet %p) returns 0x%lX\n", this, (long int)firstSampleFrame, bufferSet, (long unsigned int)result );
     return result;
 }
 
 void IOAudioEngineUserClient::performWatchdogOutput(IOAudioClientBufferSet *clientBufferSet, UInt32 generationCount)
 {
+	IOReturn tmpResult;
+
 	audioDebugIOLog(3, "+ IOAudioEngineUserClient[%p]::performWatchdogOutput(%p, %ld) - (%lx,%lx)\n", 
 						this, clientBufferSet, 
 						(long int)generationCount, 
@@ -2306,7 +2347,7 @@ void IOAudioEngineUserClient::performWatchdogOutput(IOAudioClientBufferSet *clie
 					// in the buffer.
 					maxNumSampleFrames = clientBuffer->mAudioClientBuffer32.numSampleFrames;
 					
-					if (numSampleFrames < maxNumSampleFrames) {
+					if (numSampleFrames <= maxNumSampleFrames) {	// <rdar://10320402>
 						// Update the client buffer's numSampleFrames field if there is data descriptor.
 						if (NULL != localBufferDataDescriptorPtr) {
 							clientBuffer->mAudioClientBuffer32.numSampleFrames = numSampleFrames;
@@ -2354,10 +2395,16 @@ void IOAudioEngineUserClient::performWatchdogOutput(IOAudioClientBufferSet *clie
                         clientBufferSet->nextOutputPosition.fLoopCount++;
                     }
                     
-                    audioEngine->calculateSampleTimeout(&clientBufferSet->sampleInterval, numSampleFrames, &clientBufferSet->nextOutputPosition, &outputTimeout);
-                    
-                    clientBufferSet->setWatchdogTimeout(&outputTimeout);
+                    // <rdar://10145205> Sanity check the calculated timeout value
+					tmpResult = audioEngine->calculateSampleTimeout(&clientBufferSet->sampleInterval, numSampleFrames, &clientBufferSet->nextOutputPosition, &outputTimeout);
+                    if ( kIOReturnSuccess == tmpResult ) {
+	                    clientBufferSet->setWatchdogTimeout(&outputTimeout);
+					}
+					else {
+						audioDebugIOLog(3, "IOAudioEngineUserClient[%p]::performWatchdogOutput failed to calculateSampleTimeout (returned %#x)\n", this, tmpResult);
 
+						clientBufferSet->timerPending = false;
+					}
                 } else {
                     clientBufferSet->timerPending = false;
                 }

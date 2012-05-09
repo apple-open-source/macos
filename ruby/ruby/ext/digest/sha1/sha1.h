@@ -13,8 +13,6 @@
 
 #include "defs.h"
 
-#include <CommonCrypto/CommonDigest.h>
-
 typedef struct {
 	uint32_t state[5];
 	uint32_t count[2];  

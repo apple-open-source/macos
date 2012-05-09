@@ -141,6 +141,7 @@ void JSNodeOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
     JSNode* jsNode = static_cast<JSNode*>(handle.get().asCell());
     DOMWrapperWorld* world = static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsNode->impl(), jsNode);
+    jsNode->clearImpl();
 }
 
 JSValue JSNode::insertBefore(ExecState* exec)
@@ -192,14 +193,15 @@ ScopeChainNode* JSNode::pushEventHandlerScope(ExecState*, ScopeChainNode* node) 
     return node;
 }
 
-void JSNode::visitChildren(SlotVisitor& visitor)
+void JSNode::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
-    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    JSNode* thisObject = jsCast<JSNode*>(cell);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);
     COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
-    ASSERT(structure()->typeInfo().overridesVisitChildren());
-    Base::visitChildren(visitor);
+    ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(thisObject, visitor);
 
-    Node* node = m_impl.get();
+    Node* node = thisObject->m_impl.get();
     node->visitJSEventListeners(visitor);
 
     visitor.addOpaqueRoot(root(node));

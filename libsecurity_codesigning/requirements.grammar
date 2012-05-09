@@ -266,7 +266,7 @@ appleanchor[Maker &maker]
 			{ maker.put(opAppleAnchor); }
 	|	"generic"
 			{ maker.put(opAppleGenericAnchor); }
-|	|	{ string name; } name=identifierString
+	|	{ string name; } name=identifierString
 			{ maker.put(opNamedAnchor); maker.put(name); }
 	;
 

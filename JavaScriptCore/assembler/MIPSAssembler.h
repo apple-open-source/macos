@@ -645,14 +645,14 @@ public:
         return m_buffer.codeSize();
     }
 
-    void* executableCopy(JSGlobalData& globalData, ExecutablePool* allocator)
+    PassRefPtr<ExecutableMemoryHandle> executableCopy(JSGlobalData& globalData)
     {
-        void *result = m_buffer.executableCopy(globalData, allocator);
+        RefPtr<ExecutableMemoryHandle> result = m_buffer.executableCopy(globalData);
         if (!result)
             return 0;
 
-        relocateJumps(m_buffer.data(), result);
-        return result;
+        relocateJumps(m_buffer.data(), result->start());
+        return result.release();
     }
 
 #ifndef NDEBUG
@@ -770,6 +770,18 @@ public:
     static void* readPointer(void* from)
     {
         return reinterpret_cast<void*>(readInt32(from));
+    }
+
+    static void* readCallTarget(void* from)
+    {
+        MIPSWord* insn = reinterpret_cast<MIPSWord*>(from);
+        insn -= 4;
+        ASSERT((*insn & 0xffe00000) == 0x3c000000); // lui
+        int32_t result = (*insn & 0x0000ffff) << 16;
+        insn++;
+        ASSERT((*insn & 0xfc000000) == 0x34000000); // ori
+        result |= *insn & 0x0000ffff;
+        return reinterpret_cast<void*>(result);
     }
 
 private:

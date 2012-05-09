@@ -42,6 +42,7 @@ namespace JSC {
     class JSPropertyNameIterator;
     class ScopeChainNode;
 
+    struct InlineCallFrame;
     struct Instruction;
 
     typedef ExecState CallFrame;
@@ -60,6 +61,7 @@ namespace JSC {
         Register& operator=(CodeBlock*);
         Register& operator=(ScopeChainNode*);
         Register& operator=(Instruction*);
+        Register& operator=(InlineCallFrame*);
 
         int32_t i() const;
         JSActivation* activation() const;
@@ -69,6 +71,14 @@ namespace JSC {
         JSPropertyNameIterator* propertyNameIterator() const;
         ScopeChainNode* scopeChain() const;
         Instruction* vPC() const;
+        InlineCallFrame* asInlineCallFrame() const;
+        int32_t unboxedInt32() const;
+        bool unboxedBoolean() const;
+        JSCell* unboxedCell() const;
+        int32_t payload() const;
+        int32_t tag() const;
+        int32_t& payload();
+        int32_t& tag();
 
         static Register withInt(int32_t i)
         {
@@ -84,6 +94,8 @@ namespace JSC {
             CallFrame* callFrame;
             CodeBlock* codeBlock;
             Instruction* vPC;
+            InlineCallFrame* inlineCallFrame;
+            EncodedValueDescriptor encodedValue;
         } u;
     };
 
@@ -135,6 +147,12 @@ namespace JSC {
         return *this;
     }
 
+    ALWAYS_INLINE Register& Register::operator=(InlineCallFrame* inlineCallFrame)
+    {
+        u.inlineCallFrame = inlineCallFrame;
+        return *this;
+    }
+
     ALWAYS_INLINE int32_t Register::i() const
     {
         return jsValue().asInt32();
@@ -153,6 +171,50 @@ namespace JSC {
     ALWAYS_INLINE Instruction* Register::vPC() const
     {
         return u.vPC;
+    }
+
+    ALWAYS_INLINE InlineCallFrame* Register::asInlineCallFrame() const
+    {
+        return u.inlineCallFrame;
+    }
+        
+    ALWAYS_INLINE int32_t Register::unboxedInt32() const
+    {
+        return payload();
+    }
+
+    ALWAYS_INLINE bool Register::unboxedBoolean() const
+    {
+        return !!payload();
+    }
+
+    ALWAYS_INLINE JSCell* Register::unboxedCell() const
+    {
+#if USE(JSVALUE64)
+        return u.encodedValue.ptr;
+#else
+        return bitwise_cast<JSCell*>(payload());
+#endif
+    }
+
+    ALWAYS_INLINE int32_t Register::payload() const
+    {
+        return u.encodedValue.asBits.payload;
+    }
+
+    ALWAYS_INLINE int32_t Register::tag() const
+    {
+        return u.encodedValue.asBits.tag;
+    }
+
+    ALWAYS_INLINE int32_t& Register::payload()
+    {
+        return u.encodedValue.asBits.payload;
+    }
+
+    ALWAYS_INLINE int32_t& Register::tag()
+    {
+        return u.encodedValue.asBits.tag;
     }
 
 } // namespace JSC

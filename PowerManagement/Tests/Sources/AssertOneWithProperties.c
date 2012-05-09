@@ -59,7 +59,7 @@ int main()
     
     
     val =           kIOPMAssertionLevelOn;
-    keys[0] =       kIOPMAssertionTypePreventUserIdleSystemSleep;
+    keys[0] =       kIOPMAssertionTypeApplePushServiceTask;
     vals[0] =       CFNumberCreate(0, kCFNumberIntType, &val);
     
     keys[1] =       kIOPMAssertionHumanReadableReasonKey;

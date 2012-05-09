@@ -32,6 +32,7 @@
 #include <servers/bootstrap.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <notify.h>
 #include "IOSystemConfiguration.h"
 #include "IOPMLibPrivate.h"
 #include "powermanagement.h"
@@ -40,12 +41,13 @@
 #include <stdlib.h>
 #include <dirent.h>
 
+
 #define pwrLogDirName "/System/Library/PowerEvents"
 
 static const int kMaxNameLength = 128;
 
 
-static IOReturn _pm_connect(mach_port_t *newConnection)
+__private_extern__ IOReturn _pm_connect(mach_port_t *newConnection)
 {
     kern_return_t       kern_result = KERN_SUCCESS;
     
@@ -61,7 +63,7 @@ static IOReturn _pm_connect(mach_port_t *newConnection)
     return kIOReturnSuccess;
 }
 
-static IOReturn _pm_disconnect(mach_port_t connection)
+__private_extern__ IOReturn _pm_disconnect(mach_port_t connection)
 {
     if(!connection) return kIOReturnBadArgument;
     mach_port_deallocate(mach_task_self(), connection);
@@ -113,77 +115,6 @@ exit:
  * IOPMGetLastWakeTime
  *
  ******************************************************************************/
-static IOReturn _smcWakeTimerGetResults(uint16_t *mSec);
-static IOReturn _smcReadKey(
-    uint32_t key,
-    uint8_t *outBuf,
-    uint8_t *outBufMax);
-
-// Todo: verify kSMCKeyNotFound
-enum {
-    kSMCKeyNotFound = 0x84
-};
-
-/* Do not modify - defined by AppleSMC.kext */
-enum {
-	kSMCSuccess	= 0,
-	kSMCError	= 1
-};
-enum {
-	kSMCUserClientOpen  = 0,
-	kSMCUserClientClose = 1,
-	kSMCHandleYPCEvent  = 2,	
-    kSMCReadKey         = 5,
-	kSMCWriteKey        = 6,
-	kSMCGetKeyCount     = 7,
-	kSMCGetKeyFromIndex = 8,
-	kSMCGetKeyInfo      = 9
-};
-/* Do not modify - defined by AppleSMC.kext */
-typedef struct SMCVersion 
-{
-    unsigned char    major;
-    unsigned char    minor;
-    unsigned char    build;
-    unsigned char    reserved;
-    unsigned short   release;
-    
-} SMCVersion;
-/* Do not modify - defined by AppleSMC.kext */
-typedef struct SMCPLimitData 
-{
-    uint16_t    version;
-    uint16_t    length;
-    uint32_t    cpuPLimit;
-    uint32_t    gpuPLimit;
-    uint32_t    memPLimit;
-
-} SMCPLimitData;
-/* Do not modify - defined by AppleSMC.kext */
-typedef struct SMCKeyInfoData 
-{
-    IOByteCount         dataSize;
-    uint32_t            dataType;
-    uint8_t             dataAttributes;
-
-} SMCKeyInfoData;
-/* Do not modify - defined by AppleSMC.kext */
-typedef struct {
-    uint32_t            key;
-    SMCVersion          vers;
-    SMCPLimitData       pLimitData;
-    SMCKeyInfoData      keyInfo;
-    uint8_t             result;
-    uint8_t             status;
-    uint8_t             data8;
-    uint32_t            data32;    
-    uint8_t             bytes[32];
-}  SMCParamStruct;
-
-static IOReturn callSMCFunction(
-    int which, 
-    SMCParamStruct *inputValues, 
-    SMCParamStruct *outputValues);
 
 IOReturn IOPMGetLastWakeTime(
     CFAbsoluteTime      *lastWakeTimeOut,
@@ -194,8 +125,6 @@ IOReturn IOPMGetLastWakeTime(
     CFAbsoluteTime      lastWakeTime;
     struct timeval      rawLastWakeTime;
     size_t              rawLastWakeTimeSize = sizeof(rawLastWakeTime);
-    uint16_t            wakeup_smc_result = 0;
-    static bool         sSMCSupportsWakeupTimer = true;
 
     if (!lastWakeTimeOut || !adjustedForPhysicalWakeOut) {
         return kIOReturnBadArgument;
@@ -213,23 +142,6 @@ IOReturn IOPMGetLastWakeTime(
     lastWakeTime = rawLastWakeTime.tv_sec + (rawLastWakeTime.tv_usec / 1000000.0);
     lastWakeTime -= kCFAbsoluteTimeIntervalSince1970;
 
-    // Read SMC key for precise timing between when the wake event physically occurred
-    // and now (i.e. the moment we read the key).
-    if (sSMCSupportsWakeupTimer) {
-        ret = _smcWakeTimerGetResults(&wakeup_smc_result);
-        if (kIOReturnSuccess == ret && 0 != wakeup_smc_result) {
-            // - SMC key returns the delta in tens of milliseconds
-            // convert 10x msecs to (double)seconds
-            lastSMCS3S0WakeInterval = ((double)wakeup_smc_result / 100.0);  
-
-            // And we adjust backwards to determine the real time of physical wake.
-            lastWakeTime -= lastSMCS3S0WakeInterval;
-        } else {
-            if (kIOReturnNotFound == ret) {
-                sSMCSupportsWakeupTimer = false;
-            }
-        }
-    }
 
     *lastWakeTimeOut = lastWakeTime;
     *adjustedForPhysicalWakeOut = lastSMCS3S0WakeInterval;
@@ -237,135 +149,9 @@ IOReturn IOPMGetLastWakeTime(
     return kIOReturnSuccess;
 }
 
-static IOReturn _smcWakeTimerGetResults(uint16_t *mSec)
-{
-#if !TARGET_OS_EMBEDDED    
-    uint8_t     size = 2;
-    uint8_t     buf[2];
-    IOReturn    ret;
-    ret = _smcReadKey('CLWK', buf, &size);
 
-    if (kIOReturnSuccess == ret) {
-        *mSec = buf[0] | (buf[1] << 8);
-    }
-
-    return ret;
-#else
-    return kIOReturnNotReadable;
-#endif
-}
-
-static IOReturn _smcReadKey(
-    uint32_t key,
-    uint8_t *outBuf,
-    uint8_t *outBufMax)
-{
-    SMCParamStruct  stuffMeIn;
-    SMCParamStruct  stuffMeOut;
-    IOReturn        ret;
-    int             i;
-
-    if (key == 0 || outBuf == NULL) 
-        return kIOReturnCannotWire;
-
-    // Determine key's data size
-    bzero(outBuf, *outBufMax);
-    bzero(&stuffMeIn, sizeof(SMCParamStruct));
-    bzero(&stuffMeOut, sizeof(SMCParamStruct));
-    stuffMeIn.data8 = kSMCGetKeyInfo;
-    stuffMeIn.key = key;
-
-    ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
-
-    if (stuffMeOut.result == kSMCKeyNotFound) {
-        ret = kIOReturnNotFound;
-        goto exit;
-    } else if (stuffMeOut.result != kSMCSuccess) {
-        ret = kIOReturnInternalError;
-        goto exit;
-    }
-
-    // Get Key Value
-    stuffMeIn.data8 = kSMCReadKey;
-    stuffMeIn.key = key;
-    stuffMeIn.keyInfo.dataSize = stuffMeOut.keyInfo.dataSize;
-    bzero(&stuffMeOut, sizeof(SMCParamStruct));
-    ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
-    if (stuffMeOut.result == kSMCKeyNotFound) {
-        ret = kIOReturnNotFound;
-        goto exit;
-    } else if (stuffMeOut.result != kSMCSuccess) {
-        ret = kIOReturnInternalError;
-        goto exit;
-    }
-
-    if (*outBufMax > stuffMeIn.keyInfo.dataSize)
-        *outBufMax = stuffMeIn.keyInfo.dataSize;
-
-    // Byte-swap data returning from the SMC.
-    // The data at key 'ACID' are not provided by the SMC and do 
-    // NOT need to be byte-swapped.
-    for (i=0; i<*outBufMax; i++) 
-    {
-        if ('ACID' == key)
-        {
-            // Do not byte swap
-            outBuf[i] = stuffMeOut.bytes[i];
-        } else {
-            // Byte swap
-            outBuf[i] = stuffMeOut.bytes[*outBufMax - (i + 1)];
-        }
-    }
-exit:
-    return ret;
-}
-
-static IOReturn callSMCFunction(
-    int which, 
-    SMCParamStruct *inputValues, 
-    SMCParamStruct *outputValues) 
-{
-    IOReturn result = kIOReturnError;
-
-    size_t         inStructSize = sizeof(SMCParamStruct);
-    size_t         outStructSize = sizeof(SMCParamStruct);
-    
-    io_connect_t    _SMCConnect = IO_OBJECT_NULL;
-    io_service_t    smc = IO_OBJECT_NULL;
-
-    smc = IOServiceGetMatchingService(
-        kIOMasterPortDefault, 
-        IOServiceMatching("AppleSMC"));
-    if (IO_OBJECT_NULL == smc) {
-        return kIOReturnNotFound;
-    }
-    
-    result = IOServiceOpen(smc, mach_task_self(), 1, &_SMCConnect);        
-    if (result != kIOReturnSuccess || 
-        IO_OBJECT_NULL == _SMCConnect) {
-        _SMCConnect = IO_OBJECT_NULL;
-        goto exit;
-    }
-    
-    result = IOConnectCallMethod(_SMCConnect, kSMCUserClientOpen, 
-                    NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
-    if (result != kIOReturnSuccess) {
-        goto exit;
-    }
-    
-    result = IOConnectCallStructMethod(_SMCConnect, which, 
-                        inputValues, inStructSize,
-                        outputValues, &outStructSize);
-
-exit:    
-    if (IO_OBJECT_NULL != _SMCConnect) {
-        IOConnectCallMethod(_SMCConnect, kSMCUserClientClose, 
-                    NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
-        IOServiceClose(_SMCConnect);    
-    }
-
-    return result;
-}
+#pragma mark -
+#pragma mark API
 
 /******************************************************************************
  * IOPMCopyPowerHistory
@@ -600,6 +386,53 @@ CFStringRef IOPMSleepWakeCopyUUID(void)
     return uuidString;
 }
 
+
+bool IOPMGetUUID(int whichUUID, char *putTheUUIDHere, int sizeOfBuffer)
+{
+    bool return_bool_value = false;
+    
+    if (kIOPMSleepWakeUUID == whichUUID)
+    {
+        CFStringRef bs = IOPMSleepWakeCopyUUID();
+        if (bs) {
+            Boolean bool_result;
+            bool_result = CFStringGetCString(bs, putTheUUIDHere, sizeOfBuffer, kCFStringEncodingUTF8);
+            CFRelease(bs);
+            return bool_result;
+        }        
+        return false;
+    }
+    else if (kIOPMSleepServicesUUID == whichUUID) 
+    {
+        mach_port_t             pm_server       = MACH_PORT_NULL;
+        kern_return_t           return_code     = KERN_SUCCESS;
+        char                    strPtr[kPMMIGStringLength];
+        int                     pm_mig_return = -1;
+
+        return_code = _pm_connect(&pm_server);
+
+        if(kIOReturnSuccess != return_code) {
+            return false;
+        }
+        
+        bzero(strPtr, sizeof(strPtr));
+        return_code = io_pm_get_uuid(pm_server, kIOPMSleepServicesUUID, strPtr, &pm_mig_return);
+
+        if ((KERN_SUCCESS == return_code) && (KERN_SUCCESS == pm_mig_return))
+        {
+            bzero(putTheUUIDHere, sizeOfBuffer);
+            
+            strncpy(putTheUUIDHere, strPtr, sizeOfBuffer-1);
+ 
+            return_bool_value = true;
+        }
+
+        _pm_disconnect(pm_server);
+    }
+
+    return return_bool_value;    
+}
+
 /******************************************************************************
  * IOPMDebugTracePoint
  *
@@ -762,6 +595,8 @@ exit:
 
 /*****************************************************************************/
 /*****************************************************************************/
+#pragma mark -
+#pragma mark IOPMConnection
 
 IOReturn IOPMConnectionSetNotification(
     IOPMConnection myConnection, 
@@ -1052,10 +887,12 @@ IOReturn IOPMConnectionRelease(IOPMConnection connection)
         goto exit;
     }
     
+#if !TARGET_OS_EMBEDDED
     if (connection_private->dispatchDelivery) {
-        IOPMConnectionSetDispatchQueue((IOPMConnection *)connection_private, NULL);
+        IOPMConnectionSetDispatchQueue(connection, NULL);
     }
-    
+#endif 
+
     kern_result = io_pm_connection_release(pm_server, 
                                             connection_private->id, 
                                             &return_code);
@@ -1192,6 +1029,64 @@ exit:
     return return_code;
 }
 
+/*****************************************************************************/
+/*****************************************************************************/
+
+#define SYSTEM_ON_CAPABILITIES (kIOPMSystemPowerStateCapabilityCPU | kIOPMSystemPowerStateCapabilityVideo \
+                            | kIOPMSystemPowerStateCapabilityAudio | kIOPMSystemPowerStateCapabilityNetwork  \
+                            | kIOPMSystemPowerStateCapabilityDisk)
+
+IOPMSystemPowerStateCapabilities IOPMConnectionGetSystemCapabilities(void)
+{
+    CFNumberRef                         capabilities = NULL;
+    io_service_t                        service = IO_OBJECT_NULL;
+    IOPMSystemPowerStateCapabilities    ret_cap = SYSTEM_ON_CAPABILITIES;
+    
+    service = IORegistryEntryFromPath(kIOMasterPortDefault, 
+            kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+
+    if (IO_OBJECT_NULL != service) {
+        capabilities = IORegistryEntryCreateCFProperty(service, CFSTR("System Capabilities"), 0, 0);
+
+        if (capabilities) {
+            CFNumberGetValue(capabilities, kCFNumberIntType, &ret_cap);
+            CFRelease(capabilities);
+        }
+        
+        IOObjectRelease(service);
+    }
+    // This is a workaround for <rdar://problem/10464793>
+    // FIXME: IOPMConnectionGetSystemCapabilities should eventually get its 
+    // capability bits from powerd
+    if(ret_cap & kIOPMSystemPowerStateCapabilityCPU)
+        return (ret_cap | kIOPMSystemPowerStateCapabilityDisk);
+    else
+        return ret_cap;
+}
+
+/*****************************************************************************/
+/*****************************************************************************/
+#pragma mark -
+#pragma mark SleepServices
+
+bool IOPMGetSleepServicesActive(void)
+{
+    int         token = 0;
+    uint64_t    payload = 0;
+
+    if (NOTIFY_STATUS_OK == notify_register_check(kIOPMSleepServiceActiveNotifyName, &token)) 
+    {
+        notify_get_state(token, &payload);
+        notify_cancel(token);
+    }    
+    
+    return ((payload &  kIOPMSleepServiceActiveNotifyBit) ? true : false);
+}
+
+/*****************************************************************************/
+/*****************************************************************************/
+#pragma mark -
+#pragma mark Power History
 
 IOReturn IOPMSetPowerHistoryBookmark(char* uuid) {
 	

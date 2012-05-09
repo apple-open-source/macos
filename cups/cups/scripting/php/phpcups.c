@@ -3,7 +3,7 @@
  *
  *   Printing utilities for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -40,7 +40,7 @@
  * PHP function list...
  */
 
-function_entry phpcups_functions[] =
+zend_function_entry phpcups_functions[] =
 {
   PHP_FE(cups_cancel_job, NULL)
   PHP_FE(cups_get_dests, NULL)

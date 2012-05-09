@@ -3,7 +3,7 @@ dnl "$Id: cups-common.m4 9866 2011-08-06 04:42:49Z mike $"
 dnl
 dnl   Common configuration stuff for CUPS.
 dnl
-dnl   Copyright 2007-2011 by Apple Inc.
+dnl   Copyright 2007-2012 by Apple Inc.
 dnl   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -20,7 +20,7 @@ dnl Set the name of the config header file...
 AC_CONFIG_HEADER(config.h)
 
 dnl Version number information...
-CUPS_VERSION="1.5.1"
+CUPS_VERSION="1.5.3"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -50,6 +50,7 @@ AC_PROG_CXX
 AC_PROG_RANLIB
 AC_PATH_PROG(AR,ar)
 AC_PATH_PROG(CHMOD,chmod)
+AC_PATH_PROG(GZIP,gzip)
 AC_PATH_PROG(HTMLDOC,htmldoc)
 AC_PATH_PROG(LD,ld)
 AC_PATH_PROG(LN,ln)
@@ -214,19 +215,20 @@ AC_ARG_ENABLE(libusb, [  --enable-libusb         use libusb for USB printing])
 LIBUSB=""
 AC_SUBST(LIBUSB)
 
-if test x$enable_libusb = xyes; then
-	check_libusb=yes
-elif test x$enable_libusb != xno -a $uname != Darwin; then
-	check_libusb=yes
-else
-	check_libusb=no
-fi
-
-if test $check_libusb = yes; then
-	AC_CHECK_LIB(usb, usb_get_string_simple,[
-		AC_CHECK_HEADER(usb.h,
-			AC_DEFINE(HAVE_USB_H)
-			LIBUSB="-lusb")])
+if test "x$PKGCONFIG" != x; then
+	if test x$enable_libusb = xyes -o $uname != Darwin; then
+		AC_MSG_CHECKING(for libusb-1.0)
+		if $PKGCONFIG --exists libusb-1.0; then
+			AC_MSG_RESULT(yes)
+			AC_DEFINE(HAVE_LIBUSB)
+			CFLAGS="$CFLAGS `$PKGCONFIG --cflags libusb-1.0`"
+			LIBUSB="`$PKGCONFIG --libs libusb-1.0`"
+		else
+			AC_MSG_RESULT(no)
+		fi
+	fi
+elif test x$enable_libusb = xyes; then
+	AC_MSG_ERROR(Need pkg-config to enable libusb support.)
 fi
 
 dnl See if we have libwrap for TCP wrappers support...

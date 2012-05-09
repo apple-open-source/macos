@@ -59,6 +59,15 @@ test "x$U" != "x" && AC_MSG_ERROR(Compiler not ANSI compliant)
 AC_LIBTOOL_WIN32_DLL
 AM_PROG_LIBTOOL
 
+dnl #ifdef __APPLE__
+dnl Disable -Wl,-undefined -Wl,dynamic_lookup when using libtool to link.
+case $host_os in
+  darwin*)
+    allow_undefined_flag=
+    ;;
+esac
+dnl #endif // defined(__APPLE__)
+
 dnl
 dnl We process the AC_ARG_WITH first so that later we can modify
 dnl some of them to try to prevent impossible combinations.  This

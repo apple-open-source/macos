@@ -3,30 +3,6 @@
 	Contains:	Generate all legal moves from a position
 	Version:	1.0
 	Copyright:	© 2003 by Apple Computer, Inc., all rights reserved.
-
-	File Ownership:
-
-		DRI:				Matthias Neeracher    x43683
-
-	Writers:
-
-		(MN)	Matthias Neeracher
-
-	Change History (most recent first):
-
-		$Log: MBCMoveGenerator.h,v $
-		Revision 1.4  2003/07/14 23:19:56  neerache
-		Record color of generated moves
-		
-		Revision 1.3  2003/07/02 21:00:07  neerache
-		Added MBCMoveCollection
-		
-		Revision 1.2  2003/06/30 04:58:22  neerache
-		Make MBCMoveBuilder a protocol, rename methods to be clearer
-		
-		Revision 1.1  2003/06/16 05:28:32  neerache
-		Added move generation facility
-		
 */
 
 #import "MBCBoard.h"

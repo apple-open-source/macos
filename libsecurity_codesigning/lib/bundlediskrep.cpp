@@ -70,7 +70,7 @@ void BundleDiskRep::setup(const Context *ctx)
 		if (ctx && ctx->version)	// explicitly specified
 			MacOSError::throwMe(errSecCSStaticCodeNotFound);
 	}
-	
+
 	// conventional executable bundle: CFBundle identifies an executable for us
 	if (mMainExecutableURL.take(CFBundleCopyExecutableURL(mBundle))) {
 		// conventional executable bundle
@@ -100,6 +100,7 @@ void BundleDiskRep::setup(const Context *ctx)
 	CFRef<CFURLRef> infoURL = _CFBundleCopyInfoPlistURL(mBundle);
 	if (!infoURL)
 		MacOSError::throwMe(errSecCSBadBundleFormat);
+	
 
 	// focus on the Info.plist (which we know exists) as the nominal "main executable" file
 	if ((mMainExecutableURL = _CFBundleCopyInfoPlistURL(mBundle))) {

@@ -3,20 +3,20 @@
 commandtoescpx.o: ../cups/cups-private.h ../cups/cups.h ../cups/file.h
 commandtoescpx.o: ../cups/versioning.h ../cups/ipp.h ../cups/http.h
 commandtoescpx.o: ../cups/array.h ../cups/language.h ../cups/string-private.h
-commandtoescpx.o: ../config.h ../cups/debug-private.h ../cups/ppd-private.h
-commandtoescpx.o: ../cups/ppd.h ../cups/cups.h ../cups/pwg-private.h
-commandtoescpx.o: ../cups/http-private.h ../cups/http.h ../cups/md5-private.h
-commandtoescpx.o: ../cups/ipp-private.h ../cups/ipp.h
+commandtoescpx.o: ../config.h ../cups/debug-private.h ../cups/versioning.h
+commandtoescpx.o: ../cups/ppd-private.h ../cups/ppd.h ../cups/cups.h
+commandtoescpx.o: ../cups/pwg-private.h ../cups/http-private.h ../cups/http.h
+commandtoescpx.o: ../cups/md5-private.h ../cups/ipp-private.h ../cups/ipp.h
 commandtoescpx.o: ../cups/language-private.h ../cups/transcode.h
 commandtoescpx.o: ../cups/thread-private.h driver.h ../cups/raster.h
 commandtoescpx.o: ../cups/ppd.h ../data/escp.h
 commandtopclx.o: ../cups/cups-private.h ../cups/cups.h ../cups/file.h
 commandtopclx.o: ../cups/versioning.h ../cups/ipp.h ../cups/http.h
 commandtopclx.o: ../cups/array.h ../cups/language.h ../cups/string-private.h
-commandtopclx.o: ../config.h ../cups/debug-private.h ../cups/ppd-private.h
-commandtopclx.o: ../cups/ppd.h ../cups/cups.h ../cups/pwg-private.h
-commandtopclx.o: ../cups/http-private.h ../cups/http.h ../cups/md5-private.h
-commandtopclx.o: ../cups/ipp-private.h ../cups/ipp.h
+commandtopclx.o: ../config.h ../cups/debug-private.h ../cups/versioning.h
+commandtopclx.o: ../cups/ppd-private.h ../cups/ppd.h ../cups/cups.h
+commandtopclx.o: ../cups/pwg-private.h ../cups/http-private.h ../cups/http.h
+commandtopclx.o: ../cups/md5-private.h ../cups/ipp-private.h ../cups/ipp.h
 commandtopclx.o: ../cups/language-private.h ../cups/transcode.h
 commandtopclx.o: ../cups/thread-private.h driver.h ../cups/raster.h
 commandtopclx.o: ../cups/ppd.h ../data/pcl.h

@@ -32,7 +32,7 @@ AUTOSAVE="org.cups.help" RESULTS="20"></FORM></TD>
 <H1>CUPS @CUPS_VERSION@</H1>
 
 <P><A HREF="http://www.apple.com/">Apple Inc.</A>-ek Mac OS<SUP>&reg;</SUP> X eta
-beste UNIX<SUP>&reg;</SUP> bezalako sistema eragileentzako iturburu irekiko 
+beste UNIX<SUP>&reg;</SUP> bezalako sistema eragileentzako iturburu irekiko
 inprimatzeko sisteman oinarrituta dago.</P>
 
 </TD>
@@ -50,7 +50,7 @@ HEIGHT="128" ALT="CUPS"></A></TD>
 
 <P><A HREF="help/options.html">Komando-lerroaren bidez inprimatzea eta aukerak</A></P>
 
-<P><A HREF="help/whatsnew.html">CUPS 1.4 bertsioak dakartzan berrikuntza.</A></P>
+<P><A HREF="help/whatsnew.html">CUPS 1.5 bertsioak dakartzan berrikuntza.</A></P>
 
 <P><A HREF="http://www.cups.org/newsgroups.php?gcups.general">Erabiltzaileen foroa</A></P>
 
@@ -100,7 +100,7 @@ HEIGHT="128" ALT="CUPS"></A></TD>
 </TD></TR>
 <TR><TD>&nbsp;</TD></TR>
 <TR><TD CLASS="trailer">CUPS eta CUPSen logotipoa <A HREF="http://www.apple.com">Apple Inc.</A> en marka erregistratuak dira.
-CUPSen copyright-a 2007-2011 Apple Inc. Eskubide guztiak gordeta.</TD></TR>
+CUPSen copyright-a 2007-2012 Apple Inc. Eskubide guztiak gordeta.</TD></TR>
 </TABLE>
 </BODY>
 </HTML>

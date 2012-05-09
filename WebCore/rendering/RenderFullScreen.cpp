@@ -79,7 +79,7 @@ void RenderFullScreen::destroy()
     RenderFlexibleBox::destroy();
 }
 
-PassRefPtr<RenderStyle> RenderFullScreen::createFullScreenStyle()
+static PassRefPtr<RenderStyle> createFullScreenStyle()
 {
     RefPtr<RenderStyle> fullscreenStyle = RenderStyle::createDefaultStyle();
 
@@ -97,12 +97,43 @@ PassRefPtr<RenderStyle> RenderFullScreen::createFullScreenStyle()
     fullscreenStyle->setPosition(FixedPosition);
     fullscreenStyle->setWidth(Length(100.0, Percent));
     fullscreenStyle->setHeight(Length(100.0, Percent));
-    fullscreenStyle->setLeft(Length(0, Fixed));
-    fullscreenStyle->setTop(Length(0, Fixed));
+    fullscreenStyle->setLeft(Length(0, WebCore::Fixed));
+    fullscreenStyle->setTop(Length(0, WebCore::Fixed));
     
     fullscreenStyle->setBackgroundColor(Color::black);
     
     return fullscreenStyle.release();
+}
+
+RenderObject* RenderFullScreen::wrapRenderer(RenderObject* object, Document* document)
+{
+    RenderFullScreen* fullscreenRenderer = new (document->renderArena()) RenderFullScreen(document);
+    fullscreenRenderer->setStyle(createFullScreenStyle());
+    if (object) {
+        if (RenderObject* parent = object->parent()) {
+            parent->addChild(fullscreenRenderer, object);
+            object->remove();
+        }
+        fullscreenRenderer->addChild(object);
+    }
+    document->setFullScreenRenderer(fullscreenRenderer);
+    if (fullscreenRenderer->placeholder())
+        return fullscreenRenderer->placeholder();
+    return fullscreenRenderer;
+}
+
+void RenderFullScreen::unwrapRenderer()
+{
+    RenderObject* holder = placeholder() ? placeholder() : this;
+    if (holder->parent()) {
+        RenderObject* child;
+        while ((child = firstChild())) {
+            child->remove();
+            holder->parent()->addChild(child, holder);
+        }
+    }
+    remove();
+    document()->setFullScreenRenderer(0);
 }
 
 void RenderFullScreen::setPlaceholder(RenderBlock* placeholder)

@@ -71,30 +71,29 @@ static JSValue encode(ExecState* exec, const char* doNotEscape)
     return builder.build(exec);
 }
 
-static JSValue decode(ExecState* exec, const char* doNotUnescape, bool strict)
+template <typename CharType>
+ALWAYS_INLINE
+static JSValue decode(ExecState* exec, const CharType* characters, int length, const char* doNotUnescape, bool strict)
 {
     JSStringBuilder builder;
-    UString str = exec->argument(0).toString(exec);
     int k = 0;
-    int len = str.length();
-    const UChar* d = str.characters();
     UChar u = 0;
-    while (k < len) {
-        const UChar* p = d + k;
-        UChar c = *p;
+    while (k < length) {
+        const CharType* p = characters + k;
+        CharType c = *p;
         if (c == '%') {
             int charLen = 0;
-            if (k <= len - 3 && isASCIIHexDigit(p[1]) && isASCIIHexDigit(p[2])) {
-                const char b0 = Lexer::convertHex(p[1], p[2]);
+            if (k <= length - 3 && isASCIIHexDigit(p[1]) && isASCIIHexDigit(p[2])) {
+                const char b0 = Lexer<CharType>::convertHex(p[1], p[2]);
                 const int sequenceLen = UTF8SequenceLength(b0);
-                if (sequenceLen != 0 && k <= len - sequenceLen * 3) {
+                if (sequenceLen && k <= length - sequenceLen * 3) {
                     charLen = sequenceLen * 3;
                     char sequence[5];
                     sequence[0] = b0;
                     for (int i = 1; i < sequenceLen; ++i) {
-                        const UChar* q = p + i * 3;
+                        const CharType* q = p + i * 3;
                         if (q[0] == '%' && isASCIIHexDigit(q[1]) && isASCIIHexDigit(q[2]))
-                            sequence[i] = Lexer::convertHex(q[1], q[2]);
+                            sequence[i] = Lexer<CharType>::convertHex(q[1], q[2]);
                         else {
                             charLen = 0;
                             break;
@@ -119,22 +118,36 @@ static JSValue decode(ExecState* exec, const char* doNotUnescape, bool strict)
                     return throwError(exec, createURIError(exec, "URI error"));
                 // The only case where we don't use "strict" mode is the "unescape" function.
                 // For that, it's good to support the wonky "%u" syntax for compatibility with WinIE.
-                if (k <= len - 6 && p[1] == 'u'
+                if (k <= length - 6 && p[1] == 'u'
                         && isASCIIHexDigit(p[2]) && isASCIIHexDigit(p[3])
                         && isASCIIHexDigit(p[4]) && isASCIIHexDigit(p[5])) {
                     charLen = 6;
-                    u = Lexer::convertUnicode(p[2], p[3], p[4], p[5]);
+                    u = Lexer<UChar>::convertUnicode(p[2], p[3], p[4], p[5]);
                 }
             }
             if (charLen && (u == 0 || u >= 128 || !strchr(doNotUnescape, u))) {
-                c = u;
-                k += charLen - 1;
+                if (u < 256)
+                    builder.append(static_cast<LChar>(u));
+                else
+                    builder.append(u);
+                k += charLen;
+                continue;
             }
         }
         k++;
         builder.append(c);
     }
     return builder.build(exec);
+}
+
+static JSValue decode(ExecState* exec, const char* doNotUnescape, bool strict)
+{
+    JSStringBuilder builder;
+    UString str = exec->argument(0).toString(exec);
+    
+    if (str.is8Bit())
+        return decode(exec, str.characters8(), str.length(), doNotUnescape, strict);
+    return decode(exec, str.characters16(), str.length(), doNotUnescape, strict);
 }
 
 bool isStrWhiteSpace(UChar c)
@@ -173,12 +186,12 @@ static int parseDigit(unsigned short c, int radix)
     return digit;
 }
 
-double parseIntOverflow(const char* s, int length, int radix)
+double parseIntOverflow(const LChar* s, int length, int radix)
 {
     double number = 0.0;
     double radixMultiplier = 1.0;
 
-    for (const char* p = s + length - 1; p >= s; p--) {
+    for (const LChar* p = s + length - 1; p >= s; p--) {
         if (radixMultiplier == std::numeric_limits<double>::infinity()) {
             if (*p != '0') {
                 number = std::numeric_limits<double>::infinity();
@@ -217,10 +230,11 @@ double parseIntOverflow(const UChar* s, int length, int radix)
     return number;
 }
 
-static double parseInt(const UString& s, int radix)
+template <typename CharType>
+ALWAYS_INLINE
+static double parseInt(const UString& s, const CharType* data, int radix)
 {
     int length = s.length();
-    const UChar* data = s.characters();
     int p = 0;
 
     while (p < length && isStrWhiteSpace(data[p]))
@@ -275,9 +289,17 @@ static double parseInt(const UString& s, int radix)
     return sign * number;
 }
 
+static double parseInt(const UString& s, int radix)
+{
+    if (s.is8Bit())
+        return parseInt(s, s.characters8(), radix);
+    return parseInt(s, s.characters16(), radix);
+}
+
 static const int SizeOfInfinity = 8;
 
-static bool isInfinity(const UChar* data, const UChar* end)
+template <typename CharType>
+static bool isInfinity(const CharType* data, const CharType* end)
 {
     return (end - data) >= SizeOfInfinity
         && data[0] == 'I'
@@ -291,11 +313,12 @@ static bool isInfinity(const UChar* data, const UChar* end)
 }
 
 // See ecma-262 9.3.1
-static double jsHexIntegerLiteral(const UChar*& data, const UChar* end)
+template <typename CharType>
+static double jsHexIntegerLiteral(const CharType*& data, const CharType* end)
 {
     // Hex number.
     data += 2;
-    const UChar* firstDigitPosition = data;
+    const CharType* firstDigitPosition = data;
     double number = 0;
     while (true) {
         number = number * 16 + toASCIIHexValue(*data);
@@ -312,15 +335,16 @@ static double jsHexIntegerLiteral(const UChar*& data, const UChar* end)
 }
 
 // See ecma-262 9.3.1
-static double jsStrDecimalLiteral(const UChar*& data, const UChar* end)
+template <typename CharType>
+static double jsStrDecimalLiteral(const CharType*& data, const CharType* end)
 {
     ASSERT(data < end);
 
     // Copy the sting into a null-terminated byte buffer, and call strtod.
     Vector<char, 32> byteBuffer;
-    for (const UChar* characters = data; characters < end; ++characters) {
-        UChar character = *characters;
-        byteBuffer.append(isASCII(character) ? character : 0);
+    for (const CharType* characters = data; characters < end; ++characters) {
+        CharType character = *characters;
+        byteBuffer.append(isASCII(character) ? static_cast<char>(character) : 0);
     }
     byteBuffer.append(0);
     char* endOfNumber;
@@ -361,13 +385,45 @@ static double jsStrDecimalLiteral(const UChar*& data, const UChar* end)
     return std::numeric_limits<double>::quiet_NaN();
 }
 
+template <typename CharType>
+static double toDouble(const CharType* characters, unsigned size)
+{
+    const CharType* endCharacters = characters + size;
+
+    // Skip leading white space.
+    for (; characters < endCharacters; ++characters) {
+        if (!isStrWhiteSpace(*characters))
+            break;
+    }
+    
+    // Empty string.
+    if (characters == endCharacters)
+        return 0.0;
+    
+    double number;
+    if (characters[0] == '0' && characters + 2 < endCharacters && (characters[1] | 0x20) == 'x' && isASCIIHexDigit(characters[2]))
+        number = jsHexIntegerLiteral(characters, endCharacters);
+    else
+        number = jsStrDecimalLiteral(characters, endCharacters);
+    
+    // Allow trailing white space.
+    for (; characters < endCharacters; ++characters) {
+        if (!isStrWhiteSpace(*characters))
+            break;
+    }
+    if (characters != endCharacters)
+        return std::numeric_limits<double>::quiet_NaN();
+    
+    return number;
+}
+
 // See ecma-262 9.3.1
 double jsToNumber(const UString& s)
 {
     unsigned size = s.length();
 
     if (size == 1) {
-        UChar c = s.characters()[0];
+        UChar c = s[0];
         if (isASCIIDigit(c))
             return c - '0';
         if (isStrWhiteSpace(c))
@@ -375,34 +431,9 @@ double jsToNumber(const UString& s)
         return std::numeric_limits<double>::quiet_NaN();
     }
 
-    const UChar* data = s.characters();
-    const UChar* end = data + size;
-
-    // Skip leading white space.
-    for (; data < end; ++data) {
-        if (!isStrWhiteSpace(*data))
-            break;
-    }
-
-    // Empty string.
-    if (data == end)
-        return 0.0;
-
-    double number;
-    if (data[0] == '0' && data + 2 < end && (data[1] | 0x20) == 'x' && isASCIIHexDigit(data[2]))
-        number = jsHexIntegerLiteral(data, end);
-    else
-        number = jsStrDecimalLiteral(data, end);
-
-    // Allow trailing white space.
-    for (; data < end; ++data) {
-        if (!isStrWhiteSpace(*data))
-            break;
-    }
-    if (data != end)
-        return std::numeric_limits<double>::quiet_NaN();
-
-    return number;
+    if (s.is8Bit())
+        return toDouble(s.characters8(), size);
+    return toDouble(s.characters16(), size);
 }
 
 static double parseFloat(const UString& s)
@@ -410,13 +441,30 @@ static double parseFloat(const UString& s)
     unsigned size = s.length();
 
     if (size == 1) {
-        UChar c = s.characters()[0];
+        UChar c = s[0];
         if (isASCIIDigit(c))
             return c - '0';
         return std::numeric_limits<double>::quiet_NaN();
     }
 
-    const UChar* data = s.characters();
+    if (s.is8Bit()) {
+        const LChar* data = s.characters8();
+        const LChar* end = data + size;
+
+        // Skip leading white space.
+        for (; data < end; ++data) {
+            if (!isStrWhiteSpace(*data))
+                break;
+        }
+
+        // Empty string.
+        if (data == end)
+            return std::numeric_limits<double>::quiet_NaN();
+
+        return jsStrDecimalLiteral(data, end);
+    }
+
+    const UChar* data = s.characters16();
     const UChar* end = data + size;
 
     // Skip leading white space.
@@ -445,9 +493,15 @@ EncodedJSValue JSC_HOST_CALL globalFuncEval(ExecState* exec)
 
     UString s = x.toString(exec);
 
-    LiteralParser preparser(exec, s.characters(), s.length(), LiteralParser::NonStrictJSON);
-    if (JSValue parsedObject = preparser.tryLiteralParse())
-        return JSValue::encode(parsedObject);
+    if (s.is8Bit()) {
+        LiteralParser<LChar> preparser(exec, s.characters8(), s.length(), NonStrictJSON);
+        if (JSValue parsedObject = preparser.tryLiteralParse())
+            return JSValue::encode(parsedObject);
+    } else {
+        LiteralParser<UChar> preparser(exec, s.characters16(), s.length(), NonStrictJSON);
+        if (JSValue parsedObject = preparser.tryLiteralParse())
+            return JSValue::encode(parsedObject);        
+    }
 
     EvalExecutable* eval = EvalExecutable::create(exec, makeSource(s), false);
     JSObject* error = eval->compile(exec, static_cast<JSGlobalObject*>(unwrappedObject)->globalScopeChain());
@@ -473,9 +527,11 @@ EncodedJSValue JSC_HOST_CALL globalFuncParseInt(ExecState* exec)
     // values in the range -1 < n <= -10^-6 need to truncate to -0, not 0.
     static const double tenToTheMinus6 = 0.000001;
     static const double intMaxPlusOne = 2147483648.0;
-    double n;
-    if (value.getNumber(n) && ((n < intMaxPlusOne && n >= tenToTheMinus6) || !n) && radixValue.isUndefinedOrNull())
-        return JSValue::encode(jsNumber(static_cast<int32_t>(n)));
+    if (value.isNumber()) {
+        double n = value.asNumber();
+        if (((n < intMaxPlusOne && n >= tenToTheMinus6) || !n) && radixValue.isUndefinedOrNull())
+            return JSValue::encode(jsNumber(static_cast<int32_t>(n)));
+    }
 
     // If ToString throws, we shouldn't call ToInt32.
     UString s = value.toString(exec);
@@ -546,7 +602,23 @@ EncodedJSValue JSC_HOST_CALL globalFuncEscape(ExecState* exec)
 
     JSStringBuilder builder;
     UString str = exec->argument(0).toString(exec);
-    const UChar* c = str.characters();
+    if (str.is8Bit()) {
+        const LChar* c = str.characters8();
+        for (unsigned k = 0; k < str.length(); k++, c++) {
+            int u = c[0];
+            if (u && strchr(do_not_escape, static_cast<char>(u)))
+                builder.append(c, 1);
+            else {
+                char tmp[4];
+                snprintf(tmp, sizeof(tmp), "%%%02X", u);
+                builder.append(tmp);
+            }
+        }
+
+        return JSValue::encode(builder.build(exec));        
+    }
+
+    const UChar* c = str.characters16();
     for (unsigned k = 0; k < str.length(); k++, c++) {
         int u = c[0];
         if (u > 255) {
@@ -571,25 +643,54 @@ EncodedJSValue JSC_HOST_CALL globalFuncUnescape(ExecState* exec)
     UString str = exec->argument(0).toString(exec);
     int k = 0;
     int len = str.length();
-    while (k < len) {
-        const UChar* c = str.characters() + k;
-        UChar u;
-        if (c[0] == '%' && k <= len - 6 && c[1] == 'u') {
-            if (isASCIIHexDigit(c[2]) && isASCIIHexDigit(c[3]) && isASCIIHexDigit(c[4]) && isASCIIHexDigit(c[5])) {
-                u = Lexer::convertUnicode(c[2], c[3], c[4], c[5]);
-                c = &u;
-                k += 5;
+    
+    if (str.is8Bit()) {
+        const LChar* characters = str.characters8();
+        LChar convertedLChar;
+        while (k < len) {
+            const LChar* c = characters + k;
+            if (c[0] == '%' && k <= len - 6 && c[1] == 'u') {
+                if (isASCIIHexDigit(c[2]) && isASCIIHexDigit(c[3]) && isASCIIHexDigit(c[4]) && isASCIIHexDigit(c[5])) {
+                    builder.append(Lexer<UChar>::convertUnicode(c[2], c[3], c[4], c[5]));
+                    k += 6;
+                    continue;
+                }
+            } else if (c[0] == '%' && k <= len - 3 && isASCIIHexDigit(c[1]) && isASCIIHexDigit(c[2])) {
+                convertedLChar = LChar(Lexer<LChar>::convertHex(c[1], c[2]));
+                c = &convertedLChar;
+                k += 2;
             }
-        } else if (c[0] == '%' && k <= len - 3 && isASCIIHexDigit(c[1]) && isASCIIHexDigit(c[2])) {
-            u = UChar(Lexer::convertHex(c[1], c[2]));
-            c = &u;
-            k += 2;
+            builder.append(*c);
+            k++;
+        }        
+    } else {
+        const UChar* characters = str.characters16();
+
+        while (k < len) {
+            const UChar* c = characters + k;
+            UChar convertedUChar;
+            if (c[0] == '%' && k <= len - 6 && c[1] == 'u') {
+                if (isASCIIHexDigit(c[2]) && isASCIIHexDigit(c[3]) && isASCIIHexDigit(c[4]) && isASCIIHexDigit(c[5])) {
+                    convertedUChar = Lexer<UChar>::convertUnicode(c[2], c[3], c[4], c[5]);
+                    c = &convertedUChar;
+                    k += 5;
+                }
+            } else if (c[0] == '%' && k <= len - 3 && isASCIIHexDigit(c[1]) && isASCIIHexDigit(c[2])) {
+                convertedUChar = UChar(Lexer<UChar>::convertHex(c[1], c[2]));
+                c = &convertedUChar;
+                k += 2;
+            }
+            k++;
+            builder.append(*c);
         }
-        k++;
-        builder.append(*c);
     }
 
     return JSValue::encode(jsString(exec, builder.toUString()));
+}
+
+EncodedJSValue JSC_HOST_CALL globalFuncThrowTypeError(ExecState* exec)
+{
+    return throwVMTypeError(exec);
 }
 
 } // namespace JSC

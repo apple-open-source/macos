@@ -46,10 +46,9 @@ GCC_PREFIX_HEADER = JavaScriptCorePrefix.h;
 HEADER_SEARCH_PATHS = "${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore" $(HEADER_SEARCH_PATHS);
 INFOPLIST_FILE = Info.plist;
 INSTALL_PATH = $(JAVASCRIPTCORE_FRAMEWORKS_DIR);
+DYLIB_INSTALL_NAME_BASE = $(NORMAL_JAVASCRIPTCORE_FRAMEWORKS_DIR);
 PRODUCT_NAME = JavaScriptCore;
 
 OTHER_CFLAGS = $(OTHER_CFLAGS_$(CONFIGURATION)_$(CURRENT_VARIANT));
-OTHER_CFLAGS_Release_normal = $(OTHER_CFLAGS_normal_$(TARGET_GCC_VERSION));
-OTHER_CFLAGS_Production_normal = $(OTHER_CFLAGS_normal_$(TARGET_GCC_VERSION));
-OTHER_CFLAGS_normal_GCC_42 = -fomit-frame-pointer -funwind-tables;
-OTHER_CFLAGS_normal_LLVM_GCC_42 = $(OTHER_CFLAGS_normal_GCC_42);
+OTHER_CFLAGS_Release_normal = -fomit-frame-pointer -funwind-tables;
+OTHER_CFLAGS_Production_normal = $(OTHER_CFLAGS_Release_normal);

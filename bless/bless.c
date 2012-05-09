@@ -159,6 +159,9 @@ int main (int argc, char * argv[])
             case ksave9:
                 // ignore, this is now always saved as alternateos
                 break;
+			case kbootblockfile:
+				errx(1, "The bootblockfile option is now obsolete.");
+				break;
             case '?':
             case ':':
                 usage_short();

@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_engine.c 12496 2007-06-08 15:02:04Z technorama $
+ * $Id: ossl_engine.c 28367 2010-06-21 09:18:59Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2003  GOTOU Yuuzou <gotoyuzo@notwork.org>
  * All rights reserved.
@@ -61,15 +61,33 @@ ossl_engine_s_load(int argc, VALUE *argv, VALUE klass)
     }
     StringValue(name);
 #ifndef OPENSSL_NO_STATIC_ENGINE
+#if HAVE_ENGINE_LOAD_DYNAMIC
     OSSL_ENGINE_LOAD_IF_MATCH(dynamic);
+#endif
+#if HAVE_ENGINE_LOAD_CSWIFT
     OSSL_ENGINE_LOAD_IF_MATCH(cswift);
+#endif
+#if HAVE_ENGINE_LOAD_CHIL
     OSSL_ENGINE_LOAD_IF_MATCH(chil);
+#endif
+#if HAVE_ENGINE_LOAD_ATALLA
     OSSL_ENGINE_LOAD_IF_MATCH(atalla);
+#endif
+#if HAVE_ENGINE_LOAD_NURON
     OSSL_ENGINE_LOAD_IF_MATCH(nuron);
+#endif
+#if HAVE_ENGINE_LOAD_UBSEC
     OSSL_ENGINE_LOAD_IF_MATCH(ubsec);
+#endif
+#if HAVE_ENGINE_LOAD_AEP
     OSSL_ENGINE_LOAD_IF_MATCH(aep);
+#endif
+#if HAVE_ENGINE_LOAD_SUREWARE
     OSSL_ENGINE_LOAD_IF_MATCH(sureware);
+#endif
+#if HAVE_ENGINE_LOAD_4758CCA
     OSSL_ENGINE_LOAD_IF_MATCH(4758cca);
+#endif
 #endif
 #ifdef HAVE_ENGINE_LOAD_OPENBSD_DEV_CRYPTO
     OSSL_ENGINE_LOAD_IF_MATCH(openbsd_dev_crypto);
@@ -119,7 +137,7 @@ ossl_engine_s_by_id(VALUE klass, VALUE id)
     if(!ENGINE_init(e))
 	ossl_raise(eEngineError, NULL);
     ENGINE_ctrl(e, ENGINE_CTRL_SET_PASSWORD_CALLBACK,
-		0, NULL, (void(*)())ossl_pem_passwd_cb);
+                0, NULL, (void(*)(void))ossl_pem_passwd_cb);
     ERR_clear_error();
 
     return obj;

@@ -10,7 +10,7 @@ require 'monitor'
 # License::
 #   You can redistribute it and/or modify it under the same terms of Ruby's
 #   license; either the dual license version in 2003, or any later version.
-# Revision:: $Id: logger.rb 22285 2009-02-13 10:19:04Z shyouhei $
+# Revision:: $Id: logger.rb 31806 2011-05-30 02:08:57Z nahi $
 #
 # == Description
 #
@@ -170,8 +170,7 @@ require 'monitor'
 
 class Logger
   VERSION = "1.2.6"
-  id, name, rev = %w$Id: logger.rb 22285 2009-02-13 10:19:04Z shyouhei $
-  ProgName = "#{name.chomp(",v")}/#{rev}"
+  ProgName = "#{File.basename(__FILE__)}/#{VERSION}"
 
   class Error < RuntimeError; end
   class ShiftingError < Error; end

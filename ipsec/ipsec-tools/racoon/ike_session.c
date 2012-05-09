@@ -267,6 +267,15 @@ ike_session_get_session (struct sockaddr *local,
 			 "still search for IKE-Session. this %s.\n",
 			 saddr2str((struct sockaddr *)&p->session_id.remote));
 
+		// for now: ignore any stopped sessions as they will go down
+		if (p->is_dying || p->stopped_by_vpn_controller || p->stop_timestamp.tv_sec || p->stop_timestamp.tv_usec) {
+			plog(LLV_DEBUG, LOCATION, local,
+				 "still searching. skipping... session to %s is already stopped, active ph1 %d ph2 %d.\n",
+				 saddr2str((struct sockaddr *)&p->session_id.remote),
+				 p->ikev1_state.active_ph1cnt, p->ikev1_state.active_ph2cnt);
+			continue;
+		}
+
 		if (memcmp(&p->session_id, &id, sizeof(id)) == 0) {
 			plog(LLV_DEBUG, LOCATION, local,
 				 "Pre-existing IKE-Session to %s. case 1.\n",
@@ -1794,10 +1803,17 @@ ike_session_sweep_sleepwake (void)
 			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of asserted session.\n");
 			continue;
 		}
-		
+
+		// cleanup any stopped sessions as they will go down
+		if (p->stopped_by_vpn_controller || p->stop_timestamp.tv_sec || p->stop_timestamp.tv_usec) {
+			plog(LLV_DEBUG2, LOCATION, NULL, "sweeping stopped session.\n");
+			ike_session_cleanup(p, ike_session_stopped_by_sleepwake);
+			continue;
+		}
+
 		if (!ike_session_has_established_ph1(p) && !ike_session_has_established_ph2(p)) {
-			p->is_dying = 1;
 			plog(LLV_DEBUG2, LOCATION, NULL, "session died while sleeping.\n");
+			ike_session_cleanup(p, ike_session_stopped_by_sleepwake);
 		}
 		if (p->traffic_monitor.sc_mon) {
 			if (p->traffic_monitor.sc_mon->xtime <= swept_at) {

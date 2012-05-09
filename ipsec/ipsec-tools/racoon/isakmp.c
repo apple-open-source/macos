@@ -954,7 +954,7 @@ ph1_main(iph1, msg)
 						vfree(raddr);
 						if (addr->force) {
 							(void)ike_session_update_ph1_ph2tree(iph1);
-							isakmp_ph1delete(iph1);
+							isakmp_ph1expire(iph1);
 						}
 					}
 				}
@@ -2849,6 +2849,12 @@ isakmp_chkph1there(iph2)
 {
 	struct ph1handle *iph1;
 
+	if (iph2->status != PHASE2ST_STATUS2 ||
+		iph2->is_dying) {
+		plog(LLV_DEBUG2, LOCATION, NULL, "CHKPH1THERE: ph2 handle has advanced too far (status %d, STATUS2 %d, dying %d)... ignoring\n", iph2->status, PHASE2ST_STATUS2, iph2->is_dying);
+		return;
+	}
+
 	iph2->retry_checkph1--;
 	if (iph2->retry_checkph1 < 0 ||
 		ike_session_verify_ph2_parent_session(iph2)) {
@@ -4279,6 +4285,10 @@ isakmp_plist_append_initial_contact (iph1, plist)
 				 "failed to allocate notification payload.\n");
 			return NULL;
 		}
+	} else {
+		plog(LLV_DEBUG, LOCATION, iph1->remote,
+			 "failed to add initial-contact payload: rekey %d, ini-contact %d, contacted %d.\n",
+			 iph1->is_rekey? 1:0, iph1->rmconf->ini_contact, getcontacted(iph1->remote)? 1:0);
 	}
 	return NULL;
 }

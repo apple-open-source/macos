@@ -712,7 +712,7 @@ void ScrollAnimatorMac::notityPositionChanged()
     // isn't really scrolling in that case. We should only pass the message on to the
     // ScrollbarPainterController when we're really scrolling on an active page.
     if (scrollableArea()->isOnActivePage())
-    [m_scrollbarPainterController.get() contentAreaScrolled];
+        [m_scrollbarPainterController.get() contentAreaScrolled];
 #endif
     ScrollAnimator::notityPositionChanged();
 }

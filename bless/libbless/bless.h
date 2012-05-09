@@ -249,29 +249,13 @@ typedef enum {
 	
 } BLNetBootProtocolType;
 
-/***** BootBlocks *****/
-
-
-/*!
- * @function BLSetBootBlocks
- * @abstract Write boot blocks to a volume
- * @discussion Write the bytes from <b>bootblocks</b>
- *   as the boot blocks of the HFS+ volume mounted at <b>mountpoint</b>
- * @param context Bless Library context
- * @param mountpoint mountpoint of volume to modify
- * @param bootblocks buffer of at most 1024 bytes to hold boot blocks
- */
-int BLSetBootBlocks(BLContextPtr context,
-		    const char * mountpoint,
-		    const CFDataRef bootblocks);
-
 /***** FinderInfo *****/
 
 /*!
  * @function BLCreateVolumeInformationDictionary
  * @abstract Gather bootability information on a volume
  * @discussion Return information on the volume at <b>mount</b>,
- *     including blessed folder IDs and paths, UUID, boot blocks,
+ *     including blessed folder IDs and paths, UUID,
  *     and return it as a CFDictionary
  * @param context Bless Library context
  * @param mount mountpoint of volume to gather information on

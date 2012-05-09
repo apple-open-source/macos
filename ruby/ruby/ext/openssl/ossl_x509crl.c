@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509crl.c 12496 2007-06-08 15:02:04Z technorama $
+ * $Id: ossl_x509crl.c 28367 2010-06-21 09:18:59Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -262,7 +262,7 @@ ossl_x509crl_get_revoked(VALUE self)
     VALUE ary, revoked;
 
     GetX509CRL(self, crl);
-    num = sk_X509_CRL_num(X509_CRL_get_REVOKED(crl));
+    num = sk_X509_REVOKED_num(X509_CRL_get_REVOKED(crl));
     if (num < 0) {
 	OSSL_Debug("num < 0???");
 	return rb_ary_new();
@@ -270,7 +270,7 @@ ossl_x509crl_get_revoked(VALUE self)
     ary = rb_ary_new2(num);
     for(i=0; i<num; i++) {
 	/* NO DUP - don't free! */
-	rev = (X509_REVOKED *)sk_X509_CRL_value(X509_CRL_get_REVOKED(crl), i);
+	rev = sk_X509_REVOKED_value(X509_CRL_get_REVOKED(crl), i);
 	revoked = ossl_x509revoked_new(rev);
 	rb_ary_push(ary, revoked);
     }

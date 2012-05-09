@@ -66,11 +66,16 @@ else
 fi
 
 dnl ZLIB library...
+INSTALL_GZIP=""
 AC_CHECK_HEADER(zlib.h,
     AC_CHECK_LIB(z, gzgets,
 	AC_DEFINE(HAVE_LIBZ)
 	LIBZ="-lz"
-	LIBS="$LIBS -lz"))
+	LIBS="$LIBS -lz"
+	if test "x$GZIP" != x; then
+		INSTALL_GZIP="-z"
+	fi))
+AC_SUBST(INSTALL_GZIP)
 
 dnl PNG library...
 if test x$enable_png != xno; then

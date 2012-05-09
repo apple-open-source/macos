@@ -60,16 +60,89 @@ void PowerWatcher::systemWillPowerOn()
 //
 // IOPowerWatchers
 //
+
+void
+IOPowerWatcher::iopmcallback(void *				param, 
+			     IOPMConnection                    connection,
+			     IOPMConnectionMessageToken        token, 
+			     IOPMSystemPowerStateCapabilities	capabilities)
+{
+    IOPowerWatcher *me = (IOPowerWatcher *)param;
+
+    if (SECURITY_DEBUG_LOG_ENABLED()) {
+	secdebug("powerwatch", "powerstates");
+	if (capabilities & kIOPMSystemPowerStateCapabilityDisk)
+	    secdebug("powerwatch", "disk");
+	if (capabilities & kIOPMSystemPowerStateCapabilityNetwork)
+	    secdebug("powerwatch", "net");
+	if (capabilities & kIOPMSystemPowerStateCapabilityAudio) 
+	    secdebug("powerwatch", "audio");
+	if (capabilities & kIOPMSystemPowerStateCapabilityVideo)
+	    secdebug("powerwatch", "video");
+    }
+
+    /* if cpu and no display -> in DarkWake */
+    if ((capabilities & (kIOPMSystemPowerStateCapabilityCPU|kIOPMSystemPowerStateCapabilityVideo)) == kIOPMSystemPowerStateCapabilityCPU) {
+        secdebug("powerwatch", "enter DarkWake");
+	me->mInDarkWake = true;
+    } else if (me->mInDarkWake) {
+        secdebug("powerwatch", "exit DarkWake");
+	me->mInDarkWake = false;
+    }
+
+    (void)IOPMConnectionAcknowledgeEvent(connection, token);
+
+    return;
+}
+
+
+void
+IOPowerWatcher::setupDarkWake()
+{
+    IOReturn            ret;
+    
+    mInDarkWake = false;
+
+    mIOPMqueue = dispatch_queue_create("com.apple.security.IOPowerWatcher", NULL);
+    if (mIOPMqueue == NULL)
+	return;
+
+    ret = ::IOPMConnectionCreate(CFSTR("IOPowerWatcher"),
+				 kIOPMSystemPowerStateCapabilityDisk 
+				 | kIOPMSystemPowerStateCapabilityNetwork
+				 | kIOPMSystemPowerStateCapabilityAudio 
+				 | kIOPMSystemPowerStateCapabilityVideo,
+				 &mIOPMconn);
+    if (ret != kIOReturnSuccess)
+	return;
+	
+    ret = ::IOPMConnectionSetNotification(mIOPMconn, this,
+					  (IOPMEventHandlerType)iopmcallback);
+    if (ret != kIOReturnSuccess)
+	return;
+
+    ::IOPMConnectionSetDispatchQueue(mIOPMconn, mIOPMqueue);
+}
+
 IOPowerWatcher::IOPowerWatcher()
 {
     if (!(mKernelPort = ::IORegisterForSystemPower(this, &mPortRef, ioCallback, &mHandle)))
         UnixError::throwMe(EINVAL);	// no clue
+
+	setupDarkWake();
 }
 
 IOPowerWatcher::~IOPowerWatcher()
 {
     if (mKernelPort)
 		::IODeregisterForSystemPower(&mHandle);
+
+	if (mIOPMconn) {
+		::IOPMConnectionSetDispatchQueue(mIOPMconn, NULL);
+		::IOPMConnectionRelease(mIOPMconn);
+	}
+	if (mIOPMqueue)
+		::dispatch_release(mIOPMqueue);
 }
 
 

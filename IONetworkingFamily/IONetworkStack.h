@@ -25,7 +25,14 @@
 
 // User-client keys
 //
-#define kIONetworkStackUserCommand  "IONetworkStackUserCommand"
+#define kIONetworkStackUserCommandKey   "IONetworkStackUserCommand"
+#define kIONetworkStackUserCommand      "IONetworkStackUserCommand"
+
+enum {
+    kIONetworkStackRegisterInterfaceWithUnit        = 0,
+    kIONetworkStackRegisterInterfaceWithLowestUnit  = 1,
+    kIONetworkStackRegisterInterfaceAll             = 2
+};
 
 #ifdef KERNEL
 

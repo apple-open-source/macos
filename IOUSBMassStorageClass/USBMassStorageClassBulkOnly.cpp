@@ -394,6 +394,17 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 
 	STATUS_LOG ( ( 4, "%s[%p]: BulkOnlyExecuteCommandCompletion Entered with boRequestBlock=%p currentState=%d resultingStatus=0x%x", getName(), this, boRequestBlock, boRequestBlock->currentState, resultingStatus ) );
 
+	// Check to see if our expansion data is still valid. If we've already passed through free() it'll be NULL and 
+	// access its members will cause us to kernel panic. This check exists to guard against callbacks received after
+	// driver termination. 
+	if ( reserved == NULL )
+	{
+
+		PANIC_NOW ( ( "IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion callback after driver has been freed" ) );
+		return;
+	
+	}
+    
 	if ( fRequiredMaxBusStall != 0 )
 	{
 		requireMaxBusStall ( 0 );

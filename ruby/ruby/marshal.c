@@ -3,7 +3,7 @@
   marshal.c -
 
   $Author: shyouhei $
-  $Date: 2009-12-14 00:14:02 +0900 (Mon, 14 Dec 2009) $
+  $Date: 2010-06-23 22:16:28 +0900 (Wed, 23 Jun 2010) $
   created at: Thu Apr 27 16:30:01 JST 1995
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto

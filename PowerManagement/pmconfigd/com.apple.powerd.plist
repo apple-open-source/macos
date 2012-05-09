@@ -13,5 +13,14 @@
         <key>com.apple.PowerManagement.control</key>
         <true/>
     </dict>
+    <key>POSIXSpawnType</key>
+    <string>Interactive</string>
+    <key>JetsamProperties</key>
+    <dict>
+        <key>JetsamMemoryLimit</key>
+        <integer>2500</integer>
+        <key>JetsamPriority</key>
+        <integer>-100</integer>
+    </dict>
 </dict>
 </plist>

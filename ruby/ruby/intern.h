@@ -3,7 +3,7 @@
   intern.h -
 
   $Author: shyouhei $
-  $Date: 2009-01-22 15:22:00 +0900 (Thu, 22 Jan 2009) $
+  $Date: 2011-05-23 13:49:40 +0900 (Mon, 23 May 2011) $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -83,6 +83,8 @@ unsigned LONG_LONG rb_big2ull _((VALUE));
 #endif  /* HAVE_LONG_LONG */
 void rb_quad_pack _((char*,VALUE));
 VALUE rb_quad_unpack _((const char*,int));
+void rb_big_pack(VALUE val, unsigned long *buf, long num_longs);
+VALUE rb_big_unpack(unsigned long *buf, long num_longs);
 VALUE rb_dbl2big _((double));
 double rb_big2dbl _((VALUE));
 VALUE rb_big_plus _((VALUE, VALUE));
@@ -378,6 +380,7 @@ VALUE rb_length_by_each _((VALUE));
 /* random.c */
 unsigned long rb_genrand_int32(void);
 double rb_genrand_real(void);
+void rb_reset_random_seed(void);
 /* re.c */
 int rb_memcmp _((const void*,const void*,long));
 int rb_memcicmp _((const void*,const void*,long));

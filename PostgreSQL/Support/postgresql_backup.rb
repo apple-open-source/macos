@@ -45,8 +45,7 @@ class PostgreSQLTool < BackupTool
 	BACKUP_FILE = "dumpall.psql.gz"
 	DB_DIR = "/private/var/pgsql"
 	SECRET_DIR = "/.ServerBackups/postgresql"
-	LOG_DIR = "/Library/Logs"
-	LOG_FILE = "PostgreSQL.log"
+	LOG_DIR = "/Library/Logs/PostgreSQL"
 	SOCKET_DIR = "/var/pgsql_socket"
 
 	#
@@ -79,14 +78,6 @@ class PostgreSQLTool < BackupTool
 			return BACKUP_DIR
 		end
 		return dataDir.sub(/Data\z/, "Backup")
-	end
-
-	# Get the current log file
-	def logFile
-		logDir = self.setting("postgres:log_directory", LOG_DIR)
-		logFile = self.setting("postgres:log_filename", LOG_FILE)
-		$log.debug("Service log file is #{logDir}/#{logFile}")
-		return "#{logDir}/#{logFile}"
 	end
 
 	# Get the current socket directory.
@@ -253,16 +244,12 @@ class PostgreSQLTool < BackupTool
 			source_dir = ""
 		end
 
-		# Create the log file if it doesn't exist.
-		log_file = self.logFile
-		if !File.exists?(log_file)
-			$log.warn "Recreating #{log_file}."
-			FileUtils.touch(log_file)
+		# Create the log dir if it doesn't exist.
+		if !File.exists?(LOG_DIR)
+			FileUtils.mkdir(LOG_DIR)
+			FileUtils.chmod(0755, LOG_DIR)
+			FileUtils.chown("_postgres", "_postgres", LOG_DIR)
 		end
-		# Always ensure the permissions & ownership are correct.
-		FileUtils.chmod(0660, log_file)
-		# _postgres has uid of 216; using instead of string in case user db hasn't yet been restored
-		FileUtils.chown(216, "admin", log_file)
 
 		# Create the socket directory if it doesn't exist.
 		socket_dir = self.socketDir

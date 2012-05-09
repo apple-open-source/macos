@@ -79,6 +79,8 @@
 #define WEBDAV_SEARCHFS			26
 #define WEBDAV_COPYFILE			27
 #define WEBDAV_WRITESEQ			28
+#define WEBDAV_DUMP_COOKIES		29
+#define WEBDAV_CLEAR_COOKIES	30
 
 /* Webdav file type constants */
 #define WEBDAV_FILE_TYPE		1
@@ -483,6 +485,16 @@ struct webdav_reply_invalcaches
 {
 };
 
+/* WEBDAV_SHOW_COOKIES */
+/* WEBDAV_RESET_COOKIES */
+struct webdav_request_cookies {
+	struct webdav_cred pcr;				/* user and groups */
+};
+
+struct webdav_reply_cookies {
+	
+};
+
 struct webdav_request_writeseq
 {
 	struct webdav_cred pcr;				/* user and groups */
@@ -590,6 +602,12 @@ struct WebdavWriteSequential {
 
 #define WEBDAVIOC_WRITE_SEQUENTIAL	_IOW('z', 19, struct WebdavWriteSequential)
 #define WEBDAV_WRITE_SEQUENTIAL		IOCBASECMD(WEBDAVIOC_WRITE_SEQUENTIAL)
+
+#define WEBDAVIOC_SHOW_COOKIES		_IOW('x', 29, int)
+#define WEBDAV_SHOW_COOKIES			IOCBASECMD(WEBDAVIOC_SHOW_COOKIES)
+
+#define WEBDAVIOC_RESET_COOKIES		_IOW('x', 28, int)
+#define WEBDAV_RESET_COOKIES		IOCBASECMD(WEBDAVIOC_RESET_COOKIES)
 
 /*
  * Sysctl values for WebDAV FS

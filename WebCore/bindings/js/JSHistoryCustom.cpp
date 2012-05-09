@@ -40,17 +40,17 @@ namespace WebCore {
 
 static JSValue nonCachingStaticBackFunctionGetter(ExecState* exec, JSValue, const Identifier& propertyName)
 {
-    return JSFunction::create(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->functionStructure(), 0, propertyName, jsHistoryPrototypeFunctionBack);
+    return JSFunction::create(exec, exec->lexicalGlobalObject(), 0, propertyName, jsHistoryPrototypeFunctionBack);
 }
 
 static JSValue nonCachingStaticForwardFunctionGetter(ExecState* exec, JSValue, const Identifier& propertyName)
 {
-    return JSFunction::create(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->functionStructure(), 0, propertyName, jsHistoryPrototypeFunctionForward);
+    return JSFunction::create(exec, exec->lexicalGlobalObject(), 0, propertyName, jsHistoryPrototypeFunctionForward);
 }
 
 static JSValue nonCachingStaticGoFunctionGetter(ExecState* exec, JSValue, const Identifier& propertyName)
 {
-    return JSFunction::create(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->functionStructure(), 1, propertyName, jsHistoryPrototypeFunctionGo);
+    return JSFunction::create(exec, exec->lexicalGlobalObject(), 1, propertyName, jsHistoryPrototypeFunctionGo);
 }
 
 bool JSHistory::getOwnPropertySlotDelegate(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -68,7 +68,7 @@ bool JSHistory::getOwnPropertySlotDelegate(ExecState* exec, const Identifier& pr
     const HashEntry* entry = JSHistoryPrototype::s_info.propHashTable(exec)->entry(exec, propertyName);
     if (entry) {
         // Allow access to back(), forward() and go() from any frame.
-        if (entry->attributes() & Function) {
+        if (entry->attributes() & JSC::Function) {
             if (entry->function() == jsHistoryPrototypeFunctionBack) {
                 slot.setCustom(this, nonCachingStaticBackFunctionGetter);
                 return true;
@@ -109,7 +109,7 @@ bool JSHistory::getOwnPropertyDescriptorDelegate(ExecState* exec, const Identifi
     if (entry) {
         PropertySlot slot;
         // Allow access to back(), forward() and go() from any frame.
-        if (entry->attributes() & Function) {
+        if (entry->attributes() & JSC::Function) {
             if (entry->function() == jsHistoryPrototypeFunctionBack) {
                 slot.setCustom(this, nonCachingStaticBackFunctionGetter);
                 descriptor.setDescriptor(slot.getValue(exec, propertyName), entry->attributes());
@@ -146,20 +146,22 @@ bool JSHistory::putDelegate(ExecState* exec, const Identifier&, JSValue, PutProp
     return false;
 }
 
-bool JSHistory::deleteProperty(ExecState* exec, const Identifier& propertyName)
+bool JSHistory::deleteProperty(JSCell* cell, ExecState* exec, const Identifier& propertyName)
 {
+    JSHistory* thisObject = jsCast<JSHistory*>(cell);
     // Only allow deleting by frames in the same origin.
-    if (!allowsAccessFromFrame(exec, impl()->frame()))
+    if (!allowsAccessFromFrame(exec, thisObject->impl()->frame()))
         return false;
-    return Base::deleteProperty(exec, propertyName);
+    return Base::deleteProperty(thisObject, exec, propertyName);
 }
 
-void JSHistory::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
+void JSHistory::getOwnPropertyNames(JSObject* object, ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
+    JSHistory* thisObject = jsCast<JSHistory*>(object);
     // Only allow the history object to enumerated by frames in the same origin.
-    if (!allowsAccessFromFrame(exec, impl()->frame()))
+    if (!allowsAccessFromFrame(exec, thisObject->impl()->frame()))
         return;
-    Base::getOwnPropertyNames(exec, propertyNames, mode);
+    Base::getOwnPropertyNames(thisObject, exec, propertyNames, mode);
 }
 
 JSValue JSHistory::pushState(ExecState* exec)

@@ -4,37 +4,6 @@
   Version:	1.0
   Copyright:	© 2004-2008 by Apple Computer, Inc., all rights reserved.
   File Ownership:
-  
-  DRI:				Matthias Neeracher    x43683
-
-  Writers:
-
-  (MN)	Matthias Neeracher
-  
-  Change History (most recent first):
-  
-  $Log: MBCBoardViewAccessibility.mm,v $
-  Revision 1.6  2011/02/21 19:53:02  neerache
-  <rdar://problem/9012066> Chess.app should be 10.7 only
-
-  Revision 1.5  2008/11/20 23:59:10  neerache
-  <rdar://problem/6153077> Chess.app accessibility bug using AXUIElementGetAttributeValueCount
-
-  Revision 1.4  2008/04/22 18:40:55  neerache
-  Merge late Leopard changes into trunk
-
-  Revision 1.3.2.1  2007/06/20 05:02:54  neerache
-  <rdar://problem/5221088> Accessibility Verifier reports Role Verification warnings and errors
-
-  Revision 1.3  2007/03/02 21:45:47  neerache
-  Fix AX verification issues <rdar://problems/4889509&4889596&4889633>
-
-  Revision 1.2  2007/03/02 21:26:15  neerache
-  Reword square description <rdar://problem/4510483>
-
-  Revision 1.1  2004/08/16 07:50:55  neerache
-  Support accessibility
-
 */
 
 #import "MBCBoardViewAccessibility.h"

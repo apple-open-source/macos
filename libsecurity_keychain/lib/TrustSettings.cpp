@@ -603,7 +603,7 @@ CFDataRef TrustSettings::createExternal()
  * per se; it just means that we only found allowedErrors entries. 
  *
  * Found "allows errors" values are added to the incoming allowedErrors
- * array which is reallocd as needed (and which may be NULl or non-NULL on
+ * array which is reallocd as needed (and which may be NULL or non-NULL on
  * entry).
  */
 bool TrustSettings::evaluateCert(
@@ -625,6 +625,20 @@ bool TrustSettings::evaluateCert(
 		/* No? How about default root setting for this domain? */
 		certDict = findDictionaryForCertHash(kSecTrustRecordDefaultRootCert);
 	}
+#if CERT_HASH_DEBUG
+	/* @@@ debug only @@@ */
+	/* print certificate hash and found dictionary reference */
+	const size_t maxHashStrLen = 512;
+	char *buf = (char*)malloc(maxHashStrLen);
+	if (buf) {
+		if (!CFStringGetCString(certHashStr, buf, (CFIndex)maxHashStrLen, kCFStringEncodingUTF8)) {
+			buf[0]='\0';
+		}
+		trustSettingsEvalDbg("evaluateCert for \"%s\", found dict %p", buf, certDict);
+		free(buf);
+	}
+#endif
+
 	if(certDict == NULL) {
 		*foundAnyEntry = false;
 		return false;

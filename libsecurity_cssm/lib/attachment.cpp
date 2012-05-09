@@ -143,7 +143,7 @@ Attachment::~Attachment()
 // because we incremented the busy count on entry to the plugin; and these
 // fields are quite constant for the life of the Attachment.
 //
-void *Attachment::upcallMalloc(CSSM_HANDLE handle, uint32 size)
+void *Attachment::upcallMalloc(CSSM_HANDLE handle, size_t size)
 {
     BEGIN_API
     return HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).malloc(size);
@@ -157,14 +157,14 @@ void Attachment::upcallFree(CSSM_HANDLE handle, void *mem)
     END_API0
 }
 
-void *Attachment::upcallRealloc(CSSM_HANDLE handle, void *mem, uint32 size)
+void *Attachment::upcallRealloc(CSSM_HANDLE handle, void *mem, size_t size)
 {
     BEGIN_API
     return HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).realloc(mem, size);
     END_API1(NULL)
 }
 
-void *Attachment::upcallCalloc(CSSM_HANDLE handle, uint32 num, uint32 size)
+void *Attachment::upcallCalloc(CSSM_HANDLE handle, size_t num, size_t size)
 {
     BEGIN_API
     return HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).calloc(num, size);

@@ -479,7 +479,7 @@ bool IOAudioDevice::willTerminate(IOService *provider, IOOptionBits options)
     if (engineIterator) {
         IOAudioEngine *audioEngine;
         
-        while (audioEngine = OSDynamicCast(IOAudioEngine, engineIterator->getNextObject())) {
+        while ( (audioEngine = OSDynamicCast(IOAudioEngine, engineIterator->getNextObject())) ) {
             audioEngine->setState(kIOAudioEngineStopped);
         }
         engineIterator->release();
@@ -576,7 +576,7 @@ IOReturn IOAudioDevice::protectedSetPowerState(unsigned long powerStateOrdinal, 
                 if (audioEngineIterator) {
                     IOAudioEngine *audioEngine;
                     
-                    while (audioEngine = (IOAudioEngine *)audioEngineIterator->getNextObject()) {
+                    while ( (audioEngine = (IOAudioEngine *)audioEngineIterator->getNextObject()) ) {
                         if (audioEngine->getState() == kIOAudioEngineRunning) {
                             audioEngine->pauseAudioEngine();
                         }
@@ -721,7 +721,7 @@ IOReturn IOAudioDevice::protectedCompletePowerStateChange()
                 if (audioEngineIterator) {
                     IOAudioEngine *audioEngine;
                     
-                    while (audioEngine = (IOAudioEngine *)audioEngineIterator->getNextObject()) {
+                    while ( (audioEngine = (IOAudioEngine *)audioEngineIterator->getNextObject()) ) {
                         if (audioEngine->getState() == kIOAudioEnginePaused) {
                             audioEngine->resumeAudioEngine();
                         }
@@ -948,7 +948,7 @@ void IOAudioDevice::deactivateAllAudioEngines()
 		{
 			IOAudioEngine *audioEngine;
 			
-			while ( audioEngine = OSDynamicCast ( IOAudioEngine, engineIterator->getNextObject () ) )
+			while ( (audioEngine = OSDynamicCast ( IOAudioEngine, engineIterator->getNextObject ()) ) )
 			{
 				audioEngine->stopAudioEngine ();
 				if ( !isInactive () )
@@ -986,7 +986,7 @@ void IOAudioDevice::flushAudioControls()
         if (portIterator) {
             IOAudioPort *audioPort;
 
-            while (audioPort = (IOAudioPort *)portIterator->getNextObject()) {
+            while ( (audioPort = (IOAudioPort *)portIterator->getNextObject()) ) {
                 if (OSDynamicCast(IOAudioPort, audioPort)) {
                     if (audioPort->audioControls) {
                         OSCollectionIterator *controlIterator;
@@ -996,7 +996,7 @@ void IOAudioDevice::flushAudioControls()
                         if (controlIterator) {
                             IOAudioControl *audioControl;
 
-                            while (audioControl = (IOAudioControl *)controlIterator->getNextObject()) {
+                            while ( (audioControl = (IOAudioControl *)controlIterator->getNextObject()) ) {
                                 audioControl->flushValue();
                             }
                             controlIterator->release();
@@ -1019,7 +1019,7 @@ void IOAudioDevice::flushAudioControls()
         if (audioEngineIterator) {
             IOAudioEngine *audioEngine;
             
-            while (audioEngine = (IOAudioEngine *)audioEngineIterator->getNextObject()) {
+            while ( (audioEngine = (IOAudioEngine *)audioEngineIterator->getNextObject()) ) {
                 if (audioEngine->defaultAudioControls) {
                     OSCollectionIterator *controlIterator;
                     
@@ -1027,7 +1027,7 @@ void IOAudioDevice::flushAudioControls()
                     if (controlIterator) {
                         IOAudioControl *audioControl;
                         
-                        while (audioControl = (IOAudioControl *)controlIterator->getNextObject()) {
+                        while ( (audioControl = (IOAudioControl *)controlIterator->getNextObject()) ) {
                             audioControl->flushValue();
                         }
                         controlIterator->release();
@@ -1310,7 +1310,7 @@ void IOAudioDevice::dispatchTimerEvents(bool force)
             iterator = OSCollectionIterator::withCollection(timerEvents);
         
             if (iterator) {
-                while (target = (OSSymbol *)iterator->getNextObject()) {
+                while ( (target = (OSSymbol *)iterator->getNextObject()) ) {
                     IOAudioTimerEvent *timerEvent;
                     timerEvent = (IOAudioTimerEvent *)timerEvents->getObject(target);
         

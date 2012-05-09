@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001, 2003 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -32,6 +32,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <copyfile.h>
 #include <sandbox.h>
 #include <set>
 
@@ -39,7 +40,7 @@
 
 
 //
-//  AtomicFile.cpp - Description t.b.d.
+//  AtomicFile.cpp
 //
 AtomicFile::AtomicFile(const std::string &inPath) :
 	mPath(inPath)
@@ -803,6 +804,24 @@ AtomicTempFile::commit()
 		close();
 		const char *oldPath = mPath.c_str();
 		const char *newPath = mFile.path().c_str();
+
+		// <rdar://problem/6991037>
+		// Copy the security parameters of one file to another
+		// Adding this to guard against setuid utilities that are re-writing a user's keychain.  We don't want to leave them root-owned.
+		// In order to not break backward compatability we'll make a best effort, but continue if these efforts fail.
+		//
+		// To clear something up - newPath is the name the keychain will become - which is the name of the file being replaced
+		//                         oldPath is the "temp filename".
+
+		copyfile_state_t s;
+		s = copyfile_state_alloc();
+
+		if(copyfile(newPath, oldPath, s, COPYFILE_SECURITY | COPYFILE_NOFOLLOW) == -1) // Not fatal
+			secdebug("atomicfile", "copyfile (%s, %s): %s", oldPath, newPath, strerror(errno));
+
+		copyfile_state_free(s);
+		// END <rdar://problem/6991037>
+
 		if (::rename(oldPath, newPath) == -1)
 		{
 			int error = errno;

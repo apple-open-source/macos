@@ -3,7 +3,7 @@
   parse.y -
 
   $Author: shyouhei $
-  $Date: 2009-03-09 08:55:21 +0900 (Mon, 09 Mar 2009) $
+  $Date: 2010-11-22 16:22:12 +0900 (Mon, 22 Nov 2010) $
   created at: Fri May 28 18:02:42 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -6222,6 +6222,16 @@ rb_intern(name)
     }
     if (*m) id = ID_JUNK;
   new_id:
+    if (last_id >= SYM2ID(~(VALUE)0) >> ID_SCOPE_SHIFT) {
+	if (last > 20) {
+	    rb_raise(rb_eRuntimeError, "symbol table overflow (symbol %.20s...)",
+		     name);
+	}
+	else {
+	    rb_raise(rb_eRuntimeError, "symbol table overflow (symbol %.*s)",
+		     last, name);
+	}
+    }
     id |= ++last_id << ID_SCOPE_SHIFT;
   id_regist:
     name = strdup(name);

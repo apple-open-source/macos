@@ -109,15 +109,23 @@ UInt8 AppleUSBCDC::Asciihex_to_binary(char c)
 /****************************************************************************************************/
 
 IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
-{ 
+{
+	IOUSBDevice *newDevice = NULL;
 	UInt8		classValue = 0;
     OSNumber	*classInfo = NULL;
-	SInt32		newScore = 10000;
+	SInt32		newScore = 0;
     IOService   *res;
 	
 	XTRACE(this, 0, 0, "probe");
 	
-		// Check the device class, we need to handle Miscellaneous or Composite class differently
+	OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kCDCDoNotMatchThisDevice"));
+    if (boolObj && boolObj->isTrue())
+    {
+        XTRACE(this, 0, *score, "probe - provider doesn't want us to match");
+        return NULL;
+    }
+	
+		// Check the device class, we need to handle Miscellaneous or Composite class a little different
 	
 	classInfo = (OSNumber *)provider->getProperty("bDeviceClass");
     if (classInfo)
@@ -125,7 +133,21 @@ IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
         classValue = classInfo->unsigned32BitValue();
 		if ((classValue == kUSBCompositeClass) || (classValue == kUSBMiscellaneousClass))
 		{
-			newScore = 1;			// We need to see the device before the real Composite driver does
+			newDevice = OSDynamicCast(IOUSBDevice, provider);
+			if(!newDevice)
+			{
+				XTRACE(this, 0, 0, "probe - provider invalid");
+			} else {
+					// Check if it has CDC interfaces
+					
+				if (checkDevice(newDevice))
+				{
+					newScore = 1;			// We need to see the device before the Composite driver does
+				} else {
+					XTRACE(this, 0, 0, "probe - Composite or Micsellaneous class but not CDC");
+					return NULL;			// We're not interested
+				}
+			}
 		}
 	}
 
@@ -133,7 +155,7 @@ IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
 	
     res = super::probe(provider, score);
 	
-	XTRACE(this, res, newScore, "probe - Exit");
+	XTRACE(this, 0, newScore, "probe - Exit");
     
     return res;
     
@@ -355,6 +377,90 @@ IOUSBDevice *AppleUSBCDC::getCDCDevice()
     return fpDevice;
 
 }/* end getCDCDevice */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDC::checkDevice
+//
+//		Inputs:		theDevice - the device to check
+//
+//		Outputs:	return Code - true (CDC present), false (CDC not present)
+//
+//		Desc:		Determines if this device has a CDC interface (called from probe only)
+//
+/****************************************************************************************************/
+
+bool AppleUSBCDC::checkDevice(IOUSBDevice *theDevice)
+{
+    IOUSBFindInterfaceRequest	req;
+	UInt8				numConfigs;						// number of device configurations
+    const IOUSBConfigurationDescriptor	*cd = NULL;		// configuration descriptor
+    IOUSBInterfaceDescriptor 		*intf = NULL;		// interface descriptor
+    IOReturn			ior = kIOReturnSuccess;
+    UInt8				cval;
+	bool				cdc = false;					// We really only want these
+	
+    XTRACE(this, 0, 0, "checkDevice");
+	
+		// Let's see if we have any configurations to play with
+		
+    numConfigs = theDevice->GetNumConfigurations();
+    if (numConfigs < 1)
+    {
+        XTRACE(this, 0, 0, "checkDevice - no configurations");
+        return false;
+    }
+	
+		// Check all the configs
+	
+    for (cval=0; cval<numConfigs; cval++)
+    {
+    	XTRACE(this, 0, cval, "checkDevice - Checking Configuration");
+		
+     	cd = theDevice->GetFullConfigurationDescriptor(cval);
+     	if (!cd)
+    	{
+            XTRACE(this, 0, cval, "checkDevice - Error getting the full configuration descriptor");
+            break;
+        } else {
+            intf = NULL;
+            do
+            {
+				req.bInterfaceClass = kIOUSBFindInterfaceDontCare;
+                req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+                req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
+                req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
+                ior = theDevice->FindNextInterfaceDescriptor(cd, intf, &req, &intf);
+                if (ior == kIOReturnSuccess)
+                {
+                    if (intf)
+                    {
+                        XTRACE(this, 0, intf->bInterfaceNumber, "initDevice - Interface descriptor found");
+                        
+							// We want CDC
+						
+						if (intf->bInterfaceClass == kUSBCommunicationClass)
+						{
+							cdc = true;
+							break;
+						}
+                    }
+                } else {
+                    XTRACE(this, ior, cval, "checkDevice - FindNextInterfaceDescriptor returned error");
+                    break;
+                }
+            } while (intf);
+            
+            if (cdc)
+            {
+                break;
+            }
+        }
+    }
+    
+    return cdc;
+	
+}/* end checkDevice */
 
 /****************************************************************************************************/
 //
@@ -1018,7 +1124,10 @@ IOReturn AppleUSBCDC::setProperties( OSObject * properties )
 	
 	if ( cg != NULL )
 	{
+        //<radar://problem/7488030> retain the CommandGate in case device gets pulled when we are setting the properties..
+        cg->retain();
 		result = cg->runAction( setPropertiesAction, (void *)properties );
+        cg->release();
 	}
 	
 	XTRACE(this, 0, 0, "setProperties - Exit");

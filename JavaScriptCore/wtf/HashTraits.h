@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,6 +28,11 @@
 
 namespace WTF {
 
+    class String;
+
+    template<typename T> class OwnPtr;
+    template<typename T> class PassOwnPtr;
+
     using std::pair;
     using std::make_pair;
 
@@ -38,10 +43,11 @@ namespace WTF {
     template<typename T> struct GenericHashTraitsBase<false, T> {
         static const bool emptyValueIsZero = false;
         static const bool needsDestruction = true;
+        static const int minimumTableSize = 64;
     };
 
     // Default integer traits disallow both 0 and -1 as keys (max value instead of -1 for unsigned).
-    template<typename T> struct GenericHashTraitsBase<true, T> {
+    template<typename T> struct GenericHashTraitsBase<true, T> : GenericHashTraitsBase<false, T> {
         static const bool emptyValueIsZero = true;
         static const bool needsDestruction = false;
         static void constructDeletedValue(T& slot) { slot = static_cast<T>(-1); }
@@ -50,7 +56,23 @@ namespace WTF {
 
     template<typename T> struct GenericHashTraits : GenericHashTraitsBase<IsInteger<T>::value, T> {
         typedef T TraitType;
+
         static T emptyValue() { return T(); }
+
+        // Type for functions that take ownership, such as add.
+        // The store function either not be called or called once to store something passed in.
+        // The value passed to the store function will be either PassInType or PassInType&.
+        typedef const T& PassInType;
+        static void store(const T& value, T& storage) { storage = value; }
+
+        // Type for return value of functions that transfer ownership, such as take. 
+        typedef T PassOutType;
+        static PassOutType passOut(const T& value) { return value; }
+
+        // Type for return value of functions that do not transfer ownership, such as get.
+        // FIXME: We should change this type to const T& for better performance.
+        typedef T PeekType;
+        static PeekType peek(const T& value) { return value; }
     };
 
     template<typename T> struct HashTraits : GenericHashTraits<T> { };
@@ -87,7 +109,29 @@ namespace WTF {
         static bool isDeletedValue(const T& value) { return value.isHashTableDeletedValue(); }
     };
 
-    template<typename P> struct HashTraits<RefPtr<P> > : SimpleClassHashTraits<RefPtr<P> > { };
+    template<typename P> struct HashTraits<OwnPtr<P> > : SimpleClassHashTraits<OwnPtr<P> > {
+        static std::nullptr_t emptyValue() { return nullptr; }
+
+        typedef PassOwnPtr<P> PassInType;
+        static void store(PassOwnPtr<P> value, OwnPtr<P>& storage) { storage = value; }
+
+        typedef PassOwnPtr<P> PassOutType;
+        static PassOwnPtr<P> passOut(OwnPtr<P>& value) { return value.release(); }
+        static PassOwnPtr<P> passOut(std::nullptr_t) { return nullptr; }
+
+        typedef typename OwnPtr<P>::PtrType PeekType;
+        static PeekType peek(const OwnPtr<P>& value) { return value.get(); }
+        static PeekType peek(std::nullptr_t) { return 0; }
+    };
+
+    template<typename P> struct HashTraits<RefPtr<P> > : SimpleClassHashTraits<RefPtr<P> > {
+        // FIXME: We should change PassInType to PassRefPtr for better performance.
+        // FIXME: We should change PassOutType to PassRefPtr for better performance.
+        // FIXME: We could consider changing PeekType to a raw pointer so callers don't need to
+        // call get; doing so will require updating many call sites.
+    };
+
+    template<> struct HashTraits<String> : SimpleClassHashTraits<String> { };
 
     // special traits for pairs, helpful for their use in HashMap implementation
 
@@ -101,6 +145,8 @@ namespace WTF {
         static TraitType emptyValue() { return make_pair(FirstTraits::emptyValue(), SecondTraits::emptyValue()); }
 
         static const bool needsDestruction = FirstTraits::needsDestruction || SecondTraits::needsDestruction;
+
+        static const int minimumTableSize = FirstTraits::minimumTableSize;
 
         static void constructDeletedValue(TraitType& slot) { FirstTraits::constructDeletedValue(slot.first); }
         static bool isDeletedValue(const TraitType& value) { return FirstTraits::isDeletedValue(value.first); }

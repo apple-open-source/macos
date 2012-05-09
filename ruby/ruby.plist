@@ -4,28 +4,29 @@
     <key>OpenSourceProject</key>
     <string>ruby</string>
     <key>OpenSourceVersion</key>
-    <string>1.8.7-p249</string>
+    <string>1.8.7-p357</string>
     <key>OpenSourceWebsiteURL</key>
     <string>http://www.ruby-lang.org/</string>
     <key>OpenSourceURL</key>
-    <string>ftp://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.7-p249.tar.gz</string>
+    <string>ftp://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.7-p357.tar.gz</string>
     <key>OpenSourceSHA1</key>
-    <string>4297b138e64e5caf523114a6213aa9d9b85e0550</string>
+    <string>e2e2925e5547ab36ca4c5e40240f4f7a380fbed3</string>
     <key>OpenSourceImportDate</key>
-    <string>2010-03-30</string>
+    <string>2011-01-10</string>
     <key>OpenSourceLicense</key>
     <string>ruby</string>
     <key>OpenSourceLicenseFile</key>
     <string>ruby.txt</string>
     <key>OpenSourceModifications</key>
     <array>
-        <string>remove -lobjc link</string>
         <string>use dlsym</string>
         <string>ruby configure test for endianness fails</string>
         <string>disable -static in rbconfig</string>
         <string>make [md5|sha1].bundle using CommonCrypto instead of OpenSSL</string>
         <string>all libraries are compiled 4-way fat (i386, ppc, x86_64 and ppc64) but the tk extension, and the ruby command line binary is kept 2-way fat (i386 and ppc) for compatibility purposes</string>
         <string>emit DTrace static probes when entering/leaving a Ruby method</string>
+        <string>reverse scheduler optimisations</string>
+        <string>revert marshal.c changes that reverted a previous thread-safety fix</string>
     </array>
 </dict>
 </array>

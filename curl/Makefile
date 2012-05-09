@@ -20,7 +20,9 @@ Patches = configure.diff \
           curl-config.in.diff \
           tests__runtests.pl.diff \
           GAI-9112664.diff \
-          curl-gssapi-delegation.patch
+          curl-gssapi-delegation.patch \
+          curl-url-sanitize.patch \
+          curl-dont-insert-empty-fragments.patch
 
 Extra_Configure_Flags = --with-gssapi --enable-hidden-symbols --disable-static --enable-threaded-resolver
 

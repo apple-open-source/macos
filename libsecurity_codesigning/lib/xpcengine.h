@@ -33,6 +33,7 @@ namespace CodeSigning {
 
 
 void xpcEngineAssess(CFURLRef path, uint flags, CFDictionaryRef context, CFMutableDictionaryRef result);
+bool xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef context);
 bool xpcEngineControl(const char *name);
 
 

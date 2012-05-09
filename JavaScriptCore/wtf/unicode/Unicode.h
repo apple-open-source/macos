@@ -25,6 +25,9 @@
 
 #include <wtf/Assertions.h>
 
+// Define platform neutral 8 bit character type (L is for Latin-1).
+typedef unsigned char LChar;
+
 #if USE(QT4_UNICODE)
 #include "qt4/UnicodeQt4.h"
 #elif USE(ICU_UNICODE)
@@ -33,8 +36,6 @@
 #include <wtf/unicode/glib/UnicodeGLib.h>
 #elif USE(WINCE_UNICODE)
 #include <wtf/unicode/wince/UnicodeWinCE.h>
-#elif USE(BREWMP_UNICODE)
-#include <wtf/unicode/brew/UnicodeBrew.h>
 #else
 #error "Unknown Unicode implementation"
 #endif

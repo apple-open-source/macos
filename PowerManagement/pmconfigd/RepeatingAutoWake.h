@@ -25,14 +25,8 @@
 
 #include "PrivateLib.h"
 
-/* For distribution of notifications from pmconfigd.c */
+__private_extern__ CFDictionaryRef copyNextRepeatingEvent(CFStringRef type);
+
 __private_extern__ void RepeatingAutoWake_prime(void);
-
-__private_extern__ void RepeatingAutoWakePrefsHaveChanged(void);
-
-__private_extern__ void RepeatingAutoWakeSleepWakeNotification(natural_t messageType, int runState);
-
-/* For shutdown/sleep handling from AutoWakeScheduler.c */
-__private_extern__ void RepeatingAutoWakeRepeatingEventOcurred(CFDictionaryRef);
 
 #endif // _RepeatingAutoWake_h_

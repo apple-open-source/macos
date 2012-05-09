@@ -42,7 +42,7 @@ __BEGIN_DECLS
 CFMutableDictionaryRef
 _IOBSDNameMatching			(
 					mach_port_t		masterPort,
-					unsigned int		options,
+					uint32_t		options,
 					const char		*bsdName
 					);
 #define IOBSDNameMatching _IOBSDNameMatching
@@ -129,6 +129,13 @@ _IORegistryEntryGetPath			(
 					io_string_t		path
 					);
 #define IORegistryEntryGetPath _IORegistryEntryGetPath
+
+kern_return_t
+_IORegistryEntryGetRegistryEntryID	(
+					io_registry_entry_t	entry,
+					uint64_t		*entryID
+					);
+#define IORegistryEntryGetRegistryEntryID _IORegistryEntryGetRegistryEntryID
 
 CFTypeRef
 _IORegistryEntrySearchCFProperty	(

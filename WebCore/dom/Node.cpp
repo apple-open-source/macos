@@ -282,11 +282,11 @@ void Node::dumpStatistics()
 #endif
 }
 
-#ifndef NDEBUG
-static WTF::RefCountedLeakCounter nodeCounter("WebCoreNode");
+DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, nodeCounter, ("WebCoreNode"));
+DEFINE_DEBUG_ONLY_GLOBAL(HashSet<Node*>, ignoreSet, );
 
+#ifndef NDEBUG
 static bool shouldIgnoreLeaks = false;
-static HashSet<Node*> ignoreSet;
 #endif
 
 void Node::startIgnoringLeaks()
@@ -1599,22 +1599,6 @@ RenderObject* NodeRendererFactory::nextRenderer() const
     return 0;
 }
 
-#if ENABLE(FULLSCREEN_API)
-static RenderObject* wrapWithRenderFullScreen(RenderObject* object, Document* document)
-{
-    RenderFullScreen* fullscreenRenderer = new (document->renderArena()) RenderFullScreen(document);
-    fullscreenRenderer->setStyle(RenderFullScreen::createFullScreenStyle());
-    // It's possible that we failed to create the new render and end up wrapping nothing.
-    // We'll end up displaying a black screen, but Jer says this is expected.
-    if (object)
-        fullscreenRenderer->addChild(object);
-    document->setFullScreenRenderer(fullscreenRenderer);
-    if (fullscreenRenderer->placeholder())
-        return fullscreenRenderer->placeholder();
-    return fullscreenRenderer;
-}
-#endif
-
 void NodeRendererFactory::createRendererIfNeeded()
 {
     if (!document()->shouldCreateRenderers())
@@ -1626,7 +1610,7 @@ void NodeRendererFactory::createRendererIfNeeded()
 
 #if ENABLE(FULLSCREEN_API)
     if (document()->webkitIsFullScreen() && document()->webkitCurrentFullScreenElement() == m_node)
-        newRenderer = wrapWithRenderFullScreen(newRenderer, document());
+        newRenderer = RenderFullScreen::wrapRenderer(newRenderer, document());
 #endif
 
     // FIXME: This side effect should be visible from attach() code.

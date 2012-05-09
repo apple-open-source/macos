@@ -250,7 +250,7 @@ GraphicsLayerCA::GraphicsLayerCA(GraphicsLayerClient* client)
     , m_contentsLayerPurpose(NoContentsLayer)
     , m_contentsLayerHasBackgroundColor(false)
     , m_allowTiledLayer(true)
-    , m_uncommittedChanges(ContentsScaleChanged)
+    , m_uncommittedChanges(0)
 {
     m_layer = PlatformCALayer::create(PlatformCALayer::LayerTypeWebLayer, this);
 
@@ -259,6 +259,7 @@ GraphicsLayerCA::GraphicsLayerCA(GraphicsLayerClient* client)
 #endif
 
     updateDebugIndicators();
+    noteLayerPropertyChanged(ContentsScaleChanged);
 }
 
 GraphicsLayerCA::~GraphicsLayerCA()
@@ -2038,10 +2039,8 @@ bool GraphicsLayerCA::requiresTiledLayer(float pageScaleFactor, const FloatSize&
     if (!m_drawsContent || !m_allowTiledLayer)
         return false;
 
-    float contentsScale = pageScaleFactor * deviceScaleFactor();
-
     // FIXME: catch zero-size height or width here (or earlier)?
-    return size.width() * contentsScale > cMaxPixelDimension || size.height() * contentsScale > cMaxPixelDimension;
+    return size.width() * pageScaleFactor > cMaxPixelDimension || m_size.height() * pageScaleFactor > cMaxPixelDimension;
 }
 
 void GraphicsLayerCA::swapFromOrToTiledLayer(bool useTiledLayer, float pageScaleFactor, const FloatPoint& positionRelativeToBase)

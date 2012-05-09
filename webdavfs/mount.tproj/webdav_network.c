@@ -39,6 +39,8 @@
 #include "webdav_requestqueue.h"
 #include "webdav_authcache.h"
 #include "webdav_network.h"
+#include "webdav_utils.h"
+#include "webdav_cookie.h"
 #include "EncodedSourceID.h"
 #include "LogMessage.h"
 
@@ -109,47 +111,10 @@ static int network_dir_is_empty(
 	uid_t uid,					/* -> uid of the user making the request */
 	CFURLRef urlRef);			/* -> url to check */
 
-static time_t DateStringToTime(	/* <- time_t value; -1 if error */
-	CFStringRef str);			/* -> CFString to parse */
-
 static CFStringRef CFStringCreateRFC2616DateStringWithTimeT( /* <- CFString containing RFC 1123 date, NULL if error */
 	time_t clock);				/* -> time_t value */
 
 /*****************************************************************************/
-
-/*
- * DateBytesToTime parses the RFC 850, RFC 1123, and asctime formatted
- * date/time bytes and returns time_t. If the parse fails, this function
- * returns -1.
- */
-time_t DateBytesToTime(			/* <- time_t value */
-	const UInt8 *bytes,			/* -> pointer to bytes to parse */
-	CFIndex length)				/* -> number of bytes to parse */
-{
-	const UInt8 *finish;
-	CFGregorianDate gdate;
-	struct tm tm_temp;
-	time_t clock;
-	
-	/* parse the RFC 850, RFC 1123, and asctime formatted date/time CFString to get the Gregorian date */
-	finish = _CFGregorianDateCreateWithBytes(kCFAllocatorDefault, bytes, length, &gdate, NULL);
-	require_action(finish != bytes, _CFGregorianDateCreateWithBytes, clock = -1);
-	
-	/* copy the Gregorian date into struct tm */
-	memset(&tm_temp, 0, sizeof(struct tm));
-	tm_temp.tm_sec = (int)gdate.second;
-	tm_temp.tm_min = gdate.minute;
-	tm_temp.tm_hour = gdate.hour;
-	tm_temp.tm_mday = gdate.day;
-	tm_temp.tm_mon = gdate.month - 1;
-	tm_temp.tm_year = gdate.year - 1900;
-
-	clock = timegm(&tm_temp);
-
-_CFGregorianDateCreateWithBytes:
-
-	return ( clock );
-}
 
 #define ISO8601_UTC "%04d-%02d-%02dT%02d:%02d:%02dZ"
 #define ISO8601_BEHIND_UTC "%04d-%02d-%02dT%02d:%02d:%02d-%02d:%02d"
@@ -255,41 +220,6 @@ time_t ISO8601ToTime(			/* <- time_t value */
 	}
 	
 	return (clock);
-}
-
-/*****************************************************************************/
-
-/*
- * DateStringToTime parses the RFC 850, RFC 1123, and asctime formatted
- * date/time CFString and returns time_t. If the parse fails, this function
- * returns -1.
- */
-static time_t DateStringToTime(	/* <- time_t value; -1 if error */
-	CFStringRef str)			/* -> CFString to parse */
-{
-	CFIndex count;
-	CFGregorianDate gdate;
-	struct tm tm_temp;
-	time_t clock;
-	
-	/* parse the RFC 850, RFC 1123, and asctime formatted date/time CFString to get the Gregorian date */
-	count = _CFGregorianDateCreateWithString(kCFAllocatorDefault, str, &gdate, NULL);
-	require_action(count != 0, _CFGregorianDateCreateWithString, clock = -1);
-	
-	/* copy the Gregorian date into struct tm */
-	memset(&tm_temp, 0, sizeof(struct tm));
-	tm_temp.tm_sec = (int)gdate.second;
-	tm_temp.tm_min = gdate.minute;
-	tm_temp.tm_hour = gdate.hour;
-	tm_temp.tm_mday = gdate.day;
-	tm_temp.tm_mon = gdate.month - 1;
-	tm_temp.tm_year = gdate.year - 1900;
-
-	clock = timegm(&tm_temp);
-
-_CFGregorianDateCreateWithString:
-
-	return ( clock );
 }
 
 /*****************************************************************************/
@@ -855,6 +785,7 @@ int network_init(const UInt8 *uri, CFIndex uriLength, int *store_notify_fd, int 
 	
 	gProxyDict = NULL;
 	error = 0;
+	gBasePathStr[0] = 0;
 	
 	/* set up the lock on the queues */
 	error = pthread_mutexattr_init(&mutexattr);
@@ -900,6 +831,11 @@ int network_init(const UInt8 *uri, CFIndex uriLength, int *store_notify_fd, int 
 	require_action(((CFURLGetByteRangeForComponent(gBaseURL, kCFURLComponentUserInfo, NULL).location == kCFNotFound) &&
 				   (CFURLGetByteRangeForComponent(gBaseURL, kCFURLComponentResourceSpecifier, NULL).location == kCFNotFound)),
 				   IllegalURLComponent, error = EINVAL);
+	
+	gBasePath = CFURLCopyPath(gBaseURL);
+	if (gBasePath != NULL) {
+		CFStringGetCString(gBasePath, gBasePathStr, MAXPATHLEN, kCFStringEncodingUTF8);
+	}
 
 	/* initialize first_read_len variable */
 	get_first_read_len();
@@ -1859,6 +1795,7 @@ static int stream_get_transaction(
 	CFTypeRef theResponsePropertyRef;
 	int background_load;
 	CFStringRef connectionHeaderRef;
+	CFStringRef setCookieHeaderRef;
 	CFHTTPMessageRef responseMessage;
 	int result;
 	
@@ -2015,6 +1952,14 @@ static int stream_get_transaction(
 		CFRelease(connectionHeaderRef);
 	}
 	
+	// Handle cookies
+	setCookieHeaderRef = CFHTTPMessageCopyHeaderFieldValue(responseMessage, CFSTR("Set-Cookie"));
+	if (setCookieHeaderRef != NULL) {
+		handle_cookies(setCookieHeaderRef, request);
+		CFRelease(setCookieHeaderRef);
+	}
+
+	
 	if ( background_load )
 	{
 		int error;
@@ -2111,6 +2056,7 @@ static int stream_transaction_from_file(
 	off_t contentLength;
 	CFStringRef contentLengthString;
 	CFStringRef connectionHeaderRef;
+	CFStringRef setCookieHeaderRef;
 	CFHTTPMessageRef responseMessage;
 	int result;
 	
@@ -2213,6 +2159,13 @@ static int stream_transaction_from_file(
 		}
 		CFRelease(connectionHeaderRef);
 	}
+	
+	// Handle cookies
+	setCookieHeaderRef = CFHTTPMessageCopyHeaderFieldValue(responseMessage, CFSTR("Set-Cookie"));
+	if (setCookieHeaderRef != NULL) {
+		handle_cookies(setCookieHeaderRef, request);
+		CFRelease(setCookieHeaderRef);
+	}
 
 	CFRelease(fdStream);
 
@@ -2282,6 +2235,7 @@ static int stream_transaction(
 	CFIndex bufferSize;
 	CFTypeRef theResponsePropertyRef;
 	CFStringRef connectionHeaderRef;
+	CFStringRef setCookieHeaderRef;
 	CFHTTPMessageRef responseMessage;
 	int result;
 	
@@ -2384,6 +2338,13 @@ static int stream_transaction(
 			readStreamRecPtr->readStreamRef = NULL;
 		}
 		CFRelease(connectionHeaderRef);
+	}
+	
+	// Handle cookies
+	setCookieHeaderRef = CFHTTPMessageCopyHeaderFieldValue(responseMessage, CFSTR("Set-Cookie"));
+	if (setCookieHeaderRef != NULL) {
+		handle_cookies(setCookieHeaderRef, request);
+		CFRelease(setCookieHeaderRef);
 	}
 	
 	/* make this ReadStreamRec is available again */
@@ -2513,6 +2474,9 @@ static int send_transaction(
 		{
 			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("X-Apple-Realm-Support"), X_Apple_Realm_Support_HeaderValue);
 		}
+		
+		/* add cookies (if any) */
+		add_cookie_headers(message, url);
 		
 		/* add other HTTP headers (if any) */
 		for ( i = 0, headerPtr = headers; i < headerCount; ++i, ++headerPtr )
@@ -3356,6 +3320,7 @@ void writeseqReadResponseCallback(CFReadStreamRef str, CFStreamEventType event, 
 	CFIndex bytesRead;
 	CFTypeRef theResponsePropertyRef;
 	CFHTTPMessageRef responseMessage;
+	CFStringRef setCookieHeaderRef;
 	CFIndex statusCode;
 	int error;
 
@@ -3469,6 +3434,13 @@ void writeseqReadResponseCallback(CFReadStreamRef str, CFStreamEventType event, 
 			responseMessage = *((CFHTTPMessageRef*)((void*)&theResponsePropertyRef));			
 			statusCode = CFHTTPMessageGetResponseStatusCode(responseMessage);
 			error = translate_status_to_error((UInt32)statusCode);
+			
+			// Handle cookies
+			setCookieHeaderRef = CFHTTPMessageCopyHeaderFieldValue(responseMessage, CFSTR("Set-Cookie"));
+			if (setCookieHeaderRef != NULL) {
+				handle_cookies(setCookieHeaderRef, ctx->request);
+				CFRelease(setCookieHeaderRef);
+			}
 
 			pthread_mutex_lock(&ctx->ctx_lock);
 			ctx->finalStatus = error;
@@ -3622,6 +3594,11 @@ int cleanup_seq_write(struct stream_put_ctx *ctx)
 	pthread_mutex_unlock(&ctx->ctx_lock);
 
 	/* clean up the streams */
+	if (ctx->request != NULL) {
+		CFRelease(ctx->request);
+		ctx->request = NULL;
+	}
+	
 	if (ctx->wrStreamRef != NULL) {
 		CFRelease(ctx->wrStreamRef);
 		ctx->wrStreamRef = NULL;
@@ -3748,6 +3725,9 @@ int network_open(
 			{
 				CFHTTPMessageSetHeaderFieldValue(message, CFSTR("X-Source-Id"), X_Source_Id_HeaderValue);
 			}
+			
+			/* add cookies (if any) */
+			add_cookie_headers(message, urlRef);
 			
 			/* add other HTTP headers */
 			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("Accept"), CFSTR("*/*"));
@@ -4080,6 +4060,9 @@ static void create_http_request_message(CFHTTPMessageRef *message_p, CFURLRef ur
 		{
 			CFHTTPMessageSetHeaderFieldValue(*message_p, CFSTR("X-Source-Id"), X_Source_Id_HeaderValue);
 		}
+		
+		/* add cookies (if any) */
+		add_cookie_headers(*message_p, urlRef);
 	
 		/* add other HTTP headers */
 		CFHTTPMessageSetHeaderFieldValue(*message_p, CFSTR("Accept"), CFSTR("*/*"));
@@ -4188,7 +4171,6 @@ int setup_seq_write(
 {
 	int error;
 	CFURLRef urlRef = NULL;
-	CFHTTPMessageRef message;
 	UInt32 statusCode;
 	CFHTTPMessageRef responseRef;
 	UInt32 auth_generation;
@@ -4200,7 +4182,6 @@ int setup_seq_write(
 
 	error = 0;
 	file_entity_tag = NULL;
-	message = NULL;
 	responseRef = NULL;
 	statusCode = 0;
 	auth_generation = 0;
@@ -4248,9 +4229,9 @@ int setup_seq_write(
 		return (error);	
 	}
 	
-	create_http_request_message(&message, urlRef, file_length); /* can this be moved outside the loop? */
+	create_http_request_message(&node->put_ctx->request, urlRef, file_length); /* can this be moved outside the loop? */
 	
-	if (message == NULL)
+	if (node->put_ctx->request == NULL)
 	{
 		syslog(LOG_ERR, "%s: create_http_request_message failed", __FUNCTION__);
 		error = EIO;
@@ -4264,7 +4245,7 @@ int setup_seq_write(
 		lockTokenRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("(<%s>)"), node->file_locktoken);
 		if ( lockTokenRef != NULL )
 		{
-			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("If"), lockTokenRef );
+			CFHTTPMessageSetHeaderFieldValue(node->put_ctx->request, CFSTR("If"), lockTokenRef );
 			CFRelease(lockTokenRef);
 			lockTokenRef = NULL;
 		}
@@ -4279,7 +4260,7 @@ int setup_seq_write(
 	 * statusCode will be 401 or 407 will not be NULL if we've already been through the loop;
 	 * statusCode will be 0 and responseRef will be NULL if this is the first time through.
 	 */
-	error = authcache_apply(uid, message, statusCode, responseRef, &auth_generation);
+	error = authcache_apply(uid, node->put_ctx->request, statusCode, responseRef, &auth_generation);
 	if ( error != 0 )
 	{
 		syslog(LOG_ERR, "%s: authcache_apply, error %d", __FUNCTION__, error);
@@ -4298,7 +4279,7 @@ int setup_seq_write(
 	// ***************************************
 	// Create the response read stream, passing the Read stream of the pair
 	node->put_ctx->rspStreamRef = CFReadStreamCreateForStreamedHTTPRequest(kCFAllocatorDefault, 
-																		  message, 
+																		  node->put_ctx->request, 
 																		  node->put_ctx->rdStreamRef);
 	if (node->put_ctx->rspStreamRef == NULL) {
 		syslog(LOG_ERR,"%s: CFReadStreamCreateForStreamedHTTPRequest failed\n", __FUNCTION__);
@@ -4341,7 +4322,6 @@ int setup_seq_write(
 	pthread_mutex_unlock(&node->put_ctx->ctx_lock);
 	
 out1:
-	CFRelease(message);
 	CFRelease(urlRef);
 	return ( error );
 }

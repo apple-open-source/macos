@@ -80,6 +80,7 @@ public:
 	
 	bool inTransaction();
 	int64 lastInsert();
+	int changes();
 	
 	void interrupt();
 	
@@ -91,7 +92,10 @@ public:
 	
 	template <class RType> RType value(const char *text, RType defaultResult = RType());
 	template <class RType> RType value(const std::string &text, RType defaultResult = RType())
-		{ return eval(text.c_str(), defaultResult); }
+		{ return value(text.c_str(), defaultResult); }
+	
+	double julianNow()
+		{ return this->value<double>("SELECT JULIANDAY('now');"); }
 	
 	void busyDelay(int ms);
 
@@ -169,10 +173,18 @@ class Statement : private StLock<Mutex> {
 	class Binding;
 	
 public:
-	Statement(Database &db, const char *text);
+	Statement(Database &db, const char *text);	// ready to serve
+	Statement(Database &db);						// quiescent; call query(text) to activate it
 	virtual ~Statement();
 	
 	Database &database;
+
+	operator bool () const { return mStmt != NULL; } // active
+	
+	void query(const char *text);					// activate statement with query text
+	void query(const std::string &text)
+		{ query(text.c_str()); }
+	void close();									// close up active statement
 
 	Binding bind(int ix) const { return Binding(*this, ix); }
 	Binding bind(const char *name) const;

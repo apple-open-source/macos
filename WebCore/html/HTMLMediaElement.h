@@ -48,6 +48,9 @@ class TimeRanges;
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
 class Widget;
 #endif
+#if PLATFORM(MAC)
+class DisplaySleepDisabler;
+#endif
 
 // FIXME: The inheritance from MediaPlayerClient here should be private inheritance.
 // But it can't be until the Chromium WebMediaPlayerClientImpl class is fixed so it
@@ -349,6 +352,11 @@ private:
 
     virtual void* preDispatchEventHandler(Event*);
 
+#if PLATFORM(MAC)
+    void updateDisableSleep();
+    bool shouldDisableSleep() const;
+#endif
+
     Timer<HTMLMediaElement> m_loadTimer;
     Timer<HTMLMediaElement> m_asyncEventTimer;
     Timer<HTMLMediaElement> m_progressEventTimer;
@@ -437,6 +445,10 @@ private:
     bool m_loadInitiatedByUserGesture : 1;
     bool m_completelyLoaded : 1;
     bool m_havePreparedToPlay : 1;
+
+#if PLATFORM(MAC)
+    OwnPtr<DisplaySleepDisabler> m_sleepDisabler;
+#endif
 };
 
 } //namespace

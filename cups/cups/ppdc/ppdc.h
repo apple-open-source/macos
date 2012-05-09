@@ -1,5 +1,5 @@
 //
-// "$Id: ppdc.h 3324 2011-06-15 00:49:54Z msweet $"
+// "$Id: ppdc.h 3724 2012-03-07 17:32:32Z msweet $"
 //
 //   Definitions for the CUPS PPD Compiler.
 //
@@ -447,6 +447,7 @@ class ppdcFile				//// File
 {
   public:
 
+  bool		close_on_delete;	// Close file on delete?
   cups_file_t	*fp;			// File pointer
   const char	*filename;		// Filename
   int		line;			// Line in file
@@ -528,5 +529,5 @@ class ppdcSource			//// Source File
 #endif // !_PPDC_H_
 
 //
-// End of "$Id: ppdc.h 3324 2011-06-15 00:49:54Z msweet $".
+// End of "$Id: ppdc.h 3724 2012-03-07 17:32:32Z msweet $".
 //

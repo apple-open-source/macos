@@ -54,6 +54,7 @@
 	pkinit_mappings_file = @confdir@/pki-mapping
 	pkinit_allow_proxy_certificate = true
 	pkinit_kdc_friendly_name = CN=kdc,C=SE
+	pkinit_principal_in_certificate = true
 
 	database = {
 		label = { 

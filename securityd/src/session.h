@@ -61,6 +61,8 @@ public:
     Session(const CommonCriteria::AuditInfo &audit, Server &server);
 	virtual ~Session();
     
+	Server &server() const;
+
 	SessionId sessionId() const { return mAudit.sessionId(); }
 	CommonCriteria::AuditInfo &auditInfo() { return mAudit; }
     

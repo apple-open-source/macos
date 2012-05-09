@@ -62,16 +62,6 @@ Index: eval.c
  	if (scope == 3) {
  	    return method_missing(recv, mid, argc, argv, CSTAT_SUPER);
  	}
-@@ -8868,8 +8864,7 @@
-     _block = *data;
-     _block.block_obj = bvar;
-     if (self != Qundef) _block.frame.self = self;
--    _block.frame.last_class = klass;
--    if (!klass) _block.frame.last_func = 0;
-+    if (klass) _block.frame.last_class = klass;
-     _block.frame.argc = RARRAY(tmp)->len;
-     _block.frame.flags = ruby_frame->flags;
-     if (_block.frame.argc && DMETHOD_P()) {
 @@ -8877,7 +8872,7 @@
          OBJSETUP(scope, tmp, T_SCOPE);
          scope->local_tbl = _block.scope->local_tbl;
@@ -417,13 +407,12 @@ Index: eval.c
  #if defined(_THREAD_SAFE)
  static void
  catch_timer(sig)
-@@ -12264,58 +12229,30 @@
+@@ -12269,60 +12315,31 @@
      /* cause EINTR */
  }
  
 -#define PER_NANO 1000000000
-+static pthread_t time_thread;
- 
+-
 -static struct timespec *
 -get_ts(struct timespec *to, long ns)
 -{
@@ -450,6 +439,9 @@ Index: eval.c
 -    pthread_t thread;
 -} time_thread = {PTHREAD_COND_INITIALIZER, PTHREAD_MUTEX_INITIALIZER};
 -
++static pthread_t time_thread;
+ static int timer_stopping;
+ 
 -#define safe_mutex_lock(lock) \
 -    pthread_mutex_lock(lock); \
 -    pthread_cleanup_push((void (*)_((void *)))pthread_mutex_unlock, lock)
@@ -470,13 +462,14 @@ Index: eval.c
  
 -    safe_mutex_lock(&running->lock);
 -    pthread_cond_signal(start);
-+    for (;;) {
-+#ifdef HAVE_NANOSLEEP
-+	struct timespec req, rem;
- 
+-
 -#define WAIT_FOR_10MS() \
 -    pthread_cond_timedwait(&running->cond, &running->lock, get_ts(&to, PER_NANO/100))
 -    while ((err = WAIT_FOR_10MS()) == EINTR || err == ETIMEDOUT) {
++    for (;;) {
++#ifdef HAVE_NANOSLEEP
++	struct timespec req, rem;
++ 
 +	req.tv_sec = 0;
 +	req.tv_nsec = 10000000;
 +	nanosleep(&req, &rem);
@@ -486,10 +479,10 @@ Index: eval.c
 +	tv.tv_usec = 10000;
 +	select(0, NULL, NULL, NULL, &tv);
 +#endif
- 	if (!rb_thread_critical) {
- 	    rb_thread_pending = 1;
- 	    if (rb_trap_immediate) {
-@@ -12323,41 +12260,16 @@
+ 	if (timer_stopping)
+ 	    break;
+ 
+@@ -12333,42 +12350,16 @@
  	    }
  	}
      }
@@ -513,7 +506,6 @@ Index: eval.c
 -    safe_mutex_lock(&time_thread.lock);
 -    if (pthread_create(&time_thread.thread, 0, thread_timer, args) == 0) {
 -	thread_init = 1;
--	pthread_atfork(0, 0, rb_thread_stop_timer);
 -	pthread_cond_wait(&start, &time_thread.lock);
 -    }
 -    pthread_cleanup_pop(1);
@@ -524,10 +516,12 @@ Index: eval.c
  {
 -    if (!thread_init) return;
 -    safe_mutex_lock(&time_thread.lock);
+-    timer_stopping = 1;
 -    pthread_cond_signal(&time_thread.cond);
 -    thread_init = 0;
 -    pthread_cleanup_pop(1);
 -    pthread_join(time_thread.thread, NULL);
+-    timer_stopping = 0;
  }
  #elif defined(HAVE_SETITIMER)
  static void

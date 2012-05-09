@@ -50,6 +50,8 @@
 #include "webdav_cache.h"
 #include "load_webdavfs.h"
 #include "webdavfs_load_kext.h"
+#include "webdav_cookie.h"
+#include "webdav_utils.h"
 
 /*****************************************************************************/
 
@@ -65,6 +67,8 @@ int gSecureServerAuth = FALSE;		/* if TRUE, the authentication for server challe
 char gWebdavCachePath[MAXPATHLEN + 1] = ""; /* the current path to the cache directory */
 int gSecureConnection = FALSE;	/* if TRUE, the connection is secure */
 CFURLRef gBaseURL = NULL;		/* the base URL for this mount */
+CFStringRef gBasePath = NULL;	/* the base path (from gBaseURL) for this mount */
+char gBasePathStr[MAXPATHLEN];	/* gBasePath as a c-string */
 uint32_t gServerIdent = 0;		/* identifies some (not all) types of servers we are connected to (i.e. WEBDAV_IDISK_SERVER) */
 fsid_t	g_fsid;					/* file system id */
 boolean_t gUrlIsIdisk = FALSE;	/* True if URL host domain is of form idisk.mac.com or idisk.me.com */
@@ -93,8 +97,6 @@ uint64_t webdavCacheMaximumSize = WEBDAV_DEFAULT_CACHE_MAX_SIZE;
 // system to cache, based on the amount of physical memory in
 // the system.
 static void setCacheMaximumSize(void);
-
-char* createUTF8CStringFromCFString(CFStringRef in_string);
 
 #define CFENVFORMATSTRING "__CF_USER_TEXT_ENCODING=0x%X:0:0"
 
@@ -249,35 +251,6 @@ static boolean_t urlIsIdisk(const char *url) {
 	}
 	
 	return (found_idisk);
-}
-
-/*****************************************************************************/
-
-char* createUTF8CStringFromCFString(CFStringRef in_string)
-{
-	char* out_cstring = NULL;
-	
-	CFIndex bufSize;
-	
-	/* make sure we're not passed garbage */
-	if ( in_string == NULL )
-		return NULL;
-	
-	/* Add one to account for NULL termination. */
-	bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(in_string) + 1, kCFStringEncodingUTF8);
-	
-	out_cstring = (char *)calloc(1, bufSize);
-	
-	/* Make sure malloc succeeded then convert cstring */
-	if ( out_cstring == NULL ) 
-		return NULL;
-	
-	if ( CFStringGetCString(in_string, out_cstring, bufSize, kCFStringEncodingUTF8) == FALSE ) {
-		free(out_cstring);
-		out_cstring = NULL;
-	}
-	
-	return out_cstring;
 }
 
 /*****************************************************************************/
@@ -1085,6 +1058,8 @@ int main(int argc, char *argv[])
 	
 	error = authcache_init(user, pass, proxy_user, proxy_pass, NULL);
 	require_noerr_action_quiet(error, error_exit, error = EINVAL);
+	
+	cookies_init();
 	
 	bzero(user, sizeof(user));
 	bzero(pass, sizeof(pass));

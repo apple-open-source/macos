@@ -43,6 +43,11 @@ IOFBCreateModeInfoDictionary(
         IODisplayModeID                 displayMode,
         IODisplayModeInformation *      info);
 
+kern_return_t
+IOFBGetDisplayModeTimingInformation( io_connect_t connect,
+        IODisplayModeID               displayMode,
+        IODetailedTimingInformation * out );
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #ifdef __cplusplus

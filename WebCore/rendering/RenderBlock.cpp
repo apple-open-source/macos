@@ -191,6 +191,9 @@ void RenderBlock::destroy()
 
     m_lineBoxes.deleteLineBoxes(renderArena());
 
+    if (UNLIKELY(gDelayedUpdateScrollInfoSet != 0))
+        gDelayedUpdateScrollInfoSet->remove(this);
+
     RenderBox::destroy();
 }
 
@@ -242,21 +245,7 @@ void RenderBlock::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
         }
     }
 
-    // FIXME: We could save this call when the change only affected non-inherited properties
-    for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
-        if (child->isAnonymousBlock()) {
-            RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyle(style());
-            if (style()->specifiesColumns()) {
-                if (child->style()->specifiesColumns())
-                    newStyle->inheritColumnPropertiesFrom(style());
-                if (child->style()->columnSpan())
-                    newStyle->setColumnSpan(true);
-            }
-            newStyle->setDisplay(BLOCK);
-            child->setStyle(newStyle.release());
-        }
-    }
-
+    propagateStyleToAnonymousChildren(true);    
     m_lineHeight = -1;
 
     // Update pseudos for :before and :after now.
@@ -455,7 +444,7 @@ void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
     // them from |this| and place them in the clone.
     if (!beforeChild && isAfterContent(lastChild()))
         beforeChild = lastChild();
-    moveChildrenTo(cloneBlock, beforeChild, 0);
+    moveChildrenTo(cloneBlock, beforeChild, 0, true);
     
     // Hook |clone| up as the continuation of the middle block.
     if (!cloneBlock->isAnonymousBlock())
@@ -497,8 +486,7 @@ void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
 
         // Now we need to take all of the children starting from the first child
         // *after* currChild and append them all to the clone.
-        RenderObject* afterContent = isAfterContent(cloneBlock->lastChild()) ? cloneBlock->lastChild() : 0;
-        blockCurr->moveChildrenTo(cloneBlock, currChild->nextSibling(), 0, afterContent);
+        blockCurr->moveChildrenTo(cloneBlock, currChild->nextSibling(), 0, true);
 
         // Keep walking up the chain.
         currChild = curr;
@@ -510,7 +498,7 @@ void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
 
     // Now take all the children after currChild and remove them from the fromBlock
     // and put them in the toBlock.
-    fromBlock->moveChildrenTo(toBlock, currChild->nextSibling(), 0);
+    fromBlock->moveChildrenTo(toBlock, currChild->nextSibling(), 0, true);
 }
 
 void RenderBlock::splitFlow(RenderObject* beforeChild, RenderBlock* newBlockBox,
@@ -546,7 +534,7 @@ void RenderBlock::splitFlow(RenderObject* beforeChild, RenderBlock* newBlockBox,
     block->setChildrenInline(false);
     
     if (madeNewBeforeBlock)
-        block->moveChildrenTo(pre, boxFirst, 0);
+        block->moveChildrenTo(pre, boxFirst, 0, true);
 
     splitBlocks(pre, post, newBlockBox, beforeChild, oldCont);
 
@@ -655,8 +643,22 @@ RenderBlock* RenderBlock::columnsBlockForSpanningElement(RenderObject* newChild)
         && !newChild->isInline() && !isAnonymousColumnSpanBlock()) {
         if (style()->specifiesColumns())
             columnsBlockAncestor = this;
-        else if (parent() && parent()->isRenderBlock())
+        else if (!isInline() && parent() && parent()->isRenderBlock()) {
             columnsBlockAncestor = toRenderBlock(parent())->containingColumnsBlock(false);
+            
+            if (columnsBlockAncestor) {
+                // Make sure that none of the parent ancestors have a continuation.
+                // If yes, we do not want split the block into continuations.
+                RenderObject* curr = this;
+                while (curr && curr != columnsBlockAncestor) {
+                    if (curr->isRenderBlock() && toRenderBlock(curr)->continuation()) {
+                        columnsBlockAncestor = 0;
+                        break;
+                    }
+                    curr = curr->parent();
+                }
+            }
+        }
     }
     return columnsBlockAncestor;
 }
@@ -664,26 +666,17 @@ RenderBlock* RenderBlock::columnsBlockForSpanningElement(RenderObject* newChild)
 void RenderBlock::addChildIgnoringAnonymousColumnBlocks(RenderObject* newChild, RenderObject* beforeChild)
 {
     // Make sure we don't append things after :after-generated content if we have it.
-    if (!beforeChild) {
-        RenderObject* lastRenderer = lastChild();
-        if (isAfterContent(lastRenderer))
-            beforeChild = lastRenderer;
-        else if (lastRenderer && lastRenderer->isAnonymousBlock() && isAfterContent(lastRenderer->lastChild()))
-            beforeChild = lastRenderer->lastChild();
-    }
+    if (!beforeChild)
+        beforeChild = afterPseudoElementRenderer();
 
     // If the requested beforeChild is not one of our children, then this is because
     // there is an anonymous container within this object that contains the beforeChild.
     if (beforeChild && beforeChild->parent() != this) {
-        RenderObject* anonymousChild = beforeChild->parent();
-        ASSERT(anonymousChild);
+        RenderObject* beforeChildAnonymousContainer = anonymousContainer(beforeChild);
+        ASSERT(beforeChildAnonymousContainer);
+        ASSERT(beforeChildAnonymousContainer->isAnonymous());
 
-        while (anonymousChild->parent() != this)
-            anonymousChild = anonymousChild->parent();
-
-        ASSERT(anonymousChild->isAnonymous());
-
-        if (anonymousChild->isAnonymousBlock()) {
+        if (beforeChildAnonymousContainer->isAnonymousBlock()) {
             // Insert the child into the anonymous block box instead of here.
             if (newChild->isInline() || beforeChild->parent()->firstChild() != beforeChild)
                 beforeChild->parent()->addChild(newChild, beforeChild);
@@ -692,19 +685,19 @@ void RenderBlock::addChildIgnoringAnonymousColumnBlocks(RenderObject* newChild, 
             return;
         }
 
-        ASSERT(anonymousChild->isTable());
+        ASSERT(beforeChildAnonymousContainer->isTable());
         if ((newChild->isTableCol() && newChild->style()->display() == TABLE_COLUMN_GROUP)
                 || (newChild->isRenderBlock() && newChild->style()->display() == TABLE_CAPTION)
                 || newChild->isTableSection()
                 || newChild->isTableRow()
                 || newChild->isTableCell()) {
             // Insert into the anonymous table.
-            anonymousChild->addChild(newChild, beforeChild);
+            beforeChildAnonymousContainer->addChild(newChild, beforeChild);
             return;
         }
 
         // Go on to insert before the anonymous table.
-        beforeChild = anonymousChild;
+        beforeChild = beforeChildAnonymousContainer;
     }
 
     // Check for a spanning element in columns.
@@ -838,6 +831,15 @@ static void getInlineRun(RenderObject* start, RenderObject* boundary,
 
 void RenderBlock::deleteLineBoxTree()
 {
+    if (containsFloats()) {
+        // Clear references to originating lines, since the lines are being deleted
+        const FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
+        FloatingObjectSetIterator end = floatingObjectSet.end();
+        for (FloatingObjectSetIterator it = floatingObjectSet.begin(); it != end; ++it) {
+            ASSERT(!((*it)->m_originatingLine) || (*it)->m_originatingLine->renderer() == this);
+            (*it)->m_originatingLine = 0;
+        }
+    }
     m_lineBoxes.deleteLineBoxTree(renderArena());
 }
 
@@ -1547,16 +1549,22 @@ bool RenderBlock::handleRunInChild(RenderBox* child)
     if (!child->isRenderBlock())
         return false;
 
-    // Get the next non-positioned/non-floating RenderBlock.
     RenderBlock* blockRunIn = toRenderBlock(child);
     RenderObject* curr = blockRunIn->nextSibling();
-    while (curr && curr->isFloatingOrPositioned())
-        curr = curr->nextSibling();
-
-    if (!curr || !curr->isRenderBlock() || !curr->childrenInline() || curr->isRunIn() || curr->isAnonymous())
+    if (!curr || !curr->isRenderBlock() || !curr->childrenInline() || curr->isRunIn() || curr->isAnonymous() || curr->isFloatingOrPositioned())
         return false;
 
     RenderBlock* currBlock = toRenderBlock(curr);
+
+    // First we destroy any :before/:after content. It will be regenerated by the new inline.
+    // Exception is if the run-in itself is generated.
+    if (child->style()->styleType() != BEFORE && child->style()->styleType() != AFTER) {
+        RenderObject* generatedContent;
+        if (child->getCachedPseudoStyle(BEFORE) && (generatedContent = child->beforePseudoElementRenderer()))
+            generatedContent->destroy();
+        if (child->getCachedPseudoStyle(AFTER) && (generatedContent = child->afterPseudoElementRenderer()))
+            generatedContent->destroy();
+    }
 
     // Remove the old child.
     children()->removeChildNode(this, blockRunIn);
@@ -1566,16 +1574,11 @@ bool RenderBlock::handleRunInChild(RenderBox* child)
     RenderInline* inlineRunIn = new (renderArena()) RenderInline(runInNode ? runInNode : document());
     inlineRunIn->setStyle(blockRunIn->style());
 
-    bool runInIsGenerated = child->style()->styleType() == BEFORE || child->style()->styleType() == AFTER;
-
-    // Move the nodes from the old child to the new child, but skip any :before/:after content.  It has already
-    // been regenerated by the new inline.
+    // Move the nodes from the old child to the new child
     for (RenderObject* runInChild = blockRunIn->firstChild(); runInChild;) {
         RenderObject* nextSibling = runInChild->nextSibling();
-        if (runInIsGenerated || (runInChild->style()->styleType() != BEFORE && runInChild->style()->styleType() != AFTER)) {
-            blockRunIn->children()->removeChildNode(blockRunIn, runInChild, false);
-            inlineRunIn->addChild(runInChild); // Use addChild instead of appendChildNode since it handles correct placement of the children relative to :after-generated content.
-        }
+        blockRunIn->children()->removeChildNode(blockRunIn, runInChild, false);
+        inlineRunIn->addChild(runInChild); // Use addChild instead of appendChildNode since it handles correct placement of the children relative to :after-generated content.
         runInChild = nextSibling;
     }
 
@@ -3212,8 +3215,10 @@ void RenderBlock::removeFloatingObject(RenderBox* o)
                     logicalBottom = max(logicalBottom, logicalTop + 1);
                 }
                 if (r->m_originatingLine) {
-                    ASSERT(r->m_originatingLine->renderer() == this);
-                    r->m_originatingLine->markDirty();
+                    if (!selfNeedsLayout()) {
+                        ASSERT(r->m_originatingLine->renderer() == this);
+                        r->m_originatingLine->markDirty();
+                    }
 #if !ASSERT_DISABLED
                     r->m_originatingLine = 0;
 #endif
@@ -3676,7 +3681,7 @@ void RenderBlock::clearFloats()
                     }
 
                     floatMap.remove(f->m_renderer);
-                    if (oldFloatingObject->m_originatingLine) {
+                    if (oldFloatingObject->m_originatingLine && !selfNeedsLayout()) {
                         ASSERT(oldFloatingObject->m_originatingLine->renderer() == this);
                         oldFloatingObject->m_originatingLine->markDirty();
                     }
@@ -5360,20 +5365,27 @@ void RenderBlock::updateFirstLetter()
 
     // Drill into inlines looking for our first text child.
     RenderObject* currChild = firstLetterBlock->firstChild();
-    while (currChild && ((!currChild->isReplaced() && !currChild->isRenderButton() && !currChild->isMenuList()) || currChild->isFloatingOrPositioned()) && !currChild->isText()) {
-        if (currChild->isFloatingOrPositioned()) {
+    while (currChild) {
+        if (currChild->isText())
+            break;
+        if (currChild->isListMarker())
+            currChild = currChild->nextSibling();
+        else if (currChild->isFloatingOrPositioned()) {
             if (currChild->style()->styleType() == FIRST_LETTER) {
                 currChild = currChild->firstChild();
                 break;
-            } 
+            }
             currChild = currChild->nextSibling();
-        } else
+        } else if (currChild->isReplaced() || currChild->isRenderButton() || currChild->isMenuList())
+            break;
+        else if (currChild->style()->hasPseudoStyle(FIRST_LETTER) && currChild->canHaveChildren())  {
+            // We found a lower-level node with first-letter, which supersedes the higher-level style
+            firstLetterBlock = currChild;
+            currChild = currChild->firstChild();
+        }
+        else
             currChild = currChild->firstChild();
     }
-
-    // Get list markers out of the way.
-    while (currChild && currChild->isListMarker())
-        currChild = currChild->nextSibling();
 
     if (!currChild)
         return;
@@ -5384,6 +5396,7 @@ void RenderBlock::updateFirstLetter()
         RenderObject* firstLetter = currChild->parent();
         RenderObject* firstLetterContainer = firstLetter->parent();
         RenderStyle* pseudoStyle = styleForFirstLetter(firstLetterBlock, firstLetterContainer);
+        ASSERT(firstLetter->isFloating() || firstLetter->isInline());
 
         if (Node::diff(firstLetter->style(), pseudoStyle) == Node::Detach) {
             // The first-letter renderer needs to be replaced. Create a new renderer of the right type.
@@ -5413,8 +5426,28 @@ void RenderBlock::updateFirstLetter()
                 }
                 next = next->nextSibling();
             }
+            if (!remainingText && firstLetterContainer->isAnonymousBlock()) {
+                // The remaining text fragment could have been wrapped in a different anonymous block since creation
+                RenderObject* nextChild;
+                next = firstLetterContainer->nextSibling();
+                while (next && !remainingText) {
+                    if (next->isAnonymousBlock()) {
+                        nextChild = next->firstChild();
+                        while (nextChild) {
+                            if (nextChild->isText() && toRenderText(nextChild)->isTextFragment()
+                                && (toRenderTextFragment(nextChild)->firstLetter() == firstLetter)) {
+                                remainingText = toRenderTextFragment(nextChild);
+                                break;
+                            }
+                            nextChild = nextChild->nextSibling();
+                        }
+                    } else
+                        break;
+                    next = next->nextSibling();
+                }
+            }
             if (remainingText) {
-                ASSERT(remainingText->node()->renderer() == remainingText);
+                ASSERT(remainingText->isAnonymous() || remainingText->node()->renderer() == remainingText);
                 // Replace the old renderer with the new one.
                 remainingText->setFirstLetter(newFirstLetter);
             }
@@ -5648,6 +5681,8 @@ void RenderBlock::borderFitAdjust(IntRect& rect) const
     int oldWidth = rect.width();
     adjustForBorderFit(0, left, right);
     if (left != INT_MAX) {
+        left = min(left, oldWidth - (borderRight() + paddingRight()));
+
         left -= (borderLeft() + paddingLeft());
         if (left > 0) {
             rect.move(left, 0);
@@ -5655,6 +5690,8 @@ void RenderBlock::borderFitAdjust(IntRect& rect) const
         }
     }
     if (right != INT_MIN) {
+        right = max(right, borderLeft() + paddingLeft());
+
         right += (borderRight() + paddingRight());
         if (right < oldWidth)
             rect.expand(-(oldWidth - right), 0);
@@ -5668,11 +5705,12 @@ void RenderBlock::clearTruncation()
             setHasMarkupTruncation(false);
             for (RootInlineBox* box = firstRootBox(); box; box = box->nextRootBox())
                 box->clearTruncation();
-        }
-        else
-            for (RenderObject* obj = firstChild(); obj; obj = obj->nextSibling())
+        } else {
+            for (RenderObject* obj = firstChild(); obj; obj = obj->nextSibling()) {
                 if (shouldCheckLines(obj))
                     toRenderBlock(obj)->clearTruncation();
+            }
+        }
     }
 }
 

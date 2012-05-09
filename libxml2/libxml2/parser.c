@@ -1680,15 +1680,14 @@ namePush(xmlParserCtxtPtr ctxt, const xmlChar * value)
 
     if (ctxt->nameNr >= ctxt->nameMax) {
         const xmlChar * *tmp;
-        ctxt->nameMax *= 2;
         tmp = (const xmlChar * *) xmlRealloc((xmlChar * *)ctxt->nameTab,
-                                    ctxt->nameMax *
+                                    ctxt->nameMax * 2 *
                                     sizeof(ctxt->nameTab[0]));
         if (tmp == NULL) {
-	    ctxt->nameMax /= 2;
 	    goto mem_error;
         }
 	ctxt->nameTab = tmp;
+        ctxt->nameMax *= 2;
     }
     ctxt->nameTab[ctxt->nameNr] = value;
     ctxt->name = value;
@@ -2570,7 +2569,7 @@ xmlStringLenDecodeEntities(xmlParserCtxtPtr ctxt, const xmlChar *str, int len,
 
 		buffer[nbchars++] = '&';
 		if (nbchars > buffer_size - i - XML_PARSER_BUFFER_SIZE) {
-		    growBuffer(buffer, XML_PARSER_BUFFER_SIZE);
+		    growBuffer(buffer, i + XML_PARSER_BUFFER_SIZE);
 		}
 		for (;i > 0;i--)
 		    buffer[nbchars++] = *cur++;
@@ -4790,7 +4789,8 @@ xmlParsePI(xmlParserCtxtPtr ctxt) {
 		    (ctxt->sax->processingInstruction != NULL))
 		    ctxt->sax->processingInstruction(ctxt->userData,
 		                                     target, NULL);
-		ctxt->instate = state;
+		if (ctxt->instate != XML_PARSER_EOF)
+		    ctxt->instate = state;
 		return;
 	    }
 	    buf = (xmlChar *) xmlMallocAtomic(size * sizeof(xmlChar));
@@ -4870,7 +4870,8 @@ xmlParsePI(xmlParserCtxtPtr ctxt) {
 	} else {
 	    xmlFatalErr(ctxt, XML_ERR_PI_NOT_STARTED, NULL);
 	}
-	ctxt->instate = state;
+	if (ctxt->instate != XML_PARSER_EOF)
+	    ctxt->instate = state;
     }
 }
 
@@ -9404,6 +9405,8 @@ xmlParseElement(xmlParserCtxtPtr ctxt) {
     else
 	name = xmlParseStartTag(ctxt);
 #endif /* LIBXML_SAX1_ENABLED */
+    if (ctxt->instate == XML_PARSER_EOF)
+	return;
     if (name == NULL) {
 	spacePop(ctxt);
         return;
@@ -10772,6 +10775,8 @@ xmlParseTryOrFinish(xmlParserCtxtPtr ctxt, int terminate) {
 		else
 		    name = xmlParseStartTag(ctxt);
 #endif /* LIBXML_SAX1_ENABLED */
+		if (ctxt->instate == XML_PARSER_EOF)
+		    goto done;
 		if (name == NULL) {
 		    spacePop(ctxt);
 		    ctxt->instate = XML_PARSER_EOF;
@@ -10958,7 +10963,9 @@ xmlParseTryOrFinish(xmlParserCtxtPtr ctxt, int terminate) {
 		  else
 		    xmlParseEndTag1(ctxt, 0);
 #endif /* LIBXML_SAX1_ENABLED */
-		if (ctxt->nameNr == 0) {
+		if (ctxt->instate == XML_PARSER_EOF) {
+		    /* Nothing */
+		} else if (ctxt->nameNr == 0) {
 		    ctxt->instate = XML_PARSER_EPILOG;
 		} else {
 		    ctxt->instate = XML_PARSER_CONTENT;

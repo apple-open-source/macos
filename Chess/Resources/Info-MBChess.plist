@@ -12,7 +12,7 @@
 				<string>game</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
-			<string>chess.icns</string>
+			<string>Game.icns</string>
 			<key>CFBundleTypeName</key>
 			<string>game</string>
 			<key>CFBundleTypeOSTypes</key>
@@ -46,7 +46,7 @@
 				<string>pgn</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
-			<string>chess.icns</string>
+			<string>Moves.icns</string>
 			<key>CFBundleTypeName</key>
 			<string>moves</string>
 			<key>CFBundleTypeOSTypes</key>
@@ -66,13 +66,13 @@
 	<key>CFBundleExecutable</key>
 	<string>Chess</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.4.5, Copyright 2003-2011 Apple Inc.</string>
+	<string>2.4.6, Copyright 2003-2012 Apple Inc.</string>
 	<key>CFBundleHelpBookFolder</key>
 	<string>Chess.help</string>
 	<key>CFBundleHelpBookName</key>
 	<string>com.apple.Chess.help</string>
 	<key>CFBundleIconFile</key>
-	<string>chess.icns</string>
+	<string>Chess.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.Chess</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -82,13 +82,13 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.4.5</string>
+	<string>2.4.6</string>
 	<key>CFBundleSignature</key>
 	<string>mbch</string>
 	<key>CFBundleVersion</key>
-	<string>2.4.5</string>
+	<string>2.4.6</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright 2003-2011 Apple Inc.</string>
+	<string>Copyright 2003-2012 Apple Inc.</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.board-games</string>
 	<key>LSMinimumSystemVersion</key>

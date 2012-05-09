@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.c 12496 2007-06-08 15:02:04Z technorama $
+ * $Id: ossl.c 28367 2010-06-21 09:18:59Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -92,7 +92,7 @@ ossl_x509_ary2sk(VALUE ary)
 
 #define OSSL_IMPL_SK2ARY(name, type)	        \
 VALUE						\
-ossl_##name##_sk2ary(STACK *sk)			\
+ossl_##name##_sk2ary(STACK_OF(type) *sk)	\
 {						\
     type *t;					\
     int i, num;					\
@@ -102,7 +102,7 @@ ossl_##name##_sk2ary(STACK *sk)			\
 	OSSL_Debug("empty sk!");		\
 	return Qnil;				\
     }						\
-    num = sk_num(sk);				\
+    num = sk_##type##_num(sk);			\
     if (num < 0) {				\
 	OSSL_Debug("items in sk < -1???");	\
 	return rb_ary_new();			\
@@ -110,7 +110,7 @@ ossl_##name##_sk2ary(STACK *sk)			\
     ary = rb_ary_new2(num);			\
 						\
     for (i=0; i<num; i++) {			\
-	t = (type *)sk_value(sk, i);		\
+	t = sk_##type##_value(sk, i);		\
 	rb_ary_push(ary, ossl_##name##_new(t));	\
     }						\
     return ary;					\
@@ -272,10 +272,9 @@ ossl_to_der_if_possible(VALUE obj)
 /*
  * Errors
  */
-void
-ossl_raise(VALUE exc, const char *fmt, ...)
+static VALUE
+ossl_make_error(VALUE exc, const char *fmt, va_list args)
 {
-    va_list args;
     char buf[BUFSIZ];
     const char *msg;
     long e;
@@ -287,17 +286,14 @@ ossl_raise(VALUE exc, const char *fmt, ...)
     e = ERR_peek_error();
 #endif
     if (fmt) {
-	va_start(args, fmt);
 	len = vsnprintf(buf, BUFSIZ, fmt, args);
-	va_end(args);
     }
     if (len < BUFSIZ && e) {
 	if (dOSSL == Qtrue) /* FULL INFO */
 	    msg = ERR_error_string(e, NULL);
 	else
 	    msg = ERR_reason_error_string(e);
-	fmt = len ? ": %s" : "%s";
-	len += snprintf(buf+len, BUFSIZ-len, fmt, msg);
+	len += snprintf(buf+len, BUFSIZ-len, "%s%s", (len ? ": " : ""), msg);
     }
     if (dOSSL == Qtrue){ /* show all errors on the stack */
 	while ((e = ERR_get_error()) != 0){
@@ -307,7 +303,29 @@ ossl_raise(VALUE exc, const char *fmt, ...)
     ERR_clear_error();
 
     if(len > BUFSIZ) len = strlen(buf);
-    rb_exc_raise(rb_exc_new(exc, buf, len));
+    return rb_exc_new(exc, buf, len);
+}
+
+void
+ossl_raise(VALUE exc, const char *fmt, ...)
+{
+    va_list args;
+    VALUE err;
+    va_start(args, fmt);
+    err = ossl_make_error(exc, fmt, args);
+    va_end(args);
+    rb_exc_raise(err);
+}
+
+VALUE
+ossl_exc_new(VALUE exc, const char *fmt, ...)
+{
+    va_list args;
+    VALUE err;
+    va_start(args, fmt);
+    err = ossl_make_error(exc, fmt, args);
+    va_end(args);
+    return err;
 }
 
 /*

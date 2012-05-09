@@ -118,6 +118,7 @@ private:
 
 	bool				policySpecified(CFArrayRef policies, const CSSM_OID &inOid);
 	bool				revocationPolicySpecified(CFArrayRef policies);
+	void				orderRevocationPolicies(CFMutableArrayRef policies);
 	CFMutableArrayRef	forceRevocationPolicies(uint32 &numAdded, 
 							Allocator &alloc,
 							bool requirePerCert=false);

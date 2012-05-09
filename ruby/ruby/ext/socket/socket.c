@@ -3,7 +3,7 @@
   socket.c -
 
   $Author: shyouhei $
-  $Date: 2009-01-27 15:18:04 +0900 (Tue, 27 Jan 2009) $
+  $Date: 2011-05-21 07:25:41 +0900 (Sat, 21 May 2011) $
   created at: Thu Mar 31 12:21:29 JST 1994
 
   Copyright (C) 1993-2001 Yukihiro Matsumoto
@@ -3218,6 +3218,10 @@ make_addrinfo(res0)
     }
     base = rb_ary_new();
     for (res = res0; res; res = res->ai_next) {
+#if defined(AF_INET6) && !defined(INET6)	/* workaround for Windows */
+	if (res->ai_addr->sa_family == AF_INET6)
+	    continue;
+#endif
 	ary = ipaddr(res->ai_addr);
 	rb_ary_push(ary, INT2FIX(res->ai_family));
 	rb_ary_push(ary, INT2FIX(res->ai_socktype));

@@ -27,7 +27,11 @@
 #include <stdint.h>
 
 #include <sys/kdebug.h>
+
+#if KERNEL
 #include <IOKit/IOTimeStamp.h>
+#endif
+
 #include <IOKit/scsi/IOSCSIArchitectureModelFamilyTimestamps.h>
 
 #ifdef __cplusplus
@@ -36,7 +40,8 @@ extern "C" {
 
 extern UInt32		gUSBDebugFlags;
 
-
+#if KERNEL
+    
 //--------------------------------------------------------------------------------------------------
 //	RecordUSBTimeStamp											       						[STATIC]
 //--------------------------------------------------------------------------------------------------
@@ -55,6 +60,8 @@ RecordUSBTimeStamp (
 	
 }
 
+#endif 
+    
 #define USBMASS_SYSCTL	"debug.USBMassStorageClass"
 
 typedef struct USBSysctlArgs

@@ -459,8 +459,8 @@ RuleImpl::evaluateAuthentication(const AuthItemRef &inRight, const Rule &inRule,
 
 	Credential hintCredential;
 	if (errAuthorizationSuccess == evaluateSessionOwner(inRight, inRule, environmentToClient, now, auth, hintCredential, reason)) {
-		if (hintCredential->username().length())
-			environmentToClient.insert(AuthItemRef(AGENT_HINT_SUGGESTED_USER, AuthValueOverlay(hintCredential->username())));
+		if (hintCredential->name().length())
+			environmentToClient.insert(AuthItemRef(AGENT_HINT_SUGGESTED_USER, AuthValueOverlay(hintCredential->name())));
 		if (hintCredential->realname().length())
 			environmentToClient.insert(AuthItemRef(AGENT_HINT_SUGGESTED_USER_LONG, AuthValueOverlay(hintCredential->realname())));
 	}
@@ -548,12 +548,12 @@ RuleImpl::evaluateAuthentication(const AuthItemRef &inRight, const Rule &inRule,
 
                     // @@@ we log the uid a process was running under when it created the authref, which is misleading in the case of loginwindow
                     if (newCredential->isValid()) {
-                        Syslog::info("UID %u authenticated as user %s (UID %u) for right '%s'", auth.creatorUid(), newCredential->username().c_str(), newCredential->uid(), rightName);
-                        rightAuthLogger.logSuccess(auth.creatorUid(), newCredential->uid(), newCredential->username().c_str());
+                        Syslog::info("UID %u authenticated as user %s (UID %u) for right '%s'", auth.creatorUid(), newCredential->name().c_str(), newCredential->uid(), rightName);
+                        rightAuthLogger.logSuccess(auth.creatorUid(), newCredential->uid(), newCredential->name().c_str());
                     } else {
                         // we can't be sure that the user actually exists so inhibit logging of uid
-                        Syslog::error("UID %u failed to authenticate as user '%s' for right '%s'", auth.creatorUid(), newCredential->username().c_str(), rightName);
-                        rightAuthLogger.logFailure(auth.creatorUid(), newCredential->username().c_str());
+                        Syslog::error("UID %u failed to authenticate as user '%s' for right '%s'", auth.creatorUid(), newCredential->name().c_str(), rightName);
+                        rightAuthLogger.logFailure(auth.creatorUid(), newCredential->name().c_str());
                     }
                     
                     if (!newCredential->isValid())
@@ -568,22 +568,22 @@ RuleImpl::evaluateAuthentication(const AuthItemRef &inRight, const Rule &inRule,
                     if (status == errAuthorizationSuccess)
                     {
                         if (auth.operatesAsLeastPrivileged()) {
-                            Credential rightCredential(rightName, newCredential->uid(), mShared);
+                            Credential rightCredential(rightName, mShared);
                             credentials.erase(rightCredential); credentials.insert(rightCredential);
                             if (mShared)
-                                credentials.insert(Credential(rightName, newCredential->uid(), false));
-                        } else {
-                            // whack an equivalent credential, so it gets updated to a later achieved credential which must have been more stringent
-                            credentials.erase(newCredential); credentials.insert(newCredential);
-                           // just got a new credential - if it's shared also add a non-shared one that to stick in the authorizationref local cache
-                           if (mShared)
-                               credentials.insert(Credential(newCredential->uid(), newCredential->username(), newCredential->realname(), newCredential->groupname(), false));
-                        }
+                                credentials.insert(Credential(rightName, false));
+                        } 
+
+                        // whack an equivalent credential, so it gets updated to a later achieved credential which must have been more stringent
+                        credentials.erase(newCredential); credentials.insert(newCredential);
+                        // just got a new credential - if it's shared also add a non-shared one that to stick in the authorizationref local cache
+                        if (mShared)
+                            credentials.insert(Credential(newCredential->uid(), newCredential->name(), newCredential->realname(), false));
                         
                         // use valid credential to set context info
                         // XXX/cs keeping this for now, such that the uid is passed back
                         auth.setCredentialInfo(newCredential, savePassword);
-                        secdebug("SSevalMech", "added valid credential for user %s", newCredential->username().c_str());
+                        secdebug("SSevalMech", "added valid credential for user %s", newCredential->name().c_str());
 						// set the sessionHasAuthenticated
 						if (newCredential->uid() == auth.session().originatorUid()) {
 							secdebug("AuthEvalMech", "We authenticated as the session owner.\n");
@@ -656,7 +656,7 @@ RuleImpl::makeCredentials(const AuthorizationToken &auth) const
 		if (username.length() && uid)
 		{
 			// credential is valid because mechanism says so
-			newCredentials.insert(Credential(*uid, username, "", "", mShared));
+			newCredentials.insert(Credential(*uid, username, "", mShared));
 		}
 	} while(0);
 
@@ -682,7 +682,7 @@ RuleImpl::evaluateSessionOwner(const AuthItemRef &inRight, const Rule &inRule, c
 			// Check if username will authorize the request and set username to
 			// be used as a hint to the user if so
 			secdebug("AuthEvalMech", "preflight credential from current user, result follows:");
-			sessionCredential = Credential(pw->pw_uid, pw->pw_name, pw->pw_gecos, "", mShared/*ignored*/);
+			sessionCredential = Credential(pw->pw_uid, pw->pw_name, pw->pw_gecos, mShared/*ignored*/);
 		} //fi
 		endpwent();
 	}
@@ -698,13 +698,21 @@ OSStatus
 RuleImpl::evaluateCredentialForRight(const AuthorizationToken &auth, const AuthItemRef &inRight, const Rule &inRule, const AuthItemSet &environment, CFAbsoluteTime now, const Credential &credential, bool ignoreShared, SecurityAgent::Reason &reason) const
 {
 	if (auth.operatesAsLeastPrivileged()) {
-		if (credential->isRight() && credential->isValid() && (inRight->name() == credential->rightname()))
-			return errAuthorizationSuccess;
-		else
+        if (credential->isRight() && credential->isValid() && (inRight->name() == credential->name())) 
         {
+            if (!ignoreShared && !mShared && credential->isShared())
+            {
+                // @@@  no proper SA::Reason
+                reason = SecurityAgent::unknownReason;
+                secdebug("autheval", "shared credential cannot be used, denying right %s", inRight->name());
+                return errAuthorizationDenied;
+            } else {
+                return errAuthorizationSuccess;
+            }
+        } else {
             // @@@  no proper SA::Reason
             reason = SecurityAgent::unknownReason;
-			return errAuthorizationDenied;
+            return errAuthorizationDenied;
         }
 	} else
 		return evaluateUserCredentialForRight(auth, inRight, inRule, environment, now, credential, false, reason);
@@ -723,7 +731,7 @@ RuleImpl::evaluateUserCredentialForRight(const AuthorizationToken &auth, const A
     // everywhere, from RuleImpl::evaluate() on down.  
 
 	// Get the username from the credential
-	const char *user = credential->username().c_str();
+	const char *user = credential->name().c_str();
 
 	// If the credential is not valid or its age is more than the allowed maximum age
 	// for a credential, deny.
@@ -810,7 +818,6 @@ RuleImpl::evaluateUserCredentialForRight(const AuthorizationToken &auth, const A
 				
 			if (is_member)
 			{
-                credential->setGroupname(mGroupName);
 				secdebug("autheval", "user %s is a member of group %s, granting right %s",
 					user, groupname, inRight->name());
 				return errAuthorizationSuccess;
@@ -873,10 +880,10 @@ RuleImpl::evaluateUser(const AuthItemRef &inRight, const Rule &inRule, AuthItemS
 		{
 			OSStatus status = evaluateUserCredentialForRight(auth, inRight, inRule, environmentToClient, now, *it, false, reason);
 			if (errAuthorizationSuccess == status) {
-				Credential rightCredential(inRight->name(), (*it)->uid(), mShared);
+				Credential rightCredential(inRight->name(), mShared);
 				credentials.erase(rightCredential); credentials.insert(rightCredential);
 				if (mShared)
-					credentials.insert(Credential(inRight->name(), (*it)->uid(), false));
+					credentials.insert(Credential(inRight->name(), false));
 				return status;
 			}
 		}
@@ -973,6 +980,10 @@ RuleImpl::evaluateMechanismOnly(const AuthItemRef &inRight, const Rule &inRule, 
                     // (try to) attach the authorizing UID to the least-priv cred
 					if (auth.operatesAsLeastPrivileged())
                     {
+                        outCredentials.insert(Credential(rightName, mShared));
+                        if (mShared) 
+                            outCredentials.insert(Credential(rightName, false));
+                        
                         RightAuthenticationLogger logger(auth.creatorAuditToken(), AUE_ssauthint);
                         logger.setRight(rightName);
 
@@ -982,26 +993,23 @@ RuleImpl::evaluateMechanismOnly(const AuthItemRef &inRight, const Rule &inRule, 
                             uid_t authorizedUid;
                             memcpy(&authorizedUid, uidItem->value().data, sizeof(authorizedUid));
                             secdebug("AuthEvalMech", "generating least-privilege cred for '%s' authorized by UID %u", inRight->name(), authorizedUid);
-                            outCredentials.insert(Credential(rightName, authorizedUid, mShared));
                             logger.logLeastPrivilege(authorizedUid, true);
                         }
                         else    // cltUid is better than nothing
                         {
                             secdebug("AuthEvalMech", "generating least-privilege cred for '%s' with process- or auth-UID %u", inRight->name(), cltUid);
-                            outCredentials.insert(Credential(rightName, cltUid, mShared));
                             logger.logLeastPrivilege(cltUid, false);
                         }
                     }
-					else {
-						if (0 == strcmp(rightName, "system.login.console") && NULL == eval.context().find(AGENT_CONTEXT_AUTO_LOGIN)) {
-							secdebug("AuthEvalMech", "We logged in as the session owner.\n");
-							SessionAttributeBits flags = auth.session().attributes();
-							flags |= AU_SESSION_FLAG_HAS_AUTHENTICATED;
-							auth.session().setAttributes(flags);							
-						}
-						CredentialSet newCredentials = makeCredentials(auth);
-						outCredentials.insert(newCredentials.begin(), newCredentials.end());
-					}
+
+                    if (0 == strcmp(rightName, "system.login.console") && NULL == eval.context().find(AGENT_CONTEXT_AUTO_LOGIN)) {
+                        secdebug("AuthEvalMech", "We logged in as the session owner.\n");
+                        SessionAttributeBits flags = auth.session().attributes();
+                        flags |= AU_SESSION_FLAG_HAS_AUTHENTICATED;
+                        auth.session().setAttributes(flags);							
+                    }
+                    CredentialSet newCredentials = makeCredentials(auth);
+                    outCredentials.insert(newCredentials.begin(), newCredentials.end());
 				}
 			}
 

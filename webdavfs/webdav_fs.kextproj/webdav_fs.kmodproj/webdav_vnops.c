@@ -4353,6 +4353,56 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 			}
 			webdav_unlock(pt);
 		break;
+			
+		case WEBDAV_SHOW_COOKIES:	/* dump cookie list */
+		{
+			struct webdavmount *fmp;
+			struct webdav_request_cookies request_cookies;
+			int server_error;
+			
+			/* Note: Since this command is coming through fsctl(), vnode_get has been called on the vnode */
+			
+			/* set up the rest of the parameters needed to send a message */ 
+			fmp = VFSTOWEBDAV(vnode_mount(vp));
+			server_error = 0;
+			
+			webdav_copy_creds(ap->a_context, &request_cookies.pcr);
+			
+			error = webdav_sendmsg(WEBDAV_DUMP_COOKIES, fmp,
+								   &request_cookies, sizeof(struct webdav_request_cookies), 
+								   NULL, 0, 
+								   &server_error, NULL, 0);
+			if ( (error == 0) && (server_error != 0) )
+			{
+				error = server_error;
+			}
+		}
+		break;
+			
+		case WEBDAV_RESET_COOKIES:	/* reset cookie list */
+		{
+			struct webdavmount *fmp;
+			struct webdav_request_cookies request_cookies;
+			int server_error;
+			
+			/* Note: Since this command is coming through fsctl(), vnode_get has been called on the vnode */
+			
+			/* set up the rest of the parameters needed to send a message */ 
+			fmp = VFSTOWEBDAV(vnode_mount(vp));
+			server_error = 0;
+			
+			webdav_copy_creds(ap->a_context, &request_cookies.pcr);
+			
+			error = webdav_sendmsg(WEBDAV_CLEAR_COOKIES, fmp,
+								   &request_cookies, sizeof(struct webdav_request_cookies), 
+								   NULL, 0, 
+								   &server_error, NULL, 0);
+			if ( (error == 0) && (server_error != 0) )
+			{
+				error = server_error;
+			}
+		}
+		break;
 	
 		default:
 

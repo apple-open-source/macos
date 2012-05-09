@@ -40,6 +40,7 @@ typedef struct CGImage *CGImageRef;
 typedef struct CGColor *CGColorRef;
 typedef struct CGFont *CGFontRef;
 typedef struct CGColorSpace *CGColorSpaceRef;
+typedef struct CGPattern *CGPatternRef;
 typedef unsigned short CGGlyph;
 typedef struct __CFReadStream * CFReadStreamRef;
 typedef struct __CFRunLoop * CFRunLoopRef;
@@ -119,6 +120,12 @@ extern "C" {
 
 extern void (*wkAdvanceDefaultButtonPulseAnimation)(NSButtonCell *);
 extern BOOL (*wkCGContextGetShouldSmoothFonts)(CGContextRef);
+typedef enum {
+    wkPatternTilingNoDistortion,
+    wkPatternTilingConstantSpacingMinimalDistortion,
+    wkPatternTilingConstantSpacing
+} wkPatternTiling;
+extern CGPatternRef (*wkCGPatternCreateWithImageAndTransform)(CGImageRef, CGAffineTransform, int);
 extern CFReadStreamRef (*wkCreateCustomCFReadStream)(void *(*formCreate)(CFReadStreamRef, void *), 
     void (*formFinalize)(CFReadStreamRef, void *), 
     Boolean (*formOpen)(CFReadStreamRef, CFStreamError *, Boolean *, void *), 
@@ -242,7 +249,11 @@ extern CFTypeRef (*wkCreateAXTextMarker)(const void *bytes, size_t len);
 extern BOOL (*wkGetBytesFromAXTextMarker)(CFTypeRef textMarker, void *bytes, size_t length);
 extern AXUIElementRef (*wkCreateAXUIElementRef)(id element);
 
+#if defined(BUILDING_ON_SNOW_LEOPARD) || defined(BUILDING_ON_LEOPARD)
+typedef struct __CFURLStorageSession* CFURLStorageSessionRef;
+#else
 typedef const struct __CFURLStorageSession* CFURLStorageSessionRef;
+#endif
 extern CFURLStorageSessionRef (*wkCreatePrivateStorageSession)(CFStringRef);
 extern NSURLRequest* (*wkCopyRequestWithStorageSession)(CFURLStorageSessionRef, NSURLRequest*);
 

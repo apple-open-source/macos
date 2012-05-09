@@ -273,7 +273,7 @@ AuthorizationToken::setCredentialInfo(const Credential &inCred, bool savePasswor
     AuthItemRef uidHint("uid", AuthValueOverlay(sizeof(uid), &uid));
     dstInfoSet.insert(uidHint);
  
-    AuthItemRef userHint("username", AuthValueOverlay(inCred->username()), 0);
+    AuthItemRef userHint("username", AuthValueOverlay(inCred->name()), 0);
     dstInfoSet.insert(userHint);
  
 	setInfoSet(dstInfoSet, savePassword);

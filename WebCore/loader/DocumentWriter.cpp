@@ -64,10 +64,10 @@ DocumentWriter::DocumentWriter(Frame* frame)
 // This is only called by ScriptController::executeIfJavaScriptURL
 // and always contains the result of evaluating a javascript: url.
 // This is the <iframe src="javascript:'html'"> case.
-void DocumentWriter::replaceDocument(const String& source)
+void DocumentWriter::replaceDocument(const String& source, Document* ownerDocument)
 {
     m_frame->loader()->stopAllLoaders();
-    begin(m_frame->document()->url(), true, m_frame->document()->securityOrigin());
+    begin(m_frame->document()->url(), true, ownerDocument);
 
     if (!source.isNull()) {
         if (!m_receivedData) {
@@ -106,11 +106,12 @@ PassRefPtr<Document> DocumentWriter::createDocument(const KURL& url)
     return DOMImplementation::createDocument(m_mimeType, m_frame, url, m_frame->inViewSourceMode());
 }
 
-void DocumentWriter::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
+void DocumentWriter::begin(const KURL& urlReference, bool dispatch, Document* ownerDocument)
 {
-    // We need to take a reference to the security origin because |clear|
-    // might destroy the document that owns it.
-    RefPtr<SecurityOrigin> forcedSecurityOrigin = origin;
+    // We grab a local copy of the URL because it's easy for callers to supply
+    // a URL that will be deallocated during the execution of this function.
+    // For example, see <https://bugs.webkit.org/show_bug.cgi?id=66360>.
+    KURL url = urlReference;
 
     // Create a new document before clearing the frame, because it may need to
     // inherit an aliased security context.
@@ -134,8 +135,10 @@ void DocumentWriter::begin(const KURL& url, bool dispatch, SecurityOrigin* origi
 
     if (m_decoder)
         document->setDecoder(m_decoder.get());
-    if (forcedSecurityOrigin)
-        document->setSecurityOrigin(forcedSecurityOrigin.get());
+    if (ownerDocument) {
+        document->setCookieURL(ownerDocument->cookieURL());
+        document->setSecurityOrigin(ownerDocument->securityOrigin());
+    }
 
     m_frame->domWindow()->setURL(document->url());
     m_frame->domWindow()->setSecurityOrigin(document->securityOrigin());
@@ -248,7 +251,11 @@ void DocumentWriter::setDecoder(TextResourceDecoder* decoder)
 
 String DocumentWriter::deprecatedFrameEncoding() const
 {
-    return m_frame->document()->url().isEmpty() ? m_encoding : encoding();
+    Document* document = m_frame->document();
+    if (!document || document->url().isEmpty())
+        return m_encoding;
+
+    return encoding();
 }
 
 void DocumentWriter::setDocumentWasLoadedAsPartOfNavigation()

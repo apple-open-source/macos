@@ -1,3 +1,105 @@
+2011-01-18  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 92291
+
+    2011-08-03  Adam Roben  <aroben@apple.com>
+
+            Windows nightly build fix after r91777
+
+            * Interfaces/IWebPreferences.idl: Moved [set]PictographFontFamily to the end of the
+            interface to maintain binary compatibility with Safari 5.1.
+
+2012-01-17  Mark Rowe  <mrowe@apple.com>
+
+        Merge r101808.
+
+    2011-12-02  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Changes to localStorageDatabasePath don't have any effect on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=73606
+        <rdar://problem/10491296>
+
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged): Propagate local storage path change to m_page's settings.
+
+2011-1-11  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 91777
+
+    2011-07-26  Dan Bernstein  <mitz@apple.com>
+
+            <rdar://problem/9842889> Add a generic pictograph font family
+            https://bugs.webkit.org/show_bug.cgi?id=65197
+
+            Reviewed by Anders Carlsson.
+
+            * Interfaces/IWebPreferences.idl: Added pictographFontFamily() and
+            setPictographFontFamily().
+            * WebPreferenceKeysPrivate.h: Added WebKitPictographFontPreferenceKey.
+            * WebPreferences.cpp:
+            (WebPreferences::initializeDefaultSettings): Initialize the pictograph font
+            preference to "Times New Roman".
+            (WebPreferences::pictographFontFamily): Added this getter.
+            (WebPreferences::setPictographFontFamily): Added this setter.
+            * WebPreferences.h:
+            * WebView.cpp:
+            (WebView::notifyPreferencesChanged): Pass the preference value through to
+            WebCore.
+
+2011-1-6  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 104296
+
+    2012-01-06  Jessie Berlin  <jberlin@apple.com>
+
+            Windows build fix.
+
+            * Interfaces/IWebViewPrivate.idl:
+
+2011-1-5  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 103479
+
+    2011-12-21  Jessie Berlin  <jberlin@apple.com>
+
+            Expose to Windows the way to allow a scheme access to Local Storage and Databases while
+            Private Browsing is enabled.
+            https://bugs.webkit.org/show_bug.cgi?id=75056
+
+            Reviewed by Sam Weinig.
+
+            Add the Windows WebKit API that corresponds to the Mac one added in r99439.
+
+            * WebView.cpp:
+            (WebView::registerURLSchemeAsSecure):
+            (WebView::registerURLSchemeAsAllowingLocalStorageAccessInPrivateBrowsing):
+            (WebView::registerURLSchemeAsAllowingDatabaseAccessInPrivateBrowsing):
+            * WebView.h:
+
+2011-12-21  Oliver Hunt  <oliver@apple.com>
+
+    Merged JavaScriptCore and related changes from r99898-r102985
+
+2011-12-20  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 92347
+
+    2011-08-03  Kent Tamura  <tkent@chromium.org>
+
+            Fix incorrect checks for HTMLMediaElement
+            https://bugs.webkit.org/show_bug.cgi?id=65590
+
+            Reviewed by Dimitri Glazkov.
+
+            <video> and <audio> can be an HTMLElement instance instead of
+            HTMLMediaElement if MediaPlayer::isAvailable() returns false or
+            the media feature is disabled at runtime.
+
+            * WebView.cpp:
+            (WebView::enterFullscreenForNode):
+
 2011-12-07  Lucas Forschler  <lforschler@apple.com>
 
     Merge 99493
@@ -80,6 +182,11 @@
             * WebView.h:
             (WebView::backingScaleFactor):
             (WebView::pageScaleFactor):
+
+2011-11-15  Oliver Hunt  <oliver@apple.com>
+
+        Merged JavaScriptCore up to r99898, and took all
+        changes to WebKit required by those changes.
 
 2011-08-11  Lucas Forschler  <lforschler@apple.com>
 

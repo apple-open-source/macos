@@ -35,6 +35,7 @@
 #import <JavaScriptCore/DebuggerCallFrame.h>
 #import <JavaScriptCore/JSGlobalObject.h>
 #import <JavaScriptCore/SourceProvider.h>
+#import <JavaScriptCore/StrongInlines.h>
 #import <WebCore/DOMWindow.h>
 #import <WebCore/Frame.h>
 #import <WebCore/JSDOMWindow.h>
@@ -61,7 +62,7 @@ static NSString *toNSString(SourceProvider* s)
 {
     if (!s->length())
         return nil;
-    return [NSString stringWithCharacters:reinterpret_cast<const unichar*>(s->data()) length:s->length()];
+    return [NSString stringWithCharacters:s->data()->characters() length:s->length()];
 }
 
 // convert UString to NSURL

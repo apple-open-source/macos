@@ -3,84 +3,6 @@
 	Contains:	Implementation of fundamental board and move classes
 	Version:	1.0
 	Copyright:	© 2002-2010 by Apple Computer, Inc., all rights reserved.
-
-	File Ownership:
-
-		DRI:				Matthias Neeracher    x43683
-
-	Writers:
-
-		(MN)	Matthias Neeracher
-
-	Change History (most recent first):
-
-		$Log: MBCBoard.mm,v $
-		Revision 1.22  2010/10/07 23:07:02  neerache
-		<rdar://problem/8352405> [Chess]: Ab-11A250: BIDI: RTL: Incorrect alignement for strings in cells in Came log
-		
-		Revision 1.21  2010/09/16 22:23:40  neerache
-		<rdar://problem/8352405> [Chess]: Ab-11A250: BIDI: RTL: Incorrect alignement for strings in cells in Came log
-		
-		Revision 1.20  2008/08/27 21:37:41  neerache
-		<rdar://problem/6138230> HARDENING: Replace unsafe string functions in Chess (53 found)
-		
-		Revision 1.19  2007/03/03 01:13:16  neerache
-		Fix warnings
-		
-		Revision 1.18  2007/03/02 21:10:58  neerache
-		Move save/load fixes <rdar://problem/4366230>
-		
-		Revision 1.17  2007/03/02 20:31:44  neerache
-		Don't corrupt promotion piece names <rdar://problem/4366230>
-		
-		Revision 1.16  2003/07/14 23:21:49  neerache
-		Move promotion defaults into MBCBoard
-		
-		Revision 1.15  2003/06/30 05:00:11  neerache
-		Add UnknownCastle, new... methods
-		
-		Revision 1.14  2003/06/16 05:28:32  neerache
-		Added move generation facility
-		
-		Revision 1.13  2003/06/02 05:44:48  neerache
-		Implement direct board manipulation
-		
-		Revision 1.12  2003/05/27 03:13:57  neerache
-		Rework game loading/saving code
-		
-		Revision 1.11  2003/05/24 20:25:25  neerache
-		Eliminate compact moves for most purposes
-		
-		Revision 1.10  2003/04/28 22:14:13  neerache
-		Let board, not engine, handle last move
-		
-		Revision 1.9  2003/04/24 23:20:35  neeri
-		Support pawn promotions
-		
-		Revision 1.8  2003/04/10 23:03:16  neeri
-		Load positions
-		
-		Revision 1.7  2003/04/05 05:45:08  neeri
-		Add PGN export
-		
-		Revision 1.6  2003/04/02 18:19:50  neeri
-		Support saving board state
-		
-		Revision 1.5  2003/03/28 01:31:31  neeri
-		Support hints, last move
-		
-		Revision 1.4  2002/09/13 23:57:05  neeri
-		Support for Crazyhouse display and mouse
-		
-		Revision 1.3  2002/09/12 17:46:46  neeri
-		Introduce dual board representation, in-hand pieces
-		
-		Revision 1.2  2002/08/26 23:09:44  neeri
-		[MBCBoard makeMove:] needs to ignore everything except moves and drops
-		
-		Revision 1.1  2002/08/22 23:47:06  neeri
-		Initial Checkin
-		
 */
 #import "MBCBoard.h"
 #import "MBCEngineCommands.h"
@@ -815,7 +737,7 @@ NSString * sPieceLetters[] = {
 
 	*p++ = '[';
 	for (MBCPiece piece = White(KING); piece <= Black(PAWN); ++piece) {
-		for (int count = fCurPos.fInHand[piece]; count--; )
+		for (int count = fCurPos.fInHand[piece]; count-- > 0; )
 			*p++ = " KQBNRP "[Piece(piece)];
 		if (piece == 8) {
 			strcpy(p, "] [");

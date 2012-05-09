@@ -3,7 +3,7 @@
   io.c -
 
   $Author: shyouhei $
-  $Date: 2009-11-25 17:45:13 +0900 (Wed, 25 Nov 2009) $
+  $Date: 2011-05-23 13:49:40 +0900 (Mon, 23 May 2011) $
   created at: Fri Oct 15 18:08:59 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -119,6 +119,9 @@ extern void Init_File _((void));
 #  define PIPE_BUF 512 /* is this ok? */
 # endif
 #endif
+
+#define preserving_errno(stmts) \
+	do {int saved_errno = errno; stmts; errno = saved_errno;} while (0)
 
 VALUE rb_cIO;
 VALUE rb_eEOFError;
@@ -488,7 +491,7 @@ io_fwrite(str, fptr)
 	r = write(fileno(f), RSTRING(str)->ptr+offset, l);
         TRAP_END;
 #if BSD_STDIO
-	fseeko(f, lseek(fileno(f), (off_t)0, SEEK_CUR), SEEK_SET);
+	preserving_errno(fseeko(f, lseek(fileno(f), (off_t)0, SEEK_CUR), SEEK_SET));
 #endif
         if (r == n) return len;
         if (0 <= r) {
@@ -2890,13 +2893,16 @@ rb_io_modenum_mode(flags)
 #else
 # define MODE_BINARY(a,b) (a)
 #endif
+    int accmode = flags & O_ACCMODE;
     if (flags & O_APPEND) {
-	if ((flags & O_RDWR) == O_RDWR) {
+	if (accmode == O_WRONLY) {
+            return MODE_BINARY("a", "ab");
+        }
+	if (accmode == O_RDWR) {
 	    return MODE_BINARY("a+", "ab+");
 	}
-	return MODE_BINARY("a", "ab");
     }
-    switch (flags & (O_RDONLY|O_WRONLY|O_RDWR)) {
+    switch (accmode) {
       case O_RDONLY:
 	return MODE_BINARY("r", "rb");
       case O_WRONLY:
@@ -3245,8 +3251,10 @@ retry:
     }
 
   retry:
+    rb_thread_stop_timer();
     switch ((pid = fork())) {
       case 0:			/* child */
+        rb_thread_atfork();
 	if (modef & FMODE_READABLE) {
 	    close(pr[0]);
 	    if (pr[1] != 1) {
@@ -3272,11 +3280,13 @@ retry:
 		    ruby_sourcefile, ruby_sourceline, pname);
 	    _exit(127);
 	}
+	rb_thread_start_timer();
 	rb_io_synchronized(RFILE(orig_stdout)->fptr);
 	rb_io_synchronized(RFILE(orig_stderr)->fptr);
 	return Qnil;
 
       case -1:			/* fork failed */
+	rb_thread_start_timer();
 	if (errno == EAGAIN) {
 	    rb_thread_sleep(1);
 	    goto retry;
@@ -3297,6 +3307,7 @@ retry:
 	break;
 
       default:			/* parent */
+	rb_thread_start_timer();
 	if (pid < 0) rb_sys_fail(pname);
 	else {
 	    VALUE port = io_alloc(rb_cIO);
@@ -5462,6 +5473,18 @@ io_s_read(arg)
     return io_read(arg->argc, &arg->sep, arg->io);
 }
 
+struct seek_arg {
+    VALUE io;
+    VALUE offset;
+    int mode;
+};
+
+static VALUE
+seek_before_read(struct seek_arg *arg)
+{
+    return rb_io_seek(arg->io, arg->offset, arg->mode);
+}
+
 /*
  *  call-seq:
  *     IO.read(name, [length [, offset]] )   => string
@@ -5491,7 +5514,16 @@ rb_io_s_read(argc, argv, io)
     arg.io = rb_io_open(StringValueCStr(fname), "r");
     if (NIL_P(arg.io)) return Qnil;
     if (!NIL_P(offset)) {
-	rb_io_seek(arg.io, offset, SEEK_SET);
+	struct seek_arg sarg;
+	int state = 0;
+	sarg.io = arg.io;
+	sarg.offset = offset;
+	sarg.mode = SEEK_SET;
+	rb_protect((VALUE (*)(VALUE))seek_before_read, (VALUE)&sarg, &state);
+	if (state) {
+	    rb_io_close(arg.io);
+	    rb_jump_tag(state);
+	}
     }
     return rb_ensure(io_s_read, (VALUE)&arg, rb_io_close, arg.io);
 }

@@ -3,7 +3,7 @@
 #
 #   Locale file makefile for CUPS.
 #
-#   Copyright 2007-2011 by Apple Inc.
+#   Copyright 2007-2012 by Apple Inc.
 #   Copyright 1993-2007 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -140,9 +140,9 @@ pot:	checkpo po2strings
 	mv cups.pot.N cups.pot
 	echo Checking cups.pot...
 	./checkpo cups.pot
-	for loc in $(LANGUAGES) ; do \
-		echo Merging changes into cups_$$loc.po... ; \
-		msgmerge -o cups_$$loc.po -s -N --no-location cups_$$loc.po cups.pot ; \
+	for loc in *.po; do \
+		echo Merging changes into cups_$$loc... ; \
+		msgmerge -o $$loc -s -N --no-location $$loc cups.pot ; \
 	done
 	echo Updating cups.strings...
 	./po2strings cups.pot cups.strings

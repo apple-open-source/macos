@@ -2,8 +2,8 @@
 
   inits.c -
 
-  $Author: knu $
-  $Date: 2008-04-09 20:13:04 +0900 (Wed, 09 Apr 2008) $
+  $Author: shyouhei $
+  $Date: 2011-12-28 21:47:15 +0900 (Wed, 28 Dec 2011) $
   created at: Tue Dec 28 16:01:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -38,6 +38,7 @@ void Init_Precision _((void));
 void Init_sym _((void));
 void Init_process _((void));
 void Init_Random _((void));
+void Init_RandomSeed _((void));
 void Init_Range _((void));
 void Init_Regexp _((void));
 void Init_signal _((void));
@@ -46,11 +47,14 @@ void Init_Struct _((void));
 void Init_Time _((void));
 void Init_var_tables _((void));
 void Init_version _((void));
+void Init_st _((void));
 void Init_DTracer _((void));
 
 void
 rb_call_inits()
 {
+    Init_RandomSeed();
+    Init_st();
     Init_sym();
     Init_var_tables();
     Init_Object();

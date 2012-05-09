@@ -3431,7 +3431,7 @@ encrypt_client(cupsd_client_t *con)	/* I - Client to encrypt */
 
   if (SSL_accept(con->http.tls) != 1)
   {
-    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to encrypt connection from %s!",
+    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to encrypt connection from %s.",
                     con->http.hostname);
 
     while ((error = ERR_get_error()) != 0)
@@ -3452,7 +3452,6 @@ encrypt_client(cupsd_client_t *con)	/* I - Client to encrypt */
   int		status;			/* Error code */
   gnutls_certificate_server_credentials *credentials;
 					/* TLS credentials */
-  const char	*priority;		/* Priority string */
 
 
   cupsdLogMessage(CUPSD_LOG_DEBUG2, "encrypt_client(con=%p(%d))", con,
@@ -3493,21 +3492,6 @@ encrypt_client(cupsd_client_t *con)	/* I - Client to encrypt */
 
   gnutls_init(&con->http.tls, GNUTLS_SERVER);
   gnutls_set_default_priority(con->http.tls);
-  status = gnutls_priority_set_direct(con->http.tls,
-                                      "NORMAL:-VERS-TLS-ALL:+VERS-TLS1.0:"
-                                      "+VERS-SSL3.0:%COMPAT", &priority);
-  if (status != GNUTLS_E_SUCCESS)
-  {
-    cupsdLogMessage(CUPSD_LOG_ERROR,
-                    "Unable to encrypt connection from %s - %s (%s)",
-                    con->http.hostname, gnutls_strerror(status), priority);
-
-    gnutls_deinit(con->http.tls);
-    gnutls_certificate_free_credentials(*credentials);
-    con->http.tls = NULL;
-    free(credentials);
-    return (0);
-  }
 
   gnutls_credentials_set(con->http.tls, GNUTLS_CRD_CERTIFICATE, *credentials);
   gnutls_transport_set_ptr(con->http.tls, (gnutls_transport_ptr)HTTP(con));
@@ -4499,7 +4483,21 @@ make_certificate(cupsd_client_t *con)	/* I - Client connection */
     return (0);
   }
 
-  cupsFilePrintf(fp, "%s\nr\n\ny\nb\ns\ny\n%s\n\n\n\n\n%s\ny\n",
+  cupsFilePrintf(fp,
+                 "%s\n"			/* Enter key and certificate label */
+                 "r\n"			/* Generate RSA key pair */
+                 "2048\n"		/* Key size in bits */
+                 "y\n"			/* OK (y = yes) */
+                 "b\n"			/* Usage (b=signing/encryption) */
+                 "s\n"			/* Sign with SHA1 */
+                 "y\n"			/* OK (y = yes) */
+                 "%s\n"			/* Common name */
+                 "\n"			/* Country (default) */
+                 "\n"			/* Organization (default) */
+                 "\n"			/* Organizational unit (default) */
+                 "\n"			/* State/Province (default) */
+                 "%s\n"			/* Email address */
+                 "y\n",			/* OK (y = yes) */
         	 servername, servername, ServerAdmin);
   cupsFileClose(fp);
 

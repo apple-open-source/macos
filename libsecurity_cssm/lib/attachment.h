@@ -104,10 +104,10 @@ private:
 	CSSM_UPCALLS upcalls;				// upcall functions for our module
 
 	// upcall implementors - these are handed to the plugin in `upcalls'
-	static void *upcallMalloc(CSSM_HANDLE handle, uint32 size);
+	static void *upcallMalloc(CSSM_HANDLE handle, size_t size);
 	static void upcallFree(CSSM_HANDLE handle, void *mem);
-	static void *upcallRealloc(CSSM_HANDLE handle, void *mem,uint32 size);
-	static void *upcallCalloc(CSSM_HANDLE handle, uint32 num, uint32 size);
+	static void *upcallRealloc(CSSM_HANDLE handle, void *mem, size_t size);
+	static void *upcallCalloc(CSSM_HANDLE handle, size_t num, size_t size);
 	static CSSM_RETURN upcallCcToHandle(CSSM_CC_HANDLE handle, CSSM_MODULE_HANDLE *modHandle);
 	static CSSM_RETURN upcallGetModuleInfo(CSSM_MODULE_HANDLE Module,
 										CSSM_GUID_PTR Guid,

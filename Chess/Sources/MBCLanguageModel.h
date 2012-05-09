@@ -3,21 +3,6 @@
 	Contains:	Build and interpret speech recognition language model
 	Version:	1.0
 	Copyright:	© 2003 by Apple Computer, Inc., all rights reserved.
-
-	File Ownership:
-
-		DRI:				Matthias Neeracher    x43683
-
-	Writers:
-
-		(MN)	Matthias Neeracher
-
-	Change History (most recent first):
-
-		$Log: MBCLanguageModel.h,v $
-		Revision 1.1  2003/07/14 23:22:50  neerache
-		Move to much smarter speech recognition model
-		
 */
 
 #import "MBCMoveGenerator.h"

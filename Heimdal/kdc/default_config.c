@@ -61,7 +61,7 @@ krb5_kdc_get_config(krb5_context context, krb5_kdc_configuration **config)
     c->enable_524 = FALSE;
     c->enable_v4_cross_realm = FALSE;
     c->enable_pkinit = FALSE;
-    c->pkinit_princ_in_cert = TRUE;
+    c->pkinit_princ_in_cert = FALSE;
     c->pkinit_require_binding = TRUE;
     c->db = NULL;
     c->num_db = 0;

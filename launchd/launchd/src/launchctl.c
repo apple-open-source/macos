@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 25182 $";
+static const char *const __rcs_file_version__ = "$Revision: 25957 $";
 
 #include "config.h"
 #include "launch.h"
@@ -479,6 +479,16 @@ CFPropertyListRef CFPropertyListCreateFromFile(CFURLRef plistURL)
 	return plist;
 }
 
+static void
+sanitize_environment_dot_plist(const launch_data_t val, const char *key, void *ctx)
+{
+	launch_data_t copy = (launch_data_t)ctx;
+	if (strncmp("DYLD_", key, sizeof("DYLD_") - 1) != 0) {
+		launch_data_t copyi = launch_data_copy(val);
+		launch_data_dict_insert(copy, copyi, key);
+	}
+}
+
 #define CFReleaseIfNotNULL(cf) if (cf) CFRelease(cf);
 void
 read_environment_dot_plist(void)
@@ -516,13 +526,22 @@ read_environment_dot_plist(void)
 	if (!assumes(launch_env_dict != NULL)) {
 		goto out;
 	}
+
+	launch_data_t sanitized = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+	if (!assumes(sanitized != NULL)) {
+		goto out;
+	}
+
+	launch_data_dict_iterate(launch_env_dict, sanitize_environment_dot_plist, sanitized);
+	launch_data_free(launch_env_dict);
 	
 	req = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
 	if (!assumes(req != NULL)) {
 		goto out;
 	}
 	
-	launch_data_dict_insert(req, launch_env_dict, LAUNCH_KEY_SETUSERENVIRONMENT);
+	launch_data_dict_insert(req, sanitized, LAUNCH_KEY_SETUSERENVIRONMENT);
+
 	resp = launch_msg(req);
 	if (!assumes(resp != NULL)) {
 		goto out;

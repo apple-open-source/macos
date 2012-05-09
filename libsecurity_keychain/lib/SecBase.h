@@ -274,6 +274,7 @@ enum
     errSecDataNotModifiable      = -25317,	/* The contents of this item cannot be modified. */
     errSecCreateChainFailed      = -25318,	/* One or more certificates required to validate this certificate cannot be found. */
     errSecInvalidPrefsDomain     = -25319,	/* The specified preferences domain is not valid. */
+    errSecInDarkWake		 = -25320,	/* In dark wake, no UI possible */
 	
 	errSecACLNotSimple           = -25240,	/* The specified access control list is not in standard (simple) form. */
 	errSecPolicyNotFound         = -25241,	/* The specified policy cannot be found. */

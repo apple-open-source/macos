@@ -11,7 +11,7 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: extconf.rb 12572 2007-06-18 09:03:15Z technorama $
+  $Id: extconf.rb 32234 2011-06-26 08:58:06Z shyouhei $
 =end
 
 require "mkmf"
@@ -91,13 +91,20 @@ have_func("X509_CRL_add0_revoked")
 have_func("X509_CRL_set_issuer_name")
 have_func("X509_CRL_set_version")
 have_func("X509_CRL_sort")
+have_func("X509_NAME_hash_old")
 have_func("X509_STORE_get_ex_data")
 have_func("X509_STORE_set_ex_data")
 have_func("OBJ_NAME_do_all_sorted")
 have_func("SSL_SESSION_get_id")
 have_func("OPENSSL_cleanse")
-if try_compile("#define FOO(a, ...) foo(a, ##__VA_ARGS__)\n int x(){FOO(1);FOO(1,2);FOO(1,2,3);}\n")
+if try_compile("#define FOO(...) foo(__VA_ARGS__)\n int x(){FOO(1);FOO(1,2);FOO(1,2,3);}\n")
   $defs.push("-DHAVE_VA_ARGS_MACRO")
+end
+have_func("SSLv2_method")
+have_func("SSLv2_server_method")
+have_func("SSLv2_client_method")
+unless have_func("SSL_set_tlsext_host_name", ['openssl/ssl.h'])
+  have_macro("SSL_set_tlsext_host_name", ['openssl/ssl.h']) && $defs.push("-DHAVE_SSL_SET_TLSEXT_HOST_NAME")
 end
 if have_header("openssl/engine.h")
   have_func("ENGINE_add")
@@ -106,6 +113,14 @@ if have_header("openssl/engine.h")
   have_func("ENGINE_get_digest")
   have_func("ENGINE_get_cipher")
   have_func("ENGINE_cleanup")
+  have_func("ENGINE_load_4758cca")
+  have_func("ENGINE_load_aep")
+  have_func("ENGINE_load_atalla")
+  have_func("ENGINE_load_chil")
+  have_func("ENGINE_load_cswift")
+  have_func("ENGINE_load_nuron")
+  have_func("ENGINE_load_sureware")
+  have_func("ENGINE_load_ubsec")
 end
 if try_compile(<<SRC)
 #include <openssl/opensslv.h>

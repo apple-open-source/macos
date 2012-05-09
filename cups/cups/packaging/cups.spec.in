@@ -5,7 +5,7 @@
 #
 #   Original version by Jason McMullan <jmcc@ontv.com>.
 #
-#   Copyright 2007-2011 by Apple Inc.
+#   Copyright 2007-2012 by Apple Inc.
 #   Copyright 1999-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -243,6 +243,10 @@ rm -rf $RPM_BUILD_ROOT
 /usr/share/doc/cups/es/*
 %dir /usr/share/doc/cups/eu
 /usr/share/doc/cups/eu/*
+%dir /usr/share/doc/cups/fr
+/usr/share/doc/cups/fr/*
+%dir /usr/share/doc/cups/hu
+/usr/share/doc/cups/hu/*
 %dir /usr/share/doc/cups/id
 /usr/share/doc/cups/id/*
 %dir /usr/share/doc/cups/it

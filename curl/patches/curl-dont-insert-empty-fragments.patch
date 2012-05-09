@@ -1,0 +1,69 @@
+From 33feba63fc645f4db5e3c18a54203252c172314f Mon Sep 17 00:00:00 2001
+From: Daniel Stenberg <daniel@haxx.se>
+Date: Thu, 19 Jan 2012 20:07:44 +0100
+Subject: [PATCH] OpenSSL: don't disable security work-around
+
+OpenSSL added a work-around for a SSL 3.0/TLS 1.0 CBC vulnerability
+(http://www.openssl.org/~bodo/tls-cbc.txt). In 0.9.6e they added a bit
+to SSL_OP_ALL that _disables_ that work-around despite the fact that
+SSL_OP_ALL is documented to do "rather harmless" workarounds.
+
+The libcurl code uses the SSL_OP_ALL define and thus logically always
+disables the OpenSSL fix.
+
+In order to keep the secure work-around workding, the
+SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS bit must not be set and this change
+makes sure of this.
+
+Reported by: product-security at Apple
+---
+ lib/ssluse.c |   22 +++++++++++++++++-----
+ 1 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/lib/ssluse.c b/lib/ssluse.c
+index af70fe0..d9c0a8f 100644
+--- lib/ssluse.c
++++ lib/ssluse.c
+@@ -1422,6 +1422,7 @@ ossl_connect_step1(struct connectdata *conn,
+   X509_LOOKUP *lookup=NULL;
+   curl_socket_t sockfd = conn->sock[sockindex];
+   struct ssl_connect_data *connssl = &conn->ssl[sockindex];
++  long ctx_options;
+ #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+   bool sni;
+ #ifdef ENABLE_IPV6
+@@ -1502,16 +1503,27 @@ ossl_connect_step1(struct connectdata *conn,
+      If someone writes an application with libcurl and openssl who wants to
+      enable the feature, one can do this in the SSL callback.
+ 
++     OpenSSL added a work-around for a SSL 3.0/TLS 1.0 CBC vulnerability
++     (http://www.openssl.org/~bodo/tls-cbc.txt). In 0.9.6e they added a bit to
++     SSL_OP_ALL that _disables_ that work-around despite the fact that
++     SSL_OP_ALL is documented to do "rather harmless" workarounds. In order to
++     keep the secure work-around, the SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS bit
++     must not be set.
++
+   */
++
++  ctx_options = SSL_OP_ALL;
++
+ #ifdef SSL_OP_NO_TICKET
+   /* expect older openssl releases to not have this define so only use it if
+      present */
+-#define CURL_CTX_OPTIONS SSL_OP_ALL|SSL_OP_NO_TICKET
+-#else
+-#define CURL_CTX_OPTIONS SSL_OP_ALL
++  ctx_options |= SSL_OP_NO_TICKET;
++#endif
++#ifdef SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
++  ctx_options &= ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
+ #endif
+ 
+-  SSL_CTX_set_options(connssl->ctx, CURL_CTX_OPTIONS);
++  SSL_CTX_set_options(connssl->ctx, ctx_options);
+ 
+   /* disable SSLv2 in the default case (i.e. allow SSLv3 and TLSv1) */
+   if(data->set.ssl.version == CURL_SSLVERSION_DEFAULT)
+-- 
+1.7.8.3
+

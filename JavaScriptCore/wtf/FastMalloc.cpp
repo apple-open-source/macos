@@ -79,14 +79,13 @@
 
 #include "Assertions.h"
 #include <limits>
-#if ENABLE(WTF_MULTIPLE_THREADS)
-#if OS(WINDOWS) && PLATFORM(CHROMIUM)
+#if OS(WINDOWS)
 #include <windows.h>
 #else
 #include <pthread.h>
-#endif // OS(WINDOWS)
 #endif
 #include <wtf/StdLibExtras.h>
+#include <string.h>
 
 #ifndef NO_TCMALLOC_SAMPLES
 #ifdef WTF_CHANGES
@@ -101,13 +100,21 @@
 #endif
 
 // Use a background thread to periodically scavenge memory to release back to the system
+#if PLATFORM(IOS)
+#define USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY 0
+#else
 #define USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY 1
+#endif
 
 #ifndef NDEBUG
 namespace WTF {
 
-#if ENABLE(WTF_MULTIPLE_THREADS)
-#if OS(WINDOWS) && PLATFORM(CHROMIUM)
+#if OS(WINDOWS)
+
+// TLS_OUT_OF_INDEXES is not defined on WinCE.
+#ifndef TLS_OUT_OF_INDEXES
+#define TLS_OUT_OF_INDEXES 0xffffffff
+#endif
 
 static DWORD isForibiddenTlsIndex = TLS_OUT_OF_INDEXES;
 static const LPVOID kTlsAllowValue = reinterpret_cast<LPVOID>(0); // Must be zero.
@@ -137,7 +144,7 @@ void fastMallocAllow()
     TlsSetValue(isForibiddenTlsIndex, kTlsAllowValue);
 }
 
-#else // !OS(WINDOWS) || !PLATFORM(CHROMIUM)
+#else // !OS(WINDOWS)
 
 static pthread_key_t isForbiddenKey;
 static pthread_once_t isForbiddenKeyOnce = PTHREAD_ONCE_INIT;
@@ -165,30 +172,10 @@ void fastMallocAllow()
     pthread_once(&isForbiddenKeyOnce, initializeIsForbiddenKey);
     pthread_setspecific(isForbiddenKey, 0);
 }
-#endif // OS(WINDOWS) && PLATFORM(CHROMIUM)
-#else
-
-static bool staticIsForbidden;
-static bool isForbidden()
-{
-    return staticIsForbidden;
-}
-
-void fastMallocForbid()
-{
-    staticIsForbidden = true;
-}
-
-void fastMallocAllow()
-{
-    staticIsForbidden = false;
-}
-#endif // ENABLE(WTF_MULTIPLE_THREADS)
+#endif // OS(WINDOWS)
 
 } // namespace WTF
 #endif // NDEBUG
-
-#include <string.h>
 
 namespace WTF {
 
@@ -199,7 +186,8 @@ void fastMallocMatchFailed(void*);
 #else
 COMPILE_ASSERT(((sizeof(ValidationHeader) % sizeof(AllocAlignmentInteger)) == 0), ValidationHeader_must_produce_correct_alignment);
 #endif
-void fastMallocMatchFailed(void*)
+
+NO_RETURN_DUE_TO_CRASH void fastMallocMatchFailed(void*)
 {
     CRASH();
 }
@@ -234,10 +222,6 @@ TryMallocReturnValue tryFastZeroedMalloc(size_t n)
 } // namespace WTF
 
 #if FORCE_SYSTEM_MALLOC
-
-#if PLATFORM(BREWMP)
-#include "brew/SystemMallocBrew.h"
-#endif
 
 #if OS(DARWIN)
 #include <malloc/malloc.h>
@@ -284,15 +268,8 @@ void* fastMalloc(size_t n)
     void* result = malloc(n);
 #endif
 
-    if (!result) {
-#if PLATFORM(BREWMP)
-        // The behavior of malloc(0) is implementation defined.
-        // To make sure that fastMalloc never returns 0, retry with fastMalloc(1).
-        if (!n)
-            return fastMalloc(1);
-#endif
+    if (!result)
         CRASH();
-    }
 
     return result;
 }
@@ -331,15 +308,8 @@ void* fastCalloc(size_t n_elements, size_t element_size)
     void* result = calloc(n_elements, element_size);
 #endif
 
-    if (!result) {
-#if PLATFORM(BREWMP)
-        // If either n_elements or element_size is 0, the behavior of calloc is implementation defined.
-        // To make sure that fastCalloc never returns 0, retry with fastCalloc(1, 1).
-        if (!n_elements || !element_size)
-            return fastCalloc(1, 1);
-#endif
+    if (!result)
         CRASH();
-    }
 
     return result;
 }
@@ -418,8 +388,7 @@ size_t fastMallocSize(const void* p)
     return Internal::fastMallocValidationHeader(const_cast<void*>(p))->m_size;
 #elif OS(DARWIN)
     return malloc_size(p);
-#elif OS(WINDOWS) && !PLATFORM(BREWMP)
-    // Brew MP uses its own memory allocator, so _msize does not work on the Brew MP simulator.
+#elif OS(WINDOWS)
     return _msize(const_cast<void*>(p));
 #else
     return 1;
@@ -673,7 +642,11 @@ static const int kMaxFreeListLength = 256;
 
 // Lower and upper bounds on the per-thread cache sizes
 static const size_t kMinThreadCacheSize = kMaxSize * 2;
+#if PLATFORM(IOS)
+static const size_t kMaxThreadCacheSize = 512 * 1024;
+#else
 static const size_t kMaxThreadCacheSize = 2 << 20;
+#endif
 
 // Default bound on the total amount of thread caches
 static const size_t kDefaultOverallThreadCacheSize = 16 << 20;
@@ -1975,9 +1948,13 @@ void TCMalloc_PageHeap::IncrementalScavenge(Length n) {
   scavenge_counter_ -= n;
   if (scavenge_counter_ >= 0) return;  // Not yet time to scavenge
 
+#if PLATFORM(IOS)
+  static const size_t kDefaultReleaseDelay = 64;
+#else
   // If there is nothing to release, wait for so many pages before
   // scavenging again.  With 4K pages, this comes to 16MB of memory.
   static const size_t kDefaultReleaseDelay = 1 << 8;
+#endif
 
   // Find index of free list to scavenge
   size_t index = scavenge_index_ + 1;
@@ -1993,7 +1970,11 @@ void TCMalloc_PageHeap::IncrementalScavenge(Length n) {
       s->decommitted = true;
       DLL_Prepend(&slist->returned, s);
 
+#if PLATFORM(IOS)
+      scavenge_counter_ = std::max<size_t>(16UL, std::min<size_t>(kDefaultReleaseDelay, kDefaultReleaseDelay - (free_pages_ / kDefaultReleaseDelay)));
+#else
       scavenge_counter_ = std::max<size_t>(64UL, std::min<size_t>(kDefaultReleaseDelay, kDefaultReleaseDelay - (free_pages_ / kDefaultReleaseDelay)));
+#endif
 
       if (index == kMaxPages && !DLL_IsEmpty(&slist->normal))
         scavenge_index_ = index - 1;
@@ -4682,10 +4663,10 @@ extern "C" {
 malloc_introspection_t jscore_fastmalloc_introspection = { &FastMallocZone::enumerate, &FastMallocZone::goodSize, &FastMallocZone::check, &FastMallocZone::print,
     &FastMallocZone::log, &FastMallocZone::forceLock, &FastMallocZone::forceUnlock, &FastMallocZone::statistics
 
-#ifndef BUILDING_ON_LEOPARD
+#if !defined(BUILDING_ON_LEOPARD) || OS(IOS)
     , 0 // zone_locked will not be called on the zone unless it advertises itself as version five or higher.
 #endif
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD) || OS(IOS)
     , 0, 0, 0, 0 // These members will not be used unless the zone advertises itself as version seven or higher.
 #endif
 

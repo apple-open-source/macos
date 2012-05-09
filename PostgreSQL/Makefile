@@ -8,7 +8,7 @@ Project         = postgresql
 ProjectName     = PostgreSQL
 UserType        = Administrator
 ToolType        = Commands
-Submission      = 26.4
+Submission      = 26.5
 
 # Variables only used by project
 DBDir = $(VARDIR)/pgsql
@@ -17,6 +17,7 @@ DocDir = $(NSLIBRARYSUBDIR)/WebServer/Documents
 ServicesDir = $(NSLIBRARYSUBDIR)/Server
 ServiceDir = $(ServicesDir)/$(ProjectName)
 BackupDir = $(ServiceDir)/Backup
+LogDir = /Library/Logs/PostgreSQL
 
 RUBY = $(shell which ruby)
 RubyInstallDir = $(shell $(RUBY) -rrbconfig -e 'p Config::CONFIG["vendorarchdir"]')
@@ -106,6 +107,7 @@ install-macosx:
 	$(INSTALL) -m 0750 -o _postgres -g _postgres -d $(DSTROOT)$(SocketDir)
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(ServicesDir)
 	$(INSTALL) -m 0700 -o _postgres -g _postgres -d $(DSTROOT)$(ServiceDir)
+	$(INSTALL) -m 0755 -o _postgres -g _postgres -d $(DSTROOT)$(LogDir)
 	@echo "Done."
 
 install-backup: install-macosx

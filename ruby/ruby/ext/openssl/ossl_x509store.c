@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509store.c 16691 2008-05-29 17:45:47Z knu $
+ * $Id: ossl_x509store.c 33999 2011-12-10 12:17:23Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -131,6 +131,7 @@ ossl_x509store_initialize(int argc, VALUE *argv, VALUE self)
 
 /* BUG: This method takes any number of arguments but appears to ignore them. */
     GetX509Store(self, store);
+    store->ex_data.sk = NULL;
     X509_STORE_set_verify_cb_func(store, ossl_verify_cb);
     ossl_x509store_set_vfy_cb(self, Qnil);
 

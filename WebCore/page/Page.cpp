@@ -92,9 +92,7 @@ namespace WebCore {
 
 static HashSet<Page*>* allPages;
 
-#ifndef NDEBUG
-static WTF::RefCountedLeakCounter pageCounter("Page");
-#endif
+DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, pageCounter, ("Page"));
 
 static void networkStateChanged()
 {
@@ -205,12 +203,6 @@ Page::~Page()
     
     for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext())
         frame->pageDestroyed();
-
-    if (m_scrollableAreaSet) {
-        ScrollableAreaSet::const_iterator end = m_scrollableAreaSet->end(); 
-        for (ScrollableAreaSet::const_iterator it = m_scrollableAreaSet->begin(); it != end; ++it)
-            (*it)->disconnectFromPage();
-    }
 
     m_editorClient->pageDestroyed();
 
@@ -930,27 +922,6 @@ void Page::didStopPlugin(HaltablePlugin* obj)
 {
     if (m_pluginHalter)
         m_pluginHalter->didStopPlugin(obj);
-}
-
-void Page::addScrollableArea(ScrollableArea* scrollableArea)
-{
-    if (!m_scrollableAreaSet)
-        m_scrollableAreaSet = adoptPtr(new ScrollableAreaSet);
-    m_scrollableAreaSet->add(scrollableArea);
-}
-
-void Page::removeScrollableArea(ScrollableArea* scrollableArea)
-{
-    if (!m_scrollableAreaSet)
-        return;
-    m_scrollableAreaSet->remove(scrollableArea);
-}
-
-bool Page::containsScrollableArea(ScrollableArea* scrollableArea) const
-{
-    if (!m_scrollableAreaSet)
-        return false;
-    return m_scrollableAreaSet->contains(scrollableArea);
 }
 
 #if !ASSERT_DISABLED

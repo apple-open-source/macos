@@ -38,11 +38,36 @@
  * It can only be asserted by PM configd; not by other user processes.
  */
 #define _kIOPMAssertionTypeExternalMediaCStr    "ExternalMedia"
-#define _kIOPMAssertionTypeExternalMedia    CFSTR(_kIOPMAssertionTypeExternalMediaCStr)
+#define _kIOPMAssertionTypeExternalMedia        CFSTR(_kIOPMAssertionTypeExternalMediaCStr)
 
+
+/* IOPMAssertion levels
+ * 
+ * Each assertion type has a corresponding bitfield index, here.
+ * Also as found under the "Bitfields" property in assertion CFDictionaries.
+ */
+enum {
+    // These must be consecutive integers beginning at 0
+    kHighPerfIndex                  = 0,        // 1
+    kPreventIdleIndex               = 1,        // 2
+    kDisableInflowIndex             = 2,        // 4
+    kInhibitChargeIndex             = 3,        // 8
+    kDisableWarningsIndex           = 4,        // 16
+    kPreventDisplaySleepIndex       = 5,        // 32
+    kEnableIdleIndex                = 6,        // 64
+    kNoRealPowerSourcesDebugIndex   = 7,        // 128
+    kPreventSleepIndex              = 8,        // 256
+    kExternalMediaIndex             = 9,        // 512
+    kDeclareUserActivity            = 10,       // 1024
+    kPushServiceTaskAssertion       = 11,       // 2048
+    // Make sure this is the last enum element, as it tells us the total
+    // number of elements in the enum definition
+    kIOPMNumAssertionTypes      
+};
 
  
 __private_extern__ void PMAssertions_prime(void);
+__private_extern__ void createOnBootAssertions(void);
 
 __private_extern__ IOReturn _IOPMSetActivePowerProfilesRequiresRoot(
                                 CFDictionaryRef which_profile, 
@@ -63,6 +88,8 @@ __private_extern__ void _PMAssertionsDriverAssertionsHaveChanged(uint32_t change
 __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChangeParameters *capArgs);
 
 
+__private_extern__ void PMAssertions_TurnOffAssertions_ApplePushServiceTask(void);
+
 __private_extern__ IOReturn InternalCreateAssertion(
                                 CFDictionaryRef properties, 
                                 IOPMAssertionID *outID);
@@ -71,5 +98,16 @@ __private_extern__ void InternalReleaseAssertion(
                                 IOPMAssertionID *outID);
 
 __private_extern__ void InternalEvaluateAssertions(void);
+
+__private_extern__ void evalAllUserActivityAssertions(unsigned int dispSlpTimer);
+
+__private_extern__ CFMutableDictionaryRef	_IOPMAssertionDescriptionCreate(
+                            CFStringRef AssertionType, 
+                            CFStringRef Name, 
+                            CFStringRef Details,
+                            CFStringRef HumanReadableReason,
+                            CFStringRef LocalizationBundlePath,
+                            CFTimeInterval Timeout,
+                            CFStringRef TimeoutBehavior);
 
 #endif

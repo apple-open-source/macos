@@ -284,14 +284,16 @@ int already_mounted(struct smb_ctx *ctx, char *UppercaseShareName, struct statfs
 		 * then return that its already mounted. 
 		 */
 		if (requestMntFlags & MNT_DONTBROWSE) {
-			if ((fs->f_flags & MNT_DONTBROWSE) != MNT_DONTBROWSE)
-				continue;				
+			if ((fs->f_flags & MNT_DONTBROWSE) != MNT_DONTBROWSE) {
+				continue;
+			}
 		} else if (fs->f_flags & MNT_DONTBROWSE) {
 			continue;
 		}
 		/* Now call the file system to see if this is the one we are looking for */
-		if (get_share_mount_info(fs->f_mntonname, mdict, &req) == EEXIST)
+		if (get_share_mount_info(fs->f_mntonname, mdict, &req) == EEXIST) {
 			return EEXIST;
+		}
 	}
 	return 0;
 }
@@ -616,14 +618,55 @@ static int findMatchingVC(struct smb_ctx *ctx, CFMutableArrayRef addressArray)
 		bcopy(&ctx->ct_ssn, &rq.ioc_ssn, sizeof(struct smbioc_ossn));
 		/* ct_setup.ioc_user and rq.ioc_user must be the same size */
 		bcopy(&ctx->ct_setup.ioc_user, &rq.ioc_user, sizeof(rq.ioc_user));
-	
+		rq.ioc_negotiate_token = CAST_USER_ADDR_T(calloc(SMB_IOC_SPI_INIT_SIZE, 1));
+		if (rq.ioc_negotiate_token != USER_ADDR_NULL) {
+			rq.ioc_negotiate_token_len = SMB_IOC_SPI_INIT_SIZE;
+		}
+		
 		/* Call the kernel to see if we already have a vc */
 		if (smb_ioctl_call(ctx->ct_fd, SMBIOC_FIND_VC, &rq) == -1)
 			error = errno;	/* Some internal error happen? */
 		else
 			error = rq.ioc_errno;	/* The real error */
-		if (error)
+		if (error) {
+			if (rq.ioc_negotiate_token) {
+				free((void *)((uintptr_t)(rq.ioc_negotiate_token)));
+			}
 			continue;
+		}
+		if (rq.ioc_negotiate_token_len > SMB_IOC_SPI_INIT_SIZE)  {
+			/* Just log it and then pretend that we didn't get any mech info */
+			smb_log_info("%s: %s mech info too large %d", ASL_LEVEL_DEBUG, 
+						 __FUNCTION__, ctx->serverName, rq.ioc_negotiate_token_len);
+			rq.ioc_negotiate_token_len = 0;
+			if (rq.ioc_negotiate_token) {
+				free((void *)((uintptr_t)(rq.ioc_negotiate_token)));
+                rq.ioc_negotiate_token = USER_ADDR_NULL;
+			}
+		}
+		
+		if (ctx->mechDict) {
+			CFRelease(ctx->mechDict);
+			ctx->mechDict = NULL;
+		}
+		
+		/* Server return a negotiate token, get the mech dictionary */
+		if (rq.ioc_negotiate_token_len) {
+			CFDataRef NegotiateToken = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)(uintptr_t)rq.ioc_negotiate_token, rq.ioc_negotiate_token_len);
+			if (NegotiateToken) {
+				ctx->mechDict = KRBDecodeNegTokenInit(kCFAllocatorDefault, NegotiateToken);
+				CFRelease(NegotiateToken);
+			}
+		}
+		
+		if ((ctx->mechDict == NULL) && (ctx->ct_vc_caps & SMB_CAP_EXT_SECURITY)) {
+			/* 
+			 * The server does extended security, but they didn't return any mech 
+			 * types. Then create a default RAW NTLMSSP mech dictionary.
+			 */
+			ctx->mechDict = KRBCreateNegTokenLegacyNTLM(kCFAllocatorDefault);		
+			ctx->ct_flags |= SMBCF_RAW_NTLMSSP;
+		}
 	
 		/* Free it if we have one */
 		if (ctx->ct_saddr)
@@ -648,6 +691,10 @@ static int findMatchingVC(struct smb_ctx *ctx, CFMutableArrayRef addressArray)
 		if ((ctx->ct_setup.ioc_user[0] == 0) && rq.ioc_user[0]) {
 			strlcpy(ctx->ct_setup.ioc_user, rq.ioc_user, sizeof(ctx->ct_setup.ioc_user));
 		}
+        
+        if (rq.ioc_negotiate_token != USER_ADDR_NULL) {
+            free((void *)((uintptr_t)(rq.ioc_negotiate_token)));
+        }
 	
 		break; /* We found one so we are done */
 	}

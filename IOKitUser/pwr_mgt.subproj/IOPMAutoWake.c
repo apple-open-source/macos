@@ -28,6 +28,12 @@
 #include "IOPMKeys.h"
 #include "IOPMLib.h"
 #include "IOPMLibPrivate.h"
+#include "IOPMPrivate.h"
+
+#include "powermanagement_mig.h"
+#include "powermanagement.h"
+
+#include <servers/bootstrap.h>
 #include <notify.h>
 
 enum {
@@ -44,10 +50,6 @@ enum {
 
 // Forward decls
 
-static CFComparisonResult compare_dates(
-    CFDictionaryRef a1, 
-    CFDictionaryRef a2, 
-    void *c);
 static CFAbsoluteTime roundOffDate( 
     CFAbsoluteTime time);
 static CFDictionaryRef _IOPMCreatePowerOnDictionary(
@@ -58,14 +60,6 @@ static bool inputsValid(
     CFDateRef time_to_wake, 
     CFStringRef my_id, 
     CFStringRef type);
-static bool addEntryAndSetPrefs(
-    SCPreferencesRef prefs, 
-    CFStringRef type, 
-    CFDictionaryRef package);
-static bool removeEntryAndSetPrefs(
-    SCPreferencesRef prefs, 
-    CFStringRef type, 
-    CFDictionaryRef package);
 static IOReturn _setRootDomainProperty(
     CFStringRef key,
     CFTypeRef val);
@@ -81,29 +75,14 @@ IOReturn IOPMCancelScheduledPowerEvent(
     CFStringRef my_id, 
     CFStringRef wake_or_restart);    
 CFArrayRef IOPMCopyScheduledPowerEvents( void );
-static IOReturn doAMaintenanceWake(
-    CFDateRef earliestRequest);
+
+static IOReturn doAMaintenanceWake(CFDateRef earliestRequest, int type);
+
+__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, CFTypeRef *objectOut);
 
 
-
-static CFComparisonResult compare_dates(
-    CFDictionaryRef a1, 
-    CFDictionaryRef a2,
-    void *c __unused)
-{
-    CFDateRef   d1, d2;
-    a1 = isA_CFDictionary(a1);
-    a2 = isA_CFDictionary(a2);
-    if(!a1) return kCFCompareGreaterThan;
-    else if(!a2) return kCFCompareLessThan;
-    
-    d1 = isA_CFDate(CFDictionaryGetValue(a1, CFSTR(kIOPMPowerEventTimeKey)));
-    d2 = isA_CFDate(CFDictionaryGetValue(a2, CFSTR(kIOPMPowerEventTimeKey)));
-    if(!d1) return kCFCompareGreaterThan;
-    else if(!d2) return kCFCompareLessThan;
-    
-    return CFDateCompare(d1, d2, 0);
-}
+IOReturn _pm_connect(mach_port_t *newConnection);
+IOReturn _pm_disconnect(mach_port_t connection);
 
 #if TARGET_OS_EMBEDDED
 #define ROUND_SCHEDULE_TIME	(5.0)
@@ -159,7 +138,7 @@ inputsValid(
     // case NULL means "zero out current settings" to the hardware.
     if (!isA_CFDate(time_to_wake)
         && !CFEqual(type, CFSTR(kIOPMAutoWakeScheduleImmediate))
-        && !CFEqual(type, CFSTR(kIOPMAutoPowerScheduleImmediate)) )
+        && !CFEqual(type, CFSTR(kIOPMAutoPowerScheduleImmediate)))
     {
         return false;
     }
@@ -175,7 +154,8 @@ inputsValid(
         CFEqual(type, CFSTR(kIOPMAutoPowerScheduleImmediate)) ||
         CFEqual(type, CFSTR(kIOPMAutoWakeRelativeSeconds)) ||
         CFEqual(type, CFSTR(kIOPMAutoPowerRelativeSeconds)) ||
-        CFEqual(type, CFSTR(kIOPMMaintenanceScheduleImmediate)) ))
+        CFEqual(type, CFSTR(kIOPMMaintenanceScheduleImmediate)) ||
+        CFEqual(type, CFSTR(kIOPMSleepServiceScheduleImmediate)) ))
     {
         return false;
     }
@@ -183,116 +163,6 @@ inputsValid(
     return true;
 }
 
-static bool 
-addEntryAndSetPrefs(
-    SCPreferencesRef prefs, 
-    CFStringRef type, 
-    CFDictionaryRef package)
-{
-    CFArrayRef              arr = 0;
-    CFMutableArrayRef       new_arr = 0;
-    bool                    ret = false;
-    
-    arr = isA_CFArray(SCPreferencesGetValue(prefs, type));
-    if(arr)
-    {
-        // There is already an array - add this entry to the end of it
-        new_arr = CFArrayCreateMutableCopy(0, 0, arr);
-        CFArrayAppendValue(new_arr, package);
-        
-        // and sort it by wakeup time! Maintain the array in sorted order!
-        CFArraySortValues(
-                new_arr, CFRangeMake(0, CFArrayGetCount(new_arr)),
-                (CFComparatorFunction)compare_dates, 0);
-    } else
-    {
-        // There is not already an array in the prefs file. 
-        // Create one with this entry.
-        new_arr = (CFMutableArrayRef)CFArrayCreate(
-                                        0, (const void **)&package, 
-                                        1, &kCFTypeArrayCallBacks);
-    }
-    
-    // Write it out
-    if(!new_arr) 
-    {
-        ret = false;
-        goto exit;
-    }
-    
-    if(!SCPreferencesSetValue(prefs, type, new_arr)) 
-    {
-        ret = false;
-        goto exit;
-    }
-
-    ret = true;
-    
-exit:
-    if(new_arr) CFRelease(new_arr);
-    return ret;
-}
-
-// returns true if an entry was successfully removed
-// false otherwise (entry wasn't found, or couldn't be removed)
-static bool removeEntryAndSetPrefs(
-    SCPreferencesRef prefs, 
-    CFStringRef type, 
-    CFDictionaryRef package)
-{
-    CFArrayRef                  arr = 0;
-    CFMutableArrayRef           mut_arr = 0;
-    CFIndex                     i, count;
-    CFDictionaryRef             cancelee = 0;
-    CFComparisonResult          eq;
-    bool                        ret = false;
-
-    // Grab the specific array from which we want to remove the entry... 
-    // wakeup or poweron?
-    // or both?
-    arr = isA_CFArray(SCPreferencesGetValue(prefs, type));
-    if(!arr) 
-    {
-        ret = true;
-        goto exit;
-    }
-    count = CFArrayGetCount(arr);
-    for (i = 0; i < count; i++)
-    {
-        cancelee = CFArrayGetValueAtIndex(arr, i);
-        eq = compare_dates(package, cancelee, 0);
-        if(kCFCompareLessThan == eq)
-        {
-            // fail, date to cancel < date at index
-            break;
-        }
-        else if(kCFCompareEqualTo == eq)
-        {
-            // We have confirmation on the dates and types being equal. Check id.
-            if( CFEqual(
-                CFDictionaryGetValue(package, CFSTR(kIOPMPowerEventAppNameKey)), 
-                CFDictionaryGetValue(cancelee, CFSTR(kIOPMPowerEventAppNameKey))
-                ))
-            {
-                // This is the one to cancel
-                mut_arr = CFArrayCreateMutableCopy(0, 0, arr);
-                CFArrayRemoveValueAtIndex(mut_arr, i);
-                if(!SCPreferencesSetValue(prefs, type, mut_arr)) 
-                { 
-                    // fail
-                    break;
-                }
-                // success!
-                ret = true;
-                break;
-            }
-        }
-    }
-    
-    exit:
-    if(mut_arr) CFRelease(mut_arr);
-    return ret;
-}
 
 static IOReturn 
 _setRootDomainProperty(
@@ -313,7 +183,8 @@ _setRootDomainProperty(
 }
 
 static IOReturn doAMaintenanceWake(
-    CFDateRef earliestRequest)
+    CFDateRef                   earliestRequest,
+    int                         type)
  {
     CFGregorianDate         maintGregorian;
     IOPMCalendarStruct      pmMaintenanceDate;
@@ -331,19 +202,19 @@ static IOReturn doAMaintenanceWake(
     if (!myTimeZone)
         goto exit;
 
-    maintGregorian = CFAbsoluteTimeGetGregorianDate(
-                        CFDateGetAbsoluteTime(earliestRequest), myTimeZone);
+    maintGregorian = CFAbsoluteTimeGetGregorianDate(CFDateGetAbsoluteTime(earliestRequest), myTimeZone);
 
     CFRelease(myTimeZone);
     
     // Stuff into PM Calendar struct
     bzero(&pmMaintenanceDate, sizeof(pmMaintenanceDate));
-    pmMaintenanceDate.year = maintGregorian.year;
-    pmMaintenanceDate.month = maintGregorian.month;
-    pmMaintenanceDate.day = maintGregorian.day;
-    pmMaintenanceDate.hour = maintGregorian.hour;
-    pmMaintenanceDate.minute = maintGregorian.minute;
-    pmMaintenanceDate.second = maintGregorian.second;
+    pmMaintenanceDate.year      = maintGregorian.year;
+    pmMaintenanceDate.month     = maintGregorian.month;
+    pmMaintenanceDate.day       = maintGregorian.day;
+    pmMaintenanceDate.hour      = maintGregorian.hour;
+    pmMaintenanceDate.minute    = maintGregorian.minute;
+    pmMaintenanceDate.second    = maintGregorian.second;
+    pmMaintenanceDate.selector  = type;
 
     // Open up RootDomain
     
@@ -352,7 +223,7 @@ static IOReturn doAMaintenanceWake(
 
     if (root_domain != IO_OBJECT_NULL)
     {
-        kr = IOServiceOpen(root_domain, mach_task_self(), 0, &root_domain_connect);
+        kr = IOServiceOpen(root_domain, mach_task_self(), 0, &root_domain_connect);        
         
         if (KERN_SUCCESS == kr)
         {
@@ -370,7 +241,6 @@ static IOReturn doAMaintenanceWake(
 
     if ((KERN_SUCCESS != kr) || (kIOReturnSuccess != connectReturn))
     {
-        // Cry, cry, cry.
         ret = kIOReturnError;
         goto exit;
     }
@@ -398,7 +268,6 @@ tellClockController(
     
     // We broadcast the wakeup time both as calendar date struct and as seconds.
     //  * AppleRTC hardware needs the date in a structured calendar format
-    //  * ApplePMU & AppleSMU just need the date in seconds relative to now
 
     // ******************** Calendar struct ************************************
     
@@ -435,16 +304,11 @@ tellClockController(
     if(CFEqual(command, CFSTR(kIOPMAutoWake))) {
 
         // Set AutoWake calendar property
-        ret = _setRootDomainProperty(
-                        CFSTR(kIOPMSettingAutoWakeCalendarKey), 
-                        date_data);
-
+        ret = _setRootDomainProperty(CFSTR(kIOPMSettingAutoWakeCalendarKey), date_data);
     } else {
 
         // Set AutoPower calendar property
-        ret = _setRootDomainProperty(
-                        CFSTR(kIOPMSettingAutoPowerCalendarKey), 
-                        date_data);    
+        ret = _setRootDomainProperty(CFSTR(kIOPMSettingAutoPowerCalendarKey), date_data);    
     }
 
     if(kIOReturnSuccess != ret) {
@@ -476,16 +340,11 @@ tellClockController(
     if(CFEqual(command, CFSTR(kIOPMAutoWake))) {
 
         // Set AutoWake seconds property
-        ret = _setRootDomainProperty(
-                        CFSTR(kIOPMSettingAutoWakeSecondsKey), 
-                        seconds_delta);
-
+        ret = _setRootDomainProperty(CFSTR(kIOPMSettingAutoWakeSecondsKey), seconds_delta);
     } else {
 
         // Set AutoPower seconds property
-        ret = _setRootDomainProperty(
-                        CFSTR(kIOPMSettingAutoPowerSecondsKey), 
-                        seconds_delta);
+        ret = _setRootDomainProperty(CFSTR(kIOPMSettingAutoPowerSecondsKey), seconds_delta);
     }
 
     if(kIOReturnSuccess != ret) {
@@ -505,11 +364,10 @@ IOReturn IOPMSchedulePowerEvent(
     CFStringRef type)
 {
     CFDictionaryRef         package = 0;
-    SCPreferencesRef        prefs = 0;
     IOReturn                ret = kIOReturnError;
-    CFArrayRef              tmp_wakeup_arr = NULL;
-    int                     total_count = 0;
     CFAbsoluteTime          abs_time_to_wake;
+    CFDataRef               flatPackage = NULL;
+    kern_return_t           rc = KERN_SUCCESS;
 
     //  verify inputs
     if(!inputsValid(time_to_wake, my_id, type))
@@ -520,7 +378,11 @@ IOReturn IOPMSchedulePowerEvent(
 
     if( CFEqual(type, CFSTR(kIOPMMaintenanceScheduleImmediate)) )
     {
-        ret = doAMaintenanceWake(time_to_wake);
+        ret = doAMaintenanceWake(time_to_wake, kPMCalendarTypeMaintenance);
+        goto exit;
+    } else if (CFEqual(type, CFSTR(kIOPMSleepServiceScheduleImmediate)) )
+    {
+        ret = doAMaintenanceWake(time_to_wake, kPMCalendarTypeSleepService);
         goto exit;
     } else if( CFEqual(type, CFSTR(kIOPMAutoWakeScheduleImmediate)) )
     {
@@ -574,13 +436,6 @@ IOReturn IOPMSchedulePowerEvent(
         goto exit;
     }
 
-    /* From here onward, proceed with scheduling power events for the future
-     * by:
-     *   - Enqueueing them in com.apple.AutoWake.plist
-     *   - Committing the file to disk, where PowerManagement configd plugin
-     *         will immediately examine the file and setup upcoming events.
-     */
-
     abs_time_to_wake = CFDateGetAbsoluteTime(time_to_wake);
     if(abs_time_to_wake < (CFAbsoluteTimeGetCurrent() + MIN_SCHEDULE_TIME))
     {
@@ -588,74 +443,36 @@ IOReturn IOPMSchedulePowerEvent(
         goto exit;
     }
     
+    mach_port_t         pm_server = MACH_PORT_NULL;
+    
+    if(kIOReturnSuccess != _pm_connect(&pm_server)) {
+        ret = kIOReturnInternalError;
+        goto exit;
+    }
+    
     // Package the event in a CFDictionary
     package = _IOPMCreatePowerOnDictionary(abs_time_to_wake, my_id, type);
-
-    // Open the prefs file and grab the current array
-#if TARGET_OS_EMBEDDED
-    if (geteuid() != 0)
-        prefs = SCPreferencesCreateWithAuthorization(0, CFSTR("IOKit-AutoWake"), 
-                                CFSTR(kIOPMAutoWakePrefsPath), NULL);
-    else
-#endif /* TARGET_OS_EMBEDDED */
-    prefs = SCPreferencesCreate( 0, CFSTR("IOKit-AutoWake"), 
-                                 CFSTR(kIOPMAutoWakePrefsPath));
-    if(!prefs || !SCPreferencesLock(prefs, true))
-    {
-        if(kSCStatusAccessError == SCError())
-            ret = kIOReturnNotPrivileged;
-        else ret = kIOReturnError;
+    flatPackage = CFPropertyListCreateData(0, package,
+                          kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
+    if ( !flatPackage ) {
+        ret = kIOReturnBadArgument;
         goto exit;
     }
 
-    // Examine number of entries currently in disk and bail if too many
-    total_count = 0;
-    tmp_wakeup_arr = isA_CFArray(
-                        SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoPowerOn)));
-    if(tmp_wakeup_arr) total_count += CFArrayGetCount(tmp_wakeup_arr);
-    tmp_wakeup_arr = isA_CFArray(
-                        SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoWake)));
-    if(tmp_wakeup_arr) total_count += CFArrayGetCount(tmp_wakeup_arr);
-    tmp_wakeup_arr = isA_CFArray(
-                        SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoWakeOrPowerOn)));
-    if(tmp_wakeup_arr) total_count += CFArrayGetCount(tmp_wakeup_arr);
-    tmp_wakeup_arr = isA_CFArray(
-                        SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoSleep)));
-    if(tmp_wakeup_arr) total_count += CFArrayGetCount(tmp_wakeup_arr);
-    tmp_wakeup_arr = isA_CFArray(
-                        SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoShutdown)));
-    if(tmp_wakeup_arr) total_count += CFArrayGetCount(tmp_wakeup_arr);
-    tmp_wakeup_arr = isA_CFArray(
-                        SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoRestart)));
-    if(tmp_wakeup_arr) total_count += CFArrayGetCount(tmp_wakeup_arr);
-    if(total_count >= kIOPMMaxScheduledEntries)
-    {
-        ret = kIOReturnNoSpace;
-        goto exit;
-    }
-
-    // just add the entry to the one (wake or power on)
-    addEntryAndSetPrefs(prefs, type, package);
-
-    // Add a warning to the file
-    SCPreferencesSetValue(prefs, CFSTR("WARNING"), 
-        CFSTR("Do not edit this file by hand. It must remain in sorted-by-date order."));
-
-    //  commit the SCPreferences file out to disk
-    if(!SCPreferencesCommitChanges(prefs))
-    {
-        ret = kIOReturnError;
-        goto exit;
-    }
-
-    ret = kIOReturnSuccess;
+    rc = io_pm_schedule_power_event(pm_server, (vm_offset_t)CFDataGetBytePtr(flatPackage), 
+                CFDataGetLength(flatPackage), 1, &ret);
+    if (rc != KERN_SUCCESS)
+        ret = kIOReturnInternalError;
+    
     notify_post(kIOPMSchedulePowerEventNotification);
 
 exit:
     
+    if (MACH_PORT_NULL != pm_server) {
+        _pm_disconnect(pm_server);
+    }
     if(package) CFRelease(package);
-    if(prefs) SCPreferencesUnlock(prefs);
-    if(prefs) CFRelease(prefs);
+    if(flatPackage) CFRelease(flatPackage);
     return ret;
 }
 
@@ -666,129 +483,51 @@ IOReturn IOPMCancelScheduledPowerEvent(
     CFStringRef wake_or_restart)
 {
     CFDictionaryRef         package = 0;
-    SCPreferencesRef        prefs = 0;
-    bool                    changed = false;
-    IOReturn                ret = kIOReturnError;
-        
+    IOReturn                ret = kIOReturnSuccess;
+    mach_port_t             pm_server = MACH_PORT_NULL;
+    kern_return_t           err = KERN_SUCCESS;
+    CFAbsoluteTime          abs_time_to_wake;
+    CFDataRef               flatPackage = NULL;
+    
     if(!inputsValid(time_to_wake, my_id, wake_or_restart)) 
     {
         ret = kIOReturnBadArgument;
         goto exit;
     }
 
-    package = _IOPMCreatePowerOnDictionary(
-                            CFDateGetAbsoluteTime(time_to_wake), 
-                            my_id, wake_or_restart);
-    if(!package) goto exit;
-
-    // Open the prefs file and grab the current array
-#if TARGET_OS_EMBEDDED
-    if (geteuid() != 0)
-        prefs = SCPreferencesCreateWithAuthorization(0, CFSTR("IOKit-AutoWake"), 
-                                CFSTR(kIOPMAutoWakePrefsPath), NULL);
-    else
-#endif /* TARGET_OS_EMBEDDED */
-    prefs = SCPreferencesCreate( 0, CFSTR("IOKit-AutoWake"), 
-                                 CFSTR(kIOPMAutoWakePrefsPath));
-    if(!prefs || !SCPreferencesLock(prefs, true)) 
-    {
-        if(kSCStatusAccessError == SCError())
-            ret = kIOReturnNotPrivileged;
-        else ret = kIOReturnError;
+    err = _pm_connect(&pm_server);
+    if(kIOReturnSuccess != err) {
+        ret = kIOReturnInternalError;
         goto exit;
     }
-    
-    // just remove the entry
-    changed = removeEntryAndSetPrefs(prefs, wake_or_restart, package);
-    
-    if(changed)
-    {
-        // commit changes
-        if(!SCPreferencesCommitChanges(prefs)) 
-        {
-            ret = kIOReturnError;
-            goto exit;
-        } else ret = kIOReturnSuccess;
-    } else ret = kIOReturnNotFound;
+
+    abs_time_to_wake = CFDateGetAbsoluteTime(time_to_wake);
+    package = _IOPMCreatePowerOnDictionary(abs_time_to_wake, my_id, wake_or_restart);
+    flatPackage = CFPropertyListCreateData(0, package,
+                          kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
+    if ( !flatPackage ) {
+        ret = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    io_pm_schedule_power_event(pm_server, 
+            (vm_offset_t)CFDataGetBytePtr(flatPackage), CFDataGetLength(flatPackage), 0, &ret);
+
 
 exit:
-    
-    // release the lock and exit
+
+    if (pm_server != MACH_PORT_NULL)
+        _pm_disconnect(pm_server);
     if(package) CFRelease(package);
-    if(prefs) SCPreferencesUnlock(prefs);
-    if(prefs) CFRelease(prefs);
+    if(flatPackage) CFRelease(flatPackage);
     return ret;
 }
 
 CFArrayRef IOPMCopyScheduledPowerEvents(void)
 {
-    SCPreferencesRef            prefs;
-    CFArrayRef                  wake_arr; 
-    CFArrayRef                  poweron_arr;
-    CFArrayRef                  wakeorpoweron_arr;
-    CFArrayRef                  sleep_arr; 
-    CFArrayRef                  shutdown_arr;
-    CFArrayRef                  restart_arr;
-    CFMutableArrayRef           new_arr;
-    
-    // Copy wakeup and restart arrays from SCPreferences
-#if TARGET_OS_EMBEDDED
-    if (geteuid() != 0)
-        prefs = SCPreferencesCreateWithAuthorization(0, CFSTR("IOKit-AutoWake"), 
-                                CFSTR(kIOPMAutoWakePrefsPath), NULL);
-    else
-#endif /* TARGET_OS_EMBEDDED */
-    prefs = SCPreferencesCreate(0, CFSTR("IOKit-AutoWake"), CFSTR(kIOPMAutoWakePrefsPath));
+    CFMutableArrayRef           new_arr = NULL;
 
-    if(!prefs) return NULL;
+    _copyPMServerObject(kIOPMPowerEventsMIGCopyScheduledEvents, 0, (CFTypeRef *)&new_arr);
 
-    wake_arr = isA_CFArray(SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoWake)));
-    poweron_arr = isA_CFArray(SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoPowerOn)));
-    wakeorpoweron_arr = isA_CFArray(SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoWakeOrPowerOn)));
-    sleep_arr = isA_CFArray(SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoSleep)));
-    shutdown_arr = isA_CFArray(SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoShutdown)));
-    restart_arr = isA_CFArray(SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoRestart)));
-    
-    new_arr = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    if(wake_arr) {
-        CFArrayAppendArray(new_arr, wake_arr, 
-                        CFRangeMake(0, CFArrayGetCount(wake_arr)));
-    }
-    if(poweron_arr) {   
-        CFArrayAppendArray(new_arr, poweron_arr, 
-                        CFRangeMake(0, CFArrayGetCount(poweron_arr)));
-    }
-    if(wakeorpoweron_arr) {   
-        CFArrayAppendArray(new_arr, wakeorpoweron_arr, 
-                        CFRangeMake(0, CFArrayGetCount(wakeorpoweron_arr)));
-    }
-    if(sleep_arr) {
-        CFArrayAppendArray(new_arr, sleep_arr, 
-                        CFRangeMake(0, CFArrayGetCount(sleep_arr)));
-    }
-    if(shutdown_arr) {
-        CFArrayAppendArray(new_arr, shutdown_arr, 
-                        CFRangeMake(0, CFArrayGetCount(shutdown_arr)));
-    }
-    if(restart_arr) {
-        CFArrayAppendArray(new_arr, restart_arr, 
-                        CFRangeMake(0, CFArrayGetCount(restart_arr)));
-    }
-
-    CFRelease(prefs);
-    
-    // Return NULL if there are 0 entries in the array
-    if(!new_arr) 
-    {
-        return NULL;
-    } else {
-        if(0 == CFArrayGetCount(new_arr))
-        {
-            CFRelease(new_arr);
-            return NULL;
-        }
-    }    
-    
-    // Return the combined arrays
     return (CFArrayRef)new_arr;
 }

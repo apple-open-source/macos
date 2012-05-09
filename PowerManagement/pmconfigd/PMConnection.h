@@ -30,9 +30,23 @@
 #ifndef _PMConnection_h_
 #define _PMConnection_h_
 
+/*
+ * Struct for gSleepService 
+ */
+typedef struct {
+    dispatch_source_t           capTimerEnforcer;
+    int                         notifyToken;
+    CFStringRef                 uuid;
+    long                        capTime;
+    int                         pushAssertionsWereTimedOutCount;
+} SleepServiceStruct;
+
+
 __private_extern__ void PMConnection_prime(void);
 
 __private_extern__ bool PMConnectionHandleDeadName(mach_port_t deadPort);
+
+__private_extern__ void cancelSleepService(void);
 
 #endif
 

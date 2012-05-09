@@ -32,12 +32,13 @@
 #ifndef _AutoWakeScheduler_h_
 #define _AutoWakeScheduler_h_
 
-__private_extern__ void AutoWake_prime(void);
- 
-__private_extern__ void AutoWakeSleepWakeNotification(natural_t messageType, int runState);
+#define kIOPMRepeatingAppName               "Repeating"
 
-__private_extern__ void AutoWakePrefsHaveChanged(void);
-
-__private_extern__ void AutoWakePMUInterestNotification(natural_t messageType, UInt32 messageArgument);
+__private_extern__ void             AutoWake_prime(void);
+__private_extern__ void             AutoWakeCapabilitiesNotification(IOPMSystemPowerStateCapabilities old_cap, IOPMSystemPowerStateCapabilities new_cap);
+__private_extern__ IOReturn         createSCSession(SCPreferencesRef *prefs, uid_t euid, int lock);
+__private_extern__ void             schedulePowerEventType(CFStringRef type);
+__private_extern__ void             destroySCSession(SCPreferencesRef prefs, int unlock);
+__private_extern__ CFTimeInterval   getEarliestRequestAutoWake(void);
 
 #endif // _AutoWakeScheduler_h_

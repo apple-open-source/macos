@@ -3,33 +3,6 @@
 	Contains:	Build and interpret speech recognition language model
 	Version:	1.0
 	Copyright:	© 2003-2010 by Apple Computer, Inc., all rights reserved.
-
-	File Ownership:
-
-		DRI:				Matthias Neeracher    x43683
-
-	Writers:
-
-		(MN)	Matthias Neeracher
-
-	Change History (most recent first):
-
-		$Log: MBCLanguageModel.mm,v $
-		Revision 1.5  2010/01/18 18:37:16  neerache
-		<rdar://problem/7297328> Deprecated methods in Chess, part 1
-		
-		Revision 1.4  2006/06/03 00:56:28  neerache
-		Fix up SRefCon casat for 32 bit mode
-		
-		Revision 1.3  2006/05/19 21:09:33  neerache
-		Fix 64 bit compilation errors
-		
-		Revision 1.2  2003/09/06 04:15:03  neerache
-		Fixed wrong length for 'queen'
-		
-		Revision 1.1  2003/07/14 23:22:50  neerache
-		Move to much smarter speech recognition model
-		
 */
 
 #import "MBCLanguageModel.h"

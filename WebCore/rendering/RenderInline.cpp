@@ -55,7 +55,7 @@ RenderInline::RenderInline(Node* node)
 
 void RenderInline::destroy()
 {
-#ifndef NDEBUG
+#if !ASSERT_DISABLED
     // Make sure we do not retain "this" in the continuation outline table map of our containing blocks.
     if (parent() && style()->visibility() == VISIBLE && hasOutline()) {
         bool containingBlockPaintsContinuationOutline = continuation() || isInlineElementContinuation();
@@ -147,7 +147,7 @@ void RenderInline::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     m_lineHeight = -1;
 
     if (!m_alwaysCreateLineBoxes) {
-        bool alwaysCreateLineBoxes = hasSelfPaintingLayer() || hasBoxDecorations() || style()->hasPadding() || style()->hasMargin() || style()->hasOutline();
+        bool alwaysCreateLineBoxes = hasSelfPaintingLayer() || hasBoxDecorations() || style()->hasPadding() || style()->hasMargin() || hasOutline();
         if (oldStyle && alwaysCreateLineBoxes) {
             dirtyLineBoxes(false);
             setNeedsLayout(true);
@@ -1547,14 +1547,6 @@ void RenderInline::addDashboardRegions(Vector<DashboardRegionValue>& regions)
         FloatPoint absPos = container->localToAbsolute();
         region.bounds.setX(absPos.x() + region.bounds.x());
         region.bounds.setY(absPos.y() + region.bounds.y());
-
-        if (frame()) {
-            float deviceScaleFactor = frame()->page()->deviceScaleFactor();
-            if (deviceScaleFactor != 1.0f) {
-                region.bounds.scale(deviceScaleFactor);
-                region.clip.scale(deviceScaleFactor);
-            }
-        }
 
         regions.append(region);
     }

@@ -555,10 +555,14 @@ static void CL_freeCssmExtensions(
 		}
 		
 		const CssmOid &fieldId = CssmOid::overlay(*fieldOid);
-		CssmData cData((uint8 *)exten, sizeof(CSSM_X509_EXTENSION));
-		CssmRemoteData fieldValue(alloc, cData);
-		CL_freeCrlFieldData(fieldId, fieldValue, false);
-		fieldValue.release();			// but no free (via reset() */
+        
+        if (exten->extnId.Data != NULL)  // if this is null, something threw when it was instantiated
+        {
+            CssmData cData((uint8 *)exten, sizeof(CSSM_X509_EXTENSION));
+            CssmRemoteData fieldValue(alloc, cData);
+            CL_freeCrlFieldData(fieldId, fieldValue, false);
+            fieldValue.release();			// but no free (via reset() */
+        }
 	}
 	alloc.free(extens.extensions);
 	memset(&extens, 0, sizeof(CSSM_X509_EXTENSIONS));

@@ -556,8 +556,9 @@ _dispatch_source_invoke(dispatch_source_t ds)
 				return &_dispatch_mgr_q;
 			}
 			_dispatch_kevent_unregister(ds);
-			return ds->do_targetq;
-		} else if (dr->ds_cancel_handler) {
+		}
+		if (dr->ds_cancel_handler || ds->ds_handler_is_block ||
+				ds->ds_registration_is_block) {
 			if (dq != ds->do_targetq) {
 				return ds->do_targetq;
 			}
@@ -603,7 +604,11 @@ _dispatch_source_probe(dispatch_source_t ds)
 		// The source needs to be uninstalled from the manager queue, or the
 		// cancellation handler needs to be delivered to the target queue.
 		// Note: cancellation assumes installation.
-		if (ds->ds_dkev || dr->ds_cancel_handler) {
+		if (ds->ds_dkev || dr->ds_cancel_handler
+#ifdef __BLOCKS__
+				|| ds->ds_handler_is_block || ds->ds_registration_is_block
+#endif
+		) {
 			return true;
 		}
 	} else if (ds->ds_pending_data) {

@@ -26,6 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef WARN_UNUSED_RETURN
+#define WARN_UNUSED_RETURN
+#endif
+
 #ifndef JSRetainPtr_h
 #define JSRetainPtr_h
 
@@ -66,16 +70,20 @@ public:
     template<typename U> JSRetainPtr& operator=(const JSRetainPtr<U>&);
     JSRetainPtr& operator=(T);
     template<typename U> JSRetainPtr& operator=(U*);
+    
+    T releaseRef() const WARN_UNUSED_RETURN
+    {
+        T value = m_ptr;
+        m_ptr = 0;
+        return value;
+    }
 
     void adopt(T);
     
     void swap(JSRetainPtr&);
 
-    // FIXME: Remove releaseRef once we change all callers to call leakRef instead.
-    T releaseRef() { return leakRef(); }
-
 private:
-    T m_ptr;
+    mutable T m_ptr;
 };
 
 template<typename T> inline JSRetainPtr<T>::JSRetainPtr(const JSRetainPtr& o)

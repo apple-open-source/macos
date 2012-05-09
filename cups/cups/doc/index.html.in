@@ -50,7 +50,7 @@ HEIGHT="128" ALT="CUPS"></A></TD>
 
 <P><A HREF="help/options.html">Command-Line Printing and Options</A></P>
 
-<P><A HREF="help/whatsnew.html">What's New in CUPS 1.4</A></P>
+<P><A HREF="help/whatsnew.html">What's New in CUPS 1.5</A></P>
 
 <P><A HREF="http://www.cups.org/newsgroups.php?gcups.general">User Forum</A></P>
 
@@ -100,7 +100,7 @@ HEIGHT="128" ALT="CUPS"></A></TD>
 </TD></TR>
 <TR><TD>&nbsp;</TD></TR>
 <TR><TD CLASS="trailer">CUPS and the CUPS logo are trademarks of
-<A HREF="http://www.apple.com">Apple Inc.</A> CUPS is copyright 2007-2011 Apple
+<A HREF="http://www.apple.com">Apple Inc.</A> CUPS is copyright 2007-2012 Apple
 Inc. All rights reserved.</TD></TR>
 </TABLE>
 </BODY>

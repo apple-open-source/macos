@@ -152,7 +152,6 @@ LDestAligned:
 	testl   $15,%esi                // is source aligned too?
 	jnz     LUnalignedLoop          // no
 
-
 	cmpl    $(kFastUCode),%eax      // long enough for the fastpath in microcode?
 	jb  LAlignedLoop                // no, use SSE
 	cld                             // we'll move forward

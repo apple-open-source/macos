@@ -304,7 +304,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55014;
+				CURRENT_PROJECT_VERSION = 55016;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -350,7 +350,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55014;
+				CURRENT_PROJECT_VERSION = 55016;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -394,7 +394,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55014;
+				CURRENT_PROJECT_VERSION = 55016;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;

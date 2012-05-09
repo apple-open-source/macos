@@ -129,7 +129,7 @@ if($target eq 'install') {
     chdir("hw");
     sys_print("make install DESTDIR=$ENV{DSTROOT}");
 
-    chdir("$ENV{OBJROOT}/Xquartz/xorg-server-1.10.3");
+    chdir("$ENV{OBJROOT}/Xquartz/xorg-server-1.10.6");
     print "Building Xquartz\n";
 
     sys_print("autoreconf -fvi");

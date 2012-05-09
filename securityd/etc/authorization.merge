@@ -569,6 +569,82 @@
 			<key>timeout</key>
 			<integer>60</integer>
 		</dict>
+		<key>com.apple.Safari.show-passwords</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>This right is used by Safari to show passwords </string>
+			<key>default-prompt</key>
+			<dict>
+				<key>ar</key>
+				<string>يحاول __APPNAME__ إظهار كلمات السر.</string>
+				<key>ca</key>
+				<string>__APPNAME__ està intentant mostrar les contrasenyes.</string>
+				<key>cs</key>
+				<string>__APPNAME__ se pokouší zobrazit hesla.</string>
+				<key>da</key>
+				<string>__APPNAME__ prøver at vise adgangskoder.</string>
+				<key>de</key>
+				<string>__APPNAME__ versucht, Kennwörter einzublenden.</string>
+				<key>el</key>
+				<string>Η εφαρμογή «__APPNAME__» προσπαθεί να εμφανίσει συνθηματικά.</string>
+				<key>en</key>
+				<string>__APPNAME__ is trying to show passwords.</string>
+				<key>es</key>
+				<string>__APPNAME__ está intentando mostrar las contraseñas.</string>
+				<key>fi</key>
+				<string>__APPNAME__ yrittää näyttää salasanat.</string>
+				<key>fr</key>
+				<string>__APPNAME__ essaye d’afficher les mots de passe.</string>
+				<key>he</key>
+				<string>__APPNAME__ מנסה להציג סיסמאות.</string>
+				<key>hr</key>
+				<string>__APPNAME__ pokušava prikazati lozinke.</string>
+				<key>hu</key>
+				<string>A(z) __APPNAME__ megpróbálja megjeleníteni a jelszavakat.</string>
+				<key>it</key>
+				<string>__APPNAME__ tenta di mostrare le password.</string>
+				<key>ja</key>
+				<string>__APPNAME__ は、パスワードを表示しようとしています。</string>
+				<key>ko</key>
+				<string>__APPNAME__이(가) 암호를 보려고 합니다.</string>
+				<key>nb</key>
+				<string>__APPNAME__ prøver å vise passord.</string>
+				<key>nl</key>
+				<string>__APPNAME__ probeert wachtwoorden te tonen.</string>
+				<key>pl</key>
+				<string>__APPNAME__ próbuje pokazać hasła.</string>
+				<key>pt</key>
+				<string>__APPNAME__ está tentando mostrar senhas.</string>
+				<key>pt-PT</key>
+				<string>O __APPNAME__ está a tentar mostrar palavras‑passe.</string>
+				<key>ro</key>
+				<string>__APPNAME__ încearcă să afișeze parole.</string>
+				<key>ru</key>
+				<string>Программа «__APPNAME__» пытается показать пароли.</string>
+				<key>sk</key>
+				<string>Aplikácia __APPNAME__ sa pokúša zobraziť heslá.</string>
+				<key>sv</key>
+				<string>__APPNAME__ försöker visa lösenord.</string>
+				<key>th</key>
+				<string>__APPNAME__ กำลังพยายามแสดงรหัสผ่าน</string>
+				<key>tr</key>
+				<string>__APPNAME__ parolaları göstermeye çalışıyor.</string>
+				<key>uk</key>
+				<string>__APPNAME__ намагається показати паролі.</string>
+				<key>zh-Hans</key>
+				<string>“__APPNAME__” 正在尝试显示密码。</string>
+				<key>zh-Hant</key>
+				<string>“__APPNAME__” 正在嘗試顯示密碼。</string>
+			</dict>
+			<key>session-owner</key>
+			<true/>
+			<key>shared</key>
+			<false/>
+			<key>timeout</key>
+			<integer>10</integer>
+		</dict>
 		<key>com.apple.ServiceManagement.blesshelper</key>
 		<dict>
 			<key>class</key>
@@ -1982,6 +2058,139 @@
 			<key>shared</key>
 			<false/>
 		</dict>
+		<key>com.apple.library-repair</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>default-button</key>
+			<dict>
+				<key>ar</key>
+				<string>تصليح</string>
+				<key>ca</key>
+				<string>Reparar</string>
+				<key>cs</key>
+				<string>Opravit</string>
+				<key>da</key>
+				<string>Reparer</string>
+				<key>de</key>
+				<string>Reparieren</string>
+				<key>el</key>
+				<string>Επισκευή</string>
+				<key>en</key>
+				<string>Repair</string>
+				<key>es</key>
+				<string>Reparar</string>
+				<key>fi</key>
+				<string>Korjaa</string>
+				<key>fr</key>
+				<string>Réparer</string>
+				<key>he</key>
+				<string>תקן</string>
+				<key>hr</key>
+				<string>Popravi</string>
+				<key>hu</key>
+				<string>Javítás</string>
+				<key>it</key>
+				<string>Ripara</string>
+				<key>ja</key>
+				<string>修復</string>
+				<key>ko</key>
+				<string>복구</string>
+				<key>nb</key>
+				<string>Reparer</string>
+				<key>nl</key>
+				<string>Herstel</string>
+				<key>pl</key>
+				<string>Napraw</string>
+				<key>pt</key>
+				<string>Reparar</string>
+				<key>pt-PT</key>
+				<string>Reparar</string>
+				<key>ro</key>
+				<string>Repară</string>
+				<key>ru</key>
+				<string>Исправить</string>
+				<key>sk</key>
+				<string>Opraviť</string>
+				<key>sv</key>
+				<string>Reparera</string>
+				<key>th</key>
+				<string>ซ่อมแซม</string>
+				<key>tr</key>
+				<string>Onar</string>
+				<key>uk</key>
+				<string>Полагодити</string>
+				<key>zh-Hans</key>
+				<string>修复</string>
+				<key>zh-Hant</key>
+				<string>修復</string>
+			</dict>
+			<key>default-prompt</key>
+			<dict>
+				<key>ar</key>
+				<string>يحاول __APPNAME__ تصليح مكتبة الصور الخاصة بك.</string>
+				<key>ca</key>
+				<string>__APPNAME__ està provant de reparar la vostra fototeca.</string>
+				<key>cs</key>
+				<string>__APPNAME__ se pokouší opravit vaši knihovnu fotografií.</string>
+				<key>da</key>
+				<string>__APPNAME__ prøver at reparere dit fotobibliotek.</string>
+				<key>de</key>
+				<string>__APPNAME__ versucht, Ihre Fotomediathek zu reparieren.</string>
+				<key>el</key>
+				<string>Η εφαρμογή __APPNAME__ προσπαθεί να επισκευάσει τη βιβλιοθήκη φωτογραφιών σας.</string>
+				<key>en</key>
+				<string>__APPNAME__ is trying to repair your photo library.</string>
+				<key>es</key>
+				<string>__APPNAME__ está intentando reparar su fototeca.</string>
+				<key>fi</key>
+				<string>__APPNAME__ yrittää korjata kuvakirjastoasi.</string>
+				<key>fr</key>
+				<string>__APPNAME__ essaie de réparer votre bibliothèque de photos.</string>
+				<key>he</key>
+				<string>__APPNAME__ מנסה לתקן את ספריית התמונות שלך.</string>
+				<key>hr</key>
+				<string>__APPNAME__ pokušava popraviti vašu medijateku fotografija.</string>
+				<key>hu</key>
+				<string>A(z) __APPNAME__ megpróbálja kijavítani a fotókönyvtárat.</string>
+				<key>it</key>
+				<string>__APPNAME__ tenta di riparare la libreria foto.</string>
+				<key>ja</key>
+				<string>__APPNAME__ は、フォトライブラリを修復しようとしています。</string>
+				<key>ko</key>
+				<string>__APPNAME__이(가) 사용자의 사진 보관함을 복구하려고 합니다.</string>
+				<key>nb</key>
+				<string>_APPNAME_ forsøker å reparere bildebiblioteket.</string>
+				<key>nl</key>
+				<string>__APPNAME__ probeert uw fotobibliotheek te herstellen.</string>
+				<key>pl</key>
+				<string>__APPNAME__ próbuje naprawić Twoją bibliotekę zdjęć.</string>
+				<key>pt</key>
+				<string>__APPNAME__ está tentando reparar a sua fototeca.</string>
+				<key>pt-PT</key>
+				<string>__APPNAME__ está a tentar reparar a sua fototeca.</string>
+				<key>ro</key>
+				<string>__APPNAME__ încearcă să repare biblioteca dvs. foto.</string>
+				<key>ru</key>
+				<string>Программа «__APPNAME__» пытается исправить Вашу медиатеку.</string>
+				<key>sk</key>
+				<string>Aplikácia __APPNAME__ sa pokúša opraviť vašu knižnicu fotografií.</string>
+				<key>sv</key>
+				<string>__APPNAME__ försöker reparera ditt bildbibliotek.</string>
+				<key>th</key>
+				<string>__APPNAME__ กำลังพยายามซ่อมแซมคลังรูปภาพของคุณ</string>
+				<key>tr</key>
+				<string>__APPNAME__ fotoğraf arşivinizi onarmaya çalışıyor.</string>
+				<key>uk</key>
+				<string>__APPNAME__ намагається полагодити вашу фототеку.</string>
+				<key>zh-Hans</key>
+				<string>__APPNAME__ 正在尝试修复您的照片图库。</string>
+				<key>zh-Hant</key>
+				<string>__APPNAME__ 正在嘗試修復您的照片圖庫。</string>
+			</dict>
+			<key>group</key>
+			<string>admin</string>
+		</dict>
 		<key>com.apple.pcastagentconfigd.</key>
 		<dict>
 			<key>allow-root</key>
@@ -2120,6 +2329,139 @@
 			<string>admin</string>
 			<key>shared</key>
 			<false/>
+		</dict>
+		<key>com.apple.security.assessment.update</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>default-button</key>
+			<dict>
+				<key>ar</key>
+				<string>تعديل الإعدادات</string>
+				<key>ca</key>
+				<string>Modificar la configuració</string>
+				<key>cs</key>
+				<string>Změnit nastavení</string>
+				<key>da</key>
+				<string>Juster indstillinger</string>
+				<key>de</key>
+				<string>Einstellungen ändern</string>
+				<key>el</key>
+				<string>Τροποποίηση ρυθμίσεων</string>
+				<key>en</key>
+				<string>Modify Settings</string>
+				<key>es</key>
+				<string>Modificar ajustes</string>
+				<key>fi</key>
+				<string>Muokkaa asetuksia</string>
+				<key>fr</key>
+				<string>Modifer les réglages</string>
+				<key>he</key>
+				<string>ערוך/י הגדרות</string>
+				<key>hr</key>
+				<string>Preinači postavke</string>
+				<key>hu</key>
+				<string>Beállítások módosítása</string>
+				<key>it</key>
+				<string>Modifica impostazioni</string>
+				<key>ja</key>
+				<string>設定を変更</string>
+				<key>ko</key>
+				<string>설정 수정</string>
+				<key>nb</key>
+				<string>Endre innstillinger</string>
+				<key>nl</key>
+				<string>Wijzig instellingen</string>
+				<key>pl</key>
+				<string>Zmień ustawienia</string>
+				<key>pt</key>
+				<string>Modificar Ajustes</string>
+				<key>pt-PT</key>
+				<string>Modificar definições</string>
+				<key>ro</key>
+				<string>Schimbă configurările</string>
+				<key>ru</key>
+				<string>Модифицировать настройки</string>
+				<key>sk</key>
+				<string>Upraviť nastavenia</string>
+				<key>sv</key>
+				<string>Ändra inställningar</string>
+				<key>th</key>
+				<string>แก้ไขค่าติดตั้ง</string>
+				<key>tr</key>
+				<string>Ayarları Değiştir</string>
+				<key>uk</key>
+				<string>Змінити параметри</string>
+				<key>zh-Hans</key>
+				<string>修改设置</string>
+				<key>zh-Hant</key>
+				<string>修改設定</string>
+			</dict>
+			<key>default-prompt</key>
+			<dict>
+				<key>ar</key>
+				<string>يحاول __APPNAME__ السماح لعنصر بأن يكون قيد التشغيل دائمًا.</string>
+				<key>ca</key>
+				<string>__APPNAME__ està provant d’autoritzar un ítem perquè s’executi sempre.</string>
+				<key>cs</key>
+				<string>__APPNAME__ se pokouší nějaké položce povolit, aby byla vždy spuštěna.</string>
+				<key>da</key>
+				<string>__APPNAME__ prøver at give et emne lov til at være aktivt hele tiden.</string>
+				<key>de</key>
+				<string>__APPNAME__ versucht, einem Objekt die Ausführung immer zu erlauben.</string>
+				<key>el</key>
+				<string>Η εφαρμογή «__APPNAME__» προσπαθεί να επιτρέψει σε ένα στοιχείο να εκτελείται πάντα.</string>
+				<key>en</key>
+				<string>__APPNAME__ is trying to allow an item to always run.</string>
+				<key>es</key>
+				<string>__APPNAME__ está intentando permitir que un ítem se ejecute siempre.</string>
+				<key>fi</key>
+				<string>__APPNAME__ yrittää sallia, että kohde on aina käytössä.</string>
+				<key>fr</key>
+				<string>__APPNAME__ essaye d’autoriser un élément à s’exécuter en continu.</string>
+				<key>he</key>
+				<string>__APPNAME__ מנסה לאפשר לפריט לפעול באופן קבוע.</string>
+				<key>hr</key>
+				<string>__APPNAME__ pokušava dozvoliti stavci da uvijek bude pokrenuta.</string>
+				<key>hu</key>
+				<string>A(z) __APPNAME__ megpróbál beállítani egy elemet, hogy az mindig fusson.</string>
+				<key>it</key>
+				<string>__APPNAME__ tenta di consentire che un elemento venga sempre eseguito.</string>
+				<key>ja</key>
+				<string>__APPNAME__ は、項目が常時動作することを許可しようとしています。</string>
+				<key>ko</key>
+				<string>__APPNAME__이(가) 항목이 항상 실행되는 것을 허용하려고 합니다.</string>
+				<key>nb</key>
+				<string>__APPNAME__ prøver å tillate at et program alltid kjører.</string>
+				<key>nl</key>
+				<string>__APPNAME__ probeert een onderdeel toe te staan dat het altijd wordt uitgevoerd.</string>
+				<key>pl</key>
+				<string>__APPNAME__ próbuje zezwolić, aby rzecz była zawsze uruchamiana.</string>
+				<key>pt</key>
+				<string>O __APPNAME__ está tentando autorizar um item a ser executado permanentemente.</string>
+				<key>pt-PT</key>
+				<string>O __APPNAME__ está a tentar dar autorização a um elemento para permanecer constantemente aberto.</string>
+				<key>ro</key>
+				<string>__APPNAME__ încearcă să-i permită unui articol să ruleze întotdeauna.</string>
+				<key>ru</key>
+				<string>Программа «__APPNAME__» пытается разрешить объекту постоянно выполнять работу.</string>
+				<key>sk</key>
+				<string>Aplikácia __APPNAME__ sa pokúša povoliť spúšťanie položky. </string>
+				<key>sv</key>
+				<string>__APPNAME__ försöker tillåta ett objekt att alltid köras.</string>
+				<key>th</key>
+				<string>__APPNAME__กำลังพยายามอนุญาตรายการให้ทำงานเสมอ</string>
+				<key>tr</key>
+				<string>__APPNAME__, bir öğenin her zaman çalışmasına izin vermeye çalışıyor.</string>
+				<key>uk</key>
+				<string>__APPNAME__ намагається дозволити елементу завжди запускатися.</string>
+				<key>zh-Hans</key>
+				<string>“__APPNAME__”正在尝试允许一个项目始终运行。</string>
+				<key>zh-Hant</key>
+				<string>“__APPNAME__”正在嘗試允許某個項目持續執行。</string>
+			</dict>
+			<key>rule</key>
+			<string>root-or-entitled-admin-or-authenticate-admin</string>
 		</dict>
 		<key>com.apple.server.admin.streaming</key>
 		<dict>
@@ -4267,7 +4609,7 @@
 				<key>fr</key>
 				<string>__APPNAME__ essaye d’installer un nouveau logiciel.</string>
 				<key>he</key>
-				<string>״ __APPNAME__״ מבקש להתקין תוכנות חדשות.</string>
+				<string>״__APPNAME__״ מבקש להתקין תוכנות חדשות.</string>
 				<key>hr</key>
 				<string>__APPNAME__ pokušava instalirati novi softver.</string>
 				<key>hu</key>
@@ -7633,6 +7975,21 @@
 			<string>admin</string>
 			<key>shared</key>
 			<true/>
+		</dict>
+	</dict>
+	<key>rules</key>
+	<dict>
+		<key>root-or-entitled-admin-or-authenticate-admin</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>entitled-admin-or-authenticate-admin</string>
+			</array>
 		</dict>
 	</dict>
 </dict>

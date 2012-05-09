@@ -405,7 +405,7 @@ set_flags_from_environment(void) {
     malloc_debug_flags = SCALABLE_MALLOC_ABORT_ON_CORRUPTION; // Set always on 64-bit processes
 #else
     int libSystemVersion  = NSVersionOfLinkTimeLibrary("System");
-    if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 126) )
+    if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 126))
 	malloc_debug_flags = 0;
     else
 	malloc_debug_flags = SCALABLE_MALLOC_ABORT_ON_CORRUPTION;
@@ -625,6 +625,7 @@ __malloc_check_env_name(const char *name)
 {
     MALLOC_LOCK();
     /*
+     * 
      * 2. malloc will no longer take notice of *programmatic* changes to the MALLOC_* environment variables 
      * (i.e. calls to putenv() or setenv() that manipulate these environment variables.)
      *

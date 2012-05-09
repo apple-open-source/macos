@@ -97,7 +97,7 @@ static const char *features[] = {
 //
 static void usage();
 static OSStatus keychain_open(const char *name, SecKeychainRef &keychain);
-static bool chooseArchitecture(const char *arg);
+static void chooseArchitecture(const char *arg);
 static uint32_t parseMetadataFlags(const char *arg);
 static void checkFeatures(const char *arg);
 
@@ -191,10 +191,8 @@ int main(int argc, char *argv[])
 				(arg = getopt_long(argc, argv, "a:dD:fhi:o:P:r:R:s:v", options, &argslot)) != -1)
 			switch (arg) {
 			case 'a':
-				if (chooseArchitecture(optarg))
-					staticVerifyOptions &= ~kSecCSCheckAllArchitectures;
-				else
-					usage();
+				chooseArchitecture(optarg);
+				staticVerifyOptions &= ~kSecCSCheckAllArchitectures;
 				break;
 			case 'd':
 				operation = doDump;
@@ -458,7 +456,7 @@ keychain_open(const char *name, SecKeychainRef &keychain)
 }
 
 
-bool chooseArchitecture(const char *arg)
+void chooseArchitecture(const char *arg)
 {
 	int arch, subarch;
 	switch (sscanf(arg, "%d,%d", &arch, &subarch)) {

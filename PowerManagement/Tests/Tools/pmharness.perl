@@ -5,22 +5,47 @@
 
 run_harness();
 
-$last_leak_count_configd = 0;
-$last_leak_count_powerd = 0;
-
 sub print_leaks
-{
+{    
+    
+    $powerd_pid = `ps -axww | awk \'/powerd/{ print(\$1) }\'`;
+    @powerd_pid = split(/\W/, $powerd_pid);
+    $powerd_pid = @powerd_pid[0];
+    
+    chomp ($powerd_pid);
+        
+    if (($powerd_pid ne $last_powerd_pid) && $last_powerd_pid)
+    {
+        $error_str = "[FAIL] powerd crashed. pid changed ($last_powerd_pid -> $powerd_pid)\n";
+        print $error_str;
+        push(@all_tools_output, $error_str);
+    }
+    $last_powerd_pid = $powerd_pid;
+    
     $leaks_count_configd = `leaks configd | grep -c "Leak:"`;
-    if ($leaks_count_configd > $last_leak_count_configd) {
-    	push(@all_tools_output, "[WARN] configd leak count increased");
+    chomp($leaks_count_configd);
+    
+    if (($leaks_count_configd gt $last_leak_count_configd) && $last_leak_count_configd) 
+    {    	
+        $warn_str = "[WARN] configd leak count increased ($last_leak_count_configd -> $leaks_count_configd)\n";
+	    print $warn_str;
+   	    push(@all_tools_output, $warn_str);
     }
     push(@all_tools_output, "configd leaks = ".$leaks_count_configd."\n");
     $last_leak_count_configd = $leaks_count_configd;
 
     
     $leaks_count_powerd = `leaks powerd | grep -c "Leak:"`;
-    if ($leaks_count_powerd > $last_leak_count_powerd) {
-    	push(@all_tools_output, "[WARN] powerd leak count increased");
+    chomp ($leaks_count_powerd);
+    
+    if (($leaks_count_powerd gt $last_leak_count_powerd) && $last_leak_count_powerd) 
+    {
+        $warn_str = "[WARN] powerd leak count increased ($last_leak_count_powerd -> $leaks_count_powerd)\n";
+	    print $warn_str;
+    	push(@all_tools_output, $warn_str);
+
+        my $leak_string = `leaks powerd`;
+        push (@all_tools_output, $leak_string);
     }
     push(@all_tools_output, "powerd leaks = ".$leaks_powerd_output);
     $last_leak_count_powerd = $leaks_count_powerd;

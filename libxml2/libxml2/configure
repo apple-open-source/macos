@@ -12081,6 +12081,12 @@ CC="$lt_save_CC"
 
 
 
+case $host_os in
+  darwin*)
+    allow_undefined_flag=
+    ;;
+esac
+
 
 _cppflags="${CPPFLAGS}"
 _ldflags="${LDFLAGS}"
@@ -18420,7 +18426,7 @@ fi
 { echo "$as_me:$LINENO: checking for type of socket length (socklen_t)" >&5
 echo $ECHO_N "checking for type of socket length (socklen_t)... $ECHO_C" >&6; }
 cat > conftest.$ac_ext <<EOF
-#line 18423 "configure"
+#line 18429 "configure"
 #include "confdefs.h"
 
 #include <stddef.h>
@@ -18431,7 +18437,7 @@ int main(void) {
 (void)getsockopt (1, 1, 1, NULL, (socklen_t *)NULL)
 ; return 0; }
 EOF
-if { (eval echo configure:18434: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; _out=`eval $ac_compile 2>&1` && test "x$_out" = x; }; then
+if { (eval echo configure:18440: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; _out=`eval $ac_compile 2>&1` && test "x$_out" = x; }; then
   rm -rf conftest*
 
   { echo "$as_me:$LINENO: result: socklen_t *" >&5
@@ -18443,7 +18449,7 @@ else
   rm -rf conftest*
 
   cat > conftest.$ac_ext <<EOF
-#line 18446 "configure"
+#line 18452 "configure"
 #include "confdefs.h"
 
 #include <stddef.h>
@@ -18454,7 +18460,7 @@ int main(void) {
 (void)getsockopt (1, 1, 1, NULL, (size_t *)NULL)
 ; return 0; }
 EOF
-if { (eval echo configure:18457: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; _out=`eval $ac_compile 2>&1` && test "x$_out" = x; }; then
+if { (eval echo configure:18463: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; _out=`eval $ac_compile 2>&1` && test "x$_out" = x; }; then
   rm -rf conftest*
 
     { echo "$as_me:$LINENO: result: size_t *" >&5
@@ -18466,7 +18472,7 @@ else
   rm -rf conftest*
 
     cat > conftest.$ac_ext <<EOF
-#line 18469 "configure"
+#line 18475 "configure"
 #include "confdefs.h"
 
 #include <stddef.h>
@@ -18477,7 +18483,7 @@ int main(void) {
 (void)getsockopt (1, 1, 1, NULL, (int *)NULL)
 ; return 0; }
 EOF
-if { (eval echo configure:18480: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; _out=`eval $ac_compile 2>&1` && test "x$_out" = x; }; then
+if { (eval echo configure:18486: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; _out=`eval $ac_compile 2>&1` && test "x$_out" = x; }; then
   rm -rf conftest*
 
       { echo "$as_me:$LINENO: result: int *" >&5

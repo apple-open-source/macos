@@ -196,7 +196,7 @@ static const CEAVideoFormatData CEAVideoFormats[MAX_CEA861_VIDEO_FORMATS+1] =
 // 59 - 720(1440)x480i
 { false, 1440, 480, 1, 1716, 276, 525, 22.5, 108.108, 38, 4, 114, 0, 4, 3, 15, 0 },
 // 60 - 1280x720p
-{ true, 1280, 720, 0, 4125, 2845, 750, 30, 74.25, 2585, 40, 220, 1, 5, 5, 20, 1 },
+{ true, 1280, 720, 0, 3300, 2020, 750, 30, 59.4, 1760, 40, 220, 1, 5, 5, 20, 1 },
 // 61 - 1280x720p
 { true, 1280, 720, 0, 3960, 2680, 750, 30, 74.25, 2420, 40, 220, 1, 5, 5, 20, 1 },
 // 62 - 1280x720p
@@ -1653,8 +1653,6 @@ InstallTiming( IOFBConnectRef                connectRef,
     IOOptionBits                dmFlags;
     IOTimingInformation *       timing = &desc->timingInfo;
 
-	dmFlags = desc->info.flags;
-
     if (connectRef->dualLinkCrossover)
     {
         if (timing->detailedInfo.v2.pixelClock > connectRef->dualLinkCrossover)
@@ -1683,6 +1681,8 @@ InstallTiming( IOFBConnectRef                connectRef,
     err = IOCheckTimingWithDisplay( connectRef, desc, modeGenFlags );
     if (kIOReturnUnsupportedMode == err)
         return( err );
+
+	dmFlags = desc->info.flags;
 
     if (0 == ((kIOFBEDIDStdEstMode | kIOFBEDIDDetailedMode) & modeGenFlags))
     {

@@ -3062,11 +3062,11 @@ smbfs_create(struct smb_share *share, struct vnop_create_args *ap, char *target,
 		return (ENOTSUP);
 	
 	if (vap->va_type == VLNK) {
-		if (unix_symlink) {
-			error = smbfs_smb_create_unix_symlink(share, dnp, name, nmlen, target, 
-												  targetlen, &fattr , ap->a_context);
-		} else if (smp->sm_flags & MNT_SUPPORTS_REPARSE_SYMLINKS) {
+        if (smp->sm_flags & MNT_SUPPORTS_REPARSE_SYMLINKS) {
 			error = smbfs_smb_create_reparse_symlink(share, dnp, name, nmlen, target, 
+                                                     targetlen, &fattr , ap->a_context);
+		} else if (unix_symlink) {
+			error = smbfs_smb_create_unix_symlink(share, dnp, name, nmlen, target, 
 												  targetlen, &fattr , ap->a_context);
 		} else {
 			error = smbfs_smb_create_windows_symlink(share, dnp, name, nmlen, target, 
@@ -3191,8 +3191,32 @@ smbfs_remove(struct smb_share *share, vnode_t dvp, vnode_t vp,
 	 *
 	 * NOTE: Kqueue opens will not be found by vnode_isinuse
 	 */
-	if ((vnode_isinuse(vp, 0)) && (flags & VNODE_REMOVE_NODELETEBUSY))
-		return (EBUSY); /* Do not print an error in this case */
+	if (flags & VNODE_REMOVE_NODELETEBUSY) {
+        if (vnode_isinuse(vp, 0)) {
+            return (EBUSY); /* Do not print an error in this case */
+        } else {
+            /* Check if any streams associated with this vnode are opened */
+            vnode_t svpp = smbfs_find_vgetstrm(smp, np, SFM_RESOURCEFORK_NAME, 
+                                               share->ss_maxfilenamelen);
+            if (svpp) {
+                if (vnode_isinuse(svpp, 0)) {
+                    /*
+                     *  This vnode has an opened stream associated with it,
+                     *  we still need to return EBUSY here.
+                     *  See <rdar://problem/9904683>
+                     */
+                    smbnode_unlock(VTOSMB(svpp));
+                    vnode_put(svpp);
+                    SMBDEBUG("%s: Cannot delete %s, resource fork in use\n", __FUNCTION__, vnode_getname(vp));
+                    return (EBUSY);  /* Do not print an error in this case */
+                } else {
+                    smbnode_unlock(VTOSMB(svpp));
+                    vnode_put(svpp);
+                }
+            }
+        }
+    }
+
 	/*
 	 * Did we open this in our read routine. Then we should close it.
 	 */

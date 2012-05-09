@@ -58,6 +58,8 @@ Certificate::Certificate(const CSSM_DATA &data, CSSM_CERT_TYPE type, CSSM_CERT_E
     mV1SubjectNameCStructValue(NULL),
     mV1IssuerNameCStructValue(NULL)
 {
+	if (data.Length == 0 || data.Data == NULL)
+		MacOSError::throwMe(paramErr);
 }
 
 // db item constructor

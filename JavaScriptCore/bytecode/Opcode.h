@@ -157,6 +157,7 @@ namespace JSC {
         macro(op_loop_if_lesseq, 4) \
         macro(op_loop_if_greater, 4) \
         macro(op_loop_if_greatereq, 4) \
+        macro(op_loop_hint, 1) \
         macro(op_switch_imm, 4) \
         macro(op_switch_char, 4) \
         macro(op_switch_string, 4) \
@@ -165,8 +166,7 @@ namespace JSC {
         macro(op_new_func_exp, 3) \
         macro(op_call, 4) \
         macro(op_call_eval, 4) \
-        macro(op_call_varargs, 4) \
-        macro(op_load_varargs, 4) \
+        macro(op_call_varargs, 5) \
         macro(op_tear_off_activation, 3) \
         macro(op_tear_off_arguments, 2) \
         macro(op_ret, 2) \

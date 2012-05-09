@@ -20,17 +20,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-07-11</string>
+		<string>2012-02-13</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xorg-server</string>
 		<key>OpenSourceSHA1</key>
-		<string>1699be5c0edeca553cfa3ee6caa228483465136b</string>
+		<string>398b5ba7332829f1831b8fa69e2ea071fb7d1e59</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/xserver/xorg-server-1.10.3.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/xserver/xorg-server-1.10.6.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.10.3</string>
+		<string>1.10.6</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://xquartz.macosforge.org</string>
 	</dict>

@@ -418,6 +418,7 @@ module FileUtils
     fu_check_options options, OPT_TABLE['cp_r']
     fu_output_message "cp -r#{options[:preserve] ? 'p' : ''}#{options[:remove_destination] ? ' --remove-destination' : ''} #{[src,dest].flatten.join ' '}" if options[:verbose]
     return if options[:noop]
+    options = options.dup
     options[:dereference_root] = true unless options.key?(:dereference_root)
     fu_each_src_dest(src, dest) do |s, d|
       copy_entry s, d, options[:preserve], options[:dereference_root], options[:remove_destination]
@@ -657,10 +658,10 @@ module FileUtils
   # removing directories.  This requires the current process is the
   # owner of the removing whole directory tree, or is the super user (root).
   #
-  # WARNING: You must ensure that *ALL* parent directories are not
-  # world writable.  Otherwise this method does not work.
-  # Only exception is temporary directory like /tmp and /var/tmp,
-  # whose permission is 1777.
+  # WARNING: You must ensure that *ALL* parent directories cannot be
+  # moved by other untrusted users.  For example, parent directories
+  # should not be owned by untrusted users, and should not be world
+  # writable except when the sticky bit set.
   #
   # WARNING: Only the owner of the removing directory tree, or Unix super
   # user (root) should invoke this method.  Otherwise this method does not
@@ -703,6 +704,11 @@ module FileUtils
       end
       f.chown euid, -1
       f.chmod 0700
+      unless fu_stat_identical_entry?(st, File.lstat(fullpath))
+        # TOC-to-TOU attack?
+        File.unlink fullpath
+        return
+      end
     }
     # ---- tree root is frozen ----
     root = Entry_.new(path)
@@ -1021,7 +1027,7 @@ module FileUtils
     created = nocreate = options[:nocreate]
     t = options[:mtime]
     if options[:verbose]
-      fu_output_message "touch #{nocreate ? ' -c' : ''}#{t ? t.strftime(' -t %Y%m%d%H%M.%S') : ''}#{list.join ' '}"
+      fu_output_message "touch #{nocreate ? '-c ' : ''}#{t ? t.strftime('-t %Y%m%d%H%M.%S ') : ''}#{list.join ' '}"
     end
     return if options[:noop]
     list.each do |path|

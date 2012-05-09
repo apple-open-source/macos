@@ -266,7 +266,7 @@ _dispatch_io_init(dispatch_io_t channel, dispatch_fd_entry_t fd_entry,
 static void
 _dispatch_io_dispose(dispatch_io_t channel)
 {
-	if (channel->fd_entry) {
+	if (channel->fd_entry && !(channel->atomic_flags & (DIO_CLOSED|DIO_STOPPED))) {
 		if (channel->fd_entry->path_data) {
 			// This modification is safe since path_data->channel is checked
 			// only on close_queue (which is still suspended at this point)
@@ -625,8 +625,10 @@ _dispatch_io_stop(dispatch_io_t channel)
 			if (fd_entry) {
 				_dispatch_io_debug("io stop cleanup", channel->fd);
 				_dispatch_fd_entry_cleanup_operations(fd_entry, channel);
-				channel->fd_entry = NULL;
-				_dispatch_fd_entry_release(fd_entry);
+				if (!(channel->atomic_flags & DIO_CLOSED)) {
+					channel->fd_entry = NULL;
+					_dispatch_fd_entry_release(fd_entry);
+				}
 			} else if (channel->fd != -1) {
 				// Stop after close, need to check if fd_entry still exists
 				_dispatch_retain(channel);
@@ -667,9 +669,9 @@ dispatch_io_close(dispatch_io_t channel, unsigned long flags)
 	dispatch_async(channel->queue, ^{
 		dispatch_async(channel->barrier_queue, ^{
 			_dispatch_io_debug("io close", channel->fd);
-			(void)dispatch_atomic_or2o(channel, atomic_flags, DIO_CLOSED);
-			dispatch_fd_entry_t fd_entry = channel->fd_entry;
-			if (fd_entry) {
+			if (!(channel->atomic_flags & (DIO_CLOSED|DIO_STOPPED))) {
+				(void)dispatch_atomic_or2o(channel, atomic_flags, DIO_CLOSED);
+				dispatch_fd_entry_t fd_entry = channel->fd_entry;
 				if (!fd_entry->path_data) {
 					channel->fd_entry = NULL;
 				}
@@ -1857,13 +1859,13 @@ _dispatch_disk_perform(void *ctxt)
 	dispatch_async(disk->pick_queue, ^{
 		switch (result) {
 		case DISPATCH_OP_DELIVER:
-			_dispatch_operation_deliver_data(op, DOP_DELIVER);
+			_dispatch_operation_deliver_data(op, DOP_DEFAULT);
 			break;
 		case DISPATCH_OP_COMPLETE:
 			_dispatch_disk_complete_operation(disk, op);
 			break;
 		case DISPATCH_OP_DELIVER_AND_COMPLETE:
-			_dispatch_operation_deliver_data(op, DOP_DELIVER);
+			_dispatch_operation_deliver_data(op, DOP_DELIVER | DOP_NO_EMPTY);
 			_dispatch_disk_complete_operation(disk, op);
 			break;
 		case DISPATCH_OP_ERR:
@@ -2094,7 +2096,7 @@ _dispatch_operation_deliver_data(dispatch_operation_t op,
 			data = dispatch_data_create_subrange(op->data, op->buf_len,
 					op->length);
 		}
-		if (op->buf_len == op->buf_siz) {
+		if (op->buf_data && op->buf_len == op->buf_siz) {
 			_dispatch_io_data_release(op->buf_data);
 			op->buf_data = NULL;
 			op->buf = NULL;
@@ -2105,7 +2107,7 @@ _dispatch_operation_deliver_data(dispatch_operation_t op,
 				_dispatch_io_data_retain(data);
 				d = data;
 			} else {
-				d = dispatch_data_create_subrange(op->data, op->buf_len,
+				d = dispatch_data_create_subrange(op->data, op->buf_siz,
 						op->length);
 			}
 			_dispatch_io_data_release(op->data);
@@ -2123,7 +2125,6 @@ _dispatch_operation_deliver_data(dispatch_operation_t op,
 	op->undelivered = 0;
 	_dispatch_io_debug("deliver data", op->fd_entry->fd);
 	dispatch_op_direction_t direction = op->direction;
-	__block dispatch_data_t d = data;
 	dispatch_io_handler_t handler = op->handler;
 #if DISPATCH_IO_DEBUG
 	int fd = op->fd_entry->fd;
@@ -2135,6 +2136,7 @@ _dispatch_operation_deliver_data(dispatch_operation_t op,
 	// Note that data delivery may occur after the operation is freed
 	dispatch_async(op->op_q, ^{
 		bool done = (flags & DOP_DONE);
+		dispatch_data_t d = data;
 		if (done) {
 			if (direction == DOP_DIR_READ && err) {
 				if (dispatch_data_get_size(d)) {

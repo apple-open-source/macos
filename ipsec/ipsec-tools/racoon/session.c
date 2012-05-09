@@ -375,6 +375,17 @@ session(void)
 			if (update_myaddrs() && lcconf->autograbaddr)
 				if (check_rtsock_sched == NULL)	/* only schedule if not already done */
 					check_rtsock_sched = sched_new(1, check_rtsock, NULL);
+				else {
+					// force reinit if schedule is too far off (3 seconds or more)
+					time_t too_far = current_time() + 3;
+					if (check_rtsock_sched->dead ||
+						check_rtsock_sched->xtime >= too_far) {
+						plog(LLV_DEBUG, LOCATION, NULL,
+							 "forced reinit of addrs\n");
+						update_fds = 0;
+						check_rtsock(NULL);
+					}
+				}
 			// initfds();	//%%% BUG FIX - not needed here
 		}
 		if (update_fds) {

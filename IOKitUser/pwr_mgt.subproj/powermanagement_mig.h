@@ -33,7 +33,12 @@ typedef char * string_t;
  *    parameter "whichData"
  */
 enum {
-    kIOPMAssertionMIGCopyOneAssertionProperties     = 1
+    kIOPMAssertionMIGCopyOneAssertionProperties     = 1,
+    kIOPMAssertionMIGCopyAll                        = 2,
+    kIOPMAssertionMIGCopyStatus                     = 3,
+    kIOPMAssertionMIGCopyTimedOutAssertions         = 4,
+    kIOPMPowerEventsMIGCopyScheduledEvents          = 5,
+    kIOPMPowerEventsMIGCopyRepeatEvents             = 6,
 };
 
 /*

@@ -9,7 +9,7 @@ Project         = php
 ProjectName     = apache_mod_php
 UserType        = Developer
 ToolType        = Commands
-Submission      = 66.3
+Submission      = 66.4
 
 # Environment is passed to BOTH configure AND make, which can cause problems if these
 # variables are intended to help configure, but not override the result.
@@ -79,9 +79,9 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.3.8
+AEP_Version	= 5.3.10
 AEP_LicenseFile	= $(Sources)/LICENSE
-AEP_Patches	= suhosin-patch-5.3.7-0.9.10.patch \
+AEP_Patches	= suhosin-patch-5.3.9-0.9.10.patch \
 			MacOSX_build.patch arches.patch \
 			iconv.patch mysql_sock.patch pear.patch phar.patch \
 			xdebug.patch

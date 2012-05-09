@@ -204,6 +204,11 @@ void RenderBox::destroy()
     if (style() && (style()->logicalHeight().isPercent() || style()->logicalMinHeight().isPercent() || style()->logicalMaxHeight().isPercent()))
         RenderBlock::removePercentHeightDescendant(this);
 
+    // If this renderer is owning renderer for the frameview's custom scrollbars,
+    // we need to clear it from the scrollbar. See webkit bug 64737.
+    if (style() && style()->hasPseudoStyle(SCROLLBAR) && frame() && frame()->view())
+        frame()->view()->clearOwningRendererForCustomScrollbars(this);
+
     RenderBoxModelObject::destroy();
 }
 
@@ -1388,6 +1393,7 @@ void RenderBox::positionLineBox(InlineBox* box)
         box->destroy(renderArena());
     } else if (isReplaced()) {
         setLocation(roundedIntPoint(FloatPoint(box->x(), box->y())));
+        ASSERT(!m_inlineBoxWrapper);
         m_inlineBoxWrapper = box;
     }
 }

@@ -19,6 +19,7 @@
 				7238544E087F2FE600B36ABB /* CopyFiles */,
 				72385452087F302800B36ABB /* CopyFiles */,
 				72385457087F305800B36ABB /* CopyFiles */,
+				72C9226A142B975C00E268F0 /* CopyFiles */,
 				4254C76C128071B8000EB18F /* ShellScript */,
 			);
 			dependencies = (
@@ -251,6 +252,7 @@
 		727ECE0E113F016F009A8AA6 /* IOPMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 727ECE0D113F016F009A8AA6 /* IOPMAssertions.c */; };
 		727ECE0F113F016F009A8AA6 /* IOPMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 727ECE0D113F016F009A8AA6 /* IOPMAssertions.c */; };
 		729061E50CDFC6490046821C /* IOPMPowerNotifications.c in Sources */ = {isa = PBXBuildFile; fileRef = 729061E40CDFC6490046821C /* IOPMPowerNotifications.c */; };
+		72C9226F142B9AE300E268F0 /* SMCUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C9226E142B9AD800E268F0 /* SMCUserClient.h */; };
 		72CA2EF10F3A8C2400A9E6CA /* IOPMPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724B4F3C0EF720E2008787DE /* IOPMPrivate.h */; };
 		72F0C086086C88BA00C78B91 /* IOCFSerialize.h in Headers */ = {isa = PBXBuildFile; fileRef = E1AF600607B40A70007EADEA /* IOCFSerialize.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		72F0C087086C88BA00C78B91 /* IOCFUnserialize.h in Headers */ = {isa = PBXBuildFile; fileRef = E1AF600807B40A70007EADEA /* IOCFUnserialize.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -1066,6 +1068,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		72C9226A142B975C00E268F0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = include/IOKit/smc;
+			dstSubfolderSpec = 16;
+			files = (
+				72C9226F142B9AE300E268F0 /* SMCUserClient.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		840A571709B69AE300CEFF84 /* Copy Files F */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1480,6 +1492,7 @@
 		7255A7B1086CD13100A3554B /* IOKitLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOKitLib.h; sourceTree = "<group>"; wrapsLines = 1; };
 		727ECE0D113F016F009A8AA6 /* IOPMAssertions.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOPMAssertions.c; sourceTree = "<group>"; };
 		729061E40CDFC6490046821C /* IOPMPowerNotifications.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOPMPowerNotifications.c; sourceTree = "<group>"; };
+		72C9226E142B9AD800E268F0 /* SMCUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SMCUserClient.h; path = /System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/smc/SMCUserClient.h; sourceTree = "<absolute>"; };
 		840BB12109B77C5200D20D8F /* IOHIDLibPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOHIDLibPrivate.h; path = /System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDLibPrivate.h; sourceTree = "<absolute>"; };
 		8415111909B69904008ECC10 /* IOHIDPrivateKeys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOHIDPrivateKeys.h; path = /System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDPrivateKeys.h; sourceTree = "<absolute>"; };
 		8420534F0CFE541900C2EF0D /* IOBSD.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOBSD.h; path = "$(SDKROOT)/System/Library/Frameworks/IOKit.framework/Versions/A/Headers/IOBSD.h"; sourceTree = "<absolute>"; };
@@ -1712,6 +1725,7 @@
 			isa = PBXGroup;
 			children = (
 				0CCB80EF0C717DE300F51424 /* AppleRAIDUserLib.h */,
+				72C9226E142B9AD800E268F0 /* SMCUserClient.h */,
 				723853E8087F2C7000B36ABB /* xnu IOKit Headers */,
 				723853E5087F2C5700B36ABB /* IONetworkingFamily IOKit Headers */,
 				723853DF087F2C4100B36ABB /* IOGraphics IOKit Headers */,

@@ -1,7 +1,7 @@
 #----------------------------------
 # extconf.rb
-# $Revision: 11708 $
-# $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+# $Revision: 29867 $
+# $Date: 2010-11-22 16:22:26 +0900 (Mon, 22 Nov 2010) $
 #----------------------------------
 require 'mkmf'
 
@@ -35,7 +35,5 @@ end
 case RUBY_PLATFORM
 when /mswin32/
   $CFLAGS += ' /W3'
-when /cygwin/, /mingw/
-  $defs << '-DNONAMELESSUNION'
 end
 create_win32ole_makefile

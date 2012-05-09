@@ -1,5 +1,5 @@
 --- /tmp/jabberd-2.2.14/s2s/main.c	2011-05-31 15:11:37.000000000 -0700
-+++ ./jabberd2/s2s/main.c	2011-07-25 23:22:41.000000000 -0700
++++ ./jabberd2/s2s/main.c	2012-03-14 15:59:28.000000000 -0700
 @@ -40,6 +40,10 @@ static void _s2s_pidfile(s2s_t s2s) {
      char *pidfile;
      FILE *f;
@@ -343,3 +343,17 @@
          if(s2s->sx_ssl == NULL) {
              log_write(s2s->log, LOG_ERR, "failed to load router SSL pemfile, channel to router will not be SSL encrypted");
              s2s->router_pemfile = NULL;
+@@ -744,6 +985,13 @@ JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S
+ 
+     s2s->mio = mio_new(s2s->io_max_fds);
+ 
++    struct stat stat_buf;
++    if (stat("/etc/resolv.conf", &stat_buf) == -1) {
++        log_write(s2s->log, LOG_ERR, "can't stat /etc/resolv.conf, can't initialize dns, aborting");
++        exit(1);        
++    }
++    usleep(100000); // attempt to prevent potential race condition with resolv.conf not being finalized
++
+     if((s2s->udns_fd = dns_init(NULL, 1)) < 0) {
+         log_write(s2s->log, LOG_ERR, "unable to initialize dns library, aborting");
+         exit(1);

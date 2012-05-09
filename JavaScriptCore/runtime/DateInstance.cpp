@@ -22,30 +22,35 @@
 #include "config.h"
 #include "DateInstance.h"
 
+#include "JSDateMath.h"
 #include "JSGlobalObject.h"
 
 #include <math.h>
-#include <wtf/DateMath.h>
 #include <wtf/MathExtras.h>
 
 using namespace WTF;
 
 namespace JSC {
 
-const ClassInfo DateInstance::s_info = {"Date", &JSWrapperObject::s_info, 0, 0};
+const ClassInfo DateInstance::s_info = {"Date", &JSWrapperObject::s_info, 0, 0, CREATE_METHOD_TABLE(DateInstance)};
 
 DateInstance::DateInstance(ExecState* exec, Structure* structure)
     : JSWrapperObject(exec->globalData(), structure)
 {
-    ASSERT(inherits(&s_info));
-    setInternalValue(exec->globalData(), jsNaN());
 }
 
-DateInstance::DateInstance(ExecState* exec, Structure* structure, double time)
-    : JSWrapperObject(exec->globalData(), structure)
+void DateInstance::finishCreation(JSGlobalData& globalData)
 {
+    Base::finishCreation(globalData);
     ASSERT(inherits(&s_info));
-    setInternalValue(exec->globalData(), jsNumber(timeClip(time)));
+    setInternalValue(globalData, jsNaN());
+}
+
+void DateInstance::finishCreation(JSGlobalData& globalData, double time)
+{
+    Base::finishCreation(globalData);
+    ASSERT(inherits(&s_info));
+    setInternalValue(globalData, jsNumber(timeClip(time)));
 }
 
 const GregorianDateTime* DateInstance::calculateGregorianDateTime(ExecState* exec) const

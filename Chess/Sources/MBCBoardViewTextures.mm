@@ -2,70 +2,7 @@
 	File:		MBCBoardViewTextures.mm
 	Contains:	Load OpenGL textures from resources
 	Version:	1.0
-	Copyright:	Â© 2002-2008 by Apple Computer, Inc., all rights reserved.
-	
-	Derived from glChess, Copyright © 2002 Robert Ancell and Michael Duelli
-	Permission granted to Apple to relicense under the following terms:
-
-	File Ownership:
-
-		DRI:				Matthias Neeracher    x43683
-
-	Writers:
-
-		(MN)	Matthias Neeracher
-
-	Change History (most recent first):
-
-		$Log: MBCBoardViewTextures.mm,v $
-		Revision 1.16  2008/10/24 20:06:17  neerache
-		<rdar://problem/3710028> ER: Chessboard anti-aliasing
-		
-		Revision 1.15  2008/10/24 01:17:14  neerache
-		<rdar://problem/5973744> Chess Needs To Move from SGI Format Images to PNG or JPEG
-		
-		Revision 1.14  2007/03/01 20:58:48  neerache
-		Plug texture leaks <rdar://problem/3987435>
-		
-		Revision 1.13  2006/10/09 21:43:50  neerache
-		UTF-8 cleanliness is next to godliness <rdar://problems/4325719>
-		
-		Revision 1.12  2004/09/02 11:07:53  neerache
-		Use anisotropic textures
-		
-		Revision 1.11  2004/07/10 04:53:29  neerache
-		Tweak visuals
-		
-		Revision 1.10  2003/11/06 23:30:51  neerache
-		Adjust wording as suggested by Joyce Chow
-		
-		Revision 1.9  2003/10/29 22:39:31  neerache
-		Add tools & clean up copyright references for release
-		
-		Revision 1.8  2003/08/01 23:53:19  neerache
-		Get rid of erroneous use of GL_SRC_COLOR (RADAR 3343477)
-		
-		Revision 1.7  2003/06/05 08:31:26  neerache
-		Added Tuner
-		
-		Revision 1.6  2003/06/04 23:14:05  neerache
-		Neater manipulation widget; remove obsolete graphics options
-		
-		Revision 1.5  2003/06/02 04:21:40  neerache
-		Start implementing drawing styles for board elements
-		
-		Revision 1.4  2003/05/27 03:13:57  neerache
-		Rework game loading/saving code
-		
-		Revision 1.3  2003/05/05 23:52:05  neerache
-		Experimental switch to mipmaps
-		
-		Revision 1.2  2002/10/15 22:49:40  neeri
-		Add support for texture styles
-		
-		Revision 1.1  2002/08/22 23:47:06  neeri
-		Initial Checkin
-		
+	Copyright:	© 2002-2012 by Apple Computer, Inc., all rights reserved.
 */
 
 #import "MBCBoardView.h"
@@ -77,12 +14,22 @@
 #import <OpenGL/glext.h>
 #import <GLUT/glut.h>
 
-GLuint load_texture(NSString * name, NSString * dir, BOOL mono, float anisotropy)
+
+NSURL * texture_url(NSString * name, NSString * dir)
 {
-   name = [[NSBundle mainBundle] pathForResource:name 
-							   ofType:@"png" 
-							   inDirectory:dir];
-   NSURL * 			url 	= [NSURL fileURLWithPath:name];
+    NSString *      path    = [[NSBundle mainBundle] pathForResource:[name stringByAppendingString:@"@2x"] 
+                                                              ofType:@"png" 
+                                                         inDirectory:dir];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path])
+        path    = [[NSBundle mainBundle] pathForResource:name 
+                                                  ofType:@"png" 
+                                             inDirectory:dir];
+    return [NSURL fileURLWithPath:path];
+}
+
+GLuint load_texture(NSString * name, NSString * dir, BOOL mono, float anisotropy, bool blendX)
+{
+    NSURL * 			url 	= texture_url(name, dir);
    CGImageSourceRef imgSrc 	= CGImageSourceCreateWithURL((CFURLRef)url, NULL);
    CGImageRef 		img	 	= CGImageSourceCreateImageAtIndex(imgSrc, 0, NULL);
    GLuint			texture_name;
@@ -102,6 +49,22 @@ GLuint load_texture(NSString * name, NSString * dir, BOOL mono, float anisotropy
    CFRelease(imgSrc);
    if (!mono)
 	   CGColorSpaceRelease(space);
+   if (blendX) {
+        size_t blendMax = width / 2;
+        for (size_t y=0; y<height; ++y) {
+            uint8_t * row = reinterpret_cast<uint8_t *>(data)+y*dWidth;
+            for (size_t x=0; x<blendMax; ++x) {
+                float   kThisWeight  = 0.5f+x*0.5f/blendMax;
+                float   kOtherWeight = 1.0f-kThisWeight;
+                for (size_t comp=0; comp<4; ++comp) {
+                    uint8_t left                = row[(x<<2)+comp]*kThisWeight+row[((width-x-1)<<2)+comp]*kOtherWeight;
+                    uint8_t right               = row[((width-x-1)<<2)+comp]*kThisWeight+row[(x<<2)+comp]*kOtherWeight;
+                    row[(x<<2)+comp]            = left;
+                    row[((width-x-1)<<2)+comp]  = right;
+                }
+            }
+        }
+   }
    glPixelStorei(GL_UNPACK_ROW_LENGTH, width);
    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
    glGenTextures(1, &texture_name);
@@ -205,7 +168,7 @@ GLuint load_texture(NSString * name, NSString * dir, BOOL mono, float anisotropy
     [drawStyle unloadTexture];
     [drawStyle initWithTexture:
 			   load_texture([color stringByAppendingString:part],
-							style, FALSE, fAnisotropy)];	
+							style, FALSE, fAnisotropy, [part isEqual:@"Piece"])];	
 	[self loadField:&drawStyle->fDiffuse 
 		  fromAttr:attr color:color entry:@"Diffuse"];
 	[self loadField:&drawStyle->fSpecular 
@@ -258,16 +221,16 @@ GLuint load_texture(NSString * name, NSString * dir, BOOL mono, float anisotropy
 - (void) loadStaticTextures
 {
     [fSelectedPieceDrawStyle initWithTexture:
-		    load_texture(@"selected_piece_texture", nil, FALSE, fAnisotropy)];
+		    load_texture(@"selected_piece_texture", nil, FALSE, fAnisotropy, true)];
 	fSelectedPieceDrawStyle->fAlpha	= 0.8f;
 
     for (char i = '1'; i <= '8'; ++i) 
         fNumberTextures[i - '1'] = 
-			load_texture([NSString stringWithFormat:@"%c", i], nil, TRUE, fAnisotropy);
+			load_texture([NSString stringWithFormat:@"%c", i], nil, TRUE, fAnisotropy, false);
 
     for (char i = 'a'; i <= 'h'; i++) 
         fLetterTextures[i - 'a'] = 
-			load_texture([NSString stringWithFormat:@"%c", i], nil, TRUE, fAnisotropy);
+			load_texture([NSString stringWithFormat:@"%c", i], nil, TRUE, fAnisotropy, false);
 }
 
 - (void) loadColors

@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_ssl.c 16857 2008-06-06 08:05:24Z knu $
+ * $Id: ossl_ssl.c 32234 2011-06-26 08:58:06Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2000-2002  GOTOU Yuuzou <gotoyuzo@notwork.org>
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
@@ -101,9 +101,12 @@ struct {
     OSSL_SSL_METHOD_ENTRY(TLSv1),
     OSSL_SSL_METHOD_ENTRY(TLSv1_server),
     OSSL_SSL_METHOD_ENTRY(TLSv1_client),
+#if defined(HAVE_SSLV2_METHOD) && defined(HAVE_SSLV2_SERVER_METHOD) && \
+        defined(HAVE_SSLV2_CLIENT_METHOD)	
     OSSL_SSL_METHOD_ENTRY(SSLv2),
     OSSL_SSL_METHOD_ENTRY(SSLv2_server),
     OSSL_SSL_METHOD_ENTRY(SSLv2_client),
+#endif
     OSSL_SSL_METHOD_ENTRY(SSLv3),
     OSSL_SSL_METHOD_ENTRY(SSLv3_server),
     OSSL_SSL_METHOD_ENTRY(SSLv3_client),
@@ -829,7 +832,7 @@ ossl_sslctx_flush_sessions(int argc, VALUE *argv, VALUE self)
         rb_raise(rb_eArgError, "arg must be Time or nil");
     }
 
-    SSL_CTX_flush_sessions(ctx, tm);
+    SSL_CTX_flush_sessions(ctx, (long)tm);
 
     return self;
 }
@@ -1196,10 +1199,10 @@ ossl_ssl_get_peer_cert_chain(VALUE self)
     }
     chain = SSL_get_peer_cert_chain(ssl);
     if(!chain) return Qnil;
-    num = sk_num(chain);
+    num = sk_X509_num(chain);
     ary = rb_ary_new2(num);
     for (i = 0; i < num; i++){
-	cert = (X509*)sk_value(chain, i);
+	cert = sk_X509_value(chain, i);
 	rb_ary_push(ary, ossl_x509_new(cert));
     }
 

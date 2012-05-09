@@ -127,7 +127,7 @@ void IOAudioControl::sendChangeNotification(UInt32 notificationType)
 	} else {
 		iterator = OSCollectionIterator::withCollection(userClients);
 		if (iterator) {
-			while (client = (IOAudioControlUserClient *)iterator->getNextObject()) {
+			while ( (client = (IOAudioControlUserClient *)iterator->getNextObject()) ) {
 				client->sendChangeNotification(notificationType);
 			}
 	
@@ -741,7 +741,7 @@ void IOAudioControl::sendValueChangeNotification()
 
     iterator = OSCollectionIterator::withCollection(userClients);
     if (iterator) {
-        while (client = (IOAudioControlUserClient *)iterator->getNextObject()) {
+        while ( (client = (IOAudioControlUserClient *)iterator->getNextObject()) ) {
             client->sendValueChangeNotification();
         }
         
@@ -1048,7 +1048,7 @@ IOReturn IOAudioControl::detachUserClients()
         if (iterator) {
             IOAudioControlUserClient *userClient;
             
-            while (userClient = (IOAudioControlUserClient *)iterator->getNextObject()) {
+            while ( (userClient = (IOAudioControlUserClient *)iterator->getNextObject()) ) {
                 userClient->terminate();
             }
             

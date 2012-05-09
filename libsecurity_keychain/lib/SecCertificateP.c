@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,11 +17,11 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/* 
+/*
  * SecCertificate.c - CoreFoundation based certificate object
  */
 
@@ -75,7 +75,7 @@ typedef struct KnownExtension {
 enum {
     kSecSelfSignedUnknown = 0,
     kSecSelfSignedFalse,
-    kSecSelfSignedTrue,    
+    kSecSelfSignedTrue,
 };
 #endif
 
@@ -134,7 +134,7 @@ struct __SecCertificate {
     /* If KeyUsage extension is not present this is 0, otherwise it's
        the value of the extension. */
     SecKeyUsage _keyUsage;
-    
+
 	/* OCTECTS of SubjectKeyIdentifier extensions KeyIdentifier.
 	   Length = 0 if not present. */
     DERItem				_subjectKeyIdentifier;
@@ -1323,7 +1323,7 @@ static bool SecCertificateParse(SecCertificateRefP certificate)
 
 	/* top level decode */
 	DERSignedCertCrl signedCert;
-	drtn = DERParseSequence(&certificate->_der, DERNumSignedCertCrlItemSpecs, 
+	drtn = DERParseSequence(&certificate->_der, DERNumSignedCertCrlItemSpecs,
 		DERSignedCertCrlItemSpecs, &signedCert,
 		sizeof(signedCert));
 	require_noerr_quiet(drtn, badCert);
@@ -1332,7 +1332,7 @@ static bool SecCertificateParse(SecCertificateRefP certificate)
 
 	/* decode the TBSCert - it was saved in full DER form */
     DERTBSCert tbsCert;
-	drtn = DERParseSequence(&signedCert.tbs, 
+	drtn = DERParseSequence(&signedCert.tbs,
 		DERNumTBSCertItemSpecs, DERTBSCertItemSpecs,
 		&tbsCert, sizeof(tbsCert));
 	require_noerr_quiet(drtn, badCert);
@@ -1631,7 +1631,7 @@ const UInt8 *SecCertificateGetBytePtr(SecCertificateRefP certificate) {
 
 CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocator,
     const DERItem *oid) {
-	
+
 	if (oid->length == 0) {
         return SecFrameworkCopyLocalizedString(CFSTR("<NULL>"),
             CFSTR("SecCertificate"));
@@ -2004,7 +2004,7 @@ static void appendURLProperty(CFMutableArrayRef properties,
     CFStringRef label, const DERItem *url) {
 	DERDecodedInfo decoded;
 	DERReturn drtn;
-	
+
 	drtn = DERDecodeItem(url, &decoded);
     if (drtn || decoded.tag != ASN1_IA5_STRING) {
 		appendInvalidProperty(properties, label, url);
@@ -2024,7 +2024,7 @@ static void appendOIDProperty(CFMutableArrayRef properties,
 static void appendAlgorithmProperty(CFMutableArrayRef properties,
     CFStringRef label, const DERAlgorithmId *algorithm) {
     CFMutableArrayRef alg_props =
-        CFArrayCreateMutable(CFGetAllocator(properties), 0, 
+        CFArrayCreateMutable(CFGetAllocator(properties), 0,
             &kCFTypeArrayCallBacks);
     appendOIDProperty(alg_props, CFSTR("Algorithm"), &algorithm->oid);
     if (algorithm->params.length) {
@@ -2117,7 +2117,7 @@ static CFStringRef copyIntegerContentDescription(CFAllocatorRef allocator,
 	const DERItem *integer) {
 	uint64_t value = 0;
 	CFIndex ix, length = integer->length;
-	
+
 	if (length == 0 || length > 8)
 		return copyHexDescription(allocator, integer);
 
@@ -2167,7 +2167,7 @@ static CFStringRef copyDERThingContentDescription(CFAllocatorRef allocator,
         /* @@@ Localize. */
         /* "format string for undisplayed field data with a given DER tag" */
         return printableOnly ? NULL : CFStringCreateWithFormat(allocator, NULL,
-            CFSTR("not displayed (tag = %@; length %d)"),
+            CFSTR("not displayed (tag = %d; length %d)"),
             tag, derThing->length);
 	}
 }
@@ -2176,7 +2176,7 @@ static CFStringRef copyDERThingDescription(CFAllocatorRef allocator,
 	const DERItem *derThing, bool printableOnly) {
 	DERDecodedInfo decoded;
 	DERReturn drtn;
-	
+
 	drtn = DERDecodeItem(derThing, &decoded);
     if (drtn) {
         return printableOnly ? NULL : copyHexDescription(allocator, derThing);
@@ -2246,13 +2246,13 @@ static CFArrayRef createPropertiesForRDNContent(CFAllocatorRef allocator,
         CFArrayRemoveAllValues(properties);
 		appendInvalidProperty(properties, CFSTR("RDN"), rdnSetContent);
 	}
-	
+
 	return properties;
 }
 
 /*
     From rfc3739 - 3.1.2.  Subject
-    
+
     When parsing the subject here are some tips for a short name of the cert.
       Choice   I:  commonName
       Choice  II:  givenName
@@ -2278,7 +2278,7 @@ static CFArrayRef createPropertiesForX501NameContent(CFAllocatorRef allocator,
         CFArrayRemoveAllValues(properties);
         appendInvalidProperty(properties, CFSTR("X.501 Name"), x501NameContent);
 	}
-	
+
 	return properties;
 }
 
@@ -2291,7 +2291,7 @@ static CFArrayRef createPropertiesForX501Name(CFAllocatorRef allocator,
         CFArrayRemoveAllValues(properties);
         appendInvalidProperty(properties, CFSTR("X.501 Name"), x501Name);
 	}
-	
+
 	return properties;
 }
 
@@ -3065,12 +3065,12 @@ static void appendEntrustVersInfo(CFMutableArrayRef properties,
     const DERItem *extnValue) {
 }
 
-/* 
- * The list of Qualified Cert Statement statementIds we understand, even though 
- * we don't actually do anything with them; if these are found in a Qualified 
+/*
+ * The list of Qualified Cert Statement statementIds we understand, even though
+ * we don't actually do anything with them; if these are found in a Qualified
  * Cert Statement that's critical, we can truthfully say "yes we understand this".
  */
-static const CSSM_OID_PTR knownQualifiedCertStatements[] = 
+static const CSSM_OID_PTR knownQualifiedCertStatements[] =
 {
     /* id-qcs := { id-pkix 11 } */
 	(const CSSM_OID_PTR)&CSSMOID_OID_QCS_SYNTAX_V1, /* id-qcs 1 */
@@ -3308,7 +3308,7 @@ static OSStatus obtainSummaryFromX501Name(void *context,
     if (DEROidCompare(type, &oidCommonName)) {
         /* We skip Common Names that have generic values. */
         const char tfm[] = "Thawte Freemail Member";
-        if ((value->length == sizeof(tfm) + 1) && 
+        if ((value->length == sizeof(tfm) + 1) &&
               !memcmp(value->data + 2, tfm, sizeof(tfm) - 1)) {
             return noErr;
         }
@@ -3639,7 +3639,7 @@ CFDataRef SecCertificateGetNormalizedSubjectContent(
 	DERItem tmpdi;
 	tmpdi.data = (DERByte *)CFDataGetBytePtr(certificate->_normalizedSubject);
 	tmpdi.length = CFDataGetLength(certificate->_normalizedSubject);
-	
+
     return SecDERItemCopySequence(&tmpdi);
 }
 
@@ -3648,7 +3648,7 @@ CFDataRef SecCertificateGetNormalizedIssuer(
 	DERItem tmpdi;
 	tmpdi.data = (DERByte *)CFDataGetBytePtr(certificate->_normalizedIssuer);
 	tmpdi.length = CFDataGetLength(certificate->_normalizedIssuer);
-	
+
     return SecDERItemCopySequence(&tmpdi);
 }
 
@@ -3781,7 +3781,7 @@ static OSStatus _SecCertificateSetParent(SecCertificateRefP certificate,
 
 static bool SecCertificateIsSelfSigned(SecCertificateRefP certificate) {
     if (certificate->_isSelfSigned == kSecSelfSignedUnknown) {
-        certificate->_isSelfSigned = 
+        certificate->_isSelfSigned =
             (SecCertificateIsIssuedBy(certificate, certificate, false) ?
              kSecSelfSignedTrue : kSecSelfSignedFalse);
     }
@@ -4496,7 +4496,7 @@ bool SecCertificateHasCriticalSubjectAltName(SecCertificateRefP certificate) {
 }
 
 bool SecCertificateHasSubject(SecCertificateRefP certificate) {
-	/* Since the _subject field is the content of the subject and not the 
+	/* Since the _subject field is the content of the subject and not the
 	   whole thing, we can simply check for a 0 length subject here. */
 	return certificate->_subject.length != 0;
 }
@@ -4583,19 +4583,19 @@ bool SecCertificateIsSelfSignedCA(SecCertificateRefP certificate) {
         SecCertificateGetNormalizedSubjectContent(certificate);
     require_quiet(normalizedIssuer && normalizedSubject &&
         CFEqual(normalizedIssuer, normalizedSubject), out);
-    
+
     CFDataRef authorityKeyID = SecCertificateGetAuthorityKeyID(certificate);
     CFDataRef subjectKeyID = SecCertificateGetSubjectKeyID(certificate);
     if (authorityKeyID) {
         require_quiet(subjectKeyID && CFEqual(subjectKeyID, authorityKeyID), out);
     }
-    
+
     if (SecCertificateVersion(certificate) >= 3) {
         const SecCEBasicConstraints *basicConstraints = SecCertificateGetBasicConstraints(certificate);
         require_quiet(basicConstraints && basicConstraints->isCA, out);
         require_noerr_quiet(SecCertificateIsSignedByP(certificate, publicKey), out);
     }
-    
+
     result = true;
 out:
     CFReleaseSafe(publicKey);
@@ -4608,7 +4608,7 @@ SecKeyUsage SecCertificateGetKeyUsage(SecCertificateRefP certificate) {
 
 CFArrayRef SecCertificateCopyExtendedKeyUsage(SecCertificateRefP certificate)
 {
-    CFMutableArrayRef extended_key_usage_oids = 
+    CFMutableArrayRef extended_key_usage_oids =
         CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     require_quiet(extended_key_usage_oids, out);
     int ix;
@@ -4622,10 +4622,10 @@ CFArrayRef SecCertificateCopyExtendedKeyUsage(SecCertificateRefP certificate)
             require_noerr_quiet(drtn, out);
             require_quiet(tag == ASN1_CONSTR_SEQUENCE, out);
             DERDecodedInfo currDecoded;
-            
+
             while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
                 require_quiet(currDecoded.tag == ASN1_OBJECT_ID, out);
-                CFDataRef oid = CFDataCreate(kCFAllocatorDefault, 
+                CFDataRef oid = CFDataCreate(kCFAllocatorDefault,
                     currDecoded.content.data, currDecoded.content.length);
                 if (oid) {
                     CFArrayAppendValue(extended_key_usage_oids, oid);
@@ -4664,7 +4664,7 @@ SecCertificateRefP SecCertificateCreateWithPEM(CFAllocatorRef allocator,
     }
 out:
     return cert;
-}       
+}
 
 static void convertCertificateToCFData(const void *value, void *context) {
     CFMutableArrayRef result = (CFMutableArrayRef)context;

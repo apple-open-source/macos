@@ -102,7 +102,29 @@
  */
 #define kIOPSPowerAdapterFamilyKey          "FamilyCode"
 
+/*!
+ * @define      kIOPSPowerAdapterCurrentKey     
+ *
+ * @abstract    This key refers to the current of the external AC power adapter attached to a portable. 
+ *              The value associated with this key is a CFNumberRef kCFNumberIntType integer value, in units of mAmps.
+ *
+ * @discussion  This key may be present in the dictionary returned from 
+ *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
+ *              This key might not be defined in the adapter details dictionary.
+ */
+#define kIOPSPowerAdapterCurrentKey         "Current"
 
+/*!
+ * @define      kIOPSPowerAdapterSourceKey     
+ *
+ * @abstract    This key refers to the source of the power.
+ *              The value associated with this key is a CFNumberRef kCFNumberIntType integer value.
+ *
+ * @discussion  This key may be present in the dictionary returned from 
+ *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
+ *              This key might not be defined in the adapter details dictionary.
+ */
+#define kIOPSPowerAdapterSourceKey          "Source"
 
 
 /*! 

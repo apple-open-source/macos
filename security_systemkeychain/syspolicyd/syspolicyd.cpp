@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <Security/Security.h>
+#include <Security/CodeSigning.h>
 #include <Security/SecAssessment.h>
 #include <getopt.h>
 #include <syslog.h>
@@ -42,6 +43,7 @@ static void usage();
 // Operations functions
 //
 void doAssess(xpc_object_t msg, xpc_object_t reply);
+void doUpdate(xpc_object_t msg, xpc_object_t reply);
 
 
 //
@@ -83,6 +85,8 @@ int main (int argc, char * const argv[])
 							xpc_dictionary_set_int64(reply, "error", errSecCSInternalError);
 						} else if (!strcmp(function, "assess")) {
 							doAssess(msg, reply);
+						} else if (!strcmp(function, "update")) {
+							doUpdate(msg, reply);
 						} else {
 							xpc_dictionary_set_int64(reply, "error", errSecCSInternalError);
 						}
@@ -123,11 +127,32 @@ void doAssess(xpc_object_t msg, xpc_object_t reply)
 	size_t contextLength;
 	const void *contextData = xpc_dictionary_get_data(msg, "context", &contextLength);
 	CFRef<CFDictionaryRef> context = makeCFDictionaryFrom(contextData, contextLength);
-	if (CFRef<SecAssessmentRef> assessment = SecAssessmentCreate(CFTempURL(path), flags | kSecAssessmentFlagDirect, context, &errors))
+	if (CFRef<SecAssessmentRef> assessment = SecAssessmentCreate(CFTempURL(path), flags | kSecAssessmentFlagDirect | kSecAssessmentFlagIgnoreCache, context, &errors))
 		if (CFRef<CFDictionaryRef> result = SecAssessmentCopyResult(assessment, kSecAssessmentDefaultFlags, &errors)) {
 			CFRef<CFDataRef> resultData = makeCFData(result.get());
 			xpc_dictionary_set_data(reply, "result", CFDataGetBytePtr(resultData), CFDataGetLength(resultData));
 			return;
 		}
 	xpc_dictionary_set_int64(reply, "error", CFErrorGetCode(errors));
+}
+
+
+void doUpdate(xpc_object_t msg, xpc_object_t reply)
+{
+	// target is polymorphic optional; put it together here
+	CFRef<CFTypeRef> target;
+	size_t length;
+	if (const void *reqblob = xpc_dictionary_get_data(msg, "requirement", &length))
+		MacOSError::check(SecRequirementCreateWithData(CFTempData(reqblob, length), kSecCSDefaultFlags, (SecRequirementRef *)&target.aref()));
+	else if (uint64_t rule = xpc_dictionary_get_uint64(msg, "rule"))
+		target.take(makeCFNumber(rule));
+	else if (const char *s = xpc_dictionary_get_string(msg, "url"))
+		target.take(makeCFURL(s));
+	uint64_t flags = xpc_dictionary_get_int64(msg, "flags");
+	const void *contextData = xpc_dictionary_get_data(msg, "context", &length);
+	CFRef<CFDictionaryRef> context = makeCFDictionaryFrom(contextData, length);
+
+	CFErrorRef errors = NULL;
+	if (!SecAssessmentUpdate(target, flags | kSecAssessmentFlagDirect, context, &errors))
+		xpc_dictionary_set_int64(reply, "error", CFErrorGetCode(errors));
 }

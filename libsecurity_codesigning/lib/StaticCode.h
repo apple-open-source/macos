@@ -80,6 +80,7 @@ protected:
 		CollectingContext(SecStaticCode &c) : code(c), mStatus(noErr) { }
 		void reportProblem(OSStatus rc, CFStringRef type, CFTypeRef value);
 		
+		OSStatus osStatus()		{ return mStatus; }
 		operator OSStatus () const		{ return mStatus; }
 		void throwMe() __attribute__((noreturn));
 		
@@ -135,9 +136,13 @@ public:
 	bool validated() const	{ return mValidated; }
 	bool valid() const
 		{ assert(validated()); return mValidated && (mValidationResult == noErr); }
+	bool validatedExecutable() const	{ return mExecutableValidated; }
+	bool validatedResources() const	{ return mResourcesValidated; }
+
 	
 	void validateDirectory();
 	void validateComponent(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
+	void validateNonResourceComponents();
 	void validateResources();
 	void validateExecutable();
 	
@@ -163,7 +168,7 @@ public:
 protected:
 	CFDictionaryRef getDictionary(CodeDirectory::SpecialSlot slot, OSStatus fail); // component value as a dictionary
 	bool verifySignature();
-	SecPolicyRef verificationPolicy();
+	CFTypeRef verificationPolicy(SecCSFlags flags);
 
 	void defaultDesignatedAppleAnchor(Requirement::Maker &maker);
 	void defaultDesignatedNonAppleAnchor(Requirement::Maker &maker);
@@ -182,7 +187,12 @@ private:
 	
 	// static executable validation state (nested within mValidated/mValid)
 	bool mExecutableValidated;			// tried to validate executable file
-	bool mExecutableValid;				// outcome if mExecutableValidated
+	OSStatus mExecutableValidResult;		// outcome if mExecutableValidated
+
+	// static resource validation state (nested within mValidated/mValid)
+	bool mResourcesValidated;			// tried to validate resources
+	OSStatus mResourcesValidResult;			// outcome if mResourceValidated or..
+	CollectingContext *mResourcesValidContext;	// other outcome
 
 	// cached contents
 	CFRef<CFDataRef> mDir;				// code directory data
@@ -204,9 +214,6 @@ private:
 	CFRef<SecTrustRef> mTrust;			// outcome of crypto validation (valid or not)
 	CFRef<CFArrayRef> mCertChain;
 	CSSM_TP_APPLE_EVIDENCE_INFO *mEvalDetails;
-	
-	// cached verification policy
-	CFRef<SecPolicyRef> mPolicy;
 };
 
 

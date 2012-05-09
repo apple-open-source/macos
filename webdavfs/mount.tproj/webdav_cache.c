@@ -1378,6 +1378,17 @@ int nodecache_redirect_node(
 		// Now change node state
 		CFRelease(gBaseURL);
 		gBaseURL = newBaseURL;
+		
+		if (gBasePath != NULL) {
+			CFRelease(gBasePath);
+			gBasePath = NULL;
+		}
+		
+		gBasePath = CFURLCopyPath(gBaseURL);
+		if (gBasePath != NULL) {
+			CFStringGetCString(gBasePath, gBasePathStr, MAXPATHLEN, kCFStringEncodingUTF8);
+		}
+		
 		g_root_node->isRedirected = true;
 		g_root_node->redir_name = name_ptr;
 		g_root_node->redir_name_length = name_ptr_len;

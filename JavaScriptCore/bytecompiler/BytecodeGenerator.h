@@ -55,15 +55,17 @@ namespace JSC {
 
         RegisterID* thisRegister() { return m_argv[0].get(); }
         RegisterID* argumentRegister(unsigned i) { return m_argv[i + 1].get(); }
-        unsigned callFrame() { return thisRegister()->index() + count() + RegisterFile::CallFrameHeaderSize; }
-        unsigned count() { return m_argv.size(); }
+        unsigned registerOffset() { return m_argv.last()->index() + CallFrame::offsetFor(argumentCountIncludingThis()); }
+        unsigned argumentCountIncludingThis() { return m_argv.size(); }
         RegisterID* profileHookRegister() { return m_profileHookRegister.get(); }
         ArgumentsNode* argumentsNode() { return m_argumentsNode; }
 
     private:
+        void newArgument(BytecodeGenerator&);
+
         RefPtr<RegisterID> m_profileHookRegister;
         ArgumentsNode* m_argumentsNode;
-        Vector<RefPtr<RegisterID>, 16> m_argv;
+        Vector<RefPtr<RegisterID>, 8> m_argv;
     };
 
     struct FinallyContext {
@@ -92,10 +94,12 @@ namespace JSC {
         JS_EXPORT_PRIVATE static void setDumpsGeneratedCode(bool dumpsGeneratedCode);
         static bool dumpsGeneratedCode();
 
-        BytecodeGenerator(ProgramNode*, ScopeChainNode*, SymbolTable*, ProgramCodeBlock*);
-        BytecodeGenerator(FunctionBodyNode*, ScopeChainNode*, SymbolTable*, CodeBlock*);
-        BytecodeGenerator(EvalNode*, ScopeChainNode*, SymbolTable*, EvalCodeBlock*);
+        BytecodeGenerator(ProgramNode*, ScopeChainNode*, SymbolTable*, ProgramCodeBlock*, CompilationKind);
+        BytecodeGenerator(FunctionBodyNode*, ScopeChainNode*, SymbolTable*, CodeBlock*, CompilationKind);
+        BytecodeGenerator(EvalNode*, ScopeChainNode*, SymbolTable*, EvalCodeBlock*, CompilationKind);
 
+        ~BytecodeGenerator();
+        
         JSGlobalData* globalData() const { return m_globalData; }
         const CommonIdentifiers& propertyNames() const { return *m_globalData->propertyNames; }
 
@@ -108,8 +112,7 @@ namespace JSC {
         // require explicit reference counting.
         RegisterID* registerFor(const Identifier&);
 
-        // Returns the agument number if this is an argument, or 0 if not.
-        int argumentNumberFor(const Identifier&);
+        bool isArgumentNumber(const Identifier&, int);
 
         void setIsNumericCompareFunction(bool isNumericCompareFunction);
 
@@ -271,7 +274,7 @@ namespace JSC {
                 return dst;
             }
 
-            return PassRefPtr<RegisterID>(emitNode(n));
+            return emitNode(n);
         }
 
         RegisterID* emitLoad(RegisterID* dst, bool);
@@ -332,7 +335,7 @@ namespace JSC {
 
         RegisterID* emitCall(RegisterID* dst, RegisterID* func, CallArguments&, unsigned divot, unsigned startOffset, unsigned endOffset);
         RegisterID* emitCallEval(RegisterID* dst, RegisterID* func, CallArguments&, unsigned divot, unsigned startOffset, unsigned endOffset);
-        RegisterID* emitCallVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* argCount, unsigned divot, unsigned startOffset, unsigned endOffset);
+        RegisterID* emitCallVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, RegisterID* profileHookRegister, unsigned divot, unsigned startOffset, unsigned endOffset);
         RegisterID* emitLoadVarargs(RegisterID* argCountDst, RegisterID* thisRegister, RegisterID* args);
 
         RegisterID* emitReturn(RegisterID* src);
@@ -343,6 +346,7 @@ namespace JSC {
         void emitToPrimitive(RegisterID* dst, RegisterID* src);
 
         PassRefPtr<Label> emitLabel(Label*);
+        void emitLoopHint();
         PassRefPtr<Label> emitJump(Label* target);
         PassRefPtr<Label> emitJumpIfTrue(RegisterID* cond, Label* target);
         PassRefPtr<Label> emitJumpIfFalse(RegisterID* cond, Label* target);
@@ -412,18 +416,6 @@ namespace JSC {
 
         PassRefPtr<Label> emitComplexJumpScopes(Label* target, ControlFlowContext* topScope, ControlFlowContext* bottomScope);
 
-        typedef HashMap<EncodedJSValue, unsigned, EncodedJSValueHash, EncodedJSValueHashTraits> JSValueMap;
-
-        struct IdentifierMapIndexHashTraits {
-            typedef int TraitType;
-            typedef IdentifierMapIndexHashTraits StorageTraits;
-            static int emptyValue() { return std::numeric_limits<int>::max(); }
-            static const bool emptyValueIsZero = false;
-            static const bool needsDestruction = false;
-            static const bool needsRef = false;
-        };
-
-        typedef HashMap<RefPtr<StringImpl>, int, IdentifierRepHash, HashTraits<RefPtr<StringImpl> >, IdentifierMapIndexHashTraits> IdentifierMap;
         typedef HashMap<double, JSValue> NumberMap;
         typedef HashMap<StringImpl*, JSString*, IdentifierRepHash> IdentifierStringMap;
         

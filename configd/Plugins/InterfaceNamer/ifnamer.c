@@ -24,6 +24,10 @@
 /*
  * Modification History
  *
+ * May 20, 2006			Joe Liu <joe.liu@apple.com>
+ *				Allan Nathanson <ajn@apple.com>
+ * - register interface by entryID (and not path)
+ *
  * November 6, 2006		Allan Nathanson <ajn@apple.com>
  *				Dan Markarian <markarian@apple.com>
  *				Dieter Siegmund <dieter@apple.com>
@@ -82,15 +86,22 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/network/IONetworkController.h>
 #include <IOKit/network/IONetworkInterface.h>
+#include <IOKit/network/IONetworkStack.h>
 #include <IOKit/usb/USB.h>
 
+#ifdef kIONetworkStackUserCommandKey
+#define	USE_REGISTRY_ENTRY_ID
+#endif
+
+#ifndef	USE_REGISTRY_ENTRY_ID
 // from <IOKit/network/IONetworkStack.h>
-#define kIONetworkStackUserCommand      "IONetworkStackUserCommand"
+#define kIONetworkStackUserCommandKey	"IONetworkStackUserCommand"
 enum {
     kRegisterInterfaceWithFixedUnit = 0,
     kRegisterInterface,
     kRegisterAllInterfaces
 };
+#endif	// !USE_REGISTRY_ENTRY_ID
 
 #define	kSCNetworkInterfaceInfo		"SCNetworkInterfaceInfo"
 #define	kSCNetworkInterfaceType		"SCNetworkInterfaceType"
@@ -317,42 +328,41 @@ writeInterfaceList(CFArrayRef if_list)
 
     old_model = SCPreferencesGetValue(prefs, MODEL);
     new_model = hw_model();
-    if ((old_model != NULL) &&
-	(new_model != NULL) &&
-	!CFEqual(old_model, new_model) &&
-	(cur_list != NULL)) {
-	CFStringRef history;
-	CFStringRef issue;
+    if ((new_model != NULL) && !_SC_CFEqual(old_model, new_model)) {
+	// if new hardware
+	if ((old_model != NULL) && (cur_list != NULL)) {
+	    CFStringRef history;
+	    CFStringRef issue;
 
-	// if interface list was created on other hardware
-	history = CFStringCreateWithFormat(NULL, NULL,
-					   CFSTR("%@:%@"),
-					   INTERFACES,
-					   old_model);
-	SCPreferencesSetValue(prefs, history, cur_list);
-	CFRelease(history);
+	    // if interface list was created on other hardware
+	    history = CFStringCreateWithFormat(NULL, NULL,
+					       CFSTR("%@:%@"),
+					       INTERFACES,
+					       old_model);
+	    SCPreferencesSetValue(prefs, history, cur_list);
+	    CFRelease(history);
 
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": Hardware model changed\n"
-		    MY_PLUGIN_NAME ":   created on \"%@\"\n"
-		    MY_PLUGIN_NAME ":   now on     \"%@\""),
-	      old_model,
-	      new_model);
+	    SCLog(TRUE, LOG_ERR,
+		  CFSTR(MY_PLUGIN_NAME ": Hardware model changed\n"
+			MY_PLUGIN_NAME ":   created on \"%@\"\n"
+			MY_PLUGIN_NAME ":   now on     \"%@\""),
+		  old_model,
+		  new_model);
 
-	issue = CFStringCreateWithFormat(NULL, NULL,
-					 CFSTR("%@ --> %@"),
-					 old_model,
-					 new_model);
-	reportIssue("Hardware model changed", issue);
-	CFRelease(issue);
-    }
+	    issue = CFStringCreateWithFormat(NULL, NULL,
+					     CFSTR("%@ --> %@"),
+					     old_model,
+					     new_model);
+	    reportIssue("Hardware model changed", issue);
+	    CFRelease(issue);
+	}
 
-    if ((new_model != NULL) &&
-	!SCPreferencesSetValue(prefs, MODEL, new_model)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesSetValue failed, %s"),
-	      SCErrorString(SCError()));
-	goto done;
+	if (!SCPreferencesSetValue(prefs, MODEL, new_model)) {
+	    SCLog(TRUE, LOG_ERR,
+		  CFSTR(MY_PLUGIN_NAME ": SCPreferencesSetValue failed, %s"),
+		  SCErrorString(SCError()));
+	    goto done;
+	}
     }
 
     if (!SCPreferencesSetValue(prefs, INTERFACES, if_list)) {
@@ -1098,6 +1108,86 @@ getHighestUnitForType(CFNumberRef if_type)
     return (ret_unit);
 }
 
+#ifdef	USE_REGISTRY_ENTRY_ID
+static kern_return_t
+registerInterfaceWithIORegistryEntryID(io_connect_t connect,
+				       uint64_t	    entryID,
+				       CFNumberRef  unit,
+				       const int    command)
+{
+    CFDataRef			data;
+    CFMutableDictionaryRef	dict;
+    kern_return_t		kr;
+    CFNumberRef			num;
+
+    dict = CFDictionaryCreateMutable(NULL, 0,
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
+    num = CFNumberCreate(NULL, kCFNumberIntType, &command);
+    CFDictionarySetValue(dict, CFSTR(kIONetworkStackUserCommandKey), num);
+    CFRelease(num);
+    data = CFDataCreate(NULL, (void *) &entryID, sizeof(entryID));
+    CFDictionarySetValue(dict, CFSTR(kIORegistryEntryIDKey), data);
+    CFRelease(data);
+    CFDictionarySetValue(dict, CFSTR(kIOInterfaceUnit), unit);
+    kr = IOConnectSetCFProperties(connect, dict);
+    CFRelease(dict);
+    return kr;
+}
+
+static SCNetworkInterfaceRef
+lookupIORegistryEntryID(uint64_t entryID)
+{
+    io_registry_entry_t		entry		= MACH_PORT_NULL;
+    SCNetworkInterfaceRef	interface	= NULL;
+    io_iterator_t		iterator	= MACH_PORT_NULL;
+    kern_return_t		kr;
+    mach_port_t			masterPort	= MACH_PORT_NULL;
+
+    kr = IOMasterPort(bootstrap_port, &masterPort);
+    if (kr != KERN_SUCCESS) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x"),
+	      kr);
+	goto error;
+    }
+
+    kr = IOServiceGetMatchingServices(masterPort,
+				      IORegistryEntryIDMatching(entryID),
+				      &iterator);
+    if ((kr != KERN_SUCCESS) || (iterator == MACH_PORT_NULL)) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR(MY_PLUGIN_NAME ": IOServiceGetMatchingServices(0x%llx) returned 0x%x/%d"),
+	      entryID,
+	      kr,
+	      iterator);
+	goto error;
+    }
+
+    entry = IOIteratorNext(iterator);
+    if (entry == MACH_PORT_NULL) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR(MY_PLUGIN_NAME ": IORegistryEntryIDMatching(0x%llx) failed"),
+	      entryID);
+	goto error;
+    }
+
+    interface = _SCNetworkInterfaceCreateWithIONetworkInterfaceObject(entry);
+
+ error:
+    if (masterPort != MACH_PORT_NULL) {
+	mach_port_deallocate(mach_task_self(), masterPort);
+    }
+    if (entry != MACH_PORT_NULL) {
+	IOObjectRelease(entry);
+    }
+    if (iterator != MACH_PORT_NULL) {
+	IOObjectRelease(iterator);
+    }
+    return (interface);
+
+}
+#else	// USE_REGISTRY_ENTRY_ID
 /*
  * Function: registerInterface
  * Purpose:
@@ -1105,10 +1195,10 @@ getHighestUnitForType(CFNumberRef if_type)
  *   data link layer (BSD), using the specified unit number.
  */
 static kern_return_t
-registerInterface(io_connect_t	connect,
-		  CFStringRef	path,
-		  CFNumberRef	unit,
-		  const int	command)
+registerInterfaceWithIOServicePath(io_connect_t	connect,
+				   CFStringRef	path,
+				   CFNumberRef	unit,
+				   const int	command)
 {
     CFMutableDictionaryRef	dict;
     kern_return_t		kr;
@@ -1118,7 +1208,7 @@ registerInterface(io_connect_t	connect,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
     num = CFNumberCreate(NULL, kCFNumberIntType, &command);
-    CFDictionarySetValue(dict, CFSTR(kIONetworkStackUserCommand), num);
+    CFDictionarySetValue(dict, CFSTR(kIONetworkStackUserCommandKey), num);
     CFRelease(num);
     CFDictionarySetValue(dict, CFSTR(kIOPathMatchKey), path);
     CFDictionarySetValue(dict, CFSTR(kIOInterfaceUnit), unit);
@@ -1164,6 +1254,7 @@ lookupIOKitPath(CFStringRef if_path)
     return (interface);
 
 }
+#endif	// USE_REGISTRY_ENTRY_ID
 
 static void
 displayInterface(SCNetworkInterfaceRef interface)
@@ -1225,9 +1316,11 @@ nameInterfaces(CFMutableArrayRef if_list)
     CFIndex	n	= CFArrayGetCount(if_list);
 
     for (i = 0; i < n; i++) {
+	uint64_t		entryID;
 	SCNetworkInterfaceRef	interface;
 	Boolean			ok	= TRUE;
 	CFStringRef		path;
+	CFStringRef		str;
 	CFNumberRef		type;
 	CFNumberRef		unit;
 	CFIndex			where;
@@ -1236,6 +1329,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 	path = _SCNetworkInterfaceGetIOPath(interface);
 	type = _SCNetworkInterfaceGetIOInterfaceType(interface);
 	unit = _SCNetworkInterfaceGetIOInterfaceUnit(interface);
+	entryID = _SCNetworkInterfaceGetIORegistryEntryID(interface);
 
 	if (unit != NULL) {
 	    if (S_debug) {
@@ -1258,6 +1352,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 	    CFDictionaryRef 	dbdict;
 	    boolean_t		is_builtin;
 	    kern_return_t	kr;
+	    int			retries	= 0;
 
 	    dbdict = lookupInterfaceByAddress(S_dblist, interface, NULL);
 	    if (dbdict != NULL) {
@@ -1331,12 +1426,22 @@ nameInterfaces(CFMutableArrayRef if_list)
 		      is_builtin ? "built-in" : "next available");
 	    }
 
-	    kr = registerInterface(S_connect,
-				   path,
-				   unit,
-				   (dbdict == NULL) ? kRegisterInterface : kRegisterInterfaceWithFixedUnit);
+	retry :
+
+#ifdef	USE_REGISTRY_ENTRY_ID
+	    kr = registerInterfaceWithIORegistryEntryID(S_connect,
+							entryID,
+							unit,
+							(dbdict == NULL) ? kIONetworkStackRegisterInterfaceWithLowestUnit
+									 : kIONetworkStackRegisterInterfaceWithUnit);
+#else	// USE_REGISTRY_ENTRY_ID
+	    kr = registerInterfaceWithIOServicePath(S_connect,
+						    path,
+						    unit,
+						    (dbdict == NULL) ? kRegisterInterface
+								     : kRegisterInterfaceWithFixedUnit);
+#endif	// USE_REGISTRY_ENTRY_ID
 	    if (kr != KERN_SUCCESS) {
-		CFStringRef issue;
 		const char  *signature;
 
 		signature = (dbdict == NULL) ? "failed to name new interface"
@@ -1345,10 +1450,12 @@ nameInterfaces(CFMutableArrayRef if_list)
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR(MY_PLUGIN_NAME ": %s, kr=0x%x\n"
 			    MY_PLUGIN_NAME ":   path = %@\n"
+			    MY_PLUGIN_NAME ":   id   = 0x%llx\n"
 			    MY_PLUGIN_NAME ":   unit = %@"),
 		      signature,
 		      kr,
 		      path,
+		      entryID,
 		      unit);
 
 		if (S_debug) {
@@ -1356,19 +1463,59 @@ nameInterfaces(CFMutableArrayRef if_list)
 		}
 
 		// report issue w/MessageTracer
-		issue = CFStringCreateWithFormat(NULL, NULL,
-						 CFSTR("kr=0x%x, path=%@, unit=%@"),
-						 kr,
-						 path,
-						 unit);
-		reportIssue(signature, issue);
-		CFRelease(issue);
+		str = CFStringCreateWithFormat(NULL, NULL,
+					       CFSTR("kr=0x%x, path=%@, unit=%@"),
+					       kr,
+					       path,
+					       unit);
+		reportIssue(signature, str);
+		CFRelease(str);
+
+		if ((dbdict != NULL) && (retries++ < 5)) {
+		    usleep(50 * 1000);	// sleep 50ms between attempts
+		    goto retry;
+		}
 
 		ok = FALSE;	// ... and don't update the database
 	    } else {
 		SCNetworkInterfaceRef	new_interface;
 
+		if (retries > 0) {
+		    SCLog(TRUE, LOG_ERR,
+			  CFSTR(MY_PLUGIN_NAME ": %s interface named after %d %s\n"
+				MY_PLUGIN_NAME ":   path = %@\n"
+				MY_PLUGIN_NAME ":   unit = %@"),
+			  (dbdict == NULL) ? "New" : "Known",
+			  retries,
+			  (retries == 1) ? "try" : "tries",
+			  path,
+			  unit);
+
+#ifdef	SHOW_NAMING_FAILURE
+		    str = CFStringCreateWithFormat(NULL,
+						   NULL,
+						   CFSTR("\"%s\" interface named after %d %s, unit = %@"),
+						   (dbdict == NULL) ? "New" : "Known",
+						   retries,
+						   (retries == 1) ? "try" : "tries",
+						   unit);
+		    CFUserNotificationDisplayNotice(0,
+						    kCFUserNotificationStopAlertLevel,
+						    NULL,
+						    NULL,
+						    NULL,
+						    str,
+						    CFSTR("Please report repeated failures."),
+						    NULL);
+		    CFRelease(str);
+#endif	// SHOW_NAMING_FAILURE
+		}
+
+#ifdef	USE_REGISTRY_ENTRY_ID
+		new_interface = lookupIORegistryEntryID(entryID);
+#else	// USE_REGISTRY_ENTRY_ID
 		new_interface = lookupIOKitPath(path);
+#endif	// USE_REGISTRY_ENTRY_ID
 		if (new_interface != NULL) {
 		    CFNumberRef	new_unit;
 

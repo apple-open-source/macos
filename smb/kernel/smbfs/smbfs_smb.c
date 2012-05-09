@@ -3201,12 +3201,14 @@ smbfs_smb_ntcreatex(struct smb_share *share, struct smbnode *np, uint32_t rights
 						   np->n_name, np->maxAccessRights, rights);
 		}
 		/*
+		 * XXX - 10809405 Another case were we should quit working around server bugs.
+		 *
 		 * If server supports the whoami call then assume its Samba for Mac OS X. 
 		 * Since Samba lies about the maximal access rights we need to caculate 
 		 * it ourself based on the ACLS. So we don't set the maximal access rights 
 		 * change time in that case.
 		 */
-		if (!unix_whoami_sid) {
+		if ((!unix_whoami_sid) || (SSTOVC(share)->vc_flags & SMBV_DARWIN)) {
 			/* 
 			 * Samba will return the modify time for the change time in this 
 			 * call. So if we are doing unix extensions never trust the change 
@@ -3214,10 +3216,11 @@ smbfs_smb_ntcreatex(struct smb_share *share, struct smbnode *np, uint32_t rights
 			 *
 			 * XXX Should we really treat Samba differently here?
 			 */		
-			if (UNIX_SERVER(SSTOVC(share)))
+			if ((UNIX_SERVER(SSTOVC(share))) && !(SSTOVC(share)->vc_flags & SMBV_DARWIN)) {
 				np->maxAccessRightChTime = np->n_chtime;
-			else 
+            } else {
 				np->maxAccessRightChTime = fap->fa_chtime;
+            }
 		}
 
 	} while(0);

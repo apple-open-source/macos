@@ -69,6 +69,8 @@
 		72B01EC60BC48C5600C182DA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D13962DF047451780BCA2B4C /* Security.framework */; };
 		72B01EC70BC48C5600C182DA /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0352AA4C0043263F11CA2A40 /* System.framework */; };
 		72B01EC80BC48C5600C182DA /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0352AA4E0043263F11CA2A40 /* SystemConfiguration.framework */; };
+		8F3CA6A713E22FDE00857B09 /* webdav_cookie.c in Sources */ = {isa = PBXBuildFile; fileRef = 8F3CA6A313E22FDD00857B09 /* webdav_cookie.c */; };
+		8F3CA6A813E22FDE00857B09 /* webdav_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 8F3CA6A513E22FDE00857B09 /* webdav_utils.c */; };
 		8F43CC000F86975B003A8789 /* webdavlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8FBFB5480F868E09000B3B9B /* webdavlib.c */; };
 		8F43CC0C0F8697C2003A8789 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0352AA4E0043263F11CA2A40 /* SystemConfiguration.framework */; };
 		8F4BDF6B0E9E7F7300C52D62 /* webdavfs_load_kext.defs in Sources */ = {isa = PBXBuildFile; fileRef = 8F4BDF6A0E9E7F3A00C52D62 /* webdavfs_load_kext.defs */; };
@@ -207,6 +209,10 @@
 		72B01EA80BC48C5600C182DA /* webdav_cert_ui.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = webdav_cert_ui.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B01ECD0BC48C5600C182DA /* webdavfs_agent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = webdavfs_agent; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F096241118A5C2F00C03286 /* webdavfs.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = webdavfs.xcconfig; sourceTree = "<group>"; };
+		8F3CA6A313E22FDD00857B09 /* webdav_cookie.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = webdav_cookie.c; path = mount.tproj/webdav_cookie.c; sourceTree = "<group>"; };
+		8F3CA6A413E22FDD00857B09 /* webdav_cookie.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = webdav_cookie.h; path = mount.tproj/webdav_cookie.h; sourceTree = "<group>"; };
+		8F3CA6A513E22FDE00857B09 /* webdav_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = webdav_utils.c; path = mount.tproj/webdav_utils.c; sourceTree = "<group>"; };
+		8F3CA6A613E22FDE00857B09 /* webdav_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = webdav_utils.h; path = mount.tproj/webdav_utils.h; sourceTree = "<group>"; };
 		8F3D0ADA0E9D50790049B798 /* load_webdavfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = load_webdavfs.h; sourceTree = "<group>"; };
 		8F4BDF690E9E7F3A00C52D62 /* com.apple.webdavfs_load_kext.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.webdavfs_load_kext.plist; sourceTree = "<group>"; };
 		8F4BDF6A0E9E7F3A00C52D62 /* webdavfs_load_kext.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = webdavfs_load_kext.defs; sourceTree = "<group>"; };
@@ -483,9 +489,11 @@
 				0352AA050043263F11CA2A40 /* webdavd.h */,
 				0352AA080043263F11CA2A40 /* webdav_parse.h */,
 				0352AA0B0043263F11CA2A40 /* webdav_authcache.h */,
+				8F3CA6A413E22FDD00857B09 /* webdav_cookie.h */,
 				0352AA0D0043263F11CA2A40 /* webdav_requestqueue.h */,
 				A44B35170675119100B71B67 /* webdav_cache.h */,
 				A47D116406C69C3600AB7660 /* webdav_network.h */,
+				8F3CA6A613E22FDE00857B09 /* webdav_utils.h */,
 				A485C6C007665F8900210409 /* EncodedSourceID.h */,
 				A4945A1308AAB6360081D1EA /* OpaqueIDs.h */,
 				DD6612FC09C8857E009325F2 /* LogMessage.h */,
@@ -496,6 +504,8 @@
 		5B5754F60B369A9D00C9B92E /* Other Sources */ = {
 			isa = PBXGroup;
 			children = (
+				8F3CA6A313E22FDD00857B09 /* webdav_cookie.c */,
+				8F3CA6A513E22FDE00857B09 /* webdav_utils.c */,
 				0352AA170043263F11CA2A40 /* webdav_file.c */,
 				0352AA180043263F11CA2A40 /* webdav_parse.c */,
 				0352AA1A0043263F11CA2A40 /* webdav_authcache.c */,
@@ -896,6 +906,8 @@
 				72B01EBD0BC48C5600C182DA /* webdav_parse.c in Sources */,
 				72B01EBE0BC48C5600C182DA /* webdav_requestqueue.c in Sources */,
 				72B01EBF0BC48C5600C182DA /* webdav_agent.c in Sources */,
+				8F3CA6A713E22FDE00857B09 /* webdav_cookie.c in Sources */,
+				8F3CA6A813E22FDE00857B09 /* webdav_utils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

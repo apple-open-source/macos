@@ -551,7 +551,6 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 
 		krbret = krb5_parse_name(pam_context, principal, &princ);
 		if (krbret != 0) {
-			krb5_free_context(pam_context);
 			retval = PAM_SERVICE_ERR;
 			goto cleanup3;
 		}

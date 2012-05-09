@@ -484,30 +484,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		
     }
 	
-    if(isHFS && actargs[kbootblockfile].present) {
-        CFDataRef bbdata = NULL;
-        
-        ret = BLLoadFile(context, actargs[kbootblockfile].argument, 0, &bbdata);
-        if(ret) {
-            blesscontextprintf(context, kBLLogLevelError, "Can't get boot blocks from data-fork file %s\n",
-                               actargs[kbootblockfile].argument);
-            return 1;
-        } else {
-            blesscontextprintf(context, kBLLogLevelVerbose,  "Boot blocks read from %s\n", actargs[kbootblockfile].argument );
-        }
-        
-        ret = BLSetBootBlocks(context, actargs[kmount].argument, bbdata);
-        CFRelease(bbdata);
-        
-        if(ret) {
-            blesscontextprintf(context, kBLLogLevelError,  "Can't set boot blocks for %s\n", actargs[kmount].argument );
-            return 1;
-        } else {
-            blesscontextprintf(context, kBLLogLevelVerbose,  "Boot blocks set successfully\n" );
-        }
-    }
-    
-    
 	if(actargs[klabel].present||actargs[klabelfile].present) {
 		int isLabel = 0;
 		

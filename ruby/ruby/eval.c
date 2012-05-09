@@ -3,7 +3,7 @@
   eval.c -
 
   $Author: shyouhei $
-  $Date: 2009-12-21 17:11:42 +0900 (Mon, 21 Dec 2009) $
+  $Date: 2011-05-23 13:49:40 +0900 (Mon, 23 May 2011) $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -7111,6 +7111,7 @@ rb_load(fname, wrap)
     PUSH_ITER(ITER_NOT);
     PUSH_FRAME();
     ruby_frame->last_func = 0;
+    ruby_frame->orig_func = 0;
     ruby_frame->last_class = 0;
     ruby_frame->self = self;
     PUSH_SCOPE();
@@ -7404,9 +7405,13 @@ search_required(fname, featurep, path)
     const char *ext, *ftptr;
     int type;
 
+    if (*(ftptr = RSTRING_PTR(fname)) == '~') {
+	fname = rb_file_expand_path(fname, Qnil);
+	ftptr = RSTRING_PTR(fname);
+    }
     *featurep = fname;
     *path = 0;
-    ext = strrchr(ftptr = RSTRING_PTR(fname), '.');
+    ext = strrchr(ftptr, '.');
     if (ext && !strchr(ext, '/')) {
 	if (strcmp(".rb", ext) == 0) {
 	    if (rb_feature_p(ftptr, ext, Qtrue)) {
@@ -10042,7 +10047,7 @@ rb_mod_define_method(argc, argv, mod)
     VALUE mod;
 {
     ID id;
-    VALUE body;
+    VALUE body, orig;
     NODE *node;
     int noex;
 
@@ -10061,6 +10066,7 @@ rb_mod_define_method(argc, argv, mod)
     else {
 	rb_raise(rb_eArgError, "wrong number of arguments (%d for 1)", argc);
     }
+    orig = body;
     if (RDATA(body)->dmark == (RUBY_DATA_FUNC)bm_mark) {
 	node = NEW_DMETHOD(method_unbind(body));
     }
@@ -10089,7 +10095,7 @@ rb_mod_define_method(argc, argv, mod)
 	}
     }
     rb_add_method(mod, id, node, noex);
-    return body;
+    return orig;
 }
 
 /*
@@ -12310,6 +12316,7 @@ catch_timer(sig)
 }
 
 static pthread_t time_thread;
+static int timer_stopping;
 
 static void*
 thread_timer(dummy)
@@ -12323,7 +12330,7 @@ thread_timer(dummy)
     for (;;) {
 #ifdef HAVE_NANOSLEEP
 	struct timespec req, rem;
-
+ 
 	req.tv_sec = 0;
 	req.tv_nsec = 10000000;
 	nanosleep(&req, &rem);
@@ -12333,6 +12340,9 @@ thread_timer(dummy)
 	tv.tv_usec = 10000;
 	select(0, NULL, NULL, NULL, &tv);
 #endif
+	if (timer_stopping)
+	    break;
+
 	if (!rb_thread_critical) {
 	    rb_thread_pending = 1;
 	    if (rb_trap_immediate) {
@@ -13163,6 +13173,7 @@ rb_thread_atfork()
 {
     rb_thread_t th;
 
+    rb_reset_random_seed();
     if (rb_thread_alone()) return;
     FOREACH_THREAD(th) {
 	if (th != curr_thread) {
@@ -13561,6 +13572,7 @@ recursive_push(hash, obj)
     sym = ID2SYM(rb_frame_last_func());
     if (NIL_P(hash) || TYPE(hash) != T_HASH) {
 	hash = rb_hash_new();
+	OBJ_TAINT(hash);
 	rb_thread_local_aset(rb_thread_current(), recursive_key, hash);
 	list = Qnil;
     }
@@ -13569,6 +13581,7 @@ recursive_push(hash, obj)
     }
     if (NIL_P(list) || TYPE(list) != T_HASH) {
 	list = rb_hash_new();
+	OBJ_TAINT(list);
 	rb_hash_aset(hash, sym, list);
     }
     rb_hash_aset(list, obj, Qtrue);

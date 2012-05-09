@@ -41,6 +41,7 @@
 #include "PMSettings.h"
 #include "PrivateLib.h"
 #include "PMStore.h"
+#include "PMAssertions.h"
 
 /* Arguments to CopyPMSettings functions */
 enum {
@@ -69,6 +70,8 @@ typedef struct {
     unsigned int        fPanicRestartSeconds;
     unsigned int        fDeepSleepEnable;
     unsigned int        fDeepSleepDelay;
+    unsigned int        fAutoPowerOffEnable;
+    unsigned int        fAutoPowerOffDelay;
 } IOPMAggressivenessFactors;
 
 enum { 
@@ -149,6 +152,24 @@ __private_extern__ void overrideSetting
     }
 }
 
+/* Returns Display sleep time in minutes */
+__private_extern__ IOReturn
+getDisplaySleepTimer(uint32_t *displaySleepTimer)
+{
+    CFDictionaryRef     current_settings; 
+
+    if (!energySettings || !displaySleepTimer) 
+        return kIOReturnError;
+
+    current_settings = (CFDictionaryRef)isA_CFDictionary(
+                            CFDictionaryGetValue(energySettings, currentPowerSource));
+    if (getAggressivenessValue(current_settings, CFSTR(kIOPMDisplaySleepKey), 
+                                    kCFNumberSInt32Type, displaySleepTimer) ) {
+        return kIOReturnSuccess;
+    }
+
+    return kIOReturnError;
+}
 
 // Providing activateSettingsOverrides to PMAssertions.c
 // So that it may set multiple assertions without triggering a prefs
@@ -422,7 +443,31 @@ static void sendEnergySettingsToKernel(
             CFRelease(num);
         }
     }
+
+    // AutoPowerOffEnable
+    // Defaults to on
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMAutoPowerOffEnabledKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain, 
+                                           CFSTR(kIOPMAutoPowerOffEnabledKey), 
+                                           (p->fAutoPowerOffEnable?kCFBooleanTrue:kCFBooleanFalse));            
+    }
     
+    // AutoPowerOffDelay
+    // In seconds
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMAutoPowerOffDelayKey), providing_power, _supportedCached))
+    {
+        num = CFNumberCreate(0, kCFNumberIntType, &p->fAutoPowerOffDelay);
+        if (num) {
+            IORegistryEntrySetCFProperty(PMRootDomain, 
+                                               CFSTR(kIOPMAutoPowerOffDelayKey), 
+                                               num);
+            CFRelease(num);
+        }
+    }
+
     if (useSettings)
     {
         ProcessHibernateSettings(useSettings, PMRootDomain);
@@ -498,7 +543,9 @@ static int getAggressivenessFactorsFromProfile(
     getAggressivenessValue(p, CFSTR(kIOPMRestartOnKernelPanicKey), kCFNumberSInt32Type, &agg->fPanicRestartSeconds);
     getAggressivenessValue(p, CFSTR(kIOPMDeepSleepEnabledKey), kCFNumberSInt32Type, &agg->fDeepSleepEnable);
     getAggressivenessValue(p, CFSTR(kIOPMDeepSleepDelayKey), kCFNumberSInt32Type, &agg->fDeepSleepDelay);
-    
+    getAggressivenessValue(p, CFSTR(kIOPMAutoPowerOffEnabledKey), kCFNumberSInt32Type, &agg->fAutoPowerOffEnable);
+    getAggressivenessValue(p, CFSTR(kIOPMAutoPowerOffDelayKey), kCFNumberSInt32Type, &agg->fAutoPowerOffDelay);
+
     return 0;
 }
 
@@ -531,6 +578,7 @@ static IOReturn ActivatePMSettings(
         PMStoreSetValue(CFSTR(kIOPMDynamicStoreSettingsKey), useSettings);
     }
     
+    evalAllUserActivityAssertions(theFactors.fMinutesToDim);
 
     if (activePMPrefs)
         CFRelease(activePMPrefs);

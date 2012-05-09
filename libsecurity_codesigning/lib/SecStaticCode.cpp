@@ -98,7 +98,7 @@ static void validateNested(string location, const SecRequirement *req, SecCSFlag
 static void validate(SecStaticCode *code, const SecRequirement *req, SecCSFlags flags)
 {
 	try {
-		code->validateDirectory();
+		code->validateNonResourceComponents();	// also validates the CodeDirectory
 		if (!(flags & kSecCSDoNotValidateExecutable))
 			code->validateExecutable();
 		if (!(flags & kSecCSDoNotValidateResources))
@@ -187,6 +187,7 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSDoNotValidateExecutable
 		| kSecCSDoNotValidateResources
 		| kSecCSConsiderExpiration
+		| kSecCSEnforceRevocationChecks
 		| kSecCSCheckNestedCode);
 
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(staticCodeRef);

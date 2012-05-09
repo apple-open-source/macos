@@ -50,7 +50,7 @@ HEIGHT="128" ALT="CUPS"></A></TD>
 
 <P><A HREF="help/options.html">Drukowanie i opcje w wierszu poleceń</A></P>
 
-<P><A HREF="help/whatsnew.html">Co nowego w CUPS 1.4</A></P>
+<P><A HREF="help/whatsnew.html">Co nowego w CUPS 1.5</A></P>
 
 <P><A HREF="http://www.cups.org/newsgroups.php?gcups.general">Forum użytkowników</A></P>
 
@@ -101,7 +101,7 @@ HEIGHT="128" ALT="CUPS"></A></TD>
 <TR><TD>&nbsp;</TD></TR>
 <TR><TD CLASS="trailer">CUPS i logo CUPS
 są znakami handlowymi <A HREF="http://www.apple.com">Apple Inc.</A> CUPS
-copyright 2007-2011 Apple Inc. Wszystkie prawa zastrzeżone.</TD></TR>
+copyright 2007-2012 Apple Inc. Wszystkie prawa zastrzeżone.</TD></TR>
 </TABLE>
 </BODY>
 </HTML>

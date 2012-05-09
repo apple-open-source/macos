@@ -46,16 +46,12 @@ QT_END_NAMESPACE
 class wxString;
 #endif
 
-#if PLATFORM(HAIKU)
-class BString;
-#endif
-
-#if PLATFORM(BREWMP)
-// AECHAR is defined in AEEStdDef.h, but don't include it here to avoid conflicts.
-#ifndef _AECHAR_DEFINED
-typedef uint16             AECHAR;
-#define _AECHAR_DEFINED
-#endif
+#if PLATFORM(BLACKBERRY)
+namespace BlackBerry {
+namespace WebKit {
+    class WebString;
+}
+}
 #endif
 
 namespace WTF {
@@ -65,29 +61,46 @@ struct StringHash;
 
 // Declarations of string operations
 
-bool charactersAreAllASCII(const UChar*, size_t);
-bool charactersAreAllLatin1(const UChar*, size_t);
+template<typename CharType> inline bool charactersAreAllASCII(const CharType* characters, size_t length);
+WTF_EXPORT_PRIVATE int charactersToIntStrict(const LChar*, size_t, bool* ok = 0, int base = 10);
 WTF_EXPORT_PRIVATE int charactersToIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
+WTF_EXPORT_PRIVATE unsigned charactersToUIntStrict(const LChar*, size_t, bool* ok = 0, int base = 10);
 WTF_EXPORT_PRIVATE unsigned charactersToUIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
+int64_t charactersToInt64Strict(const LChar*, size_t, bool* ok = 0, int base = 10);
 int64_t charactersToInt64Strict(const UChar*, size_t, bool* ok = 0, int base = 10);
+uint64_t charactersToUInt64Strict(const LChar*, size_t, bool* ok = 0, int base = 10);
 uint64_t charactersToUInt64Strict(const UChar*, size_t, bool* ok = 0, int base = 10);
+intptr_t charactersToIntPtrStrict(const LChar*, size_t, bool* ok = 0, int base = 10);
 intptr_t charactersToIntPtrStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
 
+int charactersToInt(const LChar*, size_t, bool* ok = 0); // ignores trailing garbage
 int charactersToInt(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
+unsigned charactersToUInt(const LChar*, size_t, bool* ok = 0); // ignores trailing garbage
 unsigned charactersToUInt(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
+int64_t charactersToInt64(const LChar*, size_t, bool* ok = 0); // ignores trailing garbage
 int64_t charactersToInt64(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
+uint64_t charactersToUInt64(const LChar*, size_t, bool* ok = 0); // ignores trailing garbage
 uint64_t charactersToUInt64(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
+intptr_t charactersToIntPtr(const LChar*, size_t, bool* ok = 0); // ignores trailing garbage
 intptr_t charactersToIntPtr(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
 
+WTF_EXPORT_PRIVATE double charactersToDouble(const LChar*, size_t, bool* ok = 0, bool* didReadNumber = 0);
 WTF_EXPORT_PRIVATE double charactersToDouble(const UChar*, size_t, bool* ok = 0, bool* didReadNumber = 0);
+float charactersToFloat(const LChar*, size_t, bool* ok = 0, bool* didReadNumber = 0);
 float charactersToFloat(const UChar*, size_t, bool* ok = 0, bool* didReadNumber = 0);
+
+enum FloatConversionFlags {
+    ShouldRoundSignificantFigures = 1 << 0,
+    ShouldRoundDecimalPlaces = 1 << 1,
+    ShouldTruncateTrailingZeros = 1 << 2
+};
 
 template<bool isSpecialCharacter(UChar)> bool isAllSpecialCharacters(const UChar*, size_t);
 
 class String {
 public:
     // Construct a null string, distinguishable from an empty string.
-    WTF_EXPORT_PRIVATE String() { }
+    String() { }
 
     // Construct a string with UTF-16 data.
     WTF_EXPORT_PRIVATE String(const UChar* characters, unsigned length);
@@ -101,22 +114,25 @@ public:
     WTF_EXPORT_PRIVATE String(const UChar*);
 
     // Construct a string with latin1 data.
+    WTF_EXPORT_PRIVATE String(const LChar* characters, unsigned length);
     WTF_EXPORT_PRIVATE String(const char* characters, unsigned length);
 
     // Construct a string with latin1 data, from a null-terminated source.
+    WTF_EXPORT_PRIVATE String(const LChar* characters);
     WTF_EXPORT_PRIVATE String(const char* characters);
 
     // Construct a string referencing an existing StringImpl.
-    WTF_EXPORT_PRIVATE String(StringImpl* impl) : m_impl(impl) { }
-    WTF_EXPORT_PRIVATE String(PassRefPtr<StringImpl> impl) : m_impl(impl) { }
-    WTF_EXPORT_PRIVATE String(RefPtr<StringImpl> impl) : m_impl(impl) { }
+    String(StringImpl* impl) : m_impl(impl) { }
+    String(PassRefPtr<StringImpl> impl) : m_impl(impl) { }
+    String(RefPtr<StringImpl> impl) : m_impl(impl) { }
 
     // Inline the destructor.
     ALWAYS_INLINE ~String() { }
 
     void swap(String& o) { m_impl.swap(o.m_impl); }
 
-    static String adopt(StringBuffer& buffer) { return StringImpl::adopt(buffer); }
+    static String adopt(StringBuffer<LChar>& buffer) { return StringImpl::adopt(buffer); }
+    static String adopt(StringBuffer<UChar>& buffer) { return StringImpl::adopt(buffer); }
     template<size_t inlineCapacity>
     static String adopt(Vector<UChar, inlineCapacity>& vector) { return StringImpl::adopt(vector); }
 
@@ -138,6 +154,27 @@ public:
             return 0;
         return m_impl->characters();
     }
+    
+    const LChar* characters8() const
+    {
+        if (!m_impl)
+            return 0;
+        ASSERT(m_impl->is8Bit());
+        return m_impl->characters8();
+    }
+
+    const UChar* characters16() const
+    {
+        if (!m_impl)
+            return 0;
+        ASSERT(!m_impl->is8Bit());
+        return m_impl->characters16();
+    }
+
+    template <typename CharType>
+    inline const CharType* getCharacters() const;
+
+    bool is8Bit() const { return m_impl->is8Bit(); }
 
     WTF_EXPORT_PRIVATE CString ascii() const;
     WTF_EXPORT_PRIVATE CString latin1() const;
@@ -158,7 +195,7 @@ public:
     WTF_EXPORT_PRIVATE static String number(unsigned long);
     WTF_EXPORT_PRIVATE static String number(long long);
     WTF_EXPORT_PRIVATE static String number(unsigned long long);
-    WTF_EXPORT_PRIVATE static String number(double);
+    WTF_EXPORT_PRIVATE static String number(double, unsigned = ShouldRoundSignificantFigures | ShouldTruncateTrailingZeros, unsigned precision = 6);
 
     // Find a single character or string, also with match function & latin1 forms.
     size_t find(UChar c, unsigned start = 0) const
@@ -167,7 +204,7 @@ public:
         { return m_impl ? m_impl->find(str.impl(), start) : notFound; }
     size_t find(CharacterMatchFunctionPtr matchFunction, unsigned start = 0) const
         { return m_impl ? m_impl->find(matchFunction, start) : notFound; }
-    size_t find(const char* str, unsigned start = 0) const
+    size_t find(const LChar* str, unsigned start = 0) const
         { return m_impl ? m_impl->find(str, start) : notFound; }
 
     // Find the last instance of a single character or string.
@@ -177,7 +214,7 @@ public:
         { return m_impl ? m_impl->reverseFind(str.impl(), start) : notFound; }
 
     // Case insensitive string matching.
-    WTF_EXPORT_PRIVATE size_t findIgnoringCase(const char* str, unsigned start = 0) const
+    WTF_EXPORT_PRIVATE size_t findIgnoringCase(const LChar* str, unsigned start = 0) const
         { return m_impl ? m_impl->findIgnoringCase(str, start) : notFound; }
     WTF_EXPORT_PRIVATE size_t findIgnoringCase(const String& str, unsigned start = 0) const
         { return m_impl ? m_impl->findIgnoringCase(str.impl(), start) : notFound; }
@@ -185,7 +222,7 @@ public:
         { return m_impl ? m_impl->reverseFindIgnoringCase(str.impl(), start) : notFound; }
 
     // Wrappers for find & reverseFind adding dynamic sensitivity check.
-    size_t find(const char* str, unsigned start, bool caseSensitive) const
+    size_t find(const LChar* str, unsigned start, bool caseSensitive) const
         { return caseSensitive ? find(str, start) : findIgnoringCase(str, start); }
     size_t find(const String& str, unsigned start, bool caseSensitive) const
         { return caseSensitive ? find(str, start) : findIgnoringCase(str, start); }
@@ -197,7 +234,7 @@ public:
     WTF_EXPORT_PRIVATE UChar32 characterStartingAt(unsigned) const; // Ditto.
     
     bool contains(UChar c) const { return find(c) != notFound; }
-    bool contains(const char* str, bool caseSensitive = true) const { return find(str, 0, caseSensitive) != notFound; }
+    bool contains(const LChar* str, bool caseSensitive = true) const { return find(str, 0, caseSensitive) != notFound; }
     bool contains(const String& str, bool caseSensitive = true) const { return find(str, 0, caseSensitive) != notFound; }
 
     bool startsWith(const String& s, bool caseSensitive = true) const
@@ -206,7 +243,8 @@ public:
         { return m_impl ? m_impl->endsWith(s.impl(), caseSensitive) : s.isEmpty(); }
 
     WTF_EXPORT_PRIVATE void append(const String&);
-    WTF_EXPORT_PRIVATE void append(char);
+    WTF_EXPORT_PRIVATE void append(LChar);
+    inline WTF_EXPORT_PRIVATE void append(char c) { append(static_cast<LChar>(c)); };
     WTF_EXPORT_PRIVATE void append(UChar);
     WTF_EXPORT_PRIVATE void append(const UChar*, unsigned length);
     WTF_EXPORT_PRIVATE void insert(const String&, unsigned pos);
@@ -276,13 +314,7 @@ public:
 
     bool percentage(int& percentage) const;
 
-    // Returns a StringImpl suitable for use on another thread.
-    WTF_EXPORT_PRIVATE String crossThreadString() const;
-    // Makes a deep copy. Helpful only if you need to use a String on another thread
-    // (use crossThreadString if the method call doesn't need to be threadsafe).
-    // Since the underlying StringImpl objects are immutable, there's no other reason
-    // to ever prefer copy() over plain old assignment.
-    WTF_EXPORT_PRIVATE String threadsafeCopy() const;
+    WTF_EXPORT_PRIVATE String isolatedCopy() const;
 
     // Prevent Strings from being implicitly convertable to bool as it will be ambiguous on any platform that
     // allows implicit conversion to another pointer type (e.g., Mac allows implicit conversion to NSString*).
@@ -315,22 +347,21 @@ public:
     WTF_EXPORT_PRIVATE operator wxString() const;
 #endif
 
-#if PLATFORM(HAIKU)
-    String(const BString&);
-    operator BString() const;
-#endif
-
-#if PLATFORM(BREWMP)
-    String(const AECHAR*);
+#if PLATFORM(BLACKBERRY)
+    String(const BlackBerry::WebKit::WebString&);
+    operator BlackBerry::WebKit::WebString() const;
 #endif
 
     // String::fromUTF8 will return a null string if
     // the input data contains invalid UTF-8 sequences.
-    WTF_EXPORT_PRIVATE static String fromUTF8(const char*, size_t);
-    WTF_EXPORT_PRIVATE static String fromUTF8(const char*);
+    WTF_EXPORT_PRIVATE static String fromUTF8(const LChar*, size_t);
+    WTF_EXPORT_PRIVATE static String fromUTF8(const LChar*);
+    inline WTF_EXPORT_PRIVATE static String fromUTF8(const char* s, size_t length) { return fromUTF8(reinterpret_cast<const LChar*>(s), length); };
+    inline WTF_EXPORT_PRIVATE static String fromUTF8(const char* s) { return fromUTF8(reinterpret_cast<const LChar*>(s)); };
 
     // Tries to convert the passed in string to UTF-8, but will fall back to Latin-1 if the string is not valid UTF-8.
-    WTF_EXPORT_PRIVATE static String fromUTF8WithLatin1Fallback(const char*, size_t);
+    WTF_EXPORT_PRIVATE static String fromUTF8WithLatin1Fallback(const LChar*, size_t);
+    inline WTF_EXPORT_PRIVATE static String fromUTF8WithLatin1Fallback(const char* s, size_t length) { return fromUTF8WithLatin1Fallback(reinterpret_cast<const LChar*>(s), length); };
     
     // Determines the writing direction using the Unicode Bidi Algorithm rules P2 and P3.
     WTF::Unicode::Direction defaultWritingDirection(bool* hasStrongDirectionality = 0) const
@@ -342,8 +373,9 @@ public:
         return WTF::Unicode::LeftToRight;
     }
 
-    bool containsOnlyASCII() const { return charactersAreAllASCII(characters(), length()); }
-    bool containsOnlyLatin1() const { return charactersAreAllLatin1(characters(), length()); }
+    bool containsOnlyASCII() const;
+    bool containsOnlyLatin1() const;
+    bool containsOnlyWhitespace() const { return !m_impl || m_impl->containsOnlyWhitespace(); }
 
     // Hash table deleted values, which are only constructed and never copied or destroyed.
     String(WTF::HashTableDeletedValueType) : m_impl(WTF::HashTableDeletedValue) { }
@@ -365,16 +397,31 @@ QDataStream& operator>>(QDataStream& stream, String& str);
 inline String& operator+=(String& a, const String& b) { a.append(b); return a; }
 
 inline bool operator==(const String& a, const String& b) { return equal(a.impl(), b.impl()); }
-inline bool operator==(const String& a, const char* b) { return equal(a.impl(), b); }
-inline bool operator==(const char* a, const String& b) { return equal(a, b.impl()); }
+inline bool operator==(const String& a, const LChar* b) { return equal(a.impl(), b); }
+inline bool operator==(const String& a, const char* b) { return equal(a.impl(), reinterpret_cast<const LChar*>(b)); }
+inline bool operator==(const LChar* a, const String& b) { return equal(a, b.impl()); }
+inline bool operator==(const char* a, const String& b) { return equal(reinterpret_cast<const LChar*>(a), b.impl()); }
+template<size_t inlineCapacity>
+inline bool operator==(const Vector<char, inlineCapacity>& a, const String& b) { return equal(b.impl(), a.data(), a.size()); }
+template<size_t inlineCapacity>
+inline bool operator==(const String& a, const Vector<char, inlineCapacity>& b) { return b == a; }
+
 
 inline bool operator!=(const String& a, const String& b) { return !equal(a.impl(), b.impl()); }
-inline bool operator!=(const String& a, const char* b) { return !equal(a.impl(), b); }
-inline bool operator!=(const char* a, const String& b) { return !equal(a, b.impl()); }
+inline bool operator!=(const String& a, const LChar* b) { return !equal(a.impl(), b); }
+inline bool operator!=(const String& a, const char* b) { return !equal(a.impl(), reinterpret_cast<const LChar*>(b)); }
+inline bool operator!=(const LChar* a, const String& b) { return !equal(a, b.impl()); }
+inline bool operator!=(const char* a, const String& b) { return !equal(reinterpret_cast<const LChar*>(a), b.impl()); }
+template<size_t inlineCapacity>
+inline bool operator!=(const Vector<char, inlineCapacity>& a, const String& b) { return !(a == b); }
+template<size_t inlineCapacity>
+inline bool operator!=(const String& a, const Vector<char, inlineCapacity>& b) { return b != a; }
 
 inline bool equalIgnoringCase(const String& a, const String& b) { return equalIgnoringCase(a.impl(), b.impl()); }
-inline bool equalIgnoringCase(const String& a, const char* b) { return equalIgnoringCase(a.impl(), b); }
-inline bool equalIgnoringCase(const char* a, const String& b) { return equalIgnoringCase(a, b.impl()); }
+inline bool equalIgnoringCase(const String& a, const LChar* b) { return equalIgnoringCase(a.impl(), b); }
+inline bool equalIgnoringCase(const String& a, const char* b) { return equalIgnoringCase(a.impl(), reinterpret_cast<const LChar*>(b)); }
+inline bool equalIgnoringCase(const LChar* a, const String& b) { return equalIgnoringCase(a, b.impl()); }
+inline bool equalIgnoringCase(const char* a, const String& b) { return equalIgnoringCase(reinterpret_cast<const LChar*>(a), b.impl()); }
 
 inline bool equalPossiblyIgnoringCase(const String& a, const String& b, bool ignoreCase) 
 {
@@ -398,6 +445,36 @@ String::String(const Vector<UChar, inlineCapacity>& vector)
 {
 }
 
+template<>
+inline const LChar* String::getCharacters<LChar>() const
+{
+    ASSERT(is8Bit());
+    return characters8();
+}
+
+template<>
+inline const UChar* String::getCharacters<UChar>() const
+{
+    ASSERT(!is8Bit());
+    return characters16();
+}
+
+inline bool String::containsOnlyLatin1() const
+{
+    if (isEmpty())
+        return true;
+
+    if (is8Bit())
+        return true;
+
+    const UChar* characters = characters16();
+    UChar ored = 0;
+    for (size_t i = 0; i < m_impl->length(); ++i)
+        ored |= characters[i];
+    return !(ored & 0xFF00);
+}
+
+
 #ifdef __OBJC__
 // This is for situations in WebKit where the long standing behavior has been
 // "nil if empty", so we try to maintain longstanding behavior for the sake of
@@ -405,28 +482,54 @@ String::String(const Vector<UChar, inlineCapacity>& vector)
 inline NSString* nsStringNilIfEmpty(const String& str) {  return str.isEmpty() ? nil : (NSString*)str; }
 #endif
 
-inline bool charactersAreAllASCII(const UChar* characters, size_t length)
+template<typename CharType>
+inline bool charactersAreAllASCII(const CharType* characters, size_t length)
 {
-    UChar ored = 0;
+    CharType ored = 0;
     for (size_t i = 0; i < length; ++i)
         ored |= characters[i];
-    return !(ored & 0xFF80);
+
+    CharType lowBits = 0x7F;
+    return !(ored & ~lowBits);
 }
 
-inline bool charactersAreAllLatin1(const UChar* characters, size_t length)
+inline bool String::containsOnlyASCII() const
 {
-    UChar ored = 0;
-    for (size_t i = 0; i < length; ++i)
-        ored |= characters[i];
-    return !(ored & 0xFF00);
+    if (isEmpty())
+        return true;
+
+    if (is8Bit())
+        return charactersAreAllASCII(characters8(), m_impl->length());
+
+    return charactersAreAllASCII(characters16(), m_impl->length());
 }
 
 WTF_EXPORT_PRIVATE int codePointCompare(const String&, const String&);
+
+inline size_t find(const LChar* characters, unsigned length, LChar matchCharacter, unsigned index = 0)
+{
+    while (index < length) {
+        if (characters[index] == matchCharacter)
+            return index;
+        ++index;
+    }
+    return notFound;
+}
 
 inline size_t find(const UChar* characters, unsigned length, UChar matchCharacter, unsigned index = 0)
 {
     while (index < length) {
         if (characters[index] == matchCharacter)
+            return index;
+        ++index;
+    }
+    return notFound;
+}
+
+inline size_t find(const LChar* characters, unsigned length, CharacterMatchFunctionPtr matchFunction, unsigned index = 0)
+{
+    while (index < length) {
+        if (matchFunction(characters[index]))
             return index;
         ++index;
     }
@@ -441,6 +544,19 @@ inline size_t find(const UChar* characters, unsigned length, CharacterMatchFunct
         ++index;
     }
     return notFound;
+}
+
+inline size_t reverseFind(const LChar* characters, unsigned length, LChar matchCharacter, unsigned index = UINT_MAX)
+{
+    if (!length)
+        return notFound;
+    if (index >= length)
+        index = length - 1;
+    while (characters[index] != matchCharacter) {
+        if (!index--)
+            return notFound;
+    }
+    return index;
 }
 
 inline size_t reverseFind(const UChar* characters, unsigned length, UChar matchCharacter, unsigned index = UINT_MAX)
@@ -514,7 +630,6 @@ using WTF::emptyString;
 using WTF::append;
 using WTF::appendNumber;
 using WTF::charactersAreAllASCII;
-using WTF::charactersAreAllLatin1;
 using WTF::charactersToIntStrict;
 using WTF::charactersToUIntStrict;
 using WTF::charactersToInt64Strict;
@@ -533,6 +648,7 @@ using WTF::find;
 using WTF::isAllSpecialCharacters;
 using WTF::isSpaceOrNewline;
 using WTF::reverseFind;
+using WTF::ShouldRoundDecimalPlaces;
 
 #include "AtomicString.h"
 #endif

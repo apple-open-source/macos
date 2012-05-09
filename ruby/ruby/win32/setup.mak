@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 
 -version-: nul
 	@$(APPEND)
-	@$(CPP) -I$(srcdir) <<"Creating $(MAKEFILE)" | find "=" >>$(MAKEFILE)
+	@$(CPP) -I$(srcdir) <<"Creating $(MAKEFILE)" | findstr "=" >>$(MAKEFILE)
 #include "version.h"
 MAJOR = RUBY_VERSION_MAJOR
 MINOR = RUBY_VERSION_MINOR
@@ -165,7 +165,13 @@ $(CPU) = $(PROCESSOR_LEVEL)
 	@echo $(CPU) = 6>>$(MAKEFILE)
 
 -epilogue-: nul
+!if exist(confargs.c)
+	@$(APPEND)
+	@$(CPP) confargs.c 2>&1 | findstr "! =" >> $(MAKEFILE)
+	@del confargs.c
+!endif
 	@type << >>$(MAKEFILE)
+
 # OS = $(OS)
 # RUBY_INSTALL_NAME = ruby
 # RUBY_SO_NAME = $$(RT)-$$(RUBY_INSTALL_NAME)$$(MAJOR)$$(MINOR)

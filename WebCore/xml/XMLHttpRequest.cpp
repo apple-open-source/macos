@@ -22,7 +22,6 @@
 #include "config.h"
 #include "XMLHttpRequest.h"
 
-#include "ArrayBuffer.h"
 #include "Blob.h"
 #include "MemoryCache.h"
 #include "CrossOriginAccessControl.h"
@@ -50,9 +49,9 @@
 #include "XMLHttpRequestProgressEvent.h"
 #include "XMLHttpRequestUpload.h"
 #include "markup.h"
-#include <wtf/text/CString.h>
-#include <wtf/StdLibExtras.h>
+#include <wtf/ArrayBuffer.h>
 #include <wtf/RefCountedLeakCounter.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/UnusedParam.h>
 
 #if USE(JSC)
@@ -64,9 +63,7 @@
 
 namespace WebCore {
 
-#ifndef NDEBUG
-static WTF::RefCountedLeakCounter xmlHttpRequestCounter("XMLHttpRequest");
-#endif
+DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, xmlHttpRequestCounter, ("XMLHttpRequest"));
 
 struct XMLHttpRequestStaticData {
     WTF_MAKE_NONCOPYABLE(XMLHttpRequestStaticData); WTF_MAKE_FAST_ALLOCATED;

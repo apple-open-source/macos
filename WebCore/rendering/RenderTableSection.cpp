@@ -74,6 +74,12 @@ RenderTableSection::~RenderTableSection()
     clearGrid();
 }
 
+void RenderTableSection::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle) 
+{ 
+    RenderBox::styleDidChange(diff, oldStyle); 
+    propagateStyleToAnonymousChildren(); 
+}
+
 void RenderTableSection::destroy()
 {
     RenderTable* recalcTable = table();
@@ -89,18 +95,27 @@ void RenderTableSection::destroy()
 void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild)
 {
     // Make sure we don't append things after :after-generated content if we have it.
-    if (!beforeChild && isAfterContent(lastChild()))
-        beforeChild = lastChild();
+    if (!beforeChild)
+        beforeChild = afterPseudoElementRenderer();
 
     if (!child->isTableRow()) {
         RenderObject* last = beforeChild;
         if (!last)
             last = lastChild();
-        if (last && last->isAnonymous()) {
+        if (last && last->isAnonymous() && !last->isBeforeOrAfterContent()) { 
             if (beforeChild == last)
                 beforeChild = last->firstChild();
             last->addChild(child, beforeChild);
             return;
+        }
+
+        if (beforeChild && !beforeChild->isAnonymous() && beforeChild->parent() == this) {
+            RenderObject* row = beforeChild->previousSibling();
+            if (row && row->isTableRow()) {
+                ASSERT(row->isAnonymous());
+                row->addChild(child);
+                return;
+            }
         }
 
         // If beforeChild is inside an anonymous cell/row, insert into the cell or into
@@ -108,7 +123,7 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
         RenderObject* lastBox = last;
         while (lastBox && lastBox->parent()->isAnonymous() && !lastBox->isTableRow())
             lastBox = lastBox->parent();
-        if (lastBox && lastBox->isAnonymous()) {
+        if (lastBox && lastBox->isAnonymous() && !lastBox->isBeforeOrAfterContent()) { 
             lastBox->addChild(child, beforeChild);
             return;
         }
@@ -1121,6 +1136,8 @@ void RenderTableSection::appendColumn(int pos)
 
 void RenderTableSection::splitColumn(int pos, int first)
 {
+    ASSERT(!m_needsCellRecalc);
+
     if (m_cCol > pos)
         m_cCol++;
     for (int row = 0; row < m_gridRows; ++row) {

@@ -233,7 +233,7 @@ ipsecSessionTracerEvent (ike_session_t *session, ipsecSessionEventCode_t eventCo
 	char buf[1024];
 
 	if (session == NULL) {
-		ipsecSessionLogEvent(session, CONSTSTR("tracer failed. (Invalid session)."));
+		//ipsecSessionLogEvent(session, CONSTSTR("tracer failed. (Invalid session)."));
 		return;
 	}
 	if (eventCode <= IPSECSESSIONEVENTCODE_NONE || eventCode >= IPSECSESSIONEVENTCODE_MAX) {

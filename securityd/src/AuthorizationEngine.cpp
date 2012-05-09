@@ -222,6 +222,17 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
             break;
 		}
 	}
+    
+    // purge all uid credentials from the outCredentials for least privileged mode
+    if (auth.operatesAsLeastPrivileged()) {
+        CredentialSet::const_iterator current, it = outCredentials->begin();
+        while(it != outCredentials->end()) {
+            current = it++;
+            if (!(*current)->isRight()) {
+                outCredentials->erase(current);
+            } 
+        }
+    }
 
 	if (outCredentials)
 		outCredentials->swap(credentials);

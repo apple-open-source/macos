@@ -2,7 +2,9 @@
 /* $Id: md5init.c 11708 2007-02-12 23:01:19Z shyouhei $ */
 
 #include "digest.h"
-#if defined(HAVE_OPENSSL_MD5_H)
+#if defined (__APPLE__)
+#include "md5cc.h"
+#elif defined(HAVE_OPENSSL_MD5_H)
 #include "md5ossl.h"
 #else
 #include "md5.h"

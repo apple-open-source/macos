@@ -35,6 +35,7 @@
 #import "ImageBuffer.h"
 #import "LocalCurrentGraphicsContext.h"
 #import "MediaControlElements.h"
+#import "Page.h"
 #import "PaintInfo.h"
 #import "RenderMedia.h"
 #import "RenderMediaControls.h"
@@ -707,7 +708,27 @@ NSControlSize RenderThemeMac::controlSizeForSystemFont(RenderStyle* style) const
 bool RenderThemeMac::paintTextField(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawBezeledTextFieldCell(r, isEnabled(o) && !isReadOnlyControl(o));
+
+    // See comment in RenderThemeMac::textField() for a complete explanation of this. In short,
+    // we only want to use the new style gradient for completely unstyled text fields in HiDPI. 
+    // isControledStyle(), however, treats all text fields that do not have custom borders as
+    // "unstyled" to avoid using the CSS border in that case, so we have to sniff around for 
+    // other types of styling.
+    bool useNewGradient = WebCore::deviceScaleFactor(o->frame()) != 1;
+    if (useNewGradient) {
+        useNewGradient = o->style()->hasAppearance() 
+            && o->style()->visitedDependentColor(CSSPropertyBackgroundColor) == Color::white
+            && !o->style()->hasBackgroundImage();
+    }
+    NSTextFieldCell* textField = this->textField(useNewGradient);
+
+    GraphicsContextStateSaver stateSaver(*paintInfo.context);
+
+    [textField setEnabled:(isEnabled(o) && !isReadOnlyControl(o))];
+    [textField drawWithFrame:NSRect(r) inView:documentViewFor(o)];
+
+    [textField setControlView:nil];
+
     return false;
 }
 
@@ -1349,15 +1370,6 @@ bool RenderThemeMac::paintSliderThumb(RenderObject* o, const PaintInfo& paintInf
         paintInfo.context->translate(-unzoomedRect.x(), -unzoomedRect.y());
     }
     
-#if PLATFORM(MAC)
-    // Workaround for <rdar://problem/9421781>.
-    if (!o->view()->frameView()->documentView()) {
-        paintInfo.context->translate(0, unzoomedRect.y());
-        paintInfo.context->scale(FloatSize(1, -1));
-        paintInfo.context->translate(0, -(unzoomedRect.y() + unzoomedRect.height()));
-    }
-#endif
-    
     [sliderThumbCell drawInteriorWithFrame:unzoomedRect inView:documentViewFor(o)];
     [sliderThumbCell setControlView:nil];
 
@@ -1731,10 +1743,9 @@ bool RenderThemeMac::paintMediaMuteButton(RenderObject* o, const PaintInfo& pain
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
 
-    if (MediaControlMuteButtonElement* btn = static_cast<MediaControlMuteButtonElement*>(node)) {
+    if (node->isMediaControlElement()) {
         LocalCurrentGraphicsContext localContext(paintInfo.context);
-        wkDrawMediaUIPart(btn->displayType(), mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
-
+        wkDrawMediaUIPart(mediaControlElementType(node), mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
     }
     return false;
 }
@@ -1746,9 +1757,9 @@ bool RenderThemeMac::paintMediaPlayButton(RenderObject* o, const PaintInfo& pain
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
 
-    if (MediaControlPlayButtonElement* btn = static_cast<MediaControlPlayButtonElement*>(node)) {
+    if (node->isMediaControlElement()) {
         LocalCurrentGraphicsContext localContext(paintInfo.context);
-        wkDrawMediaUIPart(btn->displayType(), mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
+        wkDrawMediaUIPart(mediaControlElementType(node), mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
     }
     return false;
 }
@@ -1779,7 +1790,7 @@ bool RenderThemeMac::paintMediaSliderTrack(RenderObject* o, const PaintInfo& pai
 {
     Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
-    if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
+    if (!mediaNode || !mediaNode->isElementNode() || !static_cast<Element*>(mediaNode)->isMediaElement())
         return false;
 
     HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(mediaNode);
@@ -1836,16 +1847,14 @@ bool RenderThemeMac::paintMediaReturnToRealtimeButton(RenderObject* o, const Pai
 
 bool RenderThemeMac::paintMediaToggleClosedCaptionsButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
-    HTMLInputElement* node = static_cast<HTMLInputElement*>(o->node());
+    Node* node = o->node();
     if (!node)
         return false;
-    
-    MediaControlToggleClosedCaptionsButtonElement* btn = static_cast<MediaControlToggleClosedCaptionsButtonElement*>(node);
-    if (!btn)
+    if (!node->isMediaControlElement())
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(btn->displayType(), mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
+    wkDrawMediaUIPart(mediaControlElementType(node), mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
 
     return false;
 }
@@ -2036,6 +2045,30 @@ NSSliderCell* RenderThemeMac::sliderThumbVertical() const
     }
     
     return m_sliderThumbVertical.get();
+}
+
+NSTextFieldCell* RenderThemeMac::textField(bool useNewGradient) const
+{
+    if (!m_textField) {
+        m_textField.adoptNS([[NSTextFieldCell alloc] initTextCell:@""]);
+        [m_textField.get() setBezeled:YES];
+        [m_textField.get() setEditable:YES];
+        [m_textField.get() setFocusRingType:NSFocusRingTypeExterior];
+        [m_textField.get() setDrawsBackground:YES];
+    }
+
+    // This is a workaround for <rdar://problem/11150452>. With this workaround, when the deviceScaleFactor is 1,
+    // we have an old-school gradient bezel in text fields whether they are styled or not. This is good and 
+    // matches shipping Safari. When the deviceScaleFactor is greater than 1, text fields will have newer, 
+    // AppKit-matching gradients that look much more appropriate at the higher resolutions. However, if the text 
+    // field is styled  in any way, we'll revert to the old-school bezel, which doesn't look great in HiDPI, but 
+    // it looks better than the CSS border, which is the only alternative until 11150452 is resolved.
+    if (useNewGradient)
+        [m_textField.get() setBackgroundColor:[NSColor whiteColor]]; 
+    else
+        [m_textField.get() setBackgroundColor:[NSColor clearColor]];
+
+    return m_textField.get();
 }
 
 } // namespace WebCore

@@ -124,6 +124,7 @@
 #include "RenderTextControl.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
+#include "SchemeRegistry.h"
 #include "ScopedEventQueue.h"
 #include "ScriptCallStack.h"
 #include "ScriptController.h"
@@ -544,6 +545,8 @@ Document::~Document()
             (*m_pageGroupUserSheets)[i]->clearOwnerNode();
     }
 
+    deleteCustomFonts();
+
     m_weakReference->clear();
 
     if (m_mediaQueryMatcher)
@@ -806,8 +809,13 @@ PassRefPtr<Node> Document::importNode(Node* importedNode, bool deep, ExceptionCo
         return createComment(importedNode->nodeValue());
     case ELEMENT_NODE: {
         Element* oldElement = static_cast<Element*>(importedNode);
-        RefPtr<Element> newElement = createElementNS(oldElement->namespaceURI(), oldElement->tagQName().toString(), ec);
-                    
+        // FIXME: The following check might be unnecessary. Is it possible that
+        // oldElement has mismatched prefix/namespace?
+        if (hasPrefixNamespaceMismatch(oldElement->tagQName())) {
+            ec = NAMESPACE_ERR;
+            return 0;
+        }
+        RefPtr<Element> newElement = createElement(oldElement->tagQName(), ec);
         if (ec)
             return 0;
 
@@ -1236,7 +1244,7 @@ static inline StringWithDirection canonicalizedTitle(Document* document, const S
     unsigned length = title.length();
     unsigned i;
 
-    StringBuffer buffer(length);
+    StringBuffer<UChar> buffer(length);
     unsigned builderIndex = 0;
 
     // Skip leading spaces and leading characters that would convert to spaces
@@ -1662,6 +1670,20 @@ PassRefPtr<RenderStyle> Document::styleForPage(int pageIndex)
     return style.release();
 }
 
+void Document::registerCustomFont(FontData* fontData)
+{
+    m_customFonts.append(adoptPtr(fontData));
+}
+
+void Document::deleteCustomFonts()
+{
+    size_t size = m_customFonts.size();
+    for (size_t i = 0; i < size; ++i)
+        GlyphPageTreeNode::pruneTreeCustomFontData(m_customFonts[i].get());
+
+    m_customFonts.clear();
+}
+
 bool Document::isPageBoxVisible(int pageIndex)
 {
     RefPtr<RenderStyle> style = styleForPage(pageIndex);
@@ -1760,6 +1782,9 @@ void Document::detach()
     clearAXObjectCache();
     stopActiveDOMObjects();
     m_eventQueue->cancelQueuedEvents();
+#if ENABLE(FULLSCREEN_API)
+    m_fullScreenChangeEventTargetQueue.clear();
+#endif
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
     // FIXME: consider using ActiveDOMObject.
@@ -3074,7 +3099,7 @@ void Document::recalcStyleSelector()
             if (e->hasLocalName(linkTag)) {
                 // <LINK> element
                 HTMLLinkElement* linkElement = static_cast<HTMLLinkElement*>(n);
-                if (linkElement->isDisabled())
+                if (linkElement->disabled())
                     continue;
                 enabledViaScript = linkElement->isEnabledViaScript();
                 if (linkElement->isLoading()) {
@@ -4564,7 +4589,7 @@ void Document::setSecurityOrigin(SecurityOrigin* securityOrigin)
 
 bool Document::allowDatabaseAccess() const
 {
-    if (!page() || page()->settings()->privateBrowsingEnabled())
+    if (!page() || (page()->settings()->privateBrowsingEnabled() && !SchemeRegistry::allowsDatabaseAccessInPrivateBrowsing(securityOrigin()->protocol())))
         return false;
     return true;
 }
@@ -4882,6 +4907,9 @@ void Document::webkitWillEnterFullScreenForElement(Element* element)
     ASSERT(element);
     ASSERT(page() && page()->settings()->fullScreenEnabled());
 
+    if (m_fullScreenRenderer)
+        m_fullScreenRenderer->unwrapRenderer();
+
     m_fullScreenElement = element;
 
     // Create a placeholder block for a the full-screen element, to keep the page from reflowing
@@ -4896,7 +4924,7 @@ void Document::webkitWillEnterFullScreenForElement(Element* element)
     }
 
     if (m_fullScreenElement != documentElement())
-        m_fullScreenElement->detach();
+        RenderFullScreen::wrapRenderer(renderer, this);
 
     setContainsFullScreenElementRecursively(m_fullScreenElement->parentElement() ? m_fullScreenElement->parentElement() : ownerElement(), true);
     
@@ -4947,15 +4975,11 @@ void Document::webkitDidExitFullScreenForElement(Element*)
 {
     m_areKeysEnabledInFullScreen = false;
     setAnimatingFullScreen(false);
-
-    if (m_fullScreenRenderer)
-        m_fullScreenRenderer->remove();
     
-    if (m_fullScreenElement != documentElement())
-        m_fullScreenElement->detach();
+    if (m_fullScreenRenderer)
+        m_fullScreenRenderer->unwrapRenderer();
 
     m_fullScreenChangeEventTargetQueue.append(m_fullScreenElement.release());
-    setFullScreenRenderer(0);
 #if USE(ACCELERATED_COMPOSITING)
     page()->chrome()->client()->setRootFullScreenLayer(0);
 #endif
@@ -5164,7 +5188,7 @@ DocumentLoader* Document::loader() const
     if (!m_frame)
         return 0;
     
-    DocumentLoader* loader = m_frame->loader()->activeDocumentLoader();
+    DocumentLoader* loader = m_frame->loader()->documentLoader();
     if (!loader)
         return 0;
     

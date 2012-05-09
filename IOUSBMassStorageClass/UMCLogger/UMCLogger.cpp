@@ -59,7 +59,6 @@ g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/Sys
 #include <sys/kdebug.h>
 #endif /*KERNEL_PRIVATE*/
 
-#include <IOKit/scsi/IOSCSIArchitectureModelFamilyTimestamps.h>
 #include <IOKit/scsi/IOSCSIArchitectureModelFamilyDebugging.h>
 #include <IOKit/scsi/SCSICommandOperationCodes.h>
 

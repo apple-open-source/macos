@@ -93,7 +93,6 @@
 static CFStringRef              gTZNotificationNameString   = NULL;
 
 static SCPreferencesRef         gESPreferences              = NULL;
-static SCPreferencesRef         gAutoWakePreferences        = NULL;
 
 static io_connect_t             _pm_ack_port                = 0;
 static io_iterator_t            _ups_added_noteref          = 0;
@@ -110,8 +109,7 @@ static int                      gLWRestartNotificationToken         = 0;
 static int                      gLWLogoutCancelNotificationToken    = 0;
 static int                      gLWLogoutPointOfNoReturnNotificationToken = 0;
 static CFStringRef              gConsoleNotifyKey                   = NULL;
-
-
+static bool                     gDisplayIsAsleep = true;
 
 static mach_port_t              serverPort                          = MACH_PORT_NULL;
 __private_extern__ CFMachPortRef     pmServerMachPort                  = NULL;
@@ -226,6 +224,8 @@ __private_extern__ void dynamicStoreNotifyCallBack(
  *
  * configd entry point
  */
+
+
  
 int main(int argc __unused, char *argv[] __unused)
 {
@@ -311,7 +311,6 @@ int main(int argc __unused, char *argv[] __unused)
     BatteryTimeRemaining_prime();
     PMSettings_prime();
     AutoWake_prime();
-    RepeatingAutoWake_prime();
     PMAssertions_prime();
     PMSystemEvents_prime();
     SystemLoad_prime();
@@ -321,6 +320,8 @@ int main(int argc __unused, char *argv[] __unused)
     PSLowPower_prime();
     TTYKeepAwake_prime();
     ExternalMedia_prime();
+
+    createOnBootAssertions();
 #endif
 
     CFRunLoopRun();
@@ -409,22 +410,24 @@ static void BatteryInterest(
 }
 
 
-__private_extern__ void
-ClockSleepWakeNotification(
-    natural_t messageType)
+__private_extern__ void 
+ClockSleepWakeNotification(IOPMSystemPowerStateCapabilities b,
+                           IOPMSystemPowerStateCapabilities c)
 {
-    if (kIOMessageSystemWillSleep == messageType)
-    {
-        // write SMC Key to re-enable SMC timer
-        _smcWakeTimerPrimer();
+    if (BIT_IS_SET(c, kIOPMSystemCapabilityCPU))
+        return;
 
-        // The next clock resync occuring on wake from sleep shall be marked
-        // as the wake time.
-        gExpectingWakeFromSleepClockResync = true;
-        
-        // tell clients what our timezone offset is
-        broadcastGMTOffset(); 
-    }
+    #if !TARGET_OS_EMBEDDED
+    // write SMC Key to re-enable SMC timer
+    _smcWakeTimerPrimer();
+    #endif
+    
+    // The next clock resync occuring on wake from sleep shall be marked
+    // as the wake time.
+    gExpectingWakeFromSleepClockResync = true;
+    
+    // tell clients what our timezone offset is
+    broadcastGMTOffset(); 
 }
 
 
@@ -480,13 +483,6 @@ ESPrefsHaveChanged(
         PSLowPowerPrefsHaveChanged();
         TTYKeepAwakePrefsHaveChanged();
 #endif
-    }
-
-    if (gAutoWakePreferences == prefs)
-    {
-        // Tell AutoWake listeners that the prefs have changed
-        AutoWakePrefsHaveChanged();
-        RepeatingAutoWakePrefsHaveChanged();
     }
 
     return;
@@ -713,17 +709,22 @@ static void lwShutdownCallback(
 static void 
 displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, void *arg)
 {
-    static bool displayIsAsleep = true;
-    static int level = 0;
+    IOPowerStateChangeNotification *params = (IOPowerStateChangeNotification*) arg;
 
     switch (messageType)
     {
+            // Display Wrangler power stateNumber values
+            // 4 Display ON
+            // 3 Display Dim
+            // 2 Display Sleep
+            // 1 Not visible to user
+            // 0 Not visible to user
+
         case kIOMessageDeviceWillPowerOff:
-            level++;
-            if (2 == level) 
+            if ( params->stateNumber != 4 )
             {
-                displayIsAsleep = true;
-                SystemLoadDisplayPowerStateHasChanged(displayIsAsleep);
+                gDisplayIsAsleep = true;
+                SystemLoadDisplayPowerStateHasChanged(gDisplayIsAsleep);
 
                 // Display is transition from dim to full sleep.
                 broadcastGMTOffset();            
@@ -731,15 +732,19 @@ displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, 
             break;
             
         case kIOMessageDeviceHasPoweredOn:
-            if (displayIsAsleep) 
+            if ( params->stateNumber == 4 )
             {
-                displayIsAsleep = false;            
-                SystemLoadDisplayPowerStateHasChanged(displayIsAsleep);
+                gDisplayIsAsleep = false;            
+                SystemLoadDisplayPowerStateHasChanged(gDisplayIsAsleep);
             }
 
-            level = 0;
             break;
     }
+}
+
+__private_extern__ bool isDisplayAsleep( )
+{
+    return gDisplayIsAsleep;
 }
 
 /* initializeESPrefsDynamicStore
@@ -754,11 +759,6 @@ initializeESPrefsDynamicStore(void)
                     CFSTR("com.apple.configd.powermanagement"),
                     CFSTR(kIOPMPrefsPath));
 
-    gAutoWakePreferences = SCPreferencesCreate(
-                    kCFAllocatorDefault,
-                    CFSTR("com.apple.configd.powermanagement"),
-                    CFSTR(kIOPMAutoWakePrefsPath));
-
     if (gESPreferences)
     {
         SCPreferencesSetCallback(
@@ -772,19 +772,6 @@ initializeESPrefsDynamicStore(void)
                     kCFRunLoopDefaultMode);
     }
     
-    if (gAutoWakePreferences)
-    {
-        SCPreferencesSetCallback(
-                    gAutoWakePreferences,
-                    (SCPreferencesCallBack)ESPrefsHaveChanged,
-                    (SCPreferencesContext *)NULL);
-
-        SCPreferencesScheduleWithRunLoop(
-                    gAutoWakePreferences,
-                    CFRunLoopGetCurrent(),
-                    kCFRunLoopDefaultMode);
-    }
-
     return;
 }
 
@@ -1353,7 +1340,7 @@ static void calendarRTCDidResync(
         // This system's SMC doesn't support a wakeup time, so we're done
         goto exit;
     }
-
+#if !TARGET_OS_EMBEDDED
     // Read SMC key for precise timing between when the wake event physically occurred
     // and now (i.e. the moment we read the key).
     // - SMC key returns the delta in tens of milliseconds
@@ -1365,7 +1352,7 @@ static void calendarRTCDidResync(
         }
         goto exit;
     }
-
+#endif
     // convert 10x msecs to (double)seconds
     *gLastSMCS3S0WakeInterval = ((double)wakeup_smc_result / 100.0);  
 
@@ -2049,7 +2036,7 @@ kern_return_t _io_pm_set_power_history_bookmark(
 	mach_port_t server,
 	string_t uuid_name)
 {
-/* deprecated in lion */
+/* deprecated in 10.7 */
   	return kIOReturnSuccess;
 }
 

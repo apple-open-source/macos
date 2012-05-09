@@ -25,6 +25,7 @@
 #include <syslog.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <security_utilities/cfutilities.h>
+#include <Security/CodeSigning.h>
 
 
 namespace Security {
@@ -100,7 +101,7 @@ public:
 static void copyCFDictionary(const void *key, const void *value, void *ctx)
 {
 	CFMutableDictionaryRef target = CFMutableDictionaryRef(ctx);
-	if (CFEqual(key, kSecAssessmentContextKeyCertificates))		// legacy; drop it
+	if (CFEqual(key, kSecAssessmentContextKeyCertificates))	// obsolete
 		return;
 	if (CFGetTypeID(value) == CFURLGetTypeID()) {
 		CFRef<CFStringRef> path = CFURLCopyFileSystemPath(CFURLRef(value), kCFURLPOSIXPathStyle);
@@ -120,12 +121,59 @@ void xpcEngineAssess(CFURLRef path, uint flags, CFDictionaryRef context, CFMutab
 		CFDictionaryApplyFunction(context, copyCFDictionary, ctx);
 	CFRef<CFDataRef> contextData = makeCFData(CFDictionaryRef(ctx));
 	xpc_dictionary_set_data(msg, "context", CFDataGetBytePtr(contextData), CFDataGetLength(contextData));
+	
 	msg.send();
+	
+	if (int64_t error = xpc_dictionary_get_int64(msg, "error"))
+		MacOSError::throwMe(error);
+
 	size_t resultLength;
 	const void *resultData = xpc_dictionary_get_data(msg, "result", &resultLength);
 	CFRef<CFDictionaryRef> resultDict = makeCFDictionaryFrom(resultData, resultLength);
 	CFDictionaryApplyFunction(resultDict, copyCFDictionary, result);
 	CFDictionaryAddValue(result, CFSTR("assessment:remote"), kCFBooleanTrue);
+}
+
+
+bool xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef context)
+{
+	Message msg("update");
+	// target can be NULL, a CFURLRef, a SecRequirementRef, or a CFNumberRef
+	if (target) {
+		if (CFGetTypeID(target) == CFNumberGetTypeID())
+			xpc_dictionary_set_uint64(msg, "rule", cfNumber<int64_t>(CFNumberRef(target)));
+		else if (CFGetTypeID(target) == CFURLGetTypeID())
+			xpc_dictionary_set_string(msg, "url", cfString(CFURLRef(target)).c_str());
+		else if (CFGetTypeID(target) == SecRequirementGetTypeID()) {
+			CFRef<CFDataRef> data;
+			MacOSError::check(SecRequirementCopyData(SecRequirementRef(target), kSecCSDefaultFlags, &data.aref()));
+			xpc_dictionary_set_data(msg, "requirement", CFDataGetBytePtr(data), CFDataGetLength(data));
+		} else
+			MacOSError::throwMe(errSecCSInvalidObjectRef);
+	}
+	xpc_dictionary_set_int64(msg, "flags", flags);
+	CFRef<CFMutableDictionaryRef> ctx = makeCFMutableDictionary();
+	if (context)
+		CFDictionaryApplyFunction(context, copyCFDictionary, ctx);
+	AuthorizationRef localAuthorization = NULL;
+	if (CFDictionaryGetValue(ctx, kSecAssessmentUpdateKeyAuthorization) == NULL) {	// no caller-provided authorization
+		MacOSError::check(AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &localAuthorization));
+		AuthorizationExternalForm extForm;
+		MacOSError::check(AuthorizationMakeExternalForm(localAuthorization, &extForm));
+		CFDictionaryAddValue(ctx, kSecAssessmentUpdateKeyAuthorization, CFTempData(&extForm, sizeof(extForm)));
+	}
+	CFRef<CFDataRef> contextData = makeCFData(CFDictionaryRef(ctx));
+	xpc_dictionary_set_data(msg, "context", CFDataGetBytePtr(contextData), CFDataGetLength(contextData));
+	
+	msg.send();
+
+	if (localAuthorization)
+		AuthorizationFree(localAuthorization, kAuthorizationFlagDefaults);
+	
+	if (int64_t error = xpc_dictionary_get_int64(msg, "error"))
+		MacOSError::throwMe(error);
+	
+	return true;
 }
 
 

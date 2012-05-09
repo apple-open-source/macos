@@ -187,6 +187,7 @@ void Trust::evaluate(bool disableEV)
 		filteredCerts = potentialEVChainWithCertificates(mCerts);
 		mCerts = filteredCerts;
 	} else {
+		secdebug("evTrust", "Trust::evaluate() performing standard evaluation");
 		if (mCerts) {
 			filteredCerts = CFArrayCreateMutableCopy(NULL, 0, mCerts);
 		}
@@ -283,7 +284,8 @@ void Trust::evaluate(bool disableEV)
 	}
 	if(allPolicies == NULL) {
 		allPolicies = CFMutableArrayRef(CFArrayRef(mPolicies));
-	}	
+	}
+	orderRevocationPolicies(allPolicies);
     CFToVector<CssmField, SecPolicyRef, cfField> policies(allPolicies);
     if (policies.empty())
         MacOSError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
@@ -531,16 +533,14 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
         if (info.recordId()) {
 			Keychain keychain = keychainByDLDb(info.DlDbHandle);
 			DbUniqueRecord uniqueId(keychain->database()->newDbUniqueRecord());
-			secdebug("trusteval", "evidence #%lu from keychain \"%s\"", (unsigned long)n, keychain->name());
+			secdebug("trusteval", "evidence %lu from keychain \"%s\"", (unsigned long)n, keychain->name());
 			*static_cast<CSSM_DB_UNIQUE_RECORD_PTR *>(uniqueId) = info.UniqueRecord;
 			uniqueId->activate(); // transfers ownership
 			Item ii = keychain->item(CSSM_DL_DB_RECORD_X509_CERTIFICATE, uniqueId);
 			Certificate* cert = dynamic_cast<Certificate*>(ii.get());
-			if (cert == NULL)
-			{
+			if (cert == NULL) {
 				CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
 			}
-			
 			mCertChain[n] = cert;
         } else if (info.status(CSSM_CERT_STATUS_IS_IN_INPUT_CERTS)) {
             secdebug("trusteval", "evidence %lu from input cert %lu", (unsigned long)n, (unsigned long)info.index());
@@ -569,14 +569,13 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
 		Policy::required(SecPolicyRef(CFArrayGetValueAtIndex(mPolicies, 0)));
 	for (mResultIndex = 0;
 			mResult == kSecTrustResultUnspecified && mResultIndex < mCertChain.size();
-			mResultIndex++)
-	{
-		if (!mCertChain[mResultIndex])
-		{
+			mResultIndex++) {
+		if (!mCertChain[mResultIndex]) {
 			assert(false);
 			continue;
 		}
 		mResult = store.find(mCertChain[mResultIndex], policy, mSearchLibs);
+		secdebug("trusteval", "trustResult=%lu from cert %lu", mResult, (unsigned long)mResultIndex);
 	}
 }
 

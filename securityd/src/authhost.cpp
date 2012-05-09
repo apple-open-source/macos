@@ -74,6 +74,11 @@ Session &AuthHostInstance::session() const
 	return referent<Session>();
 }
 
+bool AuthHostInstance::inDarkWake()
+{
+	return this->session().server().inDarkWake();
+}
+
 void
 AuthHostInstance::childAction()
 {
@@ -154,9 +159,12 @@ AuthHostInstance::lookup(SessionId jobId)
     /* PR-7483709 const */ uuid_t instanceId = UUID_INITIALIZER_FROM_SESSIONID(jobId);
     uuid_string_t s;
 
-    if ((mHostType == securityAgent) &&
-      !(session().attributes() & sessionHasGraphicAccess))
-        CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
+    if ((mHostType == securityAgent)) {
+	if (!(session().attributes() & sessionHasGraphicAccess))
+	    CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
+	if (inDarkWake())
+	    CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
+    }
     
     if (mHostType == securityAgent)
 	serviceName = SECURITYAGENT_BOOTSTRAP_NAME_BASE;
@@ -181,9 +189,12 @@ Port AuthHostInstance::activate()
 	StLock<Mutex> _(*this);
 	if (state() != alive)
 	{
-		if ((mHostType == securityAgent) && 
-		    !(session().attributes() & sessionHasGraphicAccess))
+		if ((mHostType == securityAgent)) {
+		    if (!(session().attributes() & sessionHasGraphicAccess))
 			CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
+		    if (inDarkWake())
+			CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
+		}
 
 		fork();
 		switch (ServerChild::state()) {

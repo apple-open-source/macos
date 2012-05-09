@@ -468,7 +468,6 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD3480987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_cssm" */;
 			compatibilityVersion = "Xcode 2.4";
-			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -602,7 +601,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55000;
+				CURRENT_PROJECT_VERSION = 55005.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -634,6 +633,7 @@
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_cssm;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -651,7 +651,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55000;
+				CURRENT_PROJECT_VERSION = 55005.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -680,6 +680,7 @@
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_cssm;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -697,7 +698,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55000;
+				CURRENT_PROJECT_VERSION = 55005.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -726,6 +727,7 @@
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_cssm;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",

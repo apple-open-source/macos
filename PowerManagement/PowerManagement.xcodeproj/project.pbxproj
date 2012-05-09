@@ -61,6 +61,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		48CA6ECF152A77EA0004817B /* AppWorkaround.plist in Resources */ = {isa = PBXBuildFile; fileRef = 48CA6ECE152A77EA0004817B /* AppWorkaround.plist */; };
+		48CA6ED0152A77F40004817B /* AppWorkaround.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CA6ECE152A77EA0004817B /* AppWorkaround.plist */; };
 		504E1BCE11372B3F00AAAA84 /* caffeinate.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 504E1BCC11372B0500AAAA84 /* caffeinate.8 */; };
 		504E1C121137329D00AAAA84 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		504E1D211137331300AAAA84 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
@@ -290,6 +292,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		48CA6ECC152A779D0004817B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/local/AppSpecificWorkaround/PowerManagement/;
+			dstSubfolderSpec = 0;
+			files = (
+				48CA6ED0152A77F40004817B /* AppWorkaround.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504E1BD611372B4F00AAAA84 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -414,6 +426,7 @@
 		40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pmconfigd.c; path = pmconfigd/pmconfigd.c; sourceTree = SOURCE_ROOT; };
 		40D4F0DC01F4A1F40ACA2928 /* pmset.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = pmset.c; sourceTree = "<group>"; };
 		40D4F0DD01F4A1F40ACA2928 /* pmset.1 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = pmset.1; sourceTree = "<group>"; };
+		48CA6ECE152A77EA0004817B /* AppWorkaround.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = AppWorkaround.plist; sourceTree = "<group>"; };
 		504E1BC211372A6A00AAAA84 /* caffeinate */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = caffeinate; sourceTree = BUILT_PRODUCTS_DIR; };
 		504E1BCC11372B0500AAAA84 /* caffeinate.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = caffeinate.8; path = caffeinate/caffeinate.8; sourceTree = "<group>"; };
 		504E1DC11137440B00AAAA84 /* caffeinate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = caffeinate.c; path = caffeinate/caffeinate.c; sourceTree = "<group>"; };
@@ -650,6 +663,7 @@
 		08FB7795FE84155DC02AAC07 /* powerd */ = {
 			isa = PBXGroup;
 			children = (
+				48CA6ECE152A77EA0004817B /* AppWorkaround.plist */,
 				A9B6F98D054DDD9200F5EC01 /* Resources */,
 				720A66C406C2F7C600944335 /* powermanagement.defs */,
 				72D984480B20BE7800D66087 /* TTYKeepAwake.c */,
@@ -1039,6 +1053,7 @@
 				729F450612D7EC8E00AD49A8 /* CopyFiles */,
 				729A75A40A01F239000AB587 /* CopyFiles */,
 				729A75A60A01F239000AB587 /* CopyFiles */,
+				48CA6ECC152A779D0004817B /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -1199,6 +1214,7 @@
 				729A75AF0A01F2D7000AB587 /* Localizable.strings in Resources */,
 				729A75B10A01F2D7000AB587 /* com.apple.SystemPowerProfileDefaults.plist in Resources */,
 				729F44BB12D7DB3600AD49A8 /* com.apple.powerd.plist in Resources */,
+				48CA6ECF152A77EA0004817B /* AppWorkaround.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1596,7 +1612,6 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = "Development-Embedded";
 		};
@@ -1621,7 +1636,6 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Development;
 		};
@@ -1643,7 +1657,6 @@
 				LD_DYLIB_INSTALL_NAME = /System/Library/CoreServices/powerd.bundle;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = "Deployment-Embedded";
 		};
@@ -1665,7 +1678,6 @@
 				LD_DYLIB_INSTALL_NAME = /System/Library/CoreServices/powerd.bundle;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Deployment;
 		};

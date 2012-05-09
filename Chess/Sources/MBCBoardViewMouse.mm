@@ -2,97 +2,7 @@
 	File:		MBCBoardViewMouse.mm
 	Contains:	Handle mouse coordinate transformations
 	Version:	1.0
-	Copyright:	© 2002-2010 by Apple Inc., all rights reserved.
-
-	File Ownership:
-
-		DRI:				Matthias Neeracher    x43683
-
-	Writers:
-
-		(MN)	Matthias Neeracher
-
-	Change History (most recent first):
-
-		$Log: MBCBoardViewMouse.mm,v $
-		Revision 1.26  2010/12/01 20:33:18  neerache
-		<rdar://problem/8702812> [Chess] All 11A320 Difficult to get out of full screen mode
-		
-		Revision 1.25  2010/03/20 00:08:27  neerache
-		<rdar://problem/7551190> Chess framerate is only 10 frames per second while rotating board
-		
-		Revision 1.24  2008/10/24 22:07:28  neerache
-		<rdar://problem/5459104> Chess: Rotating the playing board while computer is moving results with the mouse as the chess piece
-		
-		Revision 1.23  2008/10/24 20:04:48  neerache
-		<rdar://problem/3726597> Implement diagonal moves, but disable them
-		
-		Revision 1.22  2008/04/22 19:47:41  neerache
-		<rdar://problem/5750936> Adoption of Clean / Dirty API by Chess
-		
-		Revision 1.21  2007/03/02 23:06:00  neerache
-		<rdar://problem/4038207> Allow the user to type in a move in Chess
-		
-		Revision 1.20  2004/09/08 00:35:24  neerache
-		Reduce square sizes to avoid navigation ambiguities
-		
-		Revision 1.19  2004/08/16 07:50:55  neerache
-		Support accessibility
-		
-		Revision 1.18  2003/07/18 22:14:26  neerache
-		Disable pondering during drag to improve interactive performance (RADAR 2736549)
-		
-		Revision 1.17  2003/07/14 23:21:49  neerache
-		Move promotion defaults into MBCBoard
-		
-		Revision 1.16  2003/07/07 08:47:54  neerache
-		Switch to textured main window
-		
-		Revision 1.15  2003/06/18 21:55:17  neerache
-		More (mostly unsuccessful) tweaking of floating windows
-		
-		Revision 1.14  2003/06/05 08:31:26  neerache
-		Added Tuner
-		
-		Revision 1.13  2003/06/05 00:14:37  neerache
-		Reduce excessive threshold
-		
-		Revision 1.12  2003/06/04 23:14:05  neerache
-		Neater manipulation widget; remove obsolete graphics options
-		
-		Revision 1.11  2003/06/04 09:25:47  neerache
-		New and improved board manipulation metaphor
-		
-		Revision 1.10  2003/06/02 05:44:48  neerache
-		Implement direct board manipulation
-		
-		Revision 1.9  2003/05/24 20:28:27  neerache
-		Address race conditions between ploayer and engine
-		
-		Revision 1.8  2003/05/02 01:16:33  neerache
-		Simplify drawing methods
-		
-		Revision 1.7  2003/04/28 22:11:45  neerache
-		Handle black promotion square
-		
-		Revision 1.6  2003/04/25 22:26:23  neerache
-		Simplify mouse model, fix startup bug
-		
-		Revision 1.5  2003/04/25 16:37:00  neerache
-		Clean automake build
-		
-		Revision 1.4  2003/04/24 23:20:35  neeri
-		Support pawn promotions
-		
-		Revision 1.3  2003/04/02 19:01:36  neeri
-		Explore strategies to speed up dragging
-		
-		Revision 1.2  2002/12/04 02:30:50  neeri
-		Experiment (unsuccessfully so far) with ways to speed up piece movement
-		
-		Revision 1.1  2002/08/22 23:47:06  neeri
-		Initial Checkin
-		
+	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
 */
 
 #import "MBCBoardViewMouse.h"
@@ -245,11 +155,12 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		r.size.height	= min(p0.y, p1.y)-r.origin.y;
 	}
 
-	return r;
+	return [self convertRectFromBacking:r];
 }
 
 - (MBCPosition) mouseToPosition:(NSPoint)mouse
 {
+    mouse = [self convertPointToBacking:mouse];
 	MBCUnProjector	unproj(mouse.x, mouse.y);
 	
 	return unproj.UnProject();
@@ -257,6 +168,8 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 
 - (MBCPosition) eventToPosition:(NSEvent *)event
 {
+    [[self openGLContext] makeCurrentContext];
+
     NSPoint p = [event locationInWindow];
     NSPoint l = [self convertPoint:p fromView:nil];
 
@@ -290,6 +203,7 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 	// then pretend that the click happened at board surface level. Weirdly
 	// enough, this seems to give the most natural feeling mouse behavior.
 	//
+    [[self openGLContext] makeCurrentContext];
 	MBCPosition pos = [self mouseToPosition:l];
 	fSelectedDest	= [self positionToSquareOrRegion:&pos];
     switch (fSelectedDest) {
@@ -417,6 +331,8 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 			// On drag, we can use a fairly fast interpolation to determine
 			// the 3D coordinate using the y where we touched the piece
 			//
+            [[self openGLContext] makeCurrentContext];
+           l = [self convertPointToBacking:l];
 			MBCUnProjector	unproj(l.x, l.y);
 
 			fSelectedPos 				= unproj.UnProject(0.0f);

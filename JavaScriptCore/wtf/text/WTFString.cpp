@@ -61,14 +61,24 @@ String::String(const UChar* str)
 }
 
 // Construct a string with latin1 data.
-String::String(const char* characters, unsigned length)
+String::String(const LChar* characters, unsigned length)
     : m_impl(characters ? StringImpl::create(characters, length) : 0)
 {
 }
 
+String::String(const char* characters, unsigned length)
+    : m_impl(characters ? StringImpl::create(reinterpret_cast<const LChar*>(characters), length) : 0)
+{
+}
+
 // Construct a string with latin1 data, from a null-terminated source.
-String::String(const char* characters)
+String::String(const LChar* characters)
     : m_impl(characters ? StringImpl::create(characters) : 0)
+{
+}
+
+String::String(const char* characters)
+    : m_impl(characters ? StringImpl::create(reinterpret_cast<const LChar*>(characters)) : 0)
 {
 }
 
@@ -95,7 +105,7 @@ void String::append(const String& str)
     }
 }
 
-void String::append(char c)
+void String::append(LChar c)
 {
     // FIXME: This is extremely inefficient. So much so that we might want to take this
     // out of String's API. We can make it better by optimizing the case where exactly
@@ -338,7 +348,7 @@ String String::format(const char *format, ...)
     va_end(args);
 
     QByteArray ba = buffer.toUtf8();
-    return StringImpl::create(ba.constData(), ba.length());
+    return StringImpl::create(reinterpret_cast<const LChar*>(ba.constData()), ba.length());
 
 #elif OS(WINCE)
     va_list args;
@@ -355,7 +365,7 @@ String String::format(const char *format, ...)
         if (written == 0)
             return String("");
         if (written > 0)
-            return StringImpl::create(buffer.data(), written);
+            return StringImpl::create(reinterpret_cast<const LChar*>(buffer.data()), written);
         
         bufferSize <<= 1;
         buffer.resize(bufferSize);
@@ -396,7 +406,7 @@ String String::format(const char *format, ...)
 
     va_end(args);
     
-    return StringImpl::create(buffer.data(), len);
+    return StringImpl::create(reinterpret_cast<const LChar*>(buffer.data()), len);
 #endif
 }
 
@@ -448,9 +458,16 @@ String String::number(unsigned long long n)
 #endif
 }
     
-String String::number(double n)
+String String::number(double number, unsigned flags, unsigned precision)
 {
-    return String::format("%.6lg", n);
+    NumberToStringBuffer buffer;
+
+    // Mimic String::format("%.[precision]g", ...), but use dtoas rounding facilities.
+    if (flags & ShouldRoundSignificantFigures)
+        return String(numberToFixedPrecisionString(number, precision, buffer, flags & ShouldTruncateTrailingZeros));
+
+    // Mimic String::format("%.[precision]f", ...), but use dtoas rounding facilities.
+    return String(numberToFixedWidthString(number, precision, buffer));
 }
 
 int String::toIntStrict(bool* ok, int base) const
@@ -578,18 +595,11 @@ float String::toFloat(bool* ok, bool* didReadNumber) const
     return m_impl->toFloat(ok, didReadNumber);
 }
 
-String String::threadsafeCopy() const
+String String::isolatedCopy() const
 {
     if (!m_impl)
         return String();
-    return m_impl->threadsafeCopy();
-}
-
-String String::crossThreadString() const
-{
-    if (!m_impl)
-        return String();
-    return m_impl->crossThreadString();
+    return m_impl->isolatedCopy();
 }
 
 void String::split(const String& separator, bool allowEmptyEntries, Vector<String>& result) const
@@ -638,7 +648,27 @@ CString String::ascii() const
     // preserved, characters outside of this range are converted to '?'.
 
     unsigned length = this->length();
-    const UChar* characters = this->characters();
+
+    if (!length) {
+        char* characterBuffer;
+        return CString::newUninitialized(length, characterBuffer);
+    }
+
+    if (this->is8Bit()) {
+        const LChar* characters = this->characters8();
+
+        char* characterBuffer;
+        CString result = CString::newUninitialized(length, characterBuffer);
+
+        for (unsigned i = 0; i < length; ++i) {
+            LChar ch = characters[i];
+            characterBuffer[i] = ch && (ch < 0x20 || ch > 0x7f) ? '?' : ch;
+        }
+
+        return result;        
+    }
+
+    const UChar* characters = this->characters16();
 
     char* characterBuffer;
     CString result = CString::newUninitialized(length, characterBuffer);
@@ -682,7 +712,9 @@ static inline void putUTF8Triple(char*& buffer, UChar ch)
 CString String::utf8(bool strict) const
 {
     unsigned length = this->length();
-    const UChar* characters = this->characters();
+
+    if (!length)
+        return CString("", 0);
 
     // Allocate a buffer big enough to hold all the characters
     // (an individual UTF-16 UChar can only expand to 3 UTF-8 bytes).
@@ -699,32 +731,42 @@ CString String::utf8(bool strict) const
     Vector<char, 1024> bufferVector(length * 3);
 
     char* buffer = bufferVector.data();
-    ConversionResult result = convertUTF16ToUTF8(&characters, characters + length, &buffer, buffer + bufferVector.size(), strict);
-    ASSERT(result != targetExhausted); // (length * 3) should be sufficient for any conversion
 
-    // Only produced from strict conversion.
-    if (result == sourceIllegal)
-        return CString();
+    if (is8Bit()) {
+        const LChar* characters = this->characters8();
 
-    // Check for an unconverted high surrogate.
-    if (result == sourceExhausted) {
-        if (strict)
+        ConversionResult result = convertLatin1ToUTF8(&characters, characters + length, &buffer, buffer + bufferVector.size());
+        ASSERT_UNUSED(result, result != targetExhausted); // (length * 3) should be sufficient for any conversion
+    } else {
+        const UChar* characters = this->characters16();
+
+        ConversionResult result = convertUTF16ToUTF8(&characters, characters + length, &buffer, buffer + bufferVector.size(), strict);
+        ASSERT(result != targetExhausted); // (length * 3) should be sufficient for any conversion
+
+        // Only produced from strict conversion.
+        if (result == sourceIllegal)
             return CString();
-        // This should be one unpaired high surrogate. Treat it the same
-        // was as an unpaired high surrogate would have been handled in
-        // the middle of a string with non-strict conversion - which is
-        // to say, simply encode it to UTF-8.
-        ASSERT((characters + 1) == (this->characters() + length));
-        ASSERT((*characters >= 0xD800) && (*characters <= 0xDBFF));
-        // There should be room left, since one UChar hasn't been converted.
-        ASSERT((buffer + 3) <= (buffer + bufferVector.size()));
-        putUTF8Triple(buffer, *characters);
+
+        // Check for an unconverted high surrogate.
+        if (result == sourceExhausted) {
+            if (strict)
+                return CString();
+            // This should be one unpaired high surrogate. Treat it the same
+            // was as an unpaired high surrogate would have been handled in
+            // the middle of a string with non-strict conversion - which is
+            // to say, simply encode it to UTF-8.
+            ASSERT((characters + 1) == (this->characters() + length));
+            ASSERT((*characters >= 0xD800) && (*characters <= 0xDBFF));
+            // There should be room left, since one UChar hasn't been converted.
+            ASSERT((buffer + 3) <= (buffer + bufferVector.size()));
+            putUTF8Triple(buffer, *characters);
+        }
     }
 
     return CString(bufferVector.data(), buffer - bufferVector.data());
 }
 
-String String::fromUTF8(const char* stringStart, size_t length)
+String String::fromUTF8(const LChar* stringStart, size_t length)
 {
     if (length > numeric_limits<unsigned>::max())
         CRASH();
@@ -739,8 +781,8 @@ String String::fromUTF8(const char* stringStart, size_t length)
     UChar* bufferEnd = buffer + length;
 
     // Try converting into the buffer.
-    const char* stringCurrent = stringStart;
-    if (convertUTF8ToUTF16(&stringCurrent, stringStart + length, &buffer, bufferEnd) != conversionOK)
+    const char* stringCurrent = reinterpret_cast<const char*>(stringStart);
+    if (convertUTF8ToUTF16(&stringCurrent, reinterpret_cast<const char *>(stringStart + length), &buffer, bufferEnd) != conversionOK)
         return String();
 
     // stringBuffer is full (the input must have been all ascii) so just return it!
@@ -753,14 +795,14 @@ String String::fromUTF8(const char* stringStart, size_t length)
     return String(stringBuffer.characters(), utf16Length);
 }
 
-String String::fromUTF8(const char* string)
+String String::fromUTF8(const LChar* string)
 {
     if (!string)
         return String();
-    return fromUTF8(string, strlen(string));
+    return fromUTF8(string, strlen(reinterpret_cast<const char*>(string)));
 }
 
-String String::fromUTF8WithLatin1Fallback(const char* string, size_t size)
+String String::fromUTF8WithLatin1Fallback(const LChar* string, size_t size)
 {
     String utf8 = fromUTF8(string, size);
     if (!utf8)
@@ -785,8 +827,8 @@ static bool isCharacterAllowedInBase(UChar c, int base)
     return false;
 }
 
-template <typename IntegralType>
-static inline IntegralType toIntegralType(const UChar* data, size_t length, bool* ok, int base)
+template <typename IntegralType, typename CharType>
+static inline IntegralType toIntegralType(const CharType* data, size_t length, bool* ok, int base)
 {
     static const IntegralType integralMax = numeric_limits<IntegralType>::max();
     static const bool isSigned = numeric_limits<IntegralType>::is_signed;
@@ -820,7 +862,7 @@ static inline IntegralType toIntegralType(const UChar* data, size_t length, bool
     while (length && isCharacterAllowedInBase(*data, base)) {
         length--;
         IntegralType digitValue;
-        UChar c = *data;
+        CharType c = *data;
         if (isASCIIDigit(c))
             digitValue = c - '0';
         else if (c >= 'a')
@@ -861,7 +903,8 @@ bye:
     return isOk ? value : 0;
 }
 
-static unsigned lengthOfCharactersAsInteger(const UChar* data, size_t length)
+template <typename CharType>
+static unsigned lengthOfCharactersAsInteger(const CharType* data, size_t length)
 {
     size_t i = 0;
 
@@ -884,57 +927,108 @@ static unsigned lengthOfCharactersAsInteger(const UChar* data, size_t length)
     return i;
 }
 
+int charactersToIntStrict(const LChar* data, size_t length, bool* ok, int base)
+{
+    return toIntegralType<int, LChar>(data, length, ok, base);
+}
+
 int charactersToIntStrict(const UChar* data, size_t length, bool* ok, int base)
 {
-    return toIntegralType<int>(data, length, ok, base);
+    return toIntegralType<int, UChar>(data, length, ok, base);
+}
+
+unsigned charactersToUIntStrict(const LChar* data, size_t length, bool* ok, int base)
+{
+    return toIntegralType<unsigned, LChar>(data, length, ok, base);
 }
 
 unsigned charactersToUIntStrict(const UChar* data, size_t length, bool* ok, int base)
 {
-    return toIntegralType<unsigned>(data, length, ok, base);
+    return toIntegralType<unsigned, UChar>(data, length, ok, base);
+}
+
+int64_t charactersToInt64Strict(const LChar* data, size_t length, bool* ok, int base)
+{
+    return toIntegralType<int64_t, LChar>(data, length, ok, base);
 }
 
 int64_t charactersToInt64Strict(const UChar* data, size_t length, bool* ok, int base)
 {
-    return toIntegralType<int64_t>(data, length, ok, base);
+    return toIntegralType<int64_t, UChar>(data, length, ok, base);
+}
+
+uint64_t charactersToUInt64Strict(const LChar* data, size_t length, bool* ok, int base)
+{
+    return toIntegralType<uint64_t, LChar>(data, length, ok, base);
 }
 
 uint64_t charactersToUInt64Strict(const UChar* data, size_t length, bool* ok, int base)
 {
-    return toIntegralType<uint64_t>(data, length, ok, base);
+    return toIntegralType<uint64_t, UChar>(data, length, ok, base);
+}
+
+intptr_t charactersToIntPtrStrict(const LChar* data, size_t length, bool* ok, int base)
+{
+    return toIntegralType<intptr_t, LChar>(data, length, ok, base);
 }
 
 intptr_t charactersToIntPtrStrict(const UChar* data, size_t length, bool* ok, int base)
 {
-    return toIntegralType<intptr_t>(data, length, ok, base);
+    return toIntegralType<intptr_t, UChar>(data, length, ok, base);
+}
+
+int charactersToInt(const LChar* data, size_t length, bool* ok)
+{
+    return toIntegralType<int, LChar>(data, lengthOfCharactersAsInteger<LChar>(data, length), ok, 10);
 }
 
 int charactersToInt(const UChar* data, size_t length, bool* ok)
 {
-    return toIntegralType<int>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
+    return toIntegralType<int, UChar>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
+}
+
+unsigned charactersToUInt(const LChar* data, size_t length, bool* ok)
+{
+    return toIntegralType<unsigned, LChar>(data, lengthOfCharactersAsInteger<LChar>(data, length), ok, 10);
 }
 
 unsigned charactersToUInt(const UChar* data, size_t length, bool* ok)
 {
-    return toIntegralType<unsigned>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
+    return toIntegralType<unsigned, UChar>(data, lengthOfCharactersAsInteger<UChar>(data, length), ok, 10);
+}
+
+int64_t charactersToInt64(const LChar* data, size_t length, bool* ok)
+{
+    return toIntegralType<int64_t, LChar>(data, lengthOfCharactersAsInteger<LChar>(data, length), ok, 10);
 }
 
 int64_t charactersToInt64(const UChar* data, size_t length, bool* ok)
 {
-    return toIntegralType<int64_t>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
+    return toIntegralType<int64_t, UChar>(data, lengthOfCharactersAsInteger<UChar>(data, length), ok, 10);
+}
+
+uint64_t charactersToUInt64(const LChar* data, size_t length, bool* ok)
+{
+    return toIntegralType<uint64_t, LChar>(data, lengthOfCharactersAsInteger<LChar>(data, length), ok, 10);
 }
 
 uint64_t charactersToUInt64(const UChar* data, size_t length, bool* ok)
 {
-    return toIntegralType<uint64_t>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
+    return toIntegralType<uint64_t, UChar>(data, lengthOfCharactersAsInteger<UChar>(data, length), ok, 10);
+}
+
+intptr_t charactersToIntPtr(const LChar* data, size_t length, bool* ok)
+{
+    return toIntegralType<intptr_t, LChar>(data, lengthOfCharactersAsInteger<LChar>(data, length), ok, 10);
 }
 
 intptr_t charactersToIntPtr(const UChar* data, size_t length, bool* ok)
 {
-    return toIntegralType<intptr_t>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
+    return toIntegralType<intptr_t, UChar>(data, lengthOfCharactersAsInteger<UChar>(data, length), ok, 10);
 }
 
-double charactersToDouble(const UChar* data, size_t length, bool* ok, bool* didReadNumber)
+template <typename CharType>
+static inline double toDoubleType(const CharType* data, size_t length, bool* ok, bool* didReadNumber)
 {
     if (!length) {
         if (ok)
@@ -958,10 +1052,26 @@ double charactersToDouble(const UChar* data, size_t length, bool* ok, bool* didR
     return val;
 }
 
+double charactersToDouble(const LChar* data, size_t length, bool* ok, bool* didReadNumber)
+{
+    return toDoubleType<LChar>(data, length, ok, didReadNumber);
+}
+
+double charactersToDouble(const UChar* data, size_t length, bool* ok, bool* didReadNumber)
+{
+    return toDoubleType<UChar>(data, length, ok, didReadNumber);
+}
+
+float charactersToFloat(const LChar* data, size_t length, bool* ok, bool* didReadNumber)
+{
+    // FIXME: This will return ok even when the string fits into a double but not a float.
+    return static_cast<float>(toDoubleType<LChar>(data, length, ok, didReadNumber));
+}
+
 float charactersToFloat(const UChar* data, size_t length, bool* ok, bool* didReadNumber)
 {
     // FIXME: This will return ok even when the string fits into a double but not a float.
-    return static_cast<float>(charactersToDouble(data, length, ok, didReadNumber));
+    return static_cast<float>(toDoubleType<UChar>(data, length, ok, didReadNumber));
 }
 
 const String& emptyString()

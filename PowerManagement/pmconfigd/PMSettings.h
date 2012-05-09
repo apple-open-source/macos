@@ -61,5 +61,6 @@ __private_extern__ IOReturn _activateForcedSettings(CFDictionaryRef);
 __private_extern__ void overrideSetting(int, int);
 __private_extern__ void activateSettingOverrides(void);
 
+__private_extern__ IOReturn getDisplaySleepTimer(uint32_t *displaySleepTimer);
 
 #endif _PMSettings_h_

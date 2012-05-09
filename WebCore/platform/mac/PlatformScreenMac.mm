@@ -28,8 +28,9 @@
 
 #import "FloatRect.h"
 #import "Frame.h"
-#import "FrameView.h"
 #import "Page.h"
+#import "Widget.h"
+#import "NotImplemented.h"
 
 namespace WebCore {
 
@@ -76,29 +77,16 @@ NSScreen *screenForWindow(NSWindow *window)
     return nil;
 }
 
-static CGFloat windowScaleFactor(NSWindow *window)
-{
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-    return [window backingScaleFactor];
-#else
-    return [window userSpaceScaleFactor];
-#endif
-}
-
 FloatRect toUserSpace(const NSRect& rect, NSWindow *destination)
 {
     FloatRect userRect = rect;
     userRect.setY(NSMaxY([screenForWindow(destination) frame]) - (userRect.y() + userRect.height())); // flip
-    if (destination)
-        userRect.scale(1 / windowScaleFactor(destination)); // scale down
     return userRect;
 }
 
 NSRect toDeviceSpace(const FloatRect& rect, NSWindow *source)
 {
     FloatRect deviceRect = rect;
-    if (source)
-        deviceRect.scale(windowScaleFactor(source)); // scale up
     deviceRect.setY(NSMaxY([screenForWindow(source) frame]) - (deviceRect.y() + deviceRect.height())); // flip
     return deviceRect;
 }

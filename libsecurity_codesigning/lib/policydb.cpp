@@ -53,6 +53,37 @@ static const char *dbPath()
 
 
 //
+// Help mapping API-ish CFString keys to more convenient internal enumerations
+//
+typedef struct {
+	const CFStringRef &cstring;
+	uint enumeration;
+} StringMap;
+
+static uint mapEnum(CFDictionaryRef context, CFStringRef attr, const StringMap *map, uint value = 0)
+{
+	if (context)
+		if (CFTypeRef value = CFDictionaryGetValue(context, attr))
+			for (const StringMap *mp = map; mp->cstring; ++mp)
+				if (CFEqual(mp->cstring, value))
+					return mp->enumeration;
+	return value;
+}
+
+static const StringMap mapType[] = {
+	{ kSecAssessmentOperationTypeExecute, kAuthorityExecute },
+	{ kSecAssessmentOperationTypeInstall, kAuthorityInstall },
+	{ kSecAssessmentOperationTypeOpenDocument, kAuthorityOpenDoc },
+	{ NULL }
+};
+
+AuthorityType typeFor(CFDictionaryRef context, AuthorityType type /* = kAuthorityInvalid */)
+{
+	return mapEnum(context, kSecAssessmentContextKeyOperation, mapType, type);
+}
+
+
+//
 // Open the database (creating it if necessary and possible).
 // Note that this isn't creating the schema; we do that on first write.
 //
@@ -75,48 +106,64 @@ bool PolicyDatabase::checkCache(CFURLRef path, AuthorityType type, CFMutableDict
 	if (type != kAuthorityExecute)
 		return false;
 	
-	SecCSFlags validationFlags = kSecCSDefaultFlags;
-	if (overrideAssessment())	// we'll force the verdict to 'pass' at the end, so don't sweat validating code
-		validationFlags = kSecCSBasicValidateOnly;
-
 	CFRef<SecStaticCodeRef> code;
 	MacOSError::check(SecStaticCodeCreateWithPath(path, kSecCSDefaultFlags, &code.aref()));
-	if (SecStaticCodeCheckValidity(code, validationFlags, NULL) != noErr)
+	if (SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, NULL) != noErr)
 		return false;	// quick pass - any error is a cache miss
 	CFRef<CFDictionaryRef> info;
 	MacOSError::check(SecCodeCopySigningInformation(code, kSecCSDefaultFlags, &info.aref()));
 	CFDataRef cdHash = CFDataRef(CFDictionaryGetValue(info, kSecCodeInfoUnique));
 	
 	// check the cache table for a fast match
-	SQLite::Statement cached(*this, "SELECT allow, expires, label, authority FROM object WHERE type = ?1 and hash = ?2;");
-	cached.bind(1).integer(type);
-	cached.bind(2) = cdHash;
+	SQLite::Statement cached(*this, "SELECT object.allow, authority.label, authority FROM object, authority"
+		" WHERE object.authority = authority.id AND object.type = :type AND object.hash = :hash AND authority.disabled = 0"
+		" AND JULIANDAY('now') < object.expires;");
+	cached.bind(":type").integer(type);
+	cached.bind(":hash") = cdHash;
 	if (cached.nextRow()) {
 		bool allow = int(cached[0]);
-		const char *label = cached[2];
-		SQLite::int64 auth = cached[3];
-		bool valid = true;
-		if (SQLite3::int64 expires = cached[1])
-			valid = time(NULL) <= expires;
-		if (valid) {
-			SYSPOLICY_ASSESS_CACHE_HIT();
-			cfadd(result, "{%O=%B}", kSecAssessmentAssessmentVerdict, allow);
-			PolicyEngine::addAuthority(result, label, auth, kCFBooleanTrue);
-			return true;
-		}
+		const char *label = cached[1];
+		SQLite::int64 auth = cached[2];
+		SYSPOLICY_ASSESS_CACHE_HIT();
+
+		// If its allowed, lets do a full validation unless if
+		// we are overriding the assessement, since that force
+		// the verdict to 'pass' at the end
+
+		if (allow && !overrideAssessment())
+		    MacOSError::check(SecStaticCodeCheckValidity(code, kSecCSDefaultFlags, NULL));
+
+		cfadd(result, "{%O=%B}", kSecAssessmentAssessmentVerdict, allow);
+		PolicyEngine::addAuthority(result, label, auth, kCFBooleanTrue);
+		return true;
 	}
 	return false;
 }
 
 
 //
-// Purge the object cache of all expired entries
+// Purge the object cache of all expired entries.
+// These are meant to run within the caller's transaction.
 //
-void PolicyDatabase::purge(const char *table)
+void PolicyDatabase::purgeAuthority()
 {
 	SQLite::Statement cleaner(*this,
-		"DELETE FROM ?1 WHERE expires < DATE_TIME('now');");
-	cleaner.bind(1) = table;
+		"DELETE FROM authority WHERE expires <= JULIANDAY('now');");
+	cleaner.execute();
+}
+
+void PolicyDatabase::purgeObjects()
+{
+	SQLite::Statement cleaner(*this,
+		"DELETE FROM object WHERE expires <= JULIANDAY('now');");
+	cleaner.execute();
+}
+
+void PolicyDatabase::purgeObjects(double priority)
+{
+	SQLite::Statement cleaner(*this,
+		"DELETE FROM object WHERE expires <= JULIANDAY('now') OR (SELECT priority FROM authority WHERE id = object.authority) <= :priority;");
+	cleaner.bind(":priority") = priority;
 	cleaner.execute();
 }
 

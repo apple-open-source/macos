@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -282,7 +282,7 @@ SInt32 compareAudioStreams(IOAudioStream *stream1, IOAudioStream *stream2, void 
     startingChannelID1 = stream1->getStartingChannelID();
     startingChannelID2 = stream2->getStartingChannelID();
     
-    return (startingChannelID1 > startingChannelID2) ? 1 : ((startingChannelID2 > startingChannelID2) ? -1 : 0);
+    return (startingChannelID1 > startingChannelID2) ? -1 : ((startingChannelID2 > startingChannelID1) ? 1 : 0);	// <rdar://9629411>
 }
 
 const OSSymbol *IOAudioEngine::gSampleRateWholeNumberKey = NULL;
@@ -665,7 +665,7 @@ void IOAudioEngine::registerService(IOOptionBits options)
         if (outputStreams && (outputStreams->getCount() > 0)) {
             iterator = OSCollectionIterator::withCollection(outputStreams);
             if (iterator) {
-                while (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) {
+                while ( (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) ) {
                     stream->registerService();
                 }
                 iterator->release();
@@ -675,7 +675,7 @@ void IOAudioEngine::registerService(IOOptionBits options)
         if (inputStreams && (inputStreams->getCount() > 0)) {
             iterator = OSCollectionIterator::withCollection(inputStreams);
             if (iterator) {
-                while (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) {
+                while ( (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) ) {
                     stream->registerService();
                 }
                 iterator->release();
@@ -818,7 +818,7 @@ void IOAudioEngine::clearAllSampleBuffers()
     if (outputStreams && (outputStreams->getCount() > 0)) {
         iterator = OSCollectionIterator::withCollection(outputStreams);
         if (iterator) {
-            while (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) {
+            while ( (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) ) {
                 stream->clearSampleBuffer();
             }
             iterator->release();
@@ -828,7 +828,7 @@ void IOAudioEngine::clearAllSampleBuffers()
     if (inputStreams && (inputStreams->getCount() > 0)) {
         iterator = OSCollectionIterator::withCollection(inputStreams);
         if (iterator) {
-            while (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) {
+            while ( (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) ) {
                 stream->clearSampleBuffer();
             }
             iterator->release();
@@ -1106,7 +1106,7 @@ IOReturn IOAudioEngine::detachUserClients()
         if (iterator) {
             IOAudioEngineUserClient *userClient;
             
-            while (userClient = (IOAudioEngineUserClient *)iterator->getNextObject())
+            while ( (userClient = (IOAudioEngineUserClient *)iterator->getNextObject()) )
 			{
 				audioDebugIOLog ( 3, "  will invoke userClient->terminate ()\n" );
                 userClient->terminate();
@@ -1149,12 +1149,37 @@ IOReturn IOAudioEngine::startClient(IOAudioEngineUserClient *userClient)
 	{
 		retain();
 		
-		commandGate->commandSleep( &audioDevice->currentPowerState );
-		
-		if ( isInactive() )
-		{
-			release();
-			return kIOReturnNoDevice;
+		//  <rdar://10885615> Make sure the command gate remains valid while it is being used.
+		if (commandGate) {
+			IOReturn err;
+			setCommandGateUsage(this, true);	//	<rdar://8518215,10885615>
+			err = commandGate->commandSleep( &audioDevice->currentPowerState );
+			setCommandGateUsage(this, false);	//	<rdar://8518215,10885615>
+			
+			//  <rdar://9487554,10885615> On interruption or time out return the appropriate error. This
+			//  is to prevent it being stuck in the while loop waiting for the power state
+			//  change.
+			if ( THREAD_INTERRUPTED == err )
+			{
+				release();
+				return kIOReturnAborted;
+			}
+			else if ( THREAD_TIMED_OUT == err )
+			{
+				release();
+				return kIOReturnTimeout;
+			}
+			else if ( THREAD_RESTART == err )
+			{
+				release();
+				return kIOReturnNotPermitted;
+			}
+			
+			if ( isInactive() )
+			{
+				release();
+				return kIOReturnNoDevice;
+			}			
 		}
 		
 		release();
@@ -1313,7 +1338,7 @@ void IOAudioEngine::detachAudioStreams()
     if (outputStreams && (outputStreams->getCount() > 0)) {
         iterator = OSCollectionIterator::withCollection(outputStreams);
         if (iterator) {
-            while (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) {
+            while ( (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) ) {
                 if (!isInactive()) {
                     stream->terminate();
                 }
@@ -1330,7 +1355,7 @@ void IOAudioEngine::detachAudioStreams()
     if (inputStreams && (inputStreams->getCount() > 0)) {
         iterator = OSCollectionIterator::withCollection(inputStreams);
         if (iterator) {
-            while (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) {
+            while ( (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) ) {
                 if (!isInactive()) {
                     stream->terminate();
                 }
@@ -1361,7 +1386,7 @@ void IOAudioEngine::lockAllStreams()
         if (streamIterator) {
             IOAudioStream *stream;
             
-            while (stream = (IOAudioStream *)streamIterator->getNextObject()) {
+            while ( (stream = (IOAudioStream *)streamIterator->getNextObject()) ) {
                 stream->lockStreamForIO();
             }
             streamIterator->release();
@@ -1373,7 +1398,7 @@ void IOAudioEngine::lockAllStreams()
         if (streamIterator) {
             IOAudioStream *stream;
             
-            while (stream = (IOAudioStream *)streamIterator->getNextObject()) {
+            while ( (stream = (IOAudioStream *)streamIterator->getNextObject()) ) {
                 stream->lockStreamForIO();
             }
             streamIterator->release();
@@ -1390,7 +1415,7 @@ void IOAudioEngine::unlockAllStreams()
         if (streamIterator) {
             IOAudioStream *stream;
             
-            while (stream = (IOAudioStream *)streamIterator->getNextObject()) {
+            while ( (stream = (IOAudioStream *)streamIterator->getNextObject()) ) {
                 stream->unlockStreamForIO();
             }
             streamIterator->release();
@@ -1402,7 +1427,7 @@ void IOAudioEngine::unlockAllStreams()
         if (streamIterator) {
             IOAudioStream *stream;
             
-            while (stream = (IOAudioStream *)streamIterator->getNextObject()) {
+            while ( (stream = (IOAudioStream *)streamIterator->getNextObject()) ) {
                 stream->unlockStreamForIO();
             }
             streamIterator->release();
@@ -1428,7 +1453,7 @@ IOAudioStream *IOAudioEngine::getAudioStream(IOAudioStreamDirection direction, U
         if (streamIterator) {
             IOAudioStream *stream;
             
-            while (stream = (IOAudioStream *)streamIterator->getNextObject()) {
+            while ( (stream = (IOAudioStream *)streamIterator->getNextObject()) ) {
                 if ((channelID >= stream->startingChannelID) && (channelID < (stream->startingChannelID + stream->maxNumChannels))) {
                     audioStream = stream;
                     break;
@@ -1464,7 +1489,7 @@ void IOAudioEngine::updateChannelNumbers()
         if (iterator) {
             IOAudioStream *audioStream;
             
-            while (audioStream = (IOAudioStream *)iterator->getNextObject()) {
+            while ( (audioStream = (IOAudioStream *)iterator->getNextObject()) ) {
 				maxNumOutputChannels += audioStream->getMaxNumChannels();
 			}
 			iterator->release();
@@ -1476,7 +1501,7 @@ void IOAudioEngine::updateChannelNumbers()
         if (iterator) {
             IOAudioStream *audioStream;
             
-            while (audioStream = (IOAudioStream *)iterator->getNextObject()) {
+            while ( (audioStream = (IOAudioStream *)iterator->getNextObject()) ) {
 				maxNumInputChannels += audioStream->getMaxNumChannels();
 			}
 			iterator->release();
@@ -1502,7 +1527,7 @@ void IOAudioEngine::updateChannelNumbers()
         if (iterator) {
             IOAudioStream *audioStream;
             
-            while (audioStream = (IOAudioStream *)iterator->getNextObject()) {
+            while ( (audioStream = (IOAudioStream *)iterator->getNextObject()) ) {
                 const IOAudioStreamFormat *format;
                 
                 format = audioStream->getFormat();
@@ -1547,7 +1572,7 @@ void IOAudioEngine::updateChannelNumbers()
         if (iterator) {
             IOAudioStream *audioStream;
             
-            while (audioStream = (IOAudioStream *)iterator->getNextObject()) {
+            while ( (audioStream = (IOAudioStream *)iterator->getNextObject()) ) {
                 const IOAudioStreamFormat *format;
                 
                 format = audioStream->getFormat();
@@ -1588,7 +1613,7 @@ void IOAudioEngine::updateChannelNumbers()
         iterator = OSCollectionIterator::withCollection(defaultAudioControls);
         if (iterator) {
             IOAudioControl *control;
-            while (control = (IOAudioControl *)iterator->getNextObject()) {
+            while ( (control = (IOAudioControl *)iterator->getNextObject()) ) {
                 UInt32 channelID;
                 
                 channelID = control->getChannelID();
@@ -1796,7 +1821,7 @@ void IOAudioEngine::setNumSampleFramesPerBuffer(UInt32 numSampleFrames)
             if (streamIterator) {
                 IOAudioStream *audioStream;
                 
-                while (audioStream = (IOAudioStream *)streamIterator->getNextObject()) {
+                while ( (audioStream = (IOAudioStream *)streamIterator->getNextObject()) ) {
                     audioStream->numSampleFramesPerBufferChanged();
                 }
                 streamIterator->release();
@@ -1965,7 +1990,7 @@ AbsoluteTime IOAudioEngine::getTimerInterval()
 
 		if (outputIterator) 
 		{
-			while (outputStream = (IOAudioStream *)outputIterator->getNextObject()) {
+			while ( (outputStream = (IOAudioStream *)outputIterator->getNextObject()) ) {
 				bufferSize = outputStream->getSampleBufferSize();
 				if ((bufferSize / numErasesPerBuffer) > 65536) {
 					newNumErasesPerBuffer = bufferSize / 65536;
@@ -2026,7 +2051,7 @@ void IOAudioEngine::performErase()
             currentSampleFrame = getCurrentSampleFrame();
             eraseHeadSampleFrame = status->fEraseHeadSampleFrame;
                 
-            while (outputStream = (IOAudioStream *)outputIterator->getNextObject()) {
+            while ( (outputStream = (IOAudioStream *)outputIterator->getNextObject()) ) {
                 char *sampleBuf, *mixBuf;
                 UInt32 sampleBufferFrameSize, mixBufferFrameSize;
                 
@@ -2039,38 +2064,26 @@ void IOAudioEngine::performErase()
                 mixBufferFrameSize = outputStream->format.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize;
                 
                 if (currentSampleFrame < eraseHeadSampleFrame) {
-                    audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx\n", this, (long unsigned int)eraseHeadSampleFrame, (long unsigned int)numSampleFramesPerBuffer);
-                    audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%x to 0x%lx\n", this, 0, (long unsigned int)currentSampleFrame);
-					eraseOutputSamples(mixBuf, sampleBuf, 0, currentSampleFrame, &outputStream->format, outputStream);
-					eraseOutputSamples(mixBuf, sampleBuf, eraseHeadSampleFrame, numSampleFramesPerBuffer - eraseHeadSampleFrame, &outputStream->format, outputStream);
-/*					if ((currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize()) &&
-						((eraseHeadSampleFrame * sampleBufferFrameSize) + (numSampleFramesPerBuffer - eraseHeadSampleFrame) * sampleBufferFrameSize) <= outputStream->getSampleBufferSize()) {
-						if (sampleBuf && (sampleBufferFrameSize > 0)) {
-							bzero(sampleBuf, currentSampleFrame * sampleBufferFrameSize);
-							bzero(sampleBuf + (eraseHeadSampleFrame * sampleBufferFrameSize), (numSampleFramesPerBuffer - eraseHeadSampleFrame) * sampleBufferFrameSize);
-						}
+					// <rdar://problem/10040608> Add additional checks to ensure buffer is still of the appropriate length
+					if (	(outputStream->getSampleBufferSize() == 0) ||                         //  <rdar://10905878> Don't use more stringent test if a driver is incorrectly reporting buffer size
+                            ((currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
+							(currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize() ) &&
+							(numSampleFramesPerBuffer * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
+							(numSampleFramesPerBuffer * mixBufferFrameSize <= outputStream->getMixBufferSize() ) &&
+							(numSampleFramesPerBuffer > eraseHeadSampleFrame)) ) {
+						audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx\n", this, (long unsigned int)eraseHeadSampleFrame, (long unsigned int)numSampleFramesPerBuffer);
+						audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%x to 0x%lx\n", this, 0, (long unsigned int)currentSampleFrame);
+						eraseOutputSamples(mixBuf, sampleBuf, 0, currentSampleFrame, &outputStream->format, outputStream);
+						eraseOutputSamples(mixBuf, sampleBuf, eraseHeadSampleFrame, numSampleFramesPerBuffer - eraseHeadSampleFrame, &outputStream->format, outputStream);
 					}
-					if ((currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize()) &&
-						((eraseHeadSampleFrame * mixBufferFrameSize) + (numSampleFramesPerBuffer - eraseHeadSampleFrame) * mixBufferFrameSize) <= outputStream->getMixBufferSize()) {
-						if (mixBuf && (mixBufferFrameSize > 0)) {
-							bzero(mixBuf, currentSampleFrame * mixBufferFrameSize);
-							bzero(mixBuf + (eraseHeadSampleFrame * mixBufferFrameSize), (numSampleFramesPerBuffer - eraseHeadSampleFrame) * mixBufferFrameSize);
-						}
-					} */
                 } else {
-                    audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx\n", this, (long unsigned int)eraseHeadSampleFrame, (long unsigned int)currentSampleFrame);
-
-					eraseOutputSamples(mixBuf, sampleBuf, eraseHeadSampleFrame, currentSampleFrame - eraseHeadSampleFrame, &outputStream->format, outputStream);
-/*					if ((eraseHeadSampleFrame * sampleBufferFrameSize + (currentSampleFrame - eraseHeadSampleFrame) * sampleBufferFrameSize) <= outputStream->getSampleBufferSize()) {
-						if (sampleBuf && (sampleBufferFrameSize > 0)) {
-							bzero(sampleBuf + (eraseHeadSampleFrame * sampleBufferFrameSize), (currentSampleFrame - eraseHeadSampleFrame) * sampleBufferFrameSize);
-						}
+					// <rdar://problem/10040608> Add additional checks to ensure buffer is still of the appropriate length
+					if (	(outputStream->getSampleBufferSize() == 0) ||                         //  <rdar://10905878> Don't use more stringent test if a driver is incorrectly reporting buffer size
+                            ( (currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
+							(currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize() ) ) ) {
+						audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx\n", this, (long unsigned int)eraseHeadSampleFrame, (long unsigned int)currentSampleFrame);
+						eraseOutputSamples(mixBuf, sampleBuf, eraseHeadSampleFrame, currentSampleFrame - eraseHeadSampleFrame, &outputStream->format, outputStream);
 					}
-					if ((eraseHeadSampleFrame * mixBufferFrameSize + (currentSampleFrame - eraseHeadSampleFrame) * mixBufferFrameSize) <= outputStream->getMixBufferSize()) {
-						if (mixBuf && (mixBufferFrameSize > 0)) {
-							bzero(mixBuf + (eraseHeadSampleFrame * mixBufferFrameSize), (currentSampleFrame - eraseHeadSampleFrame) * mixBufferFrameSize);
-						}
-					} */
                 }
 
 				outputStream->unlockStreamForIO();
@@ -2258,6 +2271,7 @@ IOReturn IOAudioEngine::calculateSampleTimeout(AbsoluteTime *sampleInterval, UIn
         AbsoluteTime lastLoopTime;
         UInt32 currentLoopCount;
         AbsoluteTime wakeupInterval;
+        AbsoluteTime currentTime;									// <rdar://10145205>
         UInt64 wakeupIntervalScalar;
         UInt32 samplesFromLoopStart;
         AbsoluteTime wakeupThreadLatencyPaddingInterval;
@@ -2290,8 +2304,16 @@ IOReturn IOAudioEngine::calculateSampleTimeout(AbsoluteTime *sampleInterval, UIn
         
         *wakeupTime = lastLoopTime;
         ADD_ABSOLUTETIME(wakeupTime, &wakeupInterval);
-        
-        result = kIOReturnSuccess;
+
+		// <rdar://10145205> Sanity check the calculated time
+		clock_get_uptime(&currentTime);
+		
+		if ( CMP_ABSOLUTETIME(wakeupTime, &currentTime) > 0 ) {
+	        result = kIOReturnSuccess;
+		}
+		else {
+			result = kIOReturnIsoTooOld;
+		}
     }
     
     return result;
@@ -2316,7 +2338,7 @@ void IOAudioEngine::sendFormatChangeNotification(IOAudioStream *audioStream)
     
         userClientIterator = OSCollectionIterator::withCollection(userClients);
         if (userClientIterator) {
-            while (userClient = OSDynamicCast(IOAudioEngineUserClient, userClientIterator->getNextObject())) {
+            while ( (userClient = OSDynamicCast(IOAudioEngineUserClient, userClientIterator->getNextObject())) ) {
                 userClient->sendFormatChangeNotification(audioStream);
             }
             
@@ -2337,7 +2359,7 @@ void IOAudioEngine::sendNotification(UInt32 notificationType)
 
     userClientIterator = OSCollectionIterator::withCollection(userClients);
     if (userClientIterator) {
-        while (userClient = OSDynamicCast(IOAudioEngineUserClient, userClientIterator->getNextObject())) {
+        while ( (userClient = OSDynamicCast(IOAudioEngineUserClient, userClientIterator->getNextObject())) ) {
             userClient->sendNotification(notificationType);
         }
         
@@ -2370,7 +2392,7 @@ void IOAudioEngine::completeConfigurationChange()
 				if (controlIterator) {
 					IOAudioControl *control;
 					
-					while (control = (IOAudioControl *)controlIterator->getNextObject()) {
+					while ( (control = (IOAudioControl *)controlIterator->getNextObject()) ) {
 						control->sendQueuedNotifications();
 					}
 				
@@ -2467,7 +2489,7 @@ void IOAudioEngine::removeAllDefaultAudioControls()
             if (controlIterator) {
                 IOAudioControl *control;
                 
-                while (control = (IOAudioControl *)controlIterator->getNextObject()) {
+                while ( (control = (IOAudioControl *)controlIterator->getNextObject()) ) {
                     if (control->getProvider() == this) {
                         control->terminate();
                     } else {
@@ -2496,7 +2518,7 @@ void IOAudioEngine::setWorkLoopOnAllAudioControls(IOWorkLoop *wl)
             
             if (controlIterator) {
                 IOAudioControl *control;
-				while (control = (IOAudioControl *)controlIterator->getNextObject()) {
+				while ( (control = (IOAudioControl *)controlIterator->getNextObject()) ) {
 					if (control->getProvider() == this) {
 						control->setWorkLoop(wl);
 					}

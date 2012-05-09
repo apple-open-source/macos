@@ -50,6 +50,8 @@ protected:
 
 private:
 	AuthHostType mHostType;
+
+	bool inDarkWake();
 };
 
 #endif /* _H_AUTHHOST */

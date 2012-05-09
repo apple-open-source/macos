@@ -188,6 +188,13 @@ int64 Database::lastInsert()
 	return ::sqlite3_last_insert_rowid(mDb);
 }
 
+int Database::changes()
+{
+	StLock<Mutex> _(mMutex);
+
+	return ::sqlite3_changes(mDb);
+}
+
 void Database::interrupt()
 {
 	StLock<Mutex> _(mMutex);
@@ -234,20 +241,37 @@ void Transaction::xactCommand(const string &cmd)
 // Statement objects
 //
 Statement::Statement(Database &db, const char *text)
-	: StLock<Mutex>(db.mMutex), database(db)
+	: StLock<Mutex>(db.mMutex), database(db), mStmt(NULL)
 {
+	this->query(text);
+}
+
+Statement::Statement(Database &db)
+	: StLock<Mutex>(db.mMutex), database(db), mStmt(NULL)
+{ }
+
+void Statement::query(const char *text)
+{
+	this->close();
 	const char *tail;
-	check(::sqlite3_prepare_v2(db.sql(), text, -1, &mStmt, &tail));
+	check(::sqlite3_prepare_v2(database.sql(), text, -1, &mStmt, &tail));
 	if (*tail)
 		throw std::logic_error("multiple statements");
 }
 
-Statement::~Statement()
+void Statement::close()
 {
 	// Sqlite3_finalize will return an error if the Statement (executed and) failed.
 	// So we eat any error code here, since we can't tell "genuine" errors apart from
 	// errors inherited from the Statement execution.
-	::sqlite3_finalize(mStmt);
+	if (mStmt)
+		::sqlite3_finalize(mStmt);
+	mStmt = NULL;
+}
+
+Statement::~Statement()
+{
+	this->close();
 }
 
 

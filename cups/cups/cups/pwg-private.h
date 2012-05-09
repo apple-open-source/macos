@@ -1,5 +1,5 @@
 /*
- * "$Id: pwg-private.h 2351 2010-07-15 03:06:02Z msweet $"
+ * "$Id: pwg-private.h 3648 2012-02-13 17:37:38Z msweet $"
  *
  *   Private PWG media API definitions for CUPS.
  *
@@ -39,7 +39,7 @@ extern "C" {
  */
 
 /* Convert from points to 2540ths */
-#  define _PWG_FROMPTS(n)	(int)((n) * 2540 / 72)
+#  define _PWG_FROMPTS(n)	(int)(((n) * 2540 + 36) / 72)
 /* Convert from 2540ths to points */
 #  define _PWG_TOPTS(n)		((n) * 72.0 / 2540.0)
 
@@ -98,5 +98,5 @@ extern _pwg_media_t	*_pwgMediaForSize(int width, int length);
 #endif /* !_CUPS_PWG_PRIVATE_H_ */
 
 /*
- * End of "$Id: pwg-private.h 2351 2010-07-15 03:06:02Z msweet $".
+ * End of "$Id: pwg-private.h 3648 2012-02-13 17:37:38Z msweet $".
  */

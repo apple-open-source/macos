@@ -59,7 +59,7 @@ static HTMLMediaElement* getMediaElementFromRenderObject(RenderObject* o)
 {
     Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
-    if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
+    if (!mediaNode || !mediaNode->isElementNode() || !static_cast<Element*>(mediaNode)->isMediaElement())
         return 0;
 
     return static_cast<HTMLMediaElement*>(mediaNode);
@@ -512,9 +512,10 @@ bool RenderThemeGtk::paintMediaPlayButton(RenderObject* renderObject, const Pain
     Node* node = renderObject->node();
     if (!node)
         return false;
+    if (!node->isMediaControlElement())
+        return false;
 
-    MediaControlPlayButtonElement* button = static_cast<MediaControlPlayButtonElement*>(node);
-    return paintMediaButton(renderObject, paintInfo.context, rect, button->displayType() == MediaPlayButton ? GTK_STOCK_MEDIA_PLAY : GTK_STOCK_MEDIA_PAUSE);
+    return paintMediaButton(renderObject, paintInfo.context, rect, mediaControlElementType(node) == MediaPlayButton ? GTK_STOCK_MEDIA_PLAY : GTK_STOCK_MEDIA_PAUSE);
 }
 
 bool RenderThemeGtk::paintMediaSeekBackButton(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)

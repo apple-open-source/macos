@@ -7,7 +7,9 @@ SOURCES     = AssertEach.c \
              pmconfigdserver_connect.c \
              assertions-crash-configd-6765534.c \
              override_default_pm_settings.c \
-             IOPowerSourcesExercise-8521443.c
+             IOPowerSourcesExercise-8521443.c \
+             AssertPushServicesTask9537023.c \
+             MaintenanceWakeExerciser9502875.c 
 
 OBJS        = ${SOURCES:.c=.o}
 BINARIES    = ${OBJS:.o=}

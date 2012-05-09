@@ -3,8 +3,8 @@
   missing.h - prototype for *.c in ./missing, and
   	      for missing timeval struct
 
-  $Author: knu $
-  $Date: 2008-06-06 19:39:57 +0900 (Fri, 06 Jun 2008) $
+  $Author: shyouhei $
+  $Date: 2010-11-22 16:21:27 +0900 (Mon, 22 Nov 2010) $
   created at: Sat May 11 23:46:03 JST 2002
 
 ************************************************/
@@ -23,6 +23,13 @@ struct timeval {
 #endif
 #if defined(HAVE_SYS_TYPES_H)
 #  include <sys/types.h>
+#endif
+
+#if !defined(HAVE_STRUCT_TIMEZONE)
+struct timezone {
+    int tz_minuteswest;
+    int tz_dsttime;
+};
 #endif
 
 #ifndef HAVE_ACOSH

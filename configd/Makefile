@@ -1,3 +1,6 @@
+PROJECT=$(shell basename `pwd -P` | sed -e 's/\(.*\)-[0-9][0-9.]*$$/\1/')
+VERSION=$(shell basename `pwd -P` | sed -e 's/.*-\([0-9][0-9.]*$$\)/\1/')
+
 #----------------------------------------------------------------------
 #
 # Build for [current] release
@@ -21,8 +24,6 @@ all :
 #       in pppcontroller.defs.
 #
 #----------------------------------------------------------------------
-
-PROJECT=$(shell basename `pwd -P`)
 
 SNOW_CFLAGS += -D__MAC_10_7=1060
 SNOW_CFLAGS += -D__AVAILABILITY_INTERNAL__MAC_10_7=__AVAILABILITY_INTERNAL__MAC_10_6

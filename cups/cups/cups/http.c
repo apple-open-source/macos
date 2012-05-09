@@ -3833,6 +3833,8 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
   _cups_globals_t	*cg = _cupsGlobals();
 					/* Pointer to library globals */
   int			any_root;	/* Allow any root */
+  char			hostname[256],	/* Hostname */
+			*hostptr;	/* Pointer into hostname */
 
 #  ifdef HAVE_LIBSSL
   SSL_CTX		*context;	/* Context for encryption */
@@ -3844,7 +3846,6 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
 					/* TLS credentials */
 #  elif defined(HAVE_CDSASSL)
   OSStatus		error;		/* Error code */
-  char			*hostname;	/* Hostname */
   const char		*message = NULL;/* Error message */
 #    ifdef HAVE_SECCERTIFICATECOPYDATA
   cups_array_t		*credentials;	/* Credentials array */
@@ -3869,9 +3870,24 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
   */
 
   if (httpAddrLocalhost(http->hostaddr))
+  {
     any_root = 1;
+    strlcpy(hostname, "localhost", sizeof(hostname));
+  }
   else
+  {
+   /*
+    * Otherwise use the system-wide setting and make sure the hostname we have
+    * does not end in a trailing dot.
+    */
+
     any_root = cg->any_root;
+
+    strlcpy(hostname, http->hostname, sizeof(hostname));
+    if ((hostptr = hostname + strlen(hostname) - 1) >= hostname &&
+        *hostptr == '.')
+      *hostptr = '\0';
+  }
 
 #  ifdef HAVE_LIBSSL
   (void)any_root;
@@ -3885,6 +3901,8 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
 
   http->tls = SSL_new(context);
   SSL_set_bio(http->tls, bio, bio);
+
+  SSL_set_tlsext_host_name(http->tls, hostname);
 
   if (SSL_connect(http->tls) != 1)
   {
@@ -3935,7 +3953,8 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
 
   gnutls_init(&http->tls, GNUTLS_CLIENT);
   gnutls_set_default_priority(http->tls);
-  gnutls_server_name_set(http->tls, GNUTLS_NAME_DNS, http->hostname, strlen(http->hostname));
+  gnutls_server_name_set(http->tls, GNUTLS_NAME_DNS, hostname,
+                         strlen(hostname));
   gnutls_credentials_set(http->tls, GNUTLS_CRD_CERTIFICATE, *credentials);
   gnutls_transport_set_ptr(http->tls, (gnutls_transport_ptr)http);
   gnutls_transport_set_pull_function(http->tls, _httpReadGNUTLS);
@@ -4004,15 +4023,6 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
                   cg->expired_root, (int)error));
   }
 
-#    ifdef HAVE_SSLSETPROTOCOLVERSIONMAX
-  if (!error)
-  {
-    error = SSLSetProtocolVersionMax(http->tls, kTLSProtocol1);
-    DEBUG_printf(("4http_setup_ssl: SSLSetProtocolVersionMax(kTLSProtocol1), "
-                  "error=%d", (int)error));
-  }
-#    endif /* HAVE_SSLSETPROTOCOLVERSIONMAX */
-
  /*
   * In general, don't verify certificates since things like the common name
   * often do not match...
@@ -4064,8 +4074,7 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
 
   if (!error)
   {
-    hostname = httpAddrLocalhost(http->hostaddr) ? "localhost" : http->hostname;
-    error    = SSLSetPeerDomainName(http->tls, hostname, strlen(hostname));
+    error = SSLSetPeerDomainName(http->tls, hostname, strlen(hostname));
 
     DEBUG_printf(("4http_setup_ssl: SSLSetPeerDomainName, error=%d",
                   (int)error));
@@ -4088,7 +4097,8 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
 	    break;
 
 	case errSSLWouldBlock :
-	    usleep(1000);
+	    error = noErr;		/* Force a retry */
+	    usleep(1000);		/* in 1 millisecond */
 	    break;
 
 #    ifdef HAVE_SECCERTIFICATECOPYDATA
@@ -4253,7 +4263,7 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
   _sspiSetAllowsAnyRoot(http->tls_credentials, any_root);
   _sspiSetAllowsExpiredCerts(http->tls_credentials, TRUE);
 
-  if (!_sspiConnect(http->tls_credentials, http->hostname))
+  if (!_sspiConnect(http->tls_credentials, hostname))
   {
     _sspiFree(http->tls_credentials);
     http->tls_credentials = NULL;

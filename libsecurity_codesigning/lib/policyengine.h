@@ -52,8 +52,14 @@ public:
 
 public:
 	void evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
-	bool add(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
 
+	bool update(CFTypeRef target, SecAssessmentFlags flags, CFDictionaryRef context);
+	bool add(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
+	bool remove(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
+	bool enable(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
+	bool disable(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
+
+public:
 	static void addAuthority(CFMutableDictionaryRef parent, const char *label, SQLite::int64 row = 0, CFTypeRef cacheInfo = NULL);
 	static void addToAuthority(CFMutableDictionaryRef parent, CFStringRef key, CFTypeRef value);
 
@@ -61,10 +67,13 @@ private:
 	void evaluateCode(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
 	void evaluateInstall(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
 	void evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
+	
+	bool manipulateRules(const std::string &stanza,
+		CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
 
 	void setOrigin(CFArrayRef chain, CFMutableDictionaryRef result);
 
-	void recordOutcome(SecStaticCodeRef code, bool allow, AuthorityType type, time_t expires, int authority, const char *label);
+	void recordOutcome(SecStaticCodeRef code, bool allow, AuthorityType type, double expires, int authority);
 };
 
 

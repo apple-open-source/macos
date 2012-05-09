@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 25397 $";
+static const char *const __rcs_file_version__ = "$Revision: 25693 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -10061,7 +10061,16 @@ xpc_events_find_channel(job_t j, event_name_t stream, mach_port_t *p)
 			msi->event_channel = true;
 			*p = sp;
 
-			(void)job_dispatch(j, false);
+			/* If we call job_dispatch() here before the audit session for the
+			 * job has been set, we'll end up not watching this service. But we
+			 * also have to take care not to watch the port if the job is
+			 * active.
+			 *
+			 * See <rdar://problem/10357855>.
+			 */
+			if (!j->currently_ignored) {
+				machservice_watch(j, msi);
+			}
 		} else {
 			errno = BOOTSTRAP_NO_MEMORY;
 		}

@@ -13,6 +13,7 @@
 			buildPhases = (
 				C26AC0F0143BCF18001C98CE /* ShellScript */,
 				C26AC0F4143BD1C4001C98CE /* CopyFiles */,
+				C2F24DFE14BCBBF200309FCD /* ShellScript */,
 			);
 			dependencies = (
 			);
@@ -184,6 +185,8 @@
 		C2E911E20ADEBE3200275CB2 /* resources.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2E911E00ADEBE3200275CB2 /* resources.cpp */; };
 		C2EF10100A49BD89005A44BB /* renum.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2EF100E0A49BD89005A44BB /* renum.cpp */; };
 		C2EF10130A49BD89005A44BB /* renum.h in Headers */ = {isa = PBXBuildFile; fileRef = C2EF100F0A49BD89005A44BB /* renum.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2F4439A14C626D4000A01E6 /* quarantine++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F4439814C626D4000A01E6 /* quarantine++.cpp */; };
+		C2F4439B14C626D4000A01E6 /* quarantine++.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F4439914C626D4000A01E6 /* quarantine++.h */; };
 		C2F6566E0BCBFB250078779E /* cserror.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F6566C0BCBFB250078779E /* cserror.cpp */; };
 		C2F656930BCBFFF40078779E /* cserror.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F6566D0BCBFB250078779E /* cserror.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FEB30C9310DAC89D00557BA2 /* SecTask.c in Sources */ = {isa = PBXBuildFile; fileRef = FEB30C9210DAC89D00557BA2 /* SecTask.c */; };
@@ -429,6 +432,8 @@
 		C2E911E10ADEBE3200275CB2 /* resources.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = resources.h; sourceTree = "<group>"; };
 		C2EF100E0A49BD89005A44BB /* renum.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = renum.cpp; sourceTree = "<group>"; };
 		C2EF100F0A49BD89005A44BB /* renum.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = renum.h; sourceTree = "<group>"; };
+		C2F4439814C626D4000A01E6 /* quarantine++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "quarantine++.cpp"; sourceTree = "<group>"; };
+		C2F4439914C626D4000A01E6 /* quarantine++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "quarantine++.h"; sourceTree = "<group>"; };
 		C2F6071B107D575700A83618 /* codesign-watch.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = "codesign-watch.d"; path = "dtrace/codesign-watch.d"; sourceTree = SOURCE_ROOT; };
 		C2F6566C0BCBFB250078779E /* cserror.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cserror.cpp; sourceTree = "<group>"; };
 		C2F6566D0BCBFB250078779E /* cserror.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cserror.h; sourceTree = "<group>"; };
@@ -706,6 +711,8 @@
 				C2A976A80B8A2E36008B4EA0 /* csutilities.cpp */,
 				C235340E145F1B050073F964 /* xar++.h */,
 				C2353410145F1B110073F964 /* xar++.cpp */,
+				C2F4439914C626D4000A01E6 /* quarantine++.h */,
+				C2F4439814C626D4000A01E6 /* quarantine++.cpp */,
 			);
 			name = "Local Utilities";
 			sourceTree = "<group>";
@@ -811,6 +818,7 @@
 				C273606F1433F09000A9A5FF /* SecAssessment.h in Headers */,
 				C2A436160F2133B2007A41A6 /* slcrep.h in Headers */,
 				C24EABAB1421432800C16AA9 /* policydb.h in Headers */,
+				C2F4439B14C626D4000A01E6 /* quarantine++.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -985,7 +993,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p \"$(dirname \"$SCRIPT_OUTPUT_FILE_0\")\"\nsqlite3 \"$SCRIPT_OUTPUT_FILE_0\" <<END\n.read \"$SCRIPT_INPUT_FILE_0\"\nEND\n";
+			shellScript = "if [ -f $(TEMPDIR)/SystemPolicy ]; then\n    rm $(TEMPDIR)/SystemPolicy\nfi\nmkdir -p \"$(dirname \"$SCRIPT_OUTPUT_FILE_0\")\"\nsqlite3 \"$SCRIPT_OUTPUT_FILE_0\" <<END\n.read \"$SCRIPT_INPUT_FILE_0\"\nEND\n";
 			showEnvVarsInLog = 0;
 		};
 		C26AC7080DAEB3A7005BFB40 /* ShellScript */ = {
@@ -1036,6 +1044,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
 			shellScript = "antlr=/usr/local/bin/antlr.jar\nDEBUG=\"\"\nmkdir -p $TEMPDIR\nrm -f $TEMPDIR/Requirement{Parser,Lexer}*\njava -cp \"$antlr\" antlr.Tool -o $TEMPDIR $DEBUG requirements.grammar\nsed -n 's/^.*=\\(\".*\"\\)=.*$/        \\1,/p' $TEMPDIR/RequirementParserTokenTypes.txt >$TEMPDIR/RequirementKeywords.h\n";
+		};
+		C2F24DFE14BCBBF200309FCD /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(TEMPDIR)/SystemPolicy",
+			);
+			outputPaths = (
+				"$(DSTROOT)/private/var/db/.SystemPolicy-default",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "cp \"$SCRIPT_INPUT_FILE_0\" \"$SCRIPT_OUTPUT_FILE_0\"\nchmod 444 \"$SCRIPT_OUTPUT_FILE_0\"";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1091,6 +1115,7 @@
 				C27360D51436866D00A9A5FF /* xpcengine.cpp in Sources */,
 				C2DC2DCA145F594000AD2A3A /* xar++.cpp in Sources */,
 				C2DC2DCB145F5CD000AD2A3A /* policyengine.cpp in Sources */,
+				C2F4439A14C626D4000A01E6 /* quarantine++.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1199,7 +1224,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55032;
+				CURRENT_PROJECT_VERSION = 55037.4;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1252,7 +1277,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55032;
+				CURRENT_PROJECT_VERSION = 55037.4;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1303,7 +1328,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55032;
+				CURRENT_PROJECT_VERSION = 55037.4;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (

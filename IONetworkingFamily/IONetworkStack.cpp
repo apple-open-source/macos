@@ -72,6 +72,8 @@ OSMetaClassDefineReservedUnused( IONetworkStack,  3);
 #define DLOG(fmt, args...)
 #endif
 
+#define LOG(args...)             IOLog(args)
+
 #define NETIF_FLAGS(n)           ((n)->_clientVar[0])
 #define SET_NETIF_FLAGS(n, x)    (NETIF_FLAGS(n) |= (x))
 #define CLR_NETIF_FLAGS(n, x)    (NETIF_FLAGS(n) &= ~(x))
@@ -660,17 +662,27 @@ bool IONetworkStack::preRegisterInterface( IONetworkInterface * netif,
     assert( netif && array );
 
     do {
-        if ( prefix == 0 ) break;
+        if ( prefix == 0 )
+        {
+            LOG("missing interface name prefix\n");
+            break;
+        }
 
         // Verify that the interface object given is known.
 
         if ( containsInterface(netif) == false )
+        {
+            LOG("unable to register unknown interface as %s%u\n",
+                prefix, (uint32_t) inUnit);
             break;
+        }
 
         // Interface must be in Active state.
 
         if ( NETIF_FLAGS(netif) != kInterfaceFlagActive )
         {
+            LOG("unable to register interface in state 0x%x as %s%u\n",
+                (uint32_t) NETIF_FLAGS(netif), prefix, (uint32_t) inUnit);
             break;
         }
 
@@ -680,7 +692,12 @@ bool IONetworkStack::preRegisterInterface( IONetworkInterface * netif,
         // taken.
 
         unit = getNextAvailableUnitNumber(prefix, unit);
-        if ( (fixedUnit == true) && (unit != inUnit) ) break;
+        if ( (fixedUnit == true) && (unit != inUnit) )
+        {
+            LOG("interface name %s%u is unavailable\n",
+                prefix, (uint32_t) inUnit);
+            break;
+        }
 
         // Open the interface object. This will fail if the interface
         // object has become inactive. Beware of reverse lock acquisition
@@ -692,6 +709,8 @@ bool IONetworkStack::preRegisterInterface( IONetworkInterface * netif,
 
         if ( netif->open(this) == false )
         {
+            LOG("interface %s%u open failed\n",
+                prefix, (uint32_t) inUnit);
             break;
         }
 
@@ -704,6 +723,8 @@ bool IONetworkStack::preRegisterInterface( IONetworkInterface * netif,
              ( addRegisteredInterface(netif) == false ) )
         {
             netif->close(this);
+            LOG("interface %s%u registration failed\n",
+                prefix, (uint32_t) inUnit);
             break;
         }
 
@@ -1048,66 +1069,125 @@ IOReturn IONetworkStack::newUserClient( task_t           owningTask,
 
 IOReturn IONetworkStack::setProperties( OSObject * properties )
 {
-    IONetworkInterface * netif;
-    OSDictionary *       dict = OSDynamicCast(OSDictionary, properties);
-    IOReturn             ret  = kIOReturnBadArgument;
-    OSString *           path = 0;
-    OSNumber *           unit;
-    OSNumber *           cmd;
-    UInt32               cmdType   = kRegisterInterface;
-    bool                 fixedUnit = false;
+    IONetworkInterface *    netif = 0;
+    OSDictionary *          dict = OSDynamicCast(OSDictionary, properties);
+    OSString *              path;
+    OSNumber *              num;
+    OSNumber *              unit;
+    OSData *                data;
+    uint32_t                cmdType;
+    IOReturn                error = kIOReturnBadArgument;
 
     do {
-        // Sanity check.
+        if (!dict)
+            break;
 
-        if ( dict == 0 ) break;
+        // [optional] Type of interface naming operation
+        // IORegisterNetworkInterface() does not set this for netboot case.
 
-        // Switch on the specified user command.
+        num = OSDynamicCast( OSNumber,
+                             dict->getObject(kIONetworkStackUserCommandKey));
+        if (num)
+            cmdType = num->unsigned32BitValue();
+        else
+            cmdType = kIONetworkStackRegisterInterfaceWithLowestUnit;
 
-        cmd = OSDynamicCast( OSNumber,
-                             dict->getObject( kIONetworkStackUserCommand ) );
-        if ( cmd ) cmdType = cmd->unsigned32BitValue();
+        if (kIONetworkStackRegisterInterfaceAll == cmdType)
+        {
+            error = registerAllInterfaces();
+            break;
+        }
+
+        // [required] Interface unit number
+        unit = OSDynamicCast(OSNumber, dict->getObject(kIOInterfaceUnit));
+        if (!unit)
+            break;
+
+        // [optional] Registry entry ID for interface object
+        data = OSDynamicCast(OSData, dict->getObject(kIORegistryEntryIDKey));
+
+        // [optional] Device path to interface objecy
+        path = OSDynamicCast(OSString, dict->getObject(kIOPathMatchKey));
+
+        if (data && (data->getLength() == sizeof(uint64_t)))
+        {
+            OSDictionary *  matching;
+            OSIterator *    iter;
+            uint64_t        entryID = *(uint64_t *) data->getBytesNoCopy();
+
+            matching = registryEntryIDMatching(entryID);
+            if (!matching)
+            {
+                error = kIOReturnNoMemory;
+                break;
+            }
+
+            iter = getMatchingServices(matching);
+            matching->release();
+            if (!iter)
+            {
+                error = kIOReturnNotFound;
+                break;
+            }
+
+            if (iter)
+            {
+                netif = OSDynamicCast(IONetworkInterface, iter->getNextObject());
+                if (netif)
+                    netif->retain();
+                iter->release();
+            }
+        }
+        else if (path)
+        {
+            IORegistryEntry * entry;
+
+            entry = IORegistryEntry::fromPath(path->getCStringNoCopy());
+            if (entry && OSDynamicCast(IONetworkInterface, entry))
+                netif = (IONetworkInterface *) entry;
+            else if (entry)
+                entry->release();
+        }
+        else
+        {
+            // no path nor registry entry ID provided
+            break;
+        }
+
+        if (!netif)
+        {
+            error = kIOReturnNoDevice;
+            break;
+        }
 
         switch ( cmdType )
         {
-        	// Register one interface.
+            case kIONetworkStackRegisterInterfaceWithUnit:
+                error = registerInterface( netif,
+                                           netif->getNamePrefix(),
+                                           unit->unsigned32BitValue(),
+                                           true, /* synchronous */
+                                           true  /* fixedUnit   */ );
+                break;
 
-            case kRegisterInterfaceWithFixedUnit:
-                fixedUnit = true;
+            case kIONetworkStackRegisterInterfaceWithLowestUnit:
+                error = registerInterface( netif,
+                                           netif->getNamePrefix(),
+                                           unit->unsigned32BitValue(),
+                                           true, /* synchronous */
+                                           false /* fixedUnit   */ );
+                break;
 
-            case kRegisterInterface:
-            	path = OSDynamicCast( OSString,
-            	                      dict->getObject( kIOPathMatchKey ));
-                unit = OSDynamicCast( OSNumber,
-                                      dict->getObject( kIOInterfaceUnit ));
-                
-                if ( (path == 0) || (unit == 0) ) break;
-                
-                netif = OSDynamicCast( IONetworkInterface,
-                        IORegistryEntry::fromPath( path->getCStringNoCopy()) );
-                        
-                if ( netif == 0 ) break;
-
-                ret = registerInterface( netif,
-                                         netif->getNamePrefix(),
-                                         unit->unsigned32BitValue(),
-                                         true, /* synchronous */
-                                         fixedUnit );
-
-                netif->release();   // offset the retain by fromPath().
-
-            	break;
-
-            // Register all interfaces.
-
-            case kRegisterAllInterfaces:
-                ret = registerAllInterfaces();
+            default:
+                error = kIOReturnUnsupported;
                 break;
         }
-    }
-    while ( false );
+    } while (false);
 
-    return ret;
+    if (netif)
+        netif->release();
+
+    return error;
 }
 
 //---------------------------------------------------------------------------

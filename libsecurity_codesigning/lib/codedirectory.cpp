@@ -36,6 +36,18 @@ namespace CodeSigning {
 
 
 //
+// Highest understood special slot in this CodeDirectory.
+//
+CodeDirectory::SpecialSlot CodeDirectory::maxSpecialSlot() const
+{
+	SpecialSlot slot = this->nSpecialSlots;
+	if (slot > cdSlotMax)
+		slot = cdSlotMax;
+	return slot;
+}
+
+
+//
 // Canonical filesystem names for select slot numbers.
 // These are variously used for filenames, extended attribute names, etc.
 // to get some consistency in naming. These are for storing signing-related

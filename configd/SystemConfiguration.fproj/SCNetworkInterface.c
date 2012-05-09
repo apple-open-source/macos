@@ -176,6 +176,7 @@ static SCNetworkInterfacePrivate __kSCNetworkInterfaceIPv4	= {
 	FALSE,					// hidden
 	NULL,					// location
 	NULL,					// path
+	0,					// entryID
 	NULL,					// overrides
 	FALSE,					// modemIsV92
 	NULL,					// type
@@ -217,6 +218,7 @@ static SCNetworkInterfacePrivate __kSCNetworkInterfaceLoopback	= {
 	FALSE,					// hidden
 	NULL,					// location
 	NULL,					// path
+	0,					// entryID
 	NULL,					// overrides
 	FALSE,					// modemIsV92
 	NULL,					// type
@@ -377,6 +379,9 @@ __SCNetworkInterfaceCopyDescription(CFTypeRef cf)
 	}
 	if (interfacePrivate->path != NULL) {
 		CFStringAppendFormat(result, NULL, CFSTR(", path = %@"), interfacePrivate->path);
+	}
+	if (interfacePrivate->entryID != 0) {
+		CFStringAppendFormat(result, NULL, CFSTR(", entryID = 0x%llx"), interfacePrivate->entryID);
 	}
 	if (interfacePrivate->type != NULL) {
 		CFStringAppendFormat(result, NULL, CFSTR(", type = %@"), interfacePrivate->type);
@@ -717,8 +722,7 @@ SCNetworkInterfacePrivateRef
 __SCNetworkInterfaceCreatePrivate(CFAllocatorRef	allocator,
 				  SCNetworkInterfaceRef	interface,
 				  SCPreferencesRef	prefs,
-				  CFStringRef		serviceID,
-				  io_string_t		path)
+				  CFStringRef		serviceID)
 {
 	SCNetworkInterfacePrivateRef		interfacePrivate;
 	uint32_t				size;
@@ -756,9 +760,10 @@ __SCNetworkInterfaceCreatePrivate(CFAllocatorRef	allocator,
 	interfacePrivate->addressString			= NULL;
 	interfacePrivate->builtin			= FALSE;
 	interfacePrivate->configurationAction		= NULL;
-	interfacePrivate->path				= (path != NULL) ? CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8)
-									 : NULL;
+	interfacePrivate->hidden			= FALSE;
 	interfacePrivate->location			= NULL;
+	interfacePrivate->path				= NULL;
+	interfacePrivate->entryID			= 0;
 	interfacePrivate->overrides			= NULL;
 	interfacePrivate->modemIsV92			= FALSE;
 	interfacePrivate->type				= NULL;
@@ -857,7 +862,7 @@ _SCBondInterfaceCreatePrivate(CFAllocatorRef	allocator,
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate;
 
-	interfacePrivate = __SCNetworkInterfaceCreatePrivate(allocator, NULL, NULL, NULL, NULL);
+	interfacePrivate = __SCNetworkInterfaceCreatePrivate(allocator, NULL, NULL, NULL);
 	if (interfacePrivate == NULL) {
 		return NULL;
 	}
@@ -887,7 +892,7 @@ _SCBridgeInterfaceCreatePrivate(CFAllocatorRef	allocator,
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate;
 
-	interfacePrivate = __SCNetworkInterfaceCreatePrivate(allocator, NULL, NULL, NULL, NULL);
+	interfacePrivate = __SCNetworkInterfaceCreatePrivate(allocator, NULL, NULL, NULL);
 	if (interfacePrivate == NULL) {
 		return NULL;
 	}
@@ -916,7 +921,7 @@ _SCVLANInterfaceCreatePrivate(CFAllocatorRef		allocator,
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate;
 
-	interfacePrivate = __SCNetworkInterfaceCreatePrivate(allocator, NULL, NULL, NULL, NULL);
+	interfacePrivate = __SCNetworkInterfaceCreatePrivate(allocator, NULL, NULL, NULL);
 	if (interfacePrivate == NULL) {
 		return NULL;
 	}
@@ -2371,6 +2376,7 @@ createInterface(io_registry_entry_t interface, processInterface func)
 	kern_return_t			kr;
 	io_string_t			path;
 	CFTypeRef			val;
+	uint64_t			entryID = 0;
 
 	kr = IORegistryEntryGetPath(interface, kIOServicePlane, path);
 	if (kr != kIOReturnSuccess) {
@@ -2412,7 +2418,16 @@ createInterface(io_registry_entry_t interface, processInterface func)
 		goto done;
 	}
 
-	interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL, path);
+	/* get the registry entry ID */
+	kr = IORegistryEntryGetRegistryEntryID(interface, &entryID);
+	if (kr != KERN_SUCCESS) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("createInterface IORegistryEntryGetRegistryEntryID() failed, kr = 0x%x"), kr);
+		goto done;
+	}
+
+	interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL);
+	interfacePrivate->path    = (path != NULL) ? CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8) : NULL;
+	interfacePrivate->entryID = entryID;
 
 	// configuration [PPP, Modem, DNS, IPv4, IPv6, Proxies, SMB] template overrides
 	val = IORegistryEntrySearchCFProperty(interface,
@@ -3386,7 +3401,7 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 		/*
 		 * if device not present on this system
 		 */
-		interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL, NULL);
+		interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL);
 		interfacePrivate->entity_type          = ifType;
 		interfacePrivate->entity_subtype       = ifSubType;
 		interfacePrivate->entity_device        = (ifDevice != NULL) ? CFStringCreateCopy(NULL, ifDevice) : NULL;
@@ -3930,8 +3945,7 @@ SCNetworkInterfaceCreateWithInterface(SCNetworkInterfaceRef child, CFStringRef i
 	parentPrivate = __SCNetworkInterfaceCreatePrivate(NULL,
 							  child,
 							  childPrivate->prefs,
-							  childPrivate->serviceID,
-							  NULL);
+							  childPrivate->serviceID);
 	if (parentPrivate == NULL) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
@@ -6021,6 +6035,15 @@ _SCNetworkInterfaceGetIOPath(SCNetworkInterfaceRef interface)
 }
 
 
+uint64_t
+_SCNetworkInterfaceGetIORegistryEntryID(SCNetworkInterfaceRef interface)
+{
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	return interfacePrivate->entryID;
+}
+
+
 Boolean
 _SCNetworkInterfaceIsBuiltin(SCNetworkInterfaceRef interface)
 {
@@ -6219,7 +6242,7 @@ __SCNetworkInterfaceCreateCopy(CFAllocatorRef		allocator,
 		return (SCNetworkInterfacePrivateRef)CFRetain(interface);
 	}
 
-	newPrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, prefs, serviceID, NULL);
+	newPrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, prefs, serviceID);
 	newPrivate->interface_type		= oldPrivate->interface_type;
 	if (oldPrivate->interface != NULL) {
 		newPrivate->interface		= (SCNetworkInterfaceRef)__SCNetworkInterfaceCreateCopy(NULL,			// allocator
@@ -6271,6 +6294,7 @@ __SCNetworkInterfaceCreateCopy(CFAllocatorRef		allocator,
 	if (oldPrivate->path != NULL) {
 		newPrivate->path		= CFRetain(oldPrivate->path);
 	}
+	newPrivate->entryID			= oldPrivate->entryID;
 	if (oldPrivate->overrides != NULL) {
 		newPrivate->overrides		= CFDictionaryCreateMutableCopy(NULL, 0, oldPrivate->overrides);
 	}

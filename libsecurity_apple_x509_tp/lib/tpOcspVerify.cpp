@@ -781,22 +781,43 @@ postOcspd:
 		if(!pendReq->processed) {
 			/* Couldn't perform OCSP for this cert. */
 			tpOcspDebug("tpVerifyCertGroupWithOCSP: OCSP_UNAVAILABLE for cert %u", dex);
-			pendReq->subject.addStatusCode(CSSMERR_APPLETP_OCSP_UNAVAILABLE);
 			bool required = false;
+			CSSM_RETURN responseStatus = CSSM_OK;
+			if(pendReq->subject.numStatusCodes() > 0) {
+				/*
+				 * Check whether we got a response for this cert, but it was rejected
+				 * due to being improperly signed. That should result in an actual
+				 * error, even under Best Attempt processing. (10743149)
+				 */
+				if(pendReq->subject.hasStatusCode(CSSMERR_APPLETP_OCSP_BAD_RESPONSE)) {
+					responseStatus = CSSMERR_APPLETP_OCSP_BAD_RESPONSE;
+				} else if(pendReq->subject.hasStatusCode(CSSMERR_APPLETP_OCSP_SIG_ERROR)) {
+					responseStatus = CSSMERR_APPLETP_OCSP_SIG_ERROR;
+				} else if(pendReq->subject.hasStatusCode(CSSMERR_APPLETP_OCSP_NO_SIGNER)) {
+					responseStatus = CSSMERR_APPLETP_OCSP_NO_SIGNER;
+				}
+			}
+			if(responseStatus == CSSM_OK) {
+				/* no response available (as opposed to getting an invalid response) */
+				pendReq->subject.addStatusCode(CSSMERR_APPLETP_OCSP_UNAVAILABLE);
+			}
 			if(optFlags & CSSM_TP_ACTION_OCSP_REQUIRE_PER_CERT) {
 				/* every cert needs OCSP */
+				tpOcspDebug("tpVerifyCertGroupWithOCSP: response required for all certs, missing for cert %u", dex);
 				required = true;
 			}
 			else if(optFlags & CSSM_TP_ACTION_OCSP_REQUIRE_IF_RESP_PRESENT) {
 				/* this cert needs OCSP if it had an AIA extension with an OCSP URI */
 				if(pendReq->urls) {
+					tpOcspDebug("tpVerifyCertGroupWithOCSP: OCSP URI present but no valid response for cert %u", dex);
 					required = true;
 				}
 			}
-			if(required && pendReq->subject.isStatusFatal(CSSMERR_APPLETP_OCSP_UNAVAILABLE)) {
+			if( (required && pendReq->subject.isStatusFatal(CSSMERR_APPLETP_OCSP_UNAVAILABLE)) ||
+				(responseStatus != CSSM_OK && pendReq->subject.isStatusFatal(responseStatus)) ) {
 				/* fatal error, but we keep on processing */
 				if(ourRtn == CSSM_OK) {
-					ourRtn = CSSMERR_APPLETP_OCSP_UNAVAILABLE;
+					ourRtn = (responseStatus != CSSM_OK) ? responseStatus : CSSMERR_APPLETP_OCSP_UNAVAILABLE;
 				}
 			}
 		}

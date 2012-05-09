@@ -89,6 +89,12 @@ Session::~Session()
 }
 
 
+Server &Session::server() const
+{
+	return parent<Server>();
+}
+
+
 //
 // Locate a session object by session identifier
 //

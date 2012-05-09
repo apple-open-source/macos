@@ -136,6 +136,7 @@ typedef struct {
 	Boolean			hidden;
 	CFStringRef		location;
 	CFStringRef		path;
+	uint64_t		entryID;
 	CFMutableDictionaryRef	overrides;
 	Boolean			modemIsV92;
 	CFNumberRef		type;
@@ -195,8 +196,7 @@ SCNetworkInterfacePrivateRef
 __SCNetworkInterfaceCreatePrivate		(CFAllocatorRef		allocator,
 						 SCNetworkInterfaceRef	interface,
 						 SCPreferencesRef	prefs,
-						 CFStringRef		serviceID,
-						 io_string_t		path);
+						 CFStringRef		serviceID);
 
 SCNetworkInterfacePrivateRef
 _SCBondInterfaceCreatePrivate			(CFAllocatorRef		allocator,

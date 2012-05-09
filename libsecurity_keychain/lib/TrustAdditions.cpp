@@ -46,6 +46,8 @@
 #include <Security/cssmapplePriv.h>            // for CSSM_APPLE_TP_OCSP_OPTIONS, CSSM_APPLE_TP_OCSP_OPT_FLAGS
 
 #include "SecTrustPriv.h"
+#include "SecTrustSettings.h"
+#include "SecTrustSettingsPriv.h"
 
 //
 // Macros
@@ -542,7 +544,7 @@ static SecCertificateRef _rootCertificateWithSubjectKeyIDOfCertificate(SecCertif
 // returns an array of possible root certificates (SecCertificateRef instances)
 // for the given EV OID (a hex string); caller must release the array
 //
-CFArrayRef _allowedRootCertificatesForOidString(CFStringRef oidString)
+CFArrayRef _possibleRootCertificatesForOidString(CFStringRef oidString)
 {
 	StLock<Mutex> _(SecTrustKeychainsGetMutex());
 
@@ -560,7 +562,7 @@ CFArrayRef _allowedRootCertificatesForOidString(CFStringRef oidString)
 
 	CFMutableArrayRef possibleRootCertificates = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	CFIndex hashCount = CFArrayGetCount(possibleCertificateHashes);
-	secdebug("evTrust", "_allowedRootCertificatesForOidString: %d possible hashes", (int)hashCount);
+	secdebug("evTrust", "_possibleRootCertificatesForOidString: %d possible hashes", (int)hashCount);
 
 	OSStatus status = noErr;
 	SecKeychainSearchRef searchRef = NULL;
@@ -620,6 +622,67 @@ CFArrayRef _allowedRootCertificatesForOidString(CFStringRef oidString)
 	SafeCFRelease(&evOidDict);
 
     return possibleRootCertificates;
+}
+
+// returns an array of allowed root certificates (SecCertificateRef instances)
+// for the given EV OID (a hex string); caller must release the array.
+// This differs from _possibleRootCertificatesForOidString in that each possible
+// certificate is further checked for trust settings, so we don't include
+// a certificate which is untrusted (or explicitly distrusted).
+//
+CFArrayRef _allowedRootCertificatesForOidString(CFStringRef oidString)
+{
+	CFMutableArrayRef allowedRootCertificates = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayRef possibleRootCertificates = _possibleRootCertificatesForOidString(oidString);
+	if (possibleRootCertificates) {
+		CFIndex idx, count = CFArrayGetCount(possibleRootCertificates);
+		for (idx=0; idx<count; idx++) {
+			SecCertificateRef cert = (SecCertificateRef) CFArrayGetValueAtIndex(possibleRootCertificates, idx);
+			CFStringRef hashStr = SecTrustSettingsCertHashStrFromCert(cert);
+			if (hashStr) {
+				bool foundMatch = false;
+				bool foundAny = false;
+				CSSM_RETURN *errors = NULL;
+				uint32 errorCount = 0;
+				SecTrustSettingsDomain foundDomain = 0;
+				SecTrustSettingsResult result = kSecTrustSettingsResultInvalid;
+				OSStatus status = SecTrustSettingsEvaluateCert(
+					hashStr,		/* certHashStr */
+					NULL,			/* policyOID (optional) */
+					NULL,			/* policyString (optional) */
+					0,				/* policyStringLen */
+					0,				/* keyUsage */
+					true,			/* isRootCert */
+					&foundDomain,	/* foundDomain */
+					&errors,		/* allowedErrors */
+					&errorCount,	/* numAllowedErrors */
+					&result,		/* resultType */
+					&foundMatch,	/* foundMatchingEntry */
+					&foundAny);		/* foundAnyEntry */
+
+				if (status == noErr) {
+					secdebug("evTrust", "_allowedRootCertificatesForOidString: cert %lu has result %d from domain %d",
+						idx, (int)result, (int)foundDomain);
+					// Root certificates must be trusted by the system (and not have
+					// any explicit trust overrides) to be allowed for EV use.
+					if (foundMatch && foundDomain == kSecTrustSettingsDomainSystem &&
+						result == kSecTrustSettingsResultTrustRoot) {
+						CFArrayAppendValue(allowedRootCertificates, cert);
+					}
+				} else {
+					secdebug("evTrust", "_allowedRootCertificatesForOidString: cert %lu SecTrustSettingsEvaluateCert error %d",
+						idx, (int)status);
+				}
+				if (errors) {
+					free(errors);
+				}
+				CFRelease(hashStr);
+			}
+		}
+		CFRelease(possibleRootCertificates);
+	}
+
+	return allowedRootCertificates;
 }
 
 // return a CSSM_DATA_PTR containing field data; caller must release with _freeFieldData

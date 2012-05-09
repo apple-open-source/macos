@@ -63,7 +63,7 @@ __loadIOKit(void) {
 
 
 __private_extern__ CFMutableDictionaryRef
-_IOBSDNameMatching(mach_port_t masterPort, unsigned int options, const char *bsdName)
+_IOBSDNameMatching(mach_port_t masterPort, uint32_t options, const char *bsdName)
 {
 	#undef IOBSDNameMatching
 	static typeof (IOBSDNameMatching) *dyfunc = NULL;
@@ -215,6 +215,19 @@ _IORegistryEntryGetPath(io_registry_entry_t entry, const io_name_t plane, io_str
 		if (image) dyfunc = dlsym(image, "IORegistryEntryGetPath");
 	}
 	return dyfunc ? dyfunc(entry, plane, path) : KERN_FAILURE;
+}
+
+
+__private_extern__ kern_return_t
+_IORegistryEntryGetRegistryEntryID(io_registry_entry_t entry, uint64_t *entryID)
+{
+	#undef IORegistryEntryGetRegistryEntryID
+	static typeof (IORegistryEntryGetRegistryEntryID) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = dlsym(image, "IORegistryEntryGetRegistryEntryID");
+	}
+	return dyfunc ? dyfunc(entry, entryID) : KERN_FAILURE;
 }
 
 

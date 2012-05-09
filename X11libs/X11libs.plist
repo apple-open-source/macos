@@ -346,17 +346,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-10-30</string>
+		<string>2012-01-11</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>libXfont</string>
 		<key>OpenSourceSHA1</key>
-		<string>191b40c566f80737cf6838747d86ebaee7b0c7d7</string>
+		<string>189dd7a3756cb80bcf41b779bf05ec3c366e3041</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/lib/libXfont-1.4.3.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/lib/libXfont-1.4.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.3</string>
+		<string>1.4.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>

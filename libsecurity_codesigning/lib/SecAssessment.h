@@ -42,17 +42,27 @@ typedef struct _SecAssessment *SecAssessmentRef;
 CFTypeID SecAssessmentGetTypeID();
 
 
+/*
+ * Notifications sent when the policy authority database changes.
+ * (Should move to /usr/include/notify_keys.h eventually.)
+ */
+#define kNotifySecAssessmentMasterSwitch "com.apple.security.assessment.masterswitch"
+#define kNotifySecAssessmentUpdate "com.apple.security.assessment.update"
+
+
 /*!
- * Primary operation codes. These are operations the system policy can express
+ * Primary operation types. These are operations the system policy can express
  * opinions on. They are not operations *on* the system configuration itself.
  * (For those, see SecAssessmentUpdate below.)
  *
  * @constant kSecAssessmentContextKeyOperation Context key describing the type of operation
- *	being contemplated.
- * @constant kSecAssessmentOperationTypeInstall Value denoting the operation of installing
- *	software into the system.
+ *	being contemplated. The default varies depending on the API call used.
  * @constant kSecAssessmentOperationTypeExecute Value denoting the operation of running or executing
  *	code on the system.
+ * @constant kSecAssessmentOperationTypeInstall Value denoting the operation of installing
+ *	software into the system.
+ * @constant kSecAssessmentOperationTypeOpenDocument Value denoting the operation of opening
+ *	(in the LaunchServices sense) of documents.
  */
 extern const CFStringRef kSecAssessmentContextKeyOperation;	// proposed operation
 extern const CFStringRef kSecAssessmentOperationTypeExecute;	// .. execute code
@@ -71,6 +81,8 @@ extern const CFStringRef kSecAssessmentOperationTypeOpenDocument; // .. LaunchSe
 		evaluation of system policy. This may be substantially slower.
 	@constant kSecAssessmentFlagNoCache Do not save any evaluation outcome in the system caches.
 		Any content already there is left undisturbed. Independent of kSecAssessmentFlagIgnoreCache.
+	@constant kSecAssessmentFlagEnforce Perform normal operations even if assessments have been
+		globally bypassed (which would usually approve anything).
 	
 	Flags common to multiple calls are assigned from high-bit down. Flags for particular calls
 	are assigned low-bit up, and are documented with that call.
@@ -98,7 +110,7 @@ enum {
 	@param context Optional CFDictionaryRef containing additional information bearing
 		on the requested assessment.
 	@param errors Standard CFError argument for reporting errors. Note that declining to permit
-		the proposed operation is not an error. Inability to form a judgment is.
+		the proposed operation is not an error. Inability to arrive at a judgment is.
 	@result On success, a SecAssessment object that can be queried for its outcome.
 		On error, NULL (with *errors set).
 	
@@ -111,10 +123,6 @@ enum {
 
 	@constant kSecAssessmentContextKeyOperation Type of operation (see overview above). This defaults
 		to the kSecAssessmentOperationTypeExecute.
-	@constant kSecAssessmentContextKeyEdit A CFArray of SecCertificateRefs describing the
-		certificate chain of a CMS-type signature as pulled from 'path' by the caller.
-		The first certificate is the signing certificate. The certificates provided must be
-		sufficient to construct a valid certificate chain.
  */
 extern const CFStringRef kSecAssessmentContextKeyCertificates; // certificate chain as provided by caller
 
@@ -141,8 +149,6 @@ SecAssessmentRef SecAssessmentCreate(CFURLRef path,
 
 	Extract results from a completed assessment and return them as a CFDictionary.
 
-	Assessment result keys (dictionary keys returned on success):
-
 	@param assessment A SecAssessmentRef created with SecAssessmentCreate.
 	@param flags Operation flags and options. Pass kSecAssessmentDefaultFlags for default
 		behavior.
@@ -151,6 +157,8 @@ SecAssessmentRef SecAssessmentCreate(CFURLRef path,
 	@result On success, a CFDictionary describing the outcome and various corroborating
 		data as requested by flags. The caller owns this dictionary and should release it
 		when done with it. On error, NULL (with *errors set).
+
+	Assessment result keys (dictionary keys returned on success):
 
 	@constant kSecAssessmentAssessmentVerdict A CFBoolean value indicating whether the system policy
 		allows (kCFBooleanTrue) or denies (kCFBooleanFalse) the proposed operation.
@@ -169,9 +177,10 @@ CFDictionaryRef SecAssessmentCopyResult(SecAssessmentRef assessment,
 	@function SecAssessmentUpdate
 	Make changes to the system policy configuration.
 	
-	@param path CFURL describing the file central to an operation - the program
-		to be executed, archive to be installed, plugin to be loaded, etc.
-		Pass NULL if the requested operation has no file subject.
+	@param path CFTypeRef describing the subject of the operation. Depending on the operation,
+		this may be a CFURL denoting a (single) file or bundle; a SecRequirement describing
+		a group of files; a CFNumber denoting an existing rule by rule number, or NULL to perform
+		global changes.
 	@param flags Operation flags and options. Pass kSecAssessmentDefaultFlags for default
 		behavior.
 	@param context Required CFDictionaryRef containing information bearing
@@ -184,19 +193,42 @@ CFDictionaryRef SecAssessmentCopyResult(SecAssessmentRef assessment,
 
 	@constant kSecAssessmentContextKeyEdit Required context key describing the kind of change
 		requested to the system policy configuration. Currently understood values:
-	@constant kSecAssessmentUpdateOperationAddFile Request to add rules governing operations on the 'path'
-		argument.
-	@constant kSecAssessmentUpdateOperationRemoveFile Request to remove rules governing operations on the
-		'path' argument.
+	@constant kSecAssessmentUpdateOperationAdd Add a new rule to the assessment rule database.
+	@constant kSecAssessmentUpdateOperationRemove Remove rules from the rule database.
+	@constant kSecAssessmentUpdateOperationEnable (Re)enable rules in the rule database.
+	@constant kSecAssessmentUpdateOperationDisable Disable rules in the rule database.
+	@constant kSecAssessmentUpdateKeyAuthorization A CFData containing the external form of a
+		system AuthorizationRef used to authorize the change. The call will automatically generate
+		a suitable authorization if this is missing; however, if the request is on behalf of
+		another client, an AuthorizationRef should be created there and passed along here.
+	@constant kSecAssessmentUpdateKeyPriority CFNumber denoting a (floating point) priority
+		for the rule(s) being processed.
+	@constant kSecAssessmentUpdateKeyLabel CFString denoting a label string applied to the rule(s)
+		being processed.
+	@constant kSecAssessmentUpdateKeyExpires CFDate denoting an (absolute, future) expiration date
+		for rule(s) being processed.
+	@constant kSecAssessmentUpdateKeyAllow CFBoolean denoting whether a new rule allows or denies
+		assessment. The default is to allow; set to kCFBooleanFalse to create a negative (denial) rule.
+	@constant kSecAssessmentUpdateKeyRemarks CFString containing a colloquial description or comment
+		about a newly created rule. This is mean to be human readable and is not used when evaluating rules.
  */
 extern const CFStringRef kSecAssessmentContextKeyUpdate;		// proposed operation
-extern const CFStringRef kSecAssessmentUpdateOperationAddFile;	// add to policy database
-extern const CFStringRef kSecAssessmentUpdateOperationRemoveFile; // remove from policy database
+extern const CFStringRef kSecAssessmentUpdateOperationAdd;		// add rule to policy database
+extern const CFStringRef kSecAssessmentUpdateOperationRemove;	// remove rule from policy database
+extern const CFStringRef kSecAssessmentUpdateOperationEnable;	// enable rule(s) in policy database
+extern const CFStringRef kSecAssessmentUpdateOperationDisable;	// disable rule(s) in policy database
+
+extern const CFStringRef kSecAssessmentUpdateKeyAuthorization;	// [CFData] external form of governing authorization
 
 extern const CFStringRef kSecAssessmentUpdateKeyPriority;		// rule priority
 extern const CFStringRef kSecAssessmentUpdateKeyLabel;			// rule label
+extern const CFStringRef kSecAssessmentUpdateKeyExpires;		// rule expiration
+extern const CFStringRef kSecAssessmentUpdateKeyAllow;			// rule outcome (allow/deny)
+extern const CFStringRef kSecAssessmentUpdateKeyRemarks;		// rule remarks (human readable)
 
-Boolean SecAssessmentUpdate(CFURLRef path,
+extern const CFStringRef kSecAssessmentContextKeyCertificates;	// obsolete
+
+Boolean SecAssessmentUpdate(CFTypeRef target,
 	SecAssessmentFlags flags,
 	CFDictionaryRef context,
 	CFErrorRef *errors);
@@ -204,7 +236,12 @@ Boolean SecAssessmentUpdate(CFURLRef path,
 
 /*!
 	@function SecAssessmentControl
-	Miscellaneous system policy operations
+	Miscellaneous system policy operations.
+	
+	@param control A CFString indicating which operation is requested.
+	@param arguments Arguments to the operation as documented for control.
+	@param errors Standard CFErrorRef * argument to report errors.
+	@result Returns True on success. Returns False on failure (and sets *errors).
 	
  */
 Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *errors);

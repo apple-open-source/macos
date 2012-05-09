@@ -1,9 +1,9 @@
 --- inits.c.old	2009-03-02 15:12:41.000000000 -0800
 +++ inits.c	2009-03-02 15:13:13.000000000 -0800
 @@ -46,6 +46,7 @@
- void Init_Time _((void));
  void Init_var_tables _((void));
  void Init_version _((void));
+ void Init_st _((void));
 +void Init_DTracer _((void));
  
  void

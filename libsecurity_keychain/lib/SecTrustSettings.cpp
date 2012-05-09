@@ -469,7 +469,7 @@ OSStatus SecTrustSettingsEvaluateCert(
 	TS_REQUIRED(numAllowedErrors)
 	TS_REQUIRED(resultType)
 	TS_REQUIRED(foundMatchingEntry)
-	TS_REQUIRED(foundMatchingEntry)
+	TS_REQUIRED(foundAnyEntry)
 	
 	/* ensure a NULL_terminated string */
 	auto_array<char> polStr;

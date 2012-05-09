@@ -52,7 +52,6 @@
 #include "RenderBox.h"
 #include "RenderLayer.h"
 #include "Settings.h"
-#include "Uint16Array.h"
 #include "WebGLActiveInfo.h"
 #include "WebGLBuffer.h"
 #include "WebGLContextAttributes.h"
@@ -67,6 +66,7 @@
 #include <wtf/ByteArray.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/PassOwnArrayPtr.h>
+#include <wtf/Uint16Array.h>
 #include <wtf/text/StringBuilder.h>
 
 #if PLATFORM(QT)
@@ -1877,7 +1877,7 @@ PassRefPtr<WebGLActiveInfo> WebGLRenderingContext::getActiveUniform(WebGLProgram
     return WebGLActiveInfo::create(info.name, info.type, info.size);
 }
 
-bool WebGLRenderingContext::getAttachedShaders(WebGLProgram* program, Vector<WebGLShader*>& shaderObjects, ExceptionCode& ec)
+bool WebGLRenderingContext::getAttachedShaders(WebGLProgram* program, Vector<RefPtr<WebGLShader> >& shaderObjects, ExceptionCode& ec)
 {
     UNUSED_PARAM(ec);
     shaderObjects.clear();

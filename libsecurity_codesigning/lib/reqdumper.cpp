@@ -109,7 +109,7 @@ string Dumper::dump(const Requirement *req, bool debug /* = false */)
 	} catch (const CommonError &err) {
 		if (debug) {
 			char errstr[80];
-			snprintf(errstr, sizeof(errstr), " !! error %ld !!", err.osStatus());
+			snprintf(errstr, sizeof(errstr), " !! error %ld !!", (unsigned long)err.osStatus());
 			return dumper.value() + errstr;
 		}
 		throw;

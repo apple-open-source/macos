@@ -192,6 +192,7 @@ public:
 	void beginShutdown();							// start delayed shutdown if configured
 	bool shuttingDown() const { return mShuttingDown; }
 	void shutdownSnitch();							// report lingering clients
+	bool inDarkWake() { return sleepWatcher.inDarkWake(); }
     
 private:
 	// mach bootstrap registration name

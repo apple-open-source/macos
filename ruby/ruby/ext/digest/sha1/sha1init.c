@@ -2,7 +2,9 @@
 /* $Id: sha1init.c 11708 2007-02-12 23:01:19Z shyouhei $ */
 
 #include "digest.h"
-#if defined(HAVE_OPENSSL_SHA_H)
+#if defined(__APPLE__)
+#include "sha1cc.h"
+#elif defined(HAVE_OPENSSL_SHA_H)
 #include "sha1ossl.h"
 #else
 #include "sha1.h"

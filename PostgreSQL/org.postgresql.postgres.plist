@@ -30,7 +30,7 @@
 		<string>-c</string>
 		<string>listen_addresses=</string>
 		<string>-c</string>
-		<string>log_directory=/Library/Logs</string>
+		<string>log_directory=/Library/Logs/PostgreSQL</string>
 		<string>-c</string>
 		<string>log_filename=PostgreSQL.log</string>
 		<string>-c</string>

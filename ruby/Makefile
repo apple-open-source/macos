@@ -31,6 +31,30 @@ SYSSTRING = universal-darwin`uname -r | cut -d. -f1-2`
 
 EXTRAS_DIR = $(SRCROOT)/extras
 
+# Automatic Extract & Patch
+AEP_Project    = $(Project)
+AEP_Version    = 1.8.7-p357
+AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
+AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_ExtractDir = $(AEP_ProjVers)
+AEP_Patches    = patch-configure \
+		 patch-lib__mkmf.rb \
+		 PR4224980.diff \
+		 ruby.c.diff \
+		 ruby.1.diff \
+		 ext_extmk.rb.diff \
+		 lib_rdoc_usage.rb.diff \
+		 lib_irb_init.rb.diff \
+		 dtrace.diff \
+		 rexml_bugs.diff \
+		 revert_thread_scheduler_optimizations.diff \
+		 ext_bigdecimal_bigdecimal.c.diff \
+		 process.c.diff \
+		 PR8383516.diff \
+		 ext_digest_sha1_commoncrypto.diff \
+		 ext_digest_md5_commoncrypto.diff \
+		 PR10685654-revert_marshal_changes.diff
+
 # patch config.h
 ConfigStamp2 = $(ConfigStamp)2
 
@@ -73,7 +97,8 @@ post-install:
 	$(RM) $(FW_VERSION_DIR)/usr/lib/libruby-static.a
 	$(STRIP) -x $(FW_VERSION_DIR)/usr/lib/libruby.$(MAJOR).dylib
 	(cd $(FW_VERSION_DIR)/usr/lib/ruby/$(VERSION)/$(SYSSTRING) && sed -E -i '' 's/(-arch +(ppc|ppc64|i386|x86_64) *)+/#{ARCHFLAGS} /g' rbconfig.rb && sed -E -i '' 's/-static"/"/' rbconfig.rb && patch -p0 < $(SRCROOT)/patches/rbconfig.diff && rm -f rbconfig.rb.orig)
-	$(LN) -fsh usr/lib/libruby.dylib $(FW_VERSION_DIR)/Ruby
+	$(MV) $(FW_VERSION_DIR)/usr/lib/libruby.$(MAJOR).dylib $(FW_VERSION_DIR)/Ruby
+	$(LN) -fsh ../../Ruby $(FW_VERSION_DIR)/usr/lib/libruby.$(MAJOR).dylib
 	(cd $(FW_VERSION_DIR) && for i in `find usr/lib/ruby/1.8/ -name "*.h"`; do $(LN) -fs ../$$i Headers/`basename $$i`; done)
 	$(MKDIR) $(DSTROOT)/usr/bin
 	for i in `find $(FW_VERSION_DIR)/usr/bin -type f`; do \
@@ -90,6 +115,7 @@ post-install:
 #	sh $(EXTRAS_DIR)/test_framework.sh $(FWS_DIR) || exit 1
 	# rdar://problem/8937160
 	$(CHMOD) -h 0755 $(FW_VERSION_DIR)/usr/lib/libruby.dylib
+	codesign -s - $(FW_DIR)
 
 install-manpage:
 	$(INSTALL_FILE) $(SRCROOT)/irb.1 $(DSTROOT)$(MANDIR)/man1
@@ -112,7 +138,7 @@ SAMPLE_DIR = $(DSTROOT)/Developer/Examples/Ruby/Ruby
 install-sample:
 	$(MKDIR) $(SAMPLE_DIR)
 	$(CP) $(Sources)/sample/* $(SAMPLE_DIR)
-	find $(SAMPLE_DIR) -type f -print0 | xargs -0 sed -E -i '' "s/\#\! *\/usr\/local\/bin\/ruby/\#\!\/usr\/bin\/env ruby/g"
+	find $(SAMPLE_DIR) -type f -print0 | xargs -0 env LANG=ISO-8859-1 sed -E -i '' 's/\#\! *\/usr\/local\/bin\/ruby/\#\!\/usr\/bin\/env ruby/g'
 
 ETC_DIR = $(DSTROOT)/private/etc
 
@@ -138,38 +164,13 @@ install-xray-template:
 	$(MKDIR) $(XRAY_PLUGINS)
 	$(CP) $(EXTRAS_DIR)/ruby.usdt $(XRAY_PLUGINS)
 
-# Automatic Extract & Patch
-AEP_Project    = $(Project)
-AEP_Version    = 1.8.7-p249
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = patch-configure \
-                 patch-lib__mkmf.rb \
-                 PR4224980.diff \
-                 ruby.c.diff \
-                 PR4346845.diff \
-                 ruby.1.diff \
-                 ext_extmk.rb.diff \
-                 ext_digest_md5_extconf.rb.diff \
-                 ext_digest_md5_md5.h.diff \
-                 ext_digest_sha1_extconf.rb.diff \
-                 ext_digest_sha1_sha1.h.diff \
-                 lib_rdoc_usage.rb.diff \
-                 lib_irb_init.rb.diff \
-                 dtrace.diff \
-                 rexml_bugs.diff \
-		 revert_thread_scheduler_optimizations.diff \
-		 ext_bigdecimal_bigdecimal.c.diff \
-		 process.c.diff \
-		 lib_webrick_httpresponse.rb.diff \
-		 PR8383516.diff
-
 # Extract the source.
 install_source::
 	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/$(AEP_Filename)
+	$(RM) $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
+	$(BISON) -o $(SRCROOT)/$(Project)/parse.c $(SRCROOT)/$(Project)/parse.y
 	for patchfile in $(AEP_Patches); do \
 		echo $$patchfile; \
 		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
@@ -178,5 +179,6 @@ install_source::
 	dtrace -h -s $(EXTRAS_DIR)/dtrace.d -o $(SRCROOT)/$(Project)/dtrace.h
 	$(RMDIR) $(SRCROOT)/$(Project)/ext/tk
 	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/rake-0.8.7.tgz
+	$(RM) $(SRCROOT)/rake-0.8.7.tgz
 	ditto $(SRCROOT)/rake-0.8.7/bin $(SRCROOT)/$(Project)/bin
 	ditto $(SRCROOT)/rake-0.8.7/lib $(SRCROOT)/$(Project)/lib

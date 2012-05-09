@@ -48,6 +48,7 @@
 #include <unistd.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreServices/CoreServices.h>
 
 /* Global Defines */
 
@@ -114,6 +115,9 @@ struct stream_put_ctx {
 	int sockfd[2];
 	CFTypeRef theResponsePropertyRef;
 	off_t curr_offset;
+	
+	// The outgoing request message
+	CFHTTPMessageRef request;
 
 	// ***********************
 	// *** Synchronization ***
@@ -200,6 +204,8 @@ extern int gSecureServerAuth;			/* if TRUE, the authentication for server challe
 extern char gWebdavCachePath[MAXPATHLEN + 1]; /* the current path to the cache directory */
 extern int gSecureConnection;			/* if TRUE, the connection is secure */
 extern CFURLRef gBaseURL;				/* the base URL for this mount */
+extern CFStringRef gBasePath;			/* the base path (from gBaseURL) for this mount */
+extern char gBasePathStr[MAXPATHLEN];	/* gBasePath as a c-string */
 extern uint32_t	gServerIdent;			/* identifies some (not all) types of servers we are connected to (i.e. WEBDAV_IDISK_SERVER) */
 
 /*

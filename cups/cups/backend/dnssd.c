@@ -1,9 +1,9 @@
 /*
- * "$Id: dnssd.c 3453 2011-10-04 07:01:41Z msweet $"
+ * "$Id: dnssd.c 3652 2012-02-13 19:40:50Z msweet $"
  *
  *   DNS-SD discovery backend for CUPS.
  *
- *   Copyright 2008-2011 by Apple Inc.
+ *   Copyright 2008-2012 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -43,8 +43,8 @@
 typedef enum
 {
   CUPS_DEVICE_PRINTER = 0,		/* lpd://... */
-  CUPS_DEVICE_IPP,			/* ipp://... */
   CUPS_DEVICE_IPPS,			/* ipps://... */
+  CUPS_DEVICE_IPP,			/* ipp://... */
   CUPS_DEVICE_FAX_IPP,			/* ipp://... */
   CUPS_DEVICE_PDL_DATASTREAM,		/* socket://... */
   CUPS_DEVICE_RIOUSBPRINT		/* riousbprint://... */
@@ -961,5 +961,5 @@ unquote(char       *dst,		/* I - Destination buffer */
 
 
 /*
- * End of "$Id: dnssd.c 3453 2011-10-04 07:01:41Z msweet $".
+ * End of "$Id: dnssd.c 3652 2012-02-13 19:40:50Z msweet $".
  */

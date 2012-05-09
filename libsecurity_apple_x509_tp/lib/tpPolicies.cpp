@@ -1166,19 +1166,11 @@ static CSSM_RETURN tp_verifySslOpts(
 		 * Determine appropriate extended key usage; default is SSL server 
 		 */
 		const CSSM_OID *extUse = &CSSMOID_ServerAuth;
-		switch(policy) {
-			case kTP_IPSec:
-				extUse = &CSSMOID_EKU_IPSec;
-				break;
-			/* EAP might have an EKU here as well */
-			default:
-				if((sslOpts != NULL) &&				/* optional, default server side */
-				   (sslOpts->Version > 0) &&		/* this was added in struct version 1 */
-				   (sslOpts->Flags & CSSM_APPLE_TP_SSL_CLIENT)) {
-				   extUse = &CSSMOID_ClientAuth;
-				   isServer = false;
-				}
-				break;
+		if((sslOpts != NULL) &&				/* optional, default server side */
+		   (sslOpts->Version > 0) &&		/* this was added in struct version 1 */
+		   (sslOpts->Flags & CSSM_APPLE_TP_SSL_CLIENT)) {
+		   extUse = &CSSMOID_ClientAuth;
+		   isServer = false;
 		}
 
 		/* search for that one or for "any" indicator */
@@ -1189,6 +1181,10 @@ static CSSM_RETURN tp_verifySslOpts(
 				break;
 			}
 			if(tpCompareOids(purpose, &CSSMOID_ExtendedKeyUsageAny)) {
+				foundGoodEku = true;
+				break;
+			}
+			if((policy == kTP_IPSec) && (tpCompareOids(purpose, &CSSMOID_EKU_IPSec))) {
 				foundGoodEku = true;
 				break;
 			}
@@ -2084,6 +2080,7 @@ CSSM_RETURN tp_policyVerify(
 	bool					isRoot;					// root cert
 	CE_ExtendedKeyUsage		*extendUsage;
 	CE_AuthorityKeyID		*authorityId;
+	CSSM_KEY_PTR			pubKey;
 	CSSM_RETURN				outErr = CSSM_OK;		// for gross, non-policy errors
 	CSSM_BOOL				policyFail = CSSM_FALSE;// generic CSSMERR_TP_VERIFY_ACTION_FAILED
 	CSSM_RETURN				policyError = CSSM_OK;	// policy-specific failure
@@ -2147,6 +2144,19 @@ CSSM_RETURN tp_policyVerify(
 			}
 		}
 		
+		/*
+		 * Check for unsupported key length, per <rdar://6892837>
+		 */
+		if((pubKey=thisTpCertInfo->pubKey()) != NULL) {
+			CSSM_KEYHEADER *keyHdr = &pubKey->KeyHeader;
+			if(keyHdr->AlgorithmId == CSSM_ALGID_RSA && keyHdr->LogicalKeySizeInBits < 1024) {
+				tpPolicyError("tp_policyVerify: RSA key size too small");
+				if(thisTpCertInfo->addStatusCode(CSSMERR_CSP_UNSUPPORTED_KEY_SIZE)) {
+					policyFail = CSSM_TRUE;
+				}
+			}
+		}
+
 		/* 
 		 * Note it's possible for both of these to be true, for a chain
 		 * of length one (kTPx509Basic, kCrlPolicy only!)

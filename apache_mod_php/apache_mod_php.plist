@@ -4,13 +4,13 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-08-23</string>
+		<string>2012-02-03</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceMD5</key>
-		<string>704cd414a0565d905e1074ffdc1fadfb</string>
+		<string>1e46673dde6d236c3a712941c71e1c1a</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
@@ -21,11 +21,11 @@
 		<key>OpenSourceProject</key>
 		<string>php</string>
 		<key>OpenSourceSHA1</key>
-		<string>8f29029e092f262876bfdd2ce56f6867e2b74b85</string>
+		<string>da76c895882c51c27968820bb1d4e3f21429cdcd</string>
 		<key>OpenSourceURL</key>
-		<string>http://us2.php.net/distributions/php-5.3.8.tar.bz2</string>
+		<string>http://us2.php.net/distributions/php-5.3.10.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>5.3.8</string>
+		<string>5.3.10</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>
@@ -91,19 +91,19 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-10-21</string>
+		<string>2012-02-03</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceMD5</key>
-		<string>8bd8840465d6bcd8e1e5d2cec80a1bfc</string>
+		<string>11b1d2cd94acd8aa7354d5be21558ca7</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>suhosin</string>
 		<key>OpenSourceSHA1</key>
-		<string>f3adee3a6c50f12175f5bef882c48e9ce4239cc7</string>
+		<string>0848350b74b6f234a2107c88057b15708f7e687e</string>
 		<key>OpenSourceURL</key>
-		<string>http://download.suhosin.org/suhosin-patch-5.3.7-0.9.10.patch.gz</string>
+		<string>http://download.suhosin.org/suhosin-patch-5.3.9-0.9.10.patch.gz</string>
 		<key>OpenSourceVersion</key>
 		<string>0.9.10</string>
 		<key>OpenSourceWebsiteURL</key>

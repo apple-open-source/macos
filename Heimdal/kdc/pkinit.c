@@ -1632,7 +1632,8 @@ match_rfc_san(krb5_context context,
 	if (size != list.val[i].length) {
 	    kdc_log(context, config, 0,
 		    "Decoding kerberos name have extra bits on the end");
-	    return KRB5_KDC_ERR_CLIENT_NAME_MISMATCH;
+	    ret = KRB5_KDC_ERR_CLIENT_NAME_MISMATCH;
+	    break;
 	}
 
 	principal.name = kn.principalName;
@@ -1682,9 +1683,9 @@ match_ms_upn_san(krb5_context context,
     }
 
     if (list.len != 1) {
+	ret = KRB5_KDC_ERR_CLIENT_NAME_MISMATCH;
 	kdc_log(context, config, 0,
 		"More then one PK-INIT MS UPN SAN");
-	ret = KRB5_KDC_ERR_CLIENT_NAME_MISMATCH;
 	goto out;
     }
 

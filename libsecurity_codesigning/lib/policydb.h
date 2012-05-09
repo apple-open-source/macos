@@ -38,6 +38,8 @@ namespace SQLite = SQLite3;
 static const char defaultDatabase[] = "/var/db/SystemPolicy";
 static const char visibleSecurityFlagFile[] = "/var/db/.sp_visible";
 
+static const double never = 5000000;	// expires never (i.e. in the year 8977)
+
 
 typedef SHA1::SDigest ObjectHash;
 
@@ -49,6 +51,22 @@ enum {
 	kAuthorityInstall = 2,				// authorizes installation
 	kAuthorityOpenDoc = 3,				// authorizes opening of documents
 };
+
+
+//
+// Defined flags for authority flags column
+//
+enum {
+	kAuthorityFlagVirtual =	0x0001,	// virtual rule (anchoring object records)
+	kAuthorityFlagDefault =	0x0002,	// rule is part of the original default set
+	kAuthorityFlagInhibitCache = 0x0004, // never cache outcome of this rule
+};
+
+
+//
+// Mapping/translation to/from API space
+//
+AuthorityType typeFor(CFDictionaryRef context, AuthorityType type = kAuthorityInvalid);
 
 
 //
@@ -66,7 +84,9 @@ public:
 	bool checkCache(CFURLRef path, AuthorityType type, CFMutableDictionaryRef result);
 
 public:
-	void purge(const char *table);
+	void purgeAuthority();
+	void purgeObjects();
+	void purgeObjects(double priority);
 };
 
 

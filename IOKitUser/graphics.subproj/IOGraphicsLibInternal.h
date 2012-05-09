@@ -54,9 +54,9 @@ if (cref->logfile) {                                    \
 #endif
 
 
-#if IOGRAPHICSTYPES_REV < 12
+#if IOGRAPHICSTYPES_REV < 33
 
-enum { kDisplayModeValidateAgainstDisplay = 0x00002000 };
+enum { kDisplayModeAcceleratorBackedFlag = 0x00400000 };
 
 #endif
 
@@ -79,7 +79,9 @@ enum {
     // disables the install of a stretched version if the aspect is different
     kScaleInstallNoStretch      = 0x00000002,
     // install resolution untransformed
-    kScaleInstallNoResTransform = 0x00000004
+    kScaleInstallNoResTransform = 0x00000004,
+    // install resolution on mirror dependents of this display
+    kScaleInstallMirrorDeps     = 0x00000008
 };
 
 enum {

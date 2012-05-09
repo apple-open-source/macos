@@ -73,6 +73,7 @@ RenderTable::~RenderTable()
 void RenderTable::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlock::styleDidChange(diff, oldStyle);
+    propagateStyleToAnonymousChildren();
 
     ETableLayout oldTableLayout = oldStyle ? oldStyle->tableLayout() : TAUTO;
 
@@ -105,8 +106,8 @@ static inline void resetSectionPointerIfNotBefore(RenderTableSection*& ptr, Rend
 void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
 {
     // Make sure we don't append things after :after-generated content if we have it.
-    if (!beforeChild && isAfterContent(lastChild()))
-        beforeChild = lastChild();
+    if (!beforeChild)
+        beforeChild = afterPseudoElementRenderer();
 
     bool wrapInAnonymousSection = !child->isPositioned();
 
@@ -173,9 +174,18 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
         return;
     }
 
-    if (!beforeChild && lastChild() && lastChild()->isTableSection() && lastChild()->isAnonymous()) {
+    if (!beforeChild && lastChild() && lastChild()->isTableSection() && lastChild()->isAnonymous() && !lastChild()->isBeforeContent()) {
         lastChild()->addChild(child);
         return;
+    }
+
+    if (beforeChild && !beforeChild->isAnonymous() && beforeChild->parent() == this) {
+        RenderObject* section = beforeChild->previousSibling();
+        if (section && section->isTableSection()) {
+            ASSERT(section->isAnonymous());
+            section->addChild(child);
+            return;
+        }
     }
 
     RenderObject* lastBox = beforeChild;

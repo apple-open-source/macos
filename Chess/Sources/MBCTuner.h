@@ -3,27 +3,6 @@
 	Contains:	Manage a window to set graphics options
 	Version:	1.0
 	Copyright:	© 2003 by Apple Computer, Inc., all rights reserved.
-
-	File Ownership:
-
-		DRI:				Matthias Neeracher    x43683
-
-	Writers:
-
-		(MN)	Matthias Neeracher
-
-	Change History (most recent first):
-
-		$Log: MBCTuner.h,v $
-		Revision 1.3  2004/07/10 04:53:29  neerache
-		Tweak visuals
-		
-		Revision 1.2  2003/06/15 19:05:29  neerache
-		Add light experiment window
-		
-		Revision 1.1  2003/06/05 08:31:26  neerache
-		Added Tuner
-		
 */
 
 #import <Cocoa/Cocoa.h>

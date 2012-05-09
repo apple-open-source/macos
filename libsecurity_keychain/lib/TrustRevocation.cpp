@@ -386,6 +386,101 @@ void Trust::freePreferenceRevocationPolicies(
 }
 
 /*
+ * Comparator function to correctly order revocation policies.
+ */
+static CFComparisonResult compareRevocationPolicies(
+	const void *policy1,
+	const void *policy2,
+	void *context)
+{
+	SecPointer<Policy> pol1 = Policy::required(SecPolicyRef(policy1));
+	SecPointer<Policy> pol2 = Policy::required(SecPolicyRef(policy2));
+	const CssmOid &oid1 = pol1->oid();
+	const CssmOid &oid2 = pol2->oid();
+	if(oid1 == oid2) {
+		return kCFCompareEqualTo;
+	}
+	bool ocspFirst = true;
+	if(context != NULL && CFEqual((CFBooleanRef)context, kCFBooleanFalse)) {
+		ocspFirst = false;
+	}
+	const CssmOid lastRevocationOid = (ocspFirst) ?
+		CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_CRL) :
+		CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_OCSP);
+	const CssmOid firstRevocationOid = (ocspFirst) ?
+		CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_OCSP) :
+		CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_CRL);
+	if(oid1 == lastRevocationOid) {
+		/* should be ordered last, after all other policies */
+		return kCFCompareGreaterThan;
+	}
+	if(oid1 == firstRevocationOid) {
+		/* should be ordered after any policy except lastRevocationOid */
+		if(oid2 == lastRevocationOid) {
+			return kCFCompareLessThan;
+		}
+		return kCFCompareGreaterThan;
+	}
+	/* normal policy in first position, anything else in second position */
+	return kCFCompareLessThan;
+}
+
+/*
+ * This method reorders any revocation policies which may be present
+ * in the provided array so they are at the end and evaluated last.
+ */
+void Trust::orderRevocationPolicies(
+	CFMutableArrayRef policies)
+{
+	if(!policies || CFGetTypeID(policies) != CFArrayGetTypeID()) {
+		return;
+	}
+	/* check revocation prefs to determine which policy goes first */
+	CFBooleanRef ocspFirst = kCFBooleanTrue;
+	Dictionary* pd = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_User, true);
+	if (pd) {
+		if (!pd->dict()) {
+			delete pd;
+		} else {
+			auto_ptr<Dictionary> prefsDict(pd);
+			CFStringRef val = prefsDict->getStringValue(kSecRevocationWhichFirst);
+			if((val != NULL) && CFEqual(val, kSecRevocationCrlFirst)) {
+				ocspFirst = kCFBooleanFalse;
+			}
+		}
+	}
+#if POLICIES_DEBUG
+	CFShow(policies); // before sort
+	CFArraySortValues(policies, CFRangeMake(0, CFArrayGetCount(policies)), compareRevocationPolicies, (void*)ocspFirst);
+	CFShow(policies); // after sort, to see what changed
+	// check that policy order is what we expect
+	CFIndex numPolicies = CFArrayGetCount(policies);
+	for(CFIndex dex=0; dex<numPolicies; dex++) {
+		SecPolicyRef secPol = (SecPolicyRef)CFArrayGetValueAtIndex(policies, dex);
+		SecPointer<Policy> pol = Policy::required(SecPolicyRef(secPol));
+		const CssmOid &oid = pol->oid();
+		if(oid == CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_OCSP)) {
+			CFStringRef s = CFStringCreateWithFormat(NULL, NULL, CFSTR("idx %d = OCSP"), dex);
+			CFShow(s);
+			CFRelease(s);
+		}
+		else if(oid == CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_CRL)) {
+			CFStringRef s = CFStringCreateWithFormat(NULL, NULL, CFSTR("idx %d = CRL"), dex);
+			CFShow(s);
+			CFRelease(s);
+		}
+		else {
+			CFStringRef s = CFStringCreateWithFormat(NULL, NULL, CFSTR("idx %d = normal"), dex);
+			CFShow(s);
+			CFRelease(s);
+		}
+	}
+#else
+	CFArraySortValues(policies, CFRangeMake(0, CFArrayGetCount(policies)), compareRevocationPolicies, (void*)ocspFirst);
+#endif
+}
+
+/*
  * This method returns a copy of the mPolicies array which ensures that
  * revocation checking (preferably OCSP, otherwise CRL) will be attempted.
  *

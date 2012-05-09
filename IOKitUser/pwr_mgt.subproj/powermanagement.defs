@@ -43,6 +43,28 @@ ServerAuditToken token  : audit_token_t;
         in  profiles    : pointer_t;
         out return_val  : int);
 
+// Scheduled Events
+routine io_pm_schedule_power_event(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in  package     : pointer_t;
+        in action       : int;
+        out return_val  : int);
+
+routine io_pm_schedule_repeat_event(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in  package     : pointer_t;
+        in action       : int;
+        out return_val  : int);
+
+
+routine io_pm_cancel_repeat_events(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        out return_val  : int);
+
+
 // PM Bookkeeping
 routine io_pm_last_wake_time(
             server      : mach_port_t;
@@ -77,14 +99,28 @@ routine io_pm_assertion_copy_details(
 ServerAuditToken token  : audit_token_t;
         in assertion_id : int;
         in whichData    : int;
-        out assertions  : pointer_t;
+        out assertions  : pointer_t, dealloc;
         out return_val  : int);
+
+routine io_pm_declare_user_active(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+           in user_type : int;
+        in  props       : pointer_t;
+      inout assertion_id: int;
+        out return_code : int);
 
 // IOPMPowerHistory
 
 routine io_pm_set_power_history_bookmark(
             server      : mach_port_t;
             out uuid    : string_t);
+
+routine io_pm_get_uuid(
+            server      : mach_port_t;
+         in selector    : int;
+        out out_uuid    : string_t;
+        out return_val  : int);
 
 // IOPMConnection
 routine io_pm_connection_create(
@@ -142,6 +178,6 @@ ServerAuditToken token  : audit_token_t;
 
 routine io_pm_hid_event_copy_history(
             server      : mach_port_t;
-            out eventArray : pointer_t;
+            out eventArray : pointer_t, dealloc;
             out return_val : int);
 

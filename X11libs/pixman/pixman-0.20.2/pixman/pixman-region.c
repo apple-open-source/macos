@@ -102,7 +102,11 @@
 
 static const box_type_t PREFIX (_empty_box_) = { 0, 0, 0, 0 };
 static const region_data_type_t PREFIX (_empty_data_) = { 0, 0 };
+#if defined (__llvm__) && !defined (__clang__)
+static const volatile region_data_type_t PREFIX (_broken_data_) = { 0, 0 };
+#else
 static const region_data_type_t PREFIX (_broken_data_) = { 0, 0 };
+#endif
 
 static box_type_t *pixman_region_empty_box =
     (box_type_t *)&PREFIX (_empty_box_);

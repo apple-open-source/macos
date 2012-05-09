@@ -32,8 +32,6 @@ module window {
         CustomDeleteProperty,
         CustomGetOwnPropertySlot,
         CustomGetPropertyNames,
-        CustomLookupGetter,
-        CustomLookupSetter,
         CustomMarkFunction,
         CustomNativeConverter,
         CustomPutFunction,
@@ -45,7 +43,7 @@ module window {
     ] DOMWindow {
         // DOM Level 0
         attribute [Replaceable] Screen screen;
-        attribute [Replaceable, DoNotCheckDomainSecurityOnGet, JSCCustomGetter] History history;
+        attribute [Replaceable, DoNotCheckDomainSecurityOnGet] History history;
         attribute [Replaceable] BarInfo locationbar;
         attribute [Replaceable] BarInfo menubar;
         attribute [Replaceable] BarInfo personalbar;
@@ -55,7 +53,7 @@ module window {
         attribute [Replaceable] Navigator navigator;
         attribute [Replaceable] Navigator clientInformation;
         readonly attribute Crypto crypto;
-        attribute [DoNotCheckDomainSecurity, JSCCustom, V8CustomSetter, V8DisallowShadowing, CPPCustom] Location location;
+        attribute [DoNotCheckDomainSecurity, CustomSetter, V8DisallowShadowing, CPPCustom] Location location;
 
         attribute [Replaceable, CustomGetter, V8CustomSetter] Event event;
 
@@ -506,6 +504,7 @@ module window {
         attribute [JSCCustomGetter] Int32ArrayConstructor Int32Array; // Usable with new operator
         attribute [JSCCustomGetter] Uint32ArrayConstructor Uint32Array; // Usable with new operator
         attribute [JSCCustomGetter] Float32ArrayConstructor Float32Array; // Usable with new operator
+        attribute [JSCCustomGetter] Float64ArrayConstructor Float64Array; // Usable with new operator
         attribute [JSCCustomGetter] DataViewConstructor DataView; // Usable with new operator
 
         attribute [JSCCustomGetter,Conditional=WEB_AUDIO,EnabledAtRuntime] AudioContextConstructor webkitAudioContext; // Usable with new operator

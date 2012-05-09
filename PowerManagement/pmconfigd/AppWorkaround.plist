@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>kCSCheckFixVersion</key>
+	<string>1</string>
+	<key>kCSCheckFixIntel</key>
+	<dict/>
+	<key>kCSCheckFixUniversal</key>
+	<dict>
+       <key>11136371</key>
+       <dict>
+               <key>com.apple.iPhoto</key>
+               <array>
+                 <string>*</string>
+               </array>
+
+               <key>com.apple.Aperture</key>
+               <array>
+                 <string>*</string>
+               </array>
+
+               <key>com.apple.ME32ExporterHelper</key>
+               <array>
+                 <string>*</string>
+               </array>
+
+               <key>com.apple.MRMovieServer</key>
+               <array>
+                 <string>*</string>
+               </array>
+       </dict>
+	</dict>
+</dict>
+</plist>

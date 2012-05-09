@@ -59,12 +59,12 @@ __SEC_CFTYPE(CFBoolean)
 __SEC_CFTYPE(CFNumber)
 __SEC_CFTYPE(CFString)
 __SEC_CFTYPE(CFData)
+__SEC_CFTYPE(CFDate)
 __SEC_CFTYPE(CFURL)
 __SEC_CFTYPE(CFBundle)
 __SEC_CFTYPE(CFArray)
 __SEC_CFTYPE(CFDictionary)
 __SEC_CFTYPE(CFSet)
-
 
 
 //
@@ -467,6 +467,8 @@ public:
 	CFDictionary(CFTypeRef ref, OSStatus error) : _Base(ref, error), mDefaultError(error)
 	{ if (!ref) MacOSError::throwMe(error); }
 	CFDictionary(OSStatus error) : _Base(NULL), mDefaultError(error) { }
+	
+	using CFCopyRef<CFDictionaryRef>::get;
 	
 	CFTypeRef get(CFStringRef key)		{ return CFDictionaryGetValue(*this, key); }
 	CFTypeRef get(const char *key)		{ return CFDictionaryGetValue(*this, CFTempString(key)); }

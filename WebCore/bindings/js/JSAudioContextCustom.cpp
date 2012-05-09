@@ -28,24 +28,25 @@
 
 #include "AudioContext.h"
 
-#include "ArrayBuffer.h"
 #include "AudioBuffer.h"
 #include "JSArrayBuffer.h"
 #include "JSAudioBuffer.h"
 #include "JSAudioContext.h"
 #include <runtime/Error.h>
+#include <wtf/ArrayBuffer.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-void JSAudioContext::visitChildren(SlotVisitor& visitor)
+void JSAudioContext::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
-    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    JSAudioContext* thisObject = jsCast<JSAudioContext*>(cell);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);
     COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
-    ASSERT(structure()->typeInfo().overridesVisitChildren());
-    Base::visitChildren(visitor);
-    m_impl->visitJSEventListeners(visitor);
+    ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(thisObject, visitor);
+    thisObject->m_impl->visitJSEventListeners(visitor);
 }
 
 EncodedJSValue JSC_HOST_CALL JSAudioContextConstructor::constructJSAudioContext(ExecState* exec)

@@ -98,12 +98,14 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 		CFRelease(mCertificateData);
 		mCertificateData = NULL;
 	}
-	if (!mCertificateData) //!mCertificateData)
+	if (!mCertificateData)
 	{
 		mCertificateData = SecCertificateCopyData(mCertificateRef);	// OK to call, no big lock
-		if (!mCertificateData && error)
+		if (!mCertificateData)
 		{
-			*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateRef, NULL);
+			if (error) {
+				*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateRef, NULL);
+			}
 			return NULL;
 		}
 	}
@@ -349,24 +351,41 @@ CFStringRef CertificateValues::remapLabelToKey(CFStringRef label)
 
 CFDataRef CertificateValues::copySerialNumber(CFErrorRef *error)
 {
+    CFDataRef result = NULL;
 	SecCertificateRefP certificateP = getSecCertificateRefP(error);
 		
-    return certificateP?SecCertificateCopySerialNumberP(certificateP):NULL;
+    if (certificateP)
+    {
+        result = SecCertificateCopySerialNumberP(certificateP);
+        CFRelease(certificateP);
+    }
+    return result;
 }
 
 CFDataRef CertificateValues::getNormalizedIssuerContent(CFErrorRef *error)
 {
 	// We wrap with SecDERItemCopySequence, since SecItemCopyMatching expects it
+    CFDataRef result = NULL;
 	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-    return certificateP ? SecCertificateGetNormalizedIssuer(certificateP) : NULL;
+    if (certificateP)
+    {
+        result = SecCertificateGetNormalizedIssuer(certificateP);
+        CFRelease(certificateP);
+    }
+    return result;
 }
 
 CFDataRef CertificateValues::getNormalizedSubjectContent(CFErrorRef *error)
 {
 	// We wrap with SecDERItemCopySequence, since SecItemCopyMatching expects it
+    CFDataRef result = NULL;
 	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-	
-    return certificateP ? SecCertificateGetNormalizedSubject(certificateP) : NULL;
+    if (certificateP)
+    {
+        result = SecCertificateGetNormalizedSubject(certificateP);
+        CFRelease(certificateP);
+    }
+    return result;
 }
 
 SecCertificateRefP CertificateValues::getSecCertificateRefP(CFErrorRef *error)

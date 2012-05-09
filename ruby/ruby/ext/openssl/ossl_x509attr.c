@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509attr.c 12496 2007-06-08 15:02:04Z technorama $
+ * $Id: ossl_x509attr.c 28367 2010-06-21 09:18:59Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -217,8 +217,9 @@ ossl_x509attr_get_value(VALUE self)
 	ossl_str_adjust(str, p);
     }
     else{
-	length = i2d_ASN1_SET_OF_ASN1_TYPE(attr->value.set, NULL,
-			i2d_ASN1_TYPE, V_ASN1_SET, V_ASN1_UNIVERSAL, 0);
+	length = i2d_ASN1_SET_OF_ASN1_TYPE(attr->value.set,
+			(unsigned char **) NULL, i2d_ASN1_TYPE,
+			V_ASN1_SET, V_ASN1_UNIVERSAL, 0);
 	str = rb_str_new(0, length);
 	p = RSTRING_PTR(str);
 	i2d_ASN1_SET_OF_ASN1_TYPE(attr->value.set, &p,

@@ -9,7 +9,8 @@
 .Nd prevent the system from sleeping on behalf of a utility
 .Sh SYNOPSIS
 .Nm
-.Op Fl disb
+.Op Fl disbu
+.Op Ar -t timeout
 .Op Ar utility
 .Op Ar argument ...
 .Sh DESCRIPTION
@@ -34,6 +35,10 @@ Create an assertion to prevent the display from sleeping.
 Create an assertion to prevent the system from idle sleeping.
 .It Fl s 
 Create an assertion to prevent the system from sleeping. By default, this assertion is valid only when system is running on AC power. If -b flag is also specified, then the system is prevented from sleeping even when running on battery power.
+.It Fl u 
+Create an assertion to declare that user is active. If the display is off, this option turns the display on and prevents the display from going into idle sleep. If a timeout is not specified with '-t' option, then this assertion is taken with a default of 5 second timeout.
+.It Fl t 
+Specifies the timeout value in seconds for which this assertion has to be valid. The assertion is dropped after the specified timeout. Timeout value is not used when an utility is invoked with this command.
 .El
 .Sh LOCATION
 .Pa /usr/bin/caffeinate

@@ -30,6 +30,7 @@
 #ifndef _IOSTORAGE_H
 #define _IOSTORAGE_H
 
+#include <sys/kernel_types.h>
 #include <IOKit/IOTypes.h>
 
 /*!
@@ -140,6 +141,8 @@ typedef UInt32 IOStorageAccess;
  * Force the request to access the media.
  * @constant kIOStorageOptionIsEncrypted
  * The data is already encrypted.
+ * @constant kIOStorageOptionIsMeta
+ * The data describes the structure of other content.
  */
 
 enum
@@ -147,7 +150,8 @@ enum
     kIOStorageOptionNone            = 0x00000000,
     kIOStorageOptionForceUnitAccess = 0x00000001,
     kIOStorageOptionIsEncrypted     = 0x00000010,
-    kIOStorageOptionReserved        = 0xFFFFFFEE
+    kIOStorageOptionIsMeta          = 0x00000040,
+    kIOStorageOptionReserved        = 0xFFFFFFAE
 };
 
 typedef UInt32 IOStorageOptions;
@@ -169,9 +173,9 @@ struct IOStorageAttributes
     UInt32           reserved0032;
     UInt64           reserved0064;
     UInt64           reserved0128;
-    void *           bufattr;
+    bufattr_t        bufattr;
 #else /* !__LP64__ */
-    void *           bufattr;
+    bufattr_t        bufattr;
     UInt64           reserved0064;
 #endif /* !__LP64__ */
 };

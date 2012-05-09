@@ -89,6 +89,7 @@ enum {
 	errSecCSInfoPlistFailed =			-67030,	/* invalid Info.plist (plist or signature have been modified) */
 	errSecCSNoMainExecutable =			-67029,	/* the code has no main executable file */
 	errSecCSBadBundleFormat =			-67028,	/* bundle format unrecognized, invalid, or unsuitable */
+	errSecCSNoMatches =				-67027,	/* no matches for search or update operation */
 };
 
 
@@ -176,6 +177,7 @@ enum {
 	kSecCSDefaultFlags = 0,					/* no particular flags (default behavior) */
 	
 	kSecCSConsiderExpiration = 1 << 31,		/* consider expired certificates invalid */
+	kSecCSEnforceRevocationChecks = 1 << 30,	/* force revocation checks regardless of preference settings */
 };
 
 

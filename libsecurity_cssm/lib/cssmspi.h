@@ -54,7 +54,7 @@ typedef struct cssm_module_funcs {
 
 typedef void *(CSSMAPI *CSSM_UPCALLS_MALLOC)
     (CSSM_HANDLE AddInHandle,
-     uint32 size) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+     size_t size) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef void (CSSMAPI *CSSM_UPCALLS_FREE)
     (CSSM_HANDLE AddInHandle,
@@ -63,12 +63,12 @@ typedef void (CSSMAPI *CSSM_UPCALLS_FREE)
 typedef void *(CSSMAPI *CSSM_UPCALLS_REALLOC)
     (CSSM_HANDLE AddInHandle,
      void *memblock,
-     uint32 size) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+     size_t size) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef void *(CSSMAPI *CSSM_UPCALLS_CALLOC)
     (CSSM_HANDLE AddInHandle,
-     uint32 num,
-     uint32 size) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+     size_t num,
+     size_t size) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef struct cssm_upcalls {
     CSSM_UPCALLS_MALLOC malloc_func;

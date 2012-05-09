@@ -293,7 +293,7 @@ void DecodedExten::parse(
 	else {
 		/* if we get here, this routine is not keeping up with 
 		 * clOidToNssInfo()  */
-		assert(0);
+		// assert(0);
 		CssmError::throwMe(CSSMERR_CL_INTERNAL_ERROR);
 	}
 	convertToCdsa(vCdsaObj, cssmExt, alloc);

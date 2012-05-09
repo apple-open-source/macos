@@ -1,5 +1,5 @@
 /*
- * "$Id: ppd-private.h 3102 2011-03-30 16:58:46Z msweet $"
+ * "$Id: ppd-private.h 3648 2012-02-13 17:37:38Z msweet $"
  *
  *   Private PPD definitions for CUPS.
  *
@@ -49,7 +49,7 @@ extern "C" {
  * Constants...
  */
 
-#  define _PPD_CACHE_VERSION	1	/* Version number in cache file */
+#  define _PPD_CACHE_VERSION	2	/* Version number in cache file */
 
 
 /*
@@ -86,13 +86,20 @@ typedef enum _pwg_print_color_mode_e	/**** PWG print-color-mode indices ****/
   _PWG_PRINT_COLOR_MODE_MAX
 } _pwg_print_color_mode_t;
 
-typedef enum _pwg_print_quality_e	/**** PWG print-quality indices ****/
+typedef enum _pwg_print_quality_e	/**** PWG print-quality values ****/
 {
   _PWG_PRINT_QUALITY_DRAFT = 0,		/* print-quality=3 */
   _PWG_PRINT_QUALITY_NORMAL,		/* print-quality=4 */
   _PWG_PRINT_QUALITY_HIGH,		/* print-quality=5 */
   _PWG_PRINT_QUALITY_MAX
 } _pwg_print_quality_t;
+
+typedef struct _pwg_finishings_s	/**** PWG finishings mapping data ****/
+{
+  ipp_finish_t	value;			/* finishings value */
+  int		num_options;		/* Number of options to apply */
+  cups_option_t	*options;		/* Options to apply */
+} _pwg_finishings_t;
 
 struct _ppd_cache_s			/**** PPD cache and PWG conversion data ****/
 {
@@ -125,6 +132,7 @@ struct _ppd_cache_s			/**** PPD cache and PWG conversion data ****/
   cups_array_t	*filters,		/* cupsFilter/cupsFilter2 values */
 		*prefilters;		/* cupsPreFilter values */
   int		single_file;		/* cupsSingleFile value */
+  cups_array_t	*finishings;		/* cupsIPPFinishings values */
 };
 
 
@@ -138,6 +146,12 @@ extern _ppd_cache_t	*_ppdCacheCreateWithPPD(ppd_file_t *ppd);
 extern void		_ppdCacheDestroy(_ppd_cache_t *pc);
 extern const char	*_ppdCacheGetBin(_ppd_cache_t *pc,
 			                 const char *output_bin);
+extern int		_ppdCacheGetFinishingOptions(_ppd_cache_t *pc, ipp_t *job,
+			                             ipp_finish_t value, int num_options,
+			                             cups_option_t **options);
+extern int		_ppdCacheGetFinishingValues(_ppd_cache_t *pc, int num_options,
+			                            cups_option_t *options,
+			                            int max_values, int *values);
 extern const char	*_ppdCacheGetInputSlot(_ppd_cache_t *pc, ipp_t *job,
 			                       const char *keyword);
 extern const char	*_ppdCacheGetMediaType(_ppd_cache_t *pc, ipp_t *job,
@@ -184,5 +198,5 @@ extern const char	*_pwgPageSizeForMedia(_pwg_media_t *media,
 #endif /* !_CUPS_PPD_PRIVATE_H_ */
 
 /*
- * End of "$Id: ppd-private.h 3102 2011-03-30 16:58:46Z msweet $".
+ * End of "$Id: ppd-private.h 3648 2012-02-13 17:37:38Z msweet $".
  */

@@ -601,6 +601,16 @@ bool TPCertInfo::addStatusCode(CSSM_RETURN code)
 	return isStatusFatal(code);
 }
 
+bool TPCertInfo::hasStatusCode(CSSM_RETURN code)
+{
+	for(unsigned dex=0; dex<mNumStatusCodes; dex++) {
+		if(mStatusCodes[dex] == code) {
+			return true;
+		}
+	}
+	return false;
+}
+
 bool TPCertInfo::isStatusFatal(CSSM_RETURN code)
 {
 	for(unsigned dex=0; dex<mNumAllowedErrs; dex++) {

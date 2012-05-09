@@ -50,7 +50,7 @@ HEIGHT="128" ALT="CUPS"></A></TD>
 
 <P><A HREF="help/options.html">Impresi&oacute;n desde la l&iacute;nea de comandos y opciones</A></P>
 
-<P><A HREF="help/whatsnew.html">Qu&eacute; hay de nuevo en CUPS 1.4</A></P>
+<P><A HREF="help/whatsnew.html">Qu&eacute; hay de nuevo en CUPS 1.5</A></P>
 
 <P><A HREF="http://www.cups.org/newsgroups.php?gcups.general">Foro de usuarios</A></P>
 
@@ -101,7 +101,7 @@ HEIGHT="128" ALT="CUPS"></A></TD>
 <TR><TD>&nbsp;</TD></TR>
 <TR><TD CLASS="trailer">CUPS y el logo de CUPS son
 marcas registradas de <A HREF="http://www.apple.com">Apple Inc.</A> Los derechos
-de copia de CUPS 2007-2011 son de Apple Inc. Todos los derechos reservados.</TD></TR>
+de copia de CUPS 2007-2012 son de Apple Inc. Todos los derechos reservados.</TD></TR>
 </TABLE>
 </BODY>
 </HTML>

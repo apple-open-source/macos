@@ -114,46 +114,6 @@ int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mount
         CFDictionaryAddValue(dict, CFSTR("VSDB ID"), vsdbref);
         CFRelease(vsdbref); vsdbref = NULL;
     }
-
-    
-    {
-
-      fbootstraptransfer_t        bbr;
-      int                         fd;
-      char                       bbPtr[kBootBlocksSize];
-      
-    CFMutableDictionaryRef bdict =
-	CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFDataRef bdata = NULL;
-
-      fd = open(mountpoint, O_RDONLY);
-      if (fd == -1) {
-	contextprintf(context, kBLLogLevelError,  "Can't open volume mount point for %s\n", mountpoint );
-	return 2;
-      }
-  
-      bbr.fbt_offset = 0;
-      bbr.fbt_length = kBootBlocksSize;
-      bbr.fbt_buffer = bbPtr;
-  
-      err = fcntl(fd, F_READBOOTSTRAP, &bbr);
-      if (err) {
-        contextprintf(context, kBLLogLevelError,  "Can't read boot blocks\n" );
-        close(fd);
-        return 3;
-      } else {
-        contextprintf(context, kBLLogLevelVerbose,  "Boot blocks read successfully\n" );
-      }
-      close(fd);
-
-      bdata = CFDataCreate(kCFAllocatorDefault, (UInt8 *)bbPtr, kBootBlocksSize);
-      CFDictionaryAddValue(bdict, CFSTR("Data"), bdata);
-      CFRelease(bdata); bdata = NULL;
-
-      CFDictionaryAddValue(dict, CFSTR("BootBlocks"),
-			   bdict);
-      CFRelease(bdict); bdict = NULL;
-    }
     
     *outDict = dict;
     return 0;

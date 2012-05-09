@@ -154,8 +154,6 @@
 					"-D__APPLE_PRIVATE",
 				);
 				PRODUCT_NAME = UMCLogger;
-				SDKROOT = "";
-				VALID_ARCHS = "x86_64 i386";
 				ZERO_LINK = YES;
 			};
 			name = Debug;
@@ -183,8 +181,6 @@
 					"-D__APPLE_PRIVATE",
 				);
 				PRODUCT_NAME = UMCLogger;
-				SDKROOT = "";
-				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Release;
 		};
@@ -194,7 +190,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 x86_64 ppc";
 			};
 			name = Debug;
 		};
@@ -204,7 +200,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 x86_64 ppc";
 			};
 			name = Release;
 		};

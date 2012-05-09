@@ -4683,7 +4683,12 @@ static int ntfs_getattr(mount_t mp, struct vfs_attr *fsa,
 				// open deny modes?  And do we want to?
 				// VOL_CAP_FMT_OPENDENYMODES |
 				VOL_CAP_FMT_HIDDEN_FILES |
-				VOL_CAP_FMT_PATH_FROM_ID |
+				/*
+				 * VOL_CAP_FMT_PATH_FROM_ID is disabled until
+				 * <rdar://problem/10685403> is fixed.  Use
+				 * <rdar://problem/10685404> to re-enable.
+				 */
+				// VOL_CAP_FMT_PATH_FROM_ID |
 				0;
 		ca->valid[VOL_CAPABILITIES_FORMAT] =
 				VOL_CAP_FMT_PERSISTENTOBJECTIDS |

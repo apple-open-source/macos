@@ -31,54 +31,17 @@
 
 #include <servers/bootstrap.h>
 
+
 #define kAssertionsArraySize        5
 
 static const int kMaxNameLength = 128;
 
+IOReturn _pm_connect(mach_port_t *newConnection);
+IOReturn _pm_disconnect(mach_port_t connection);
 
-static IOReturn _pm_connect(mach_port_t *newConnection)
-{
-    kern_return_t       kern_result = KERN_SUCCESS;
-    
-    if(!newConnection) return kIOReturnBadArgument;
-    
-    // open reference to PM configd
-    kern_result = bootstrap_look_up(bootstrap_port, 
-                                    kIOPMServerBootstrapName, newConnection);
-    if(KERN_SUCCESS != kern_result) {
-        *newConnection = MACH_PORT_NULL;
-        return kIOReturnError;
-    }
-    return kIOReturnSuccess;
-}
 
-static IOReturn _pm_disconnect(mach_port_t connection)
-{
-    if(!connection) return kIOReturnBadArgument;
-    mach_port_deallocate(mach_task_self(), connection);
-    return kIOReturnSuccess;
-}
+__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, CFTypeRef *objectOut);
 
-/*
-static bool _supportedAssertion(CFStringRef assertion)
-{
-    return (CFEqual(assertion, kIOPMAssertionTypeNoIdleSleep)
-            || CFEqual(assertion, kIOPMAssertionTypeNoDisplaySleep)
-            || CFEqual(assertion, kIOPMAssertionTypeDisableInflow)
-            || CFEqual(assertion, kIOPMAssertionTypeInhibitCharging)
-            
-#if TARGET_EMBEDDED_OS
-            // kIOPMAssertionTypeEnableIdleSleep is only supported on
-            // embedded platforms. IOPMAssertionCreate returns an error
-            // when a caller tries to assert it on user OS X.
-            || CFEqual(assertion, kIOPMAssertionTypeEnableIdleSleep)
-#endif
-            || CFEqual(assertion, kIOPMAssertionTypeDisableRealPowerSources_Debug)
-            || CFEqual(assertion, kIOPMAssertionTypeDisableLowBatteryWarnings) 
-            || CFEqual(assertion, kIOPMAssertionTypeNeedsCPU) 
-            || CFEqual(assertion, kIOPMAssertionTypeDenySystemSleep) );
-}
-*/
 
 /******************************************************************************
  * IOPMAssertionCreate
@@ -202,19 +165,31 @@ IOReturn IOPMAssertionCreateWithProperties(
     mach_port_t             pm_server       = MACH_PORT_NULL;
     IOReturn                err;
     CFDataRef               flattenedProps  = NULL;
+    CFStringRef             assertionTypeString = NULL;
+    CFMutableDictionaryRef  mutableProps = NULL;
 
     if (!AssertionProperties || !AssertionID) {
         return_code = kIOReturnBadArgument;
         goto exit;
     }
     
+    mutableProps = CFDictionaryCreateMutableCopy(NULL, 0, AssertionProperties);
+    if (!mutableProps) {
+        return_code = kIOReturnInternalError;
+        goto exit;
+    }
+
     err = _pm_connect(&pm_server);
     if(kIOReturnSuccess != err) {
         return_code = kIOReturnInternalError;
         goto exit;
     }
+
+
+
+
     
-    flattenedProps = CFPropertyListCreateData(0, AssertionProperties, 
+    flattenedProps = CFPropertyListCreateData(0, mutableProps, 
                           kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
     if (!flattenedProps) {
         return_code = kIOReturnBadArgument;
@@ -240,6 +215,8 @@ exit:
         _pm_disconnect(pm_server);
     }
     
+    if (mutableProps)
+       CFRelease(mutableProps);
     return return_code;
 }
 
@@ -318,67 +295,6 @@ exit:
     return return_code;
 }
 
-/******************************************************************************
- * IOPMAssertionCopyProperties
- *
- ******************************************************************************/
-CFDictionaryRef IOPMAssertionCopyProperties(IOPMAssertionID theAssertion)
-{
-    IOReturn                return_code     = kIOReturnError;
-    kern_return_t           kern_result     = KERN_SUCCESS;
-    mach_port_t             pm_server       = MACH_PORT_NULL;
-    vm_offset_t             theResultsPtr   = 0;
-    mach_msg_type_number_t  theResultsCnt   = 0;
-    CFDictionaryRef         theResult       = NULL;
-    
-    if (!theAssertion) {
-        return_code = kIOReturnBadArgument;
-        goto exit;
-    }
-    
-    return_code = _pm_connect(&pm_server);
-
-    if(kIOReturnSuccess != return_code) {
-        goto exit;
-    }
-    
-    kern_result = io_pm_assertion_copy_details(pm_server, 
-                                               (int)theAssertion,
-                                               kIOPMAssertionMIGCopyOneAssertionProperties,
-                                               &theResultsPtr,
-                                               &theResultsCnt,
-                                               &return_code);
-
-    if(KERN_SUCCESS != kern_result) {
-        return_code = kIOReturnInternalError;
-        goto exit;
-    }
-    
-    if (kIOReturnSuccess == return_code) 
-    {
-        CFDataRef   flattenedResult = NULL;
-
-        flattenedResult = CFDataCreate(0, (const UInt8 *)theResultsPtr, (CFIndex)theResultsCnt);
-
-        if (flattenedResult) {
-            theResult = (CFDictionaryRef)CFPropertyListCreateWithData(0, flattenedResult, 
-                              kCFPropertyListImmutable, NULL /* format */, NULL /* error */);
-
-            CFRelease(flattenedResult);
-        }
-
-    }
-
-exit:
-    if (theResultsPtr && 0 != theResultsCnt) {
-        vm_deallocate(mach_task_self(), theResultsPtr, theResultsCnt);
-    }
-    
-    if (MACH_PORT_NULL != pm_server) {
-        _pm_disconnect(pm_server);
-    }
-    return theResult;
-}
 
 /******************************************************************************
  * IOPMAssertionSetProperty
@@ -433,155 +349,11 @@ exit:
     return return_code;    
 }
 
-
-/******************************************************************************
- * IOPMCopyAssertionsByProcess
- *
- ******************************************************************************/
-IOReturn IOPMCopyAssertionsByProcess(
-                                     CFDictionaryRef         *AssertionsByPid)
-{
-    SCDynamicStoreRef   dynamicStore = NULL;
-    CFStringRef         dataKey = NULL;
-    IOReturn            returnCode = kIOReturnError;
-    int                 flattenedArrayCount = 0;
-    CFArrayRef          flattenedDictionary = NULL;    
-    CFNumberRef         *newDictKeys = NULL;
-    CFArrayRef          *newDictValues = NULL;
-    
-    if (!AssertionsByPid)
-        return kIOReturnBadArgument;
-    
-    *AssertionsByPid = NULL;
-    
-    dynamicStore = SCDynamicStoreCreate(kCFAllocatorDefault,
-                                        CFSTR("PM IOKit User Library"),
-                                        NULL, NULL);
-    
-    if (NULL == dynamicStore) {
-        goto exit;
-    }
-    
-    dataKey = IOPMAssertionCreatePIDMappingKey();
-    
-    flattenedDictionary = SCDynamicStoreCopyValue(dynamicStore, dataKey);
-    
-    if (!flattenedDictionary) {
-        returnCode = kIOReturnSuccess;
-        goto exit;
-    }
-    
-    /*
-     * This API returns a dictionary whose keys are process ID's.
-     * This is perfectly acceptable in CoreFoundation, EXCEPT that you cannot
-     * serialize a dictionary with CFNumbers for keys using CF or IOKit
-     * serialization.
-     *
-     * To serialize this dictionary and pass it from configd to the caller's process,
-     * we re-formatted it as a "flattened" array of dictionaries in configd, 
-     * and we will re-constitute with pid's for keys here.
-     *
-     * Next time around, I will simply not use CFNumberRefs for keys in API.
-     */
-    
-    flattenedArrayCount = CFArrayGetCount(flattenedDictionary);
-    
-    newDictKeys = (CFNumberRef *)malloc(sizeof(CFTypeRef) * flattenedArrayCount);
-    newDictValues = (CFArrayRef *)malloc(sizeof(CFTypeRef) * flattenedArrayCount);
-    
-    if (!newDictKeys || !newDictValues)
-        goto exit;
-    
-    for (int i=0; i < flattenedArrayCount; i++)
-    {
-        CFDictionaryRef         dictionaryAtIndex = NULL;
-        
-        dictionaryAtIndex = CFArrayGetValueAtIndex(flattenedDictionary, i);
-        
-        if (!dictionaryAtIndex)
-            continue;
-        
-        newDictKeys[i] = CFDictionaryGetValue(
-                                              dictionaryAtIndex,
-                                              kIOPMAssertionPIDKey);
-        newDictValues[i] = CFDictionaryGetValue(
-                                                dictionaryAtIndex,
-                                                CFSTR("PerTaskAssertions"));    
-    }
-    
-    
-    *AssertionsByPid = CFDictionaryCreate(
-                                          kCFAllocatorDefault,
-                                          (const void **)newDictKeys,
-                                          (const void **)newDictValues,
-                                          flattenedArrayCount,
-                                          &kCFTypeDictionaryKeyCallBacks,
-                                          &kCFTypeDictionaryValueCallBacks);
-    
-    returnCode = kIOReturnSuccess;
-exit:
-    if (newDictKeys)
-        free(newDictKeys);
-    if (newDictValues)
-        free(newDictValues);
-    if (dynamicStore)
-        CFRelease(dynamicStore);
-    if (flattenedDictionary)
-        CFRelease(flattenedDictionary);
-    if (dataKey)
-        CFRelease(dataKey);
-    return returnCode;
-}
-
-
-/******************************************************************************
- * IOPMCopyAssertionsStatus
- *
- ******************************************************************************/
-IOReturn IOPMCopyAssertionsStatus(
-                                  CFDictionaryRef         *AssertionsStatus)
-{
-    SCDynamicStoreRef   dynamicStore = NULL;
-    CFStringRef         dataKey = NULL;
-    IOReturn            returnCode = kIOReturnError;
-    CFDictionaryRef     returnDictionary = NULL;
-    
-    if (!AssertionsStatus)
-        return kIOReturnBadArgument;
-    
-    *AssertionsStatus = NULL;
-    
-    dynamicStore = SCDynamicStoreCreate(kCFAllocatorDefault,
-                                        CFSTR("PM IOKit User Library"),
-                                        NULL, NULL);
-    
-    if (NULL == dynamicStore) {
-        goto exit;
-    }
-    
-    dataKey = IOPMAssertionCreateAggregateAssertionKey();
-    
-    returnDictionary = SCDynamicStoreCopyValue(dynamicStore, dataKey);
-    
-    // TODO: check return of SCDynamicStoreCopyVale
-    
-    *AssertionsStatus = returnDictionary;
-    
-    returnCode = kIOReturnSuccess;
-exit:
-    if (dynamicStore)
-        CFRelease(dynamicStore);
-    if (dataKey)
-        CFRelease(dataKey);
-    return returnCode;
-}
-
 /******************************************************************************
  * IOPMAssertionSetTimeout
  *
  ******************************************************************************/
-IOReturn IOPMAssertionSetTimeout(
-                                 IOPMAssertionID whichAssertion, 
+IOReturn IOPMAssertionSetTimeout(IOPMAssertionID whichAssertion, 
                                  CFTimeInterval timeoutInterval)
 {
     IOReturn            return_code = kIOReturnError;
@@ -600,87 +372,233 @@ IOReturn IOPMAssertionSetTimeout(
     return return_code;
 }
 
+
+/******************************************************************************
+ * IOPMCopyAssertionsByProcess
+ *
+ ******************************************************************************/
+IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef         *AssertionsByPid)
+{
+    IOReturn                return_code     = kIOReturnError;
+    CFArrayRef              flattenedDictionary = NULL;
+    int                     flattenedArrayCount = 0;
+    CFNumberRef             *newDictKeys = NULL;
+    CFArrayRef              *newDictValues = NULL;
+    
+    if (!AssertionsByPid)
+        return kIOReturnBadArgument;
+    
+    return_code = _copyPMServerObject(kIOPMAssertionMIGCopyAll, 0, (CFTypeRef *)&flattenedDictionary);
+
+    if (kIOReturnSuccess != return_code)
+        goto exit;
+    
+    /*
+     * This API returns a dictionary whose keys are process ID's.
+     * This is perfectly acceptable in CoreFoundation, EXCEPT that you cannot
+     * serialize a dictionary with CFNumbers for keys using CF or IOKit
+     * serialization.
+     *
+     * To serialize this dictionary and pass it from configd to the caller's process,
+     * we re-formatted it as a "flattened" array of dictionaries in configd, 
+     * and we will re-constitute with pid's for keys here.
+     *
+     * Next time around, I will simply not use CFNumberRefs for keys in API.
+     */
+
+        
+    if (flattenedDictionary) {
+        flattenedArrayCount = CFArrayGetCount(flattenedDictionary);
+    }    
+
+    if (0 == flattenedArrayCount) {
+        goto exit;
+    }
+    
+    newDictKeys = (CFNumberRef *)malloc(sizeof(CFTypeRef) * flattenedArrayCount);
+    newDictValues = (CFArrayRef *)malloc(sizeof(CFTypeRef) * flattenedArrayCount);
+    
+    if (!newDictKeys || !newDictValues)
+        goto exit;
+    
+    for (int i=0; i < flattenedArrayCount; i++)
+    {
+        CFDictionaryRef dictionaryAtIndex = NULL;
+        
+        if ((dictionaryAtIndex = CFArrayGetValueAtIndex(flattenedDictionary, i)))
+        {
+            
+            newDictKeys[i]      = CFDictionaryGetValue(dictionaryAtIndex, kIOPMAssertionPIDKey);
+            newDictValues[i]    = CFDictionaryGetValue(dictionaryAtIndex, CFSTR("PerTaskAssertions"));    
+        }
+    }
+    
+    *AssertionsByPid = CFDictionaryCreate(kCFAllocatorDefault,
+                                          (const void **)newDictKeys, (const void **)newDictValues, flattenedArrayCount,
+                                          &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    
+    return_code = kIOReturnSuccess;
+
+exit:
+    if (newDictKeys)
+        free(newDictKeys);
+    if (newDictValues)
+        free(newDictValues);
+    if (flattenedDictionary)
+        CFRelease(flattenedDictionary);
+    return return_code;    
+}    
+    
+/******************************************************************************
+ * IOPMAssertionCopyProperties
+ *
+ ******************************************************************************/
+CFDictionaryRef IOPMAssertionCopyProperties(IOPMAssertionID theAssertion)
+{
+    CFDictionaryRef         theResult       = NULL;    
+    
+    _copyPMServerObject(kIOPMAssertionMIGCopyOneAssertionProperties, theAssertion, (CFTypeRef *)&theResult);
+    
+    return theResult;
+}
+
 /******************************************************************************
  * IOPMCopyTimedOutAssertions
  *
  ******************************************************************************/
-IOReturn IOPMCopyTimedOutAssertions(
-                                    CFArrayRef *timedOutAssertions)
+IOReturn IOPMCopyTimedOutAssertions(CFArrayRef *timedOutAssertions)
 {
-    SCDynamicStoreRef   dynamicStore = NULL;
-    CFStringRef         dataKey = NULL;
-    IOReturn            returnCode = kIOReturnError;
-    CFArrayRef          returnArray = NULL;
-    
     if (!timedOutAssertions)
         return kIOReturnBadArgument;
     
-    *timedOutAssertions = NULL;
-    
-    dynamicStore = SCDynamicStoreCreate(kCFAllocatorDefault,
-                                        CFSTR("PM IOKit User Library"),
-                                        NULL, NULL);
-    
-    if (NULL == dynamicStore) {
+    return _copyPMServerObject(kIOPMAssertionMIGCopyTimedOutAssertions, 0, (CFTypeRef *)timedOutAssertions);
+}
+
+/******************************************************************************
+ * IOPMAssertionDeclareUserActivity
+ *
+ ******************************************************************************/
+IOReturn IOPMAssertionDeclareUserActivity(
+                        CFStringRef          AssertionName,
+                        IOPMUserActiveType   userType,
+                        IOPMAssertionID      *AssertionID)
+{
+
+    IOReturn        return_code = kIOReturnError;
+    mach_port_t     pm_server = MACH_PORT_NULL;
+    kern_return_t   kern_result = KERN_SUCCESS;
+    IOReturn        err;
+
+    CFMutableDictionaryRef  properties = NULL;
+    CFDataRef               flattenedProps  = NULL;
+
+    if (!AssertionName || !AssertionID) {
+        return_code = kIOReturnBadArgument;
         goto exit;
     }
     
-    dataKey = IOPMAssertionCreateTimeOutKey();
+    err = _pm_connect(&pm_server);
+    if(kIOReturnSuccess != err) {
+        return_code = kIOReturnInternalError;
+        goto exit;
+    }
+
+    properties = CFDictionaryCreateMutable(0, 1, &kCFTypeDictionaryKeyCallBacks, 
+                                           &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(properties, kIOPMAssertionNameKey, AssertionName);
+
+    flattenedProps = CFPropertyListCreateData(0, properties, 
+                          kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
+    if (!flattenedProps) {
+        return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+ 
+
+    kern_result = io_pm_declare_user_active( 
+                        pm_server, 
+                        userType,
+                        (vm_offset_t)CFDataGetBytePtr(flattenedProps),
+                        CFDataGetLength(flattenedProps),
+                        (int *)AssertionID,
+                        &return_code);
+
+
+    if(KERN_SUCCESS != kern_result) {
+        return_code = kIOReturnInternalError;
+        goto exit;
+    }
     
-    returnArray = SCDynamicStoreCopyValue(dynamicStore, dataKey);
-    
-    // TODO: check return of SCDynamicStoreCopyVale
-    
-    *timedOutAssertions = returnArray;
-    
-    returnCode = kIOReturnSuccess;
 exit:
-    if (dynamicStore)
-        CFRelease(dynamicStore);
-    if (dataKey)
-        CFRelease(dataKey);
-    return returnCode;
-}
+    if (flattenedProps)
+        CFRelease(flattenedProps);
 
-/*
- * State:/IOKit/PowerManagement/Assertions/TimedOut
- */
+    if (properties)
+        CFRelease(properties);
 
-CFStringRef IOPMAssertionCreateTimeOutKey(void)
-{
-    return SCDynamicStoreKeyCreate(
-                                   kCFAllocatorDefault, 
-                                   CFSTR("%@%@/%@"),
-                                   _io_kSCDynamicStoreDomainState, 
-                                   CFSTR("/IOKit/PowerManagement/Assertions"), 
-                                   CFSTR("TimedOut"));
-}
+    if (MACH_PORT_NULL != pm_server) {
+        _pm_disconnect(pm_server);
+    }
 
-/*
- * State:/IOKit/PowerManagement/Assertions/ByProcess
- */
-
-CFStringRef IOPMAssertionCreatePIDMappingKey(void)
-{
-    return SCDynamicStoreKeyCreate(
-                                   kCFAllocatorDefault, 
-                                   CFSTR("%@%@/%@"),
-                                   _io_kSCDynamicStoreDomainState, 
-                                   CFSTR("/IOKit/PowerManagement/Assertions"), 
-                                   CFSTR("ByProcess"));
+    return return_code;
 }
 
 
-/*
- * State:/IOKit/PowerManagement/Assertions
- */
-
-CFStringRef IOPMAssertionCreateAggregateAssertionKey(void)
+/******************************************************************************
+ * IOPMCopyAssertionsStatus
+ *
+ ******************************************************************************/
+IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *AssertionsStatus)
 {
-    return SCDynamicStoreKeyCreate(
-                                   kCFAllocatorDefault, 
-                                   CFSTR("%@%@"),
-                                   _io_kSCDynamicStoreDomainState, 
-                                   CFSTR("/IOKit/PowerManagement/Assertions"));
+    if (!AssertionsStatus)
+        return kIOReturnBadArgument;
+    
+    return _copyPMServerObject(kIOPMAssertionMIGCopyStatus, 0, (CFTypeRef *)AssertionsStatus);
+}
+
+/******************************************************************************
+ * _copyPMServerObject
+ *
+ ******************************************************************************/
+__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, CFTypeRef *objectOut)
+{
+    IOReturn                return_code     = kIOReturnError;
+    kern_return_t           kern_result     = KERN_SUCCESS;
+    mach_port_t             pm_server       = MACH_PORT_NULL;
+    vm_offset_t             theResultsPtr   = 0;
+    mach_msg_type_number_t  theResultsCnt   = 0;
+    CFDataRef               theResultData   = NULL;
+
+    *objectOut = NULL;
+    
+    if(kIOReturnSuccess != (return_code = _pm_connect(&pm_server))) {
+        return kIOReturnNotFound;
+    }
+
+    kern_result = io_pm_assertion_copy_details(pm_server, assertionID, selector,
+                                             &theResultsPtr, &theResultsCnt, &return_code);
+
+    if(KERN_SUCCESS != kern_result) {
+        return kIOReturnInternalError;
+    }
+
+    if (return_code != kIOReturnSuccess)
+        return return_code;
+
+    if ((theResultData = CFDataCreate(0, (const UInt8 *)theResultsPtr, (CFIndex)theResultsCnt)))
+    {
+        *objectOut = CFPropertyListCreateWithData(0, theResultData, kCFPropertyListImmutable, NULL, NULL);
+        CFRelease(theResultData);
+    }
+
+    if (theResultsPtr && 0 != theResultsCnt) {
+        vm_deallocate(mach_task_self(), theResultsPtr, theResultsCnt);
+    }
+
+    if (MACH_PORT_NULL != pm_server) {
+        _pm_disconnect(pm_server);
+    }
+    
+    return kIOReturnSuccess;
 }
 

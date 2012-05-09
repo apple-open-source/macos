@@ -37,7 +37,8 @@ typedef enum {
     kDefaultAssertionFlag   = 0,
     kIdleAssertionFlag      = (1 << 0),
     kDisplayAssertionFlag   = (1 << 1),
-    kSystemAssertionFlag    = (1 << 2)
+    kSystemAssertionFlag    = (1 << 2),
+    kUserActiveAssertionFlag = (1 << 3)
 } AssertionFlag;
 
 typedef enum {
@@ -53,7 +54,8 @@ typedef struct {
 AssertionMapEntry assertionMap[] = {
     { kIdleAssertionFlag,       kIOPMAssertionTypePreventUserIdleSystemSleep },
     { kDisplayAssertionFlag,    kIOPMAssertionTypePreventUserIdleDisplaySleep },
-    { kSystemAssertionFlag,     kIOPMAssertionTypePreventSystemSleep}};
+    { kSystemAssertionFlag,     kIOPMAssertionTypePreventSystemSleep},
+    { kUserActiveAssertionFlag, kIOPMAssertionUserIsActive}};
 
 
 typedef struct {
@@ -67,7 +69,7 @@ static CFStringRef        kLocalizationBundlePath = CFSTR("/System/Library/CoreS
 
 #define kAssertionNameString    "caffeinate command-line tool"
 
-int createAssertions(const char *progname, AssertionFlag flags, PropertyFlag  propertyFlags);
+int createAssertions(const char *progname, AssertionFlag flags, PropertyFlag  propertyFlags, long timeout);
 void forkChild(char *argv[], AssertionFlag flag, PropertyFlag  propertyFlags);
 void usage(void);
 
@@ -77,8 +79,9 @@ main(int argc, char *argv[])
     AssertionFlag flags = kDefaultAssertionFlag;
     PropertyFlag  propFlags = kDefaultPropertyFlag;
     char ch;
+    long timeout = 0;
 
-    while ((ch = getopt(argc, argv, "dhisb")) != -1) {
+    while ((ch = getopt(argc, argv, "dhisbut:")) != -1) {
         switch((char)ch) {
             case 'd':
                 flags |= kDisplayAssertionFlag;
@@ -95,6 +98,17 @@ main(int argc, char *argv[])
             case 'b':
                 propFlags |= kAssertionOnBattFlag;
                 break;
+            case 'u':
+                flags |= kUserActiveAssertionFlag;
+                break;
+            case 't':
+                timeout = strtol(optarg, NULL,  0);
+                if (errno != 0) {
+                    usage();
+                    exit(1);
+                }
+                break;
+
             case '?':
             default:
                 usage();
@@ -110,8 +124,12 @@ main(int argc, char *argv[])
         argv += optind;
         (void) forkChild(argv, flags, propFlags);
     } else {
-        if (createAssertions(NULL, flags, propFlags)) {
+        if (createAssertions(NULL, flags, propFlags, timeout)) {
             exit(1);
+        }
+        if (timeout) {
+            sleep(timeout+5);
+            exit(0);
         }
     }
 
@@ -119,7 +137,7 @@ main(int argc, char *argv[])
 }
 
 int
-createAssertions(const char *progname, AssertionFlag flags, PropertyFlag propFlags)
+createAssertions(const char *progname, AssertionFlag flags, PropertyFlag propFlags, long timeout)
 {
     IOReturn result = 1;
     char assertionDetails[128];
@@ -134,6 +152,9 @@ createAssertions(const char *progname, AssertionFlag flags, PropertyFlag propFla
     if (progname) {
         (void)snprintf(assertionDetails, sizeof(assertionDetails),
             "caffeinate asserting on behalf of %s", progname);
+    } else if (timeout) {
+        (void)snprintf(assertionDetails, sizeof(assertionDetails),
+            "caffeinate asserting for %ld secs", timeout);
     } else {
         (void)snprintf(assertionDetails, sizeof(assertionDetails),
             "caffeinate asserting forever");
@@ -151,10 +172,14 @@ createAssertions(const char *progname, AssertionFlag flags, PropertyFlag propFla
         AssertionMapEntry *entry = assertionMap + i;
 
         if (!(flags & entry->assertionFlag)) continue;
+        if ( (entry->assertionFlag == kUserActiveAssertionFlag) && (timeout == 0))
+            timeout = 5;  /* Force a 5sec timeout on user active assertions */
 
         result = IOPMAssertionCreateWithDescription(entry->assertionType, 
                     CFSTR(kAssertionNameString), assertionDetailsString, 
-                    kHumanReadableReason, kLocalizationBundlePath, 0.0, NULL, &assertionID);
+                    kHumanReadableReason, kLocalizationBundlePath, 
+                    (CFTimeInterval)timeout, kIOPMAssertionTimeoutActionRelease, 
+                    &assertionID);
         
         if (result != kIOReturnSuccess) 
         {
@@ -201,7 +226,7 @@ forkChild(char *argv[], AssertionFlag flags, PropertyFlag propFlags)
             exit(1);
             /* NOTREACHED */
         case 0:     /* child */
-            if (createAssertions(*argv, flags, propFlags)) {
+            if (createAssertions(*argv, flags, propFlags, 0)) {
                 _exit(1);
             }
             execvp(*argv, argv);
@@ -235,6 +260,6 @@ forkChild(char *argv[], AssertionFlag flags, PropertyFlag propFlags)
 void
 usage(void)
 {
-    fprintf(stderr, "usage: caffeinate [-dis] [command] [arguments]\n");
+    fprintf(stderr, "usage: caffeinate [-disbu] [-t timeout] [command] [arguments]\n");
     return;
 }

@@ -162,10 +162,35 @@ __BEGIN_DECLS
  * @functiongroup Private Assertions
  */
 
+/*! 
+ * @constant    kIOPMAssertionTypeApplePushServiceTask
+ *
+ * @discussion  When active during a SleepServices wake, will keep the system awake, subject to
+ *              the sleep services time cap.
+ *
+ *              Except for running during SleepServices time, while a system is on battery power
+ *              a ApplePushServiceTask assertion cannot keep the machine in a higher power state.
+ *              e.g. An ApplePushServiceTask cannot prevent sleep if the system is on battery.
+ *
+ *              Awake Behavior on AC power: this assertion will force the system to stay awake. 
+ *
+ *              DarkWake Behavior on AC power: this assertion will force the system not to sleep;
+ *                  e.g. the system will stay in DarkWake as long as this assertion is held.
+ */
+#define kIOPMAssertionTypeApplePushServiceTask        CFSTR("ApplePushServiceTask")
+
+
 /*! A caller should assert kIOPMAssertionTypeDenySystemSleep to keep the
  * system on (in dark wake mode) when it would otherwise go to sleep.
+ * This is a synonym for the public assertion type <code>@link kIOPMAssertionTypePreventSystemSleep@/link</code>,
+ * Please prefer to use the public API instead of this one.
  */
 #define kIOPMAssertionTypeDenySystemSleep       CFSTR("DenySystemSleep")
+
+/* Assertion 'kIOPMAssertionUserIsActive' powers on the display and 
+ * prevents display from going dark.
+ */
+#define kIOPMAssertionUserIsActive            CFSTR("UserIsActive")
 
 #ifndef _OPEN_SORCE
 // When set; PM configd will ignore physical batteries, and instead
@@ -269,16 +294,27 @@ __BEGIN_DECLS
 
 
 
-/*
- * Assertion notify(3) string
- * Fires when an assertion times out
- * Call IOPMCopyTimedOutAssertions() for more details
+/*!
+ * @constant        kIOPMAssertionTimedOutNotifyString
+ * @discussion      Assertion notify(3) string
+ *                  Fires when an assertion times out.
+ *                  Call IOPMCopyTimedOutAssertions() for a list of timed-out assertions.
  */
 #define kIOPMAssertionTimedOutNotifyString          "com.apple.system.powermanagement.assertions.timeout"
 
-/*
- * Assertion notify(3) string
- * Fires when global assertion state changes
+/*!
+ * @constant        kIOPMAssertionsAnyChangedNotifyString
+ * @discussion      Assertion notify(3) string
+ *                  Fires when any individual assertion is created, released, or modified.
+ */
+#define kIOPMAssertionsAnyChangedNotifyString         "com.apple.system.powermanagement.assertions.anychange"
+
+
+/*!
+ * @constant        kIOPMAssertionsChangedNotifyString
+ * @discussion      Assertion notify(3) string
+ *                  Fires when global assertion levels change. This notification doesn't necessarily fire
+ *                  when any individual assertion is created, released, or modified.
  */
 #define kIOPMAssertionsChangedNotifyString          "com.apple.system.powermanagement.assertions"
 
@@ -840,6 +876,75 @@ IOReturn IOPMGetLastWakeTime(
  */
 IOReturn IOPMSleepWakeSetUUID(CFStringRef newUUID);
  
+ 
+/*!
+ *
+ * kIOPMSleepWakeUUID
+ * Argument to <code>@link IOPMGetUUID @/link</code>
+ *
+ * kIOPMSleepServicesUUID
+ * Argument to <code>@link IOPMGetUUID @/link</code>
+ *
+ */
+enum {
+    kIOPMSleepWakeUUID      = 1000,
+    kIOPMSleepServicesUUID  = 1001
+};
+
+/*! 
+ *  IOPMGetUUID
+ *  
+ *  Returns a C string that uniquely describes the "sleep interval"
+ *  that the system is in right now.
+ *
+ *  @param whichUUID      
+ *  The argument may be <code>kIOPMSleepWakeUUID</code>, to get the sleep/wake UUID,
+ *  or <code>kIOPMSleepServicesUUID</code> to get the sleep/wake UUID.
+ *
+ *  OS X creates a new SleepWakeUUID when the system goes to sleep. OS X clears
+ *  it several minutes after the system wakes from sleep. 
+ *  Every time OS X clears the SleepWakeUUID, it creates a new UUID. So there
+ *  are always valid SleepWake UUID's defined, even when the machine is awake.
+ *  Calls to <code>IOPMGetUUID()</code> for type <code>kIOPMSleepWakeUUID</code> 
+ *  should in all non-error cases return true, and return a valid UUID string 
+ *  in <code>putTheUUIDHere</code>. 
+ *
+ *  OS X creates a new SleepServiceUUID at the moment that process 
+ *  <code>SleepServiceD</code> decides that a given wakeup shall be bound by 
+ *  SleepService cap timers.
+ *  OS X clears the SleepServiceUUID when the system exits SleepServices.
+ *  At many points during a system's runtime, calling <code>IOPMGetUUID</code>
+ *  for <code>kIOPMSleepServicesUUID</code> may result in a return value
+ *  of false, and no string being copied into the passed-in buffer.
+ *
+ *  @param putTheUUIDHere
+ *  Caller provides a pointer to a buffer of sufficient size to receive 
+ *  a C string UUID. I recommend 100 bytes, because that's about 3x what
+ *  you should need. 
+ *
+ *  @param sizeOfBuffer
+ *  Caller must specify the size of the buffer they pass in as argument
+ *  <code>putTheUUIDHere</code>
+ *
+ *  @result
+ *  Returns true if successfully copied the UUID into the provided buffer.
+ *  Returns false if there was an error, or if there was no buffer.
+ *
+ *  @discussion
+ *  For example:
+ *          char my_buffer[100];
+ *
+ *          if(IOPMGetUUID(kIOPMSleepServicesUUID, my_buffer, sizeof(my_buffer)))
+ *          {
+ *              printf("my UUID is = %s", my_buffer);
+ *           } else {
+ *              printf("There is no such UUID defined right now.");
+ *          }
+ *  
+ */
+
+bool IOPMGetUUID(int whichUUID, char *putTheUUIDHere, int sizeOfBuffer);
+ 
 /*! IOPMSleepWakeCopyUUID
  *  Returns the active sleep wake UUID, if it exists.
  *  The returned UUID is only useful for logging events that occurred during
@@ -1306,8 +1411,66 @@ typedef void (*IOPMEventHandlerType)(
  */
 #define kIOPMAcknowledgmentOptionSystemCapabilityRequirements    CFSTR("Requirements")
 
+/*!
+ * @constant kIOPMAcknowledgementOptionSleepServiceDate
+ *
+ *  This string can be used as a key in the 'options' dictionary
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions, or as
+ *  an argument to IOPMSystemPowerStateSupportsAcknowledgementOption().
+ *
+ * Only sleepservicesd should pass this argument. Behavior if passed from any other process
+ * is undefined.
+ *
+ *  Passing this "Date" option lets a caller request a SleepServices wake
+ *  from the system at a later date. If possible, the system will wake
+ *  and perform SleepServices activity at the specified time.
+ *
+ *  This acknowledgement option is only valid when the system is transitioning into a
+ *  sleep state i.e. entering a state with 0 capabilities. 
+ *
+ */
+#define kIOPMAcknowledgementOptionSleepServiceDate              CFSTR("SleepServiceDate")
+
+/*!
+ * @constant kIOPMAcknowledgementOptionSleepServiceCapTimeout
+ *
+ *  This string can be used as a key in the 'options' dictionary
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions, or as
+ *  an argument to IOPMSystemPowerStateSupportsAcknowledgementOption().
+ *
+ * Please pass a CFNumber kCFNumberIntType, with a value in milliseconds. 
+ * e.g. Pass 120000 to specify a 2 minute cap.
+ *
+ * Only sleepservicesd should pass this argument. Behavior if passed from any other process
+ * is undefined.
+ *
+ *  Passing this "cap" option lets a caller specify how long a SleepServices wakeup
+ *  may last. PM will enforce that the system returns to sleep after this many milliseconds have elapsed.
+ *
+ *  This acknowledgement option is only valid when the system is transitioning into a
+ *  sleep state i.e. entering a state with 0 capabilities. 
+ *
+ */
+
+#define kIOPMAcknowledgeOptionSleepServiceCapTimeout            CFSTR("SleepServiceTimeout")
+
 /*****************************************************************************/
 /*****************************************************************************/
+
+
+/*!
+ * @function        IOPMConnectionGetSystemCapabilities
+ *
+ * @abstract        Gets the instantaneous system power capabilities.
+ *  
+ * @discussion      Checking the system capabilities can help distinguish whether the system is in DarkWake,
+ *                  UserActive wake, or if it's on the way to sleep.
+ *
+ * @result          A bitfield describing whether the system is asleep, awake, or in dark wake,
+ *                  using kIOPMSystemPowerStateCapability bits.
+ */
+
+IOPMSystemPowerStateCapabilities IOPMConnectionGetSystemCapabilities(void);
 
 
 /*!
@@ -1453,8 +1616,40 @@ IOReturn IOPMConnectionAcknowledgeEventWithOptions(
             ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
 
 
+/*! 
+ * kIOPMSleepServiceActiveNotifyName
+ *
+ * This API is optional; use <code>IOPMGetSleepServicesActive()</code> for thee easiest way
+ * to query this information.
+ * Listen for changes to the SleepServices state from 0 to 1 and from 1 to 0 on this notify bit.
+ * Powerd calls this notification when it enters and exits a SleepService waiting state.
+ */
+#define kIOPMSleepServiceActiveNotifyName   "com.apple.powermanagement.sleepservices"
+
+/*! 
+ * kIOPMSleepServiceActiveNotifyBit
+ * When set, this bit indicates the system is handling SleepServices work.
+ *
+ * You should probably use <code>IOPMGetSleepServicesActive</code> instead of this
+ * for the easiest way to query this state.
+ */
+#define kIOPMSleepServiceActiveNotifyBit    (1 << 0)
+
+/*!
+ * @function        IOPMGetSleepServicesActive
+ *
+ * @abstract        Checks whether we're staying awake to do SleepServices work at this instant.
+ *
+ * @result          Returns true starting after SleepServicesd communicates a SleepService Wakeup Cap time;
+ *                  and ending when that cap time expires.
+ */
+
+bool IOPMGetSleepServicesActive(void);
+
 
 __END_DECLS
+
+
 
 #endif // _IOPMLibPrivate_h_
 

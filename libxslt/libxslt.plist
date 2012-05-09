@@ -18,5 +18,9 @@
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>libxslt.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>rdar://problem/10746182</string>
+	</array>
 </dict>
 </plist>

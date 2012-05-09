@@ -22,13 +22,14 @@
  */
 
 #include <syslog.h>
-#include <syslog.h>
+#include <bsm/libbsm.h>
 #include "RepeatingAutoWake.h"
 #include "PrivateLib.h"
+#include "AutoWakeScheduler.h"
 
 /*
  * These are the days of the week as provided by
- * CFAbslouteTimeGetDayOfWeek()
+ * CFAbsoluteTimeGetDayOfWeek()
  *
 
 enum {
@@ -57,60 +58,10 @@ enum {
 
 */
 
-static CFDictionaryRef  currentRepeatingEvents = 0;
-static CFDictionaryRef  newRepeatingEvents = 0;
 static CFDictionaryRef  repeatingPowerOff = 0;
 static CFDictionaryRef  repeatingPowerOn = 0;
 
 
-//****************************
-// CANCEL PRE-SCHEDULED EVENTS
-static IOReturn 
-cancelAllRepeatingEvents(void)
-{
-
-    CFArrayRef              list = 0;
-    CFDictionaryRef         scheduled_event;
-    CFDateRef               scheduled_time;
-    CFStringRef             scheduled_scheduler;
-    CFStringRef             scheduled_type;
-    IOReturn                ret = kIOReturnSuccess;
-    int i, count;    
-
-    list = IOPMCopyScheduledPowerEvents();
-    if(!list || (0==CFArrayGetCount(list))) {
-        ret = kIOReturnSuccess;
-        goto exit;
-    }
-
-    // scan the list of power events and remove each one scheduled by "Repeating"
-    count = CFArrayGetCount(list);
-    for(i=0; i<count; i++)
-    {
-        scheduled_event = CFArrayGetValueAtIndex(list, i);
-        if(!isA_CFDictionary(scheduled_event)) continue;
-        scheduled_scheduler = isA_CFString(CFDictionaryGetValue(scheduled_event,
-                                CFSTR(kIOPMPowerEventAppNameKey)));
-        if( scheduled_scheduler 
-            && CFEqual(scheduled_scheduler, CFSTR("Repeating")) )
-        {
-            scheduled_time = CFDictionaryGetValue( scheduled_event,
-                                            CFSTR(kIOPMPowerEventTimeKey));
-            scheduled_type = CFDictionaryGetValue( scheduled_event,     
-                                            CFSTR(kIOPMPowerEventTypeKey));
-            ret = IOPMCancelScheduledPowerEvent( scheduled_time, 
-                                    scheduled_scheduler, scheduled_type);
-            if(kIOReturnSuccess!=ret)
-            {
-                //goto exit;
-            }
-        }
-    }
-    
-    exit:
-    if(list) CFRelease(list);
-    return ret;
-}
 
 static bool 
 is_valid_repeating_dictionary(CFDictionaryRef   event)
@@ -254,54 +205,48 @@ daysUntil(CFDictionaryRef event, int today_cf_day_of_week)
     return check;
 }
 
-/*
- * _eventAlreadyScheduled
- *
- * returns true if there's already an event of this (date, name, type) 
- * active scheduled
+
+/* 
+ * Copy Events from on-disk file. We should be doing this only
+ * once, at start of the powerd.
  */
-static bool
-_eventAlreadyScheduled(CFDateRef ev_date, CFStringRef app_name, CFStringRef event_type)
+static void
+copyScheduledRepeatPowerEvents(void)
 {
-    CFArrayRef              all_events = NULL;
-    CFDictionaryRef         this_event = NULL;
-    int                     i;
-    int                     count;
-    bool                    ret = false;
-    CFStringRef             keys[3];
-    CFTypeRef               vals[3];
-    CFDictionaryRef         new_event = NULL;
+    SCPreferencesRef        prefs;
+    CFDictionaryRef         tmp;
+   
+    prefs = SCPreferencesCreate(0, 
+                               CFSTR("PM-configd-AutoWake"),
+                                CFSTR(kIOPMAutoWakePrefsPath));
+    if(!prefs) return;
 
-    keys[0] = CFSTR(kIOPMPowerEventTimeKey);
-    vals[0] = ev_date;
-    keys[1] = CFSTR(kIOPMPowerEventAppNameKey);
-    vals[1] = app_name; //CFSTR("Repeating");
-    keys[2] = CFSTR(kIOPMPowerEventTypeKey);
-    vals[2] = event_type; //getRepeatingDictionaryType(event);    
-    new_event = CFDictionaryCreate(0, (const void **)keys, (const void **)vals, 3,
-            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if(!new_event) goto exit;
+    if (repeatingPowerOff) CFRelease(repeatingPowerOff);
+    if (repeatingPowerOn) CFRelease(repeatingPowerOn);
 
-    all_events = IOPMCopyScheduledPowerEvents();
-    if(!all_events) goto exit;
+    tmp = (CFDictionaryRef)SCPreferencesGetValue(prefs, CFSTR(kIOPMRepeatingPowerOffKey));
+    if (tmp && isA_CFDictionary(tmp))
+        repeatingPowerOff = CFDictionaryCreateMutableCopy(0,0,tmp);
 
-    count = CFArrayGetCount(all_events);
-    for(i=0; i<count; i++)
-    {
-        this_event = CFArrayGetValueAtIndex(all_events, i);    
-        if(CFEqual(this_event, new_event)) ret = true;
-    }
-exit:
-    if(new_event) CFRelease(new_event);
-    if(all_events) CFRelease(all_events);    
-    return ret;
+    tmp = (CFDictionaryRef)SCPreferencesGetValue(prefs, CFSTR(kIOPMRepeatingPowerOnKey));
+    if (tmp && isA_CFDictionary(tmp))
+        repeatingPowerOn = CFDictionaryCreateMutableCopy(0,0,tmp);
+
+    CFRelease(prefs);
 }
 
-
-// scheduleNextRepeatingEvent
-static void
-scheduleNextRepeatingEvent(CFDictionaryRef   event)
+/*
+ * Returns a copy of repeat event after changing the repeat date
+ * into next event date.
+ *
+ * Caller is responsible for releasing the copy after use.
+ */
+__private_extern__ CFDictionaryRef
+copyNextRepeatingEvent(CFStringRef type)
 {
+    CFDictionaryRef         repeatDict = NULL;
+    CFStringRef             repeatDictType = NULL;
+    CFMutableDictionaryRef  repeatDictCopy = NULL;
     CFGregorianDate         greg;
     CFTimeZoneRef           tizzy;
     CFAbsoluteTime          ev_time;
@@ -310,145 +255,291 @@ scheduleNextRepeatingEvent(CFDictionaryRef   event)
     int                     minutes_scheduled;
     int                     cf_day_of_week;
 
-    if(!event) return;
-    
-    tizzy = CFTimeZoneCopySystem();
-
-    // Massage the scheduled time into today's date
-    cf_day_of_week = CFAbsoluteTimeGetDayOfWeek(
-            CFAbsoluteTimeGetCurrent(), tizzy);
-    days = daysUntil(event, cf_day_of_week);
-
-    greg = CFAbsoluteTimeGetGregorianDate(
-                    CFAbsoluteTimeGetCurrent() + days*(60*60*24), 
-                    tizzy);
-                            
-    minutes_scheduled = getRepeatingDictionaryMinutes(event);
-
-    greg.hour = minutes_scheduled/60;
-    greg.minute = minutes_scheduled%60;
-    greg.second = 0.0;
-    
-    ev_time = CFGregorianDateGetAbsoluteTime(greg, tizzy);
-    ev_date = CFDateCreate(kCFAllocatorDefault, ev_time);
-    
-    // Make sure that we haven't already scheduled a repeating event
-    // for exactly this purpose. Only schedule a new one-time event
-    // if there isn't one already on the books.
-    if( !_eventAlreadyScheduled(ev_date, CFSTR("Repeating"), 
-            getRepeatingDictionaryType(event)) ) 
-    { 
-        IOPMSchedulePowerEvent(ev_date, CFSTR("Repeating"), 
-                getRepeatingDictionaryType(event));
-    }
-    
-    CFRelease(ev_date);
-    CFRelease(tizzy);
-}
-
-//************************************
-//*** CALLBACKS FROM AutoWakeScheduler.c
-//************************************
-__private_extern__ void 
-RepeatingAutoWakeRepeatingEventOcurred(CFDictionaryRef event)
-{
-    CFStringRef         type = getRepeatingDictionaryType(event);
-
-    if(!type) return;
-    
+    /*
+     * 'WakeOrPowerOn' repeat events are returned when caller asks
+     * for 'Wake' events or 'PowerOn' events.
+     * Don't bother to return anything if caller is looking specifically for
+     * WakeOrPowerOn type repeat events.
+     */
     if( CFEqual(type, CFSTR(kIOPMAutoSleep))
-        || CFEqual(type, CFSTR(kIOPMAutoShutdown)) )
+        || CFEqual(type, CFSTR(kIOPMAutoShutdown)) ||
+        CFEqual(type, CFSTR(kIOPMAutoRestart)) )
     {
-        // Schedule tomorrow's shutdown
-        scheduleNextRepeatingEvent(repeatingPowerOff);
-    } else {
-        // Schedule tomorrow's wake
-        scheduleNextRepeatingEvent(repeatingPowerOn);
+        repeatDict = repeatingPowerOff;
+    }
+    else if (
+        CFEqual(type, CFSTR(kIOPMAutoPowerOn)) ||
+        CFEqual(type, CFSTR(kIOPMAutoWake)) )
+    {
+        repeatDict = repeatingPowerOn;
+    }
+    else
+        return NULL;
+
+    repeatDictType = getRepeatingDictionaryType(repeatDict);
+    if (CFEqual(type, repeatDictType) ||
+            ( (CFEqual(repeatDictType, CFSTR(kIOPMAutoWakeOrPowerOn))) &&
+              (CFEqual(type, CFSTR(kIOPMAutoPowerOn)) || CFEqual(type, CFSTR(kIOPMAutoWake)))
+            )
+       )
+    {
+        repeatDictCopy = CFDictionaryCreateMutableCopy(0,0,repeatDict);
+
+        tizzy = CFTimeZoneCopySystem();
+
+        // Massage the scheduled time into today's date
+        cf_day_of_week = CFAbsoluteTimeGetDayOfWeek(
+                CFAbsoluteTimeGetCurrent(), tizzy);
+        days = daysUntil(repeatDict, cf_day_of_week);
+
+        greg = CFAbsoluteTimeGetGregorianDate(
+                        CFAbsoluteTimeGetCurrent() + days*(60*60*24), 
+                        tizzy);
+                                
+        minutes_scheduled = getRepeatingDictionaryMinutes(repeatDict);
+
+        greg.hour = minutes_scheduled/60;
+        greg.minute = minutes_scheduled%60;
+        greg.second = 0.0;
+        
+        ev_time = CFGregorianDateGetAbsoluteTime(greg, tizzy);
+        ev_date = CFDateCreate(kCFAllocatorDefault, ev_time);
+ 
+        CFDictionarySetValue(repeatDictCopy, CFSTR(kIOPMPowerEventTimeKey),
+                ev_date);
+
+        /* Set 'AppNameKey' to 'Repeating' */
+        CFDictionarySetValue(repeatDictCopy, CFSTR(kIOPMPowerEventAppNameKey),
+                CFSTR(kIOPMRepeatingAppName));
+        CFRelease(ev_date);
+        CFRelease(tizzy);
     }
 
-    return;
+    return repeatDictCopy;
 }
 
-//************************************
-//************************************
-
-__private_extern__ void 
-RepeatingAutoWakePrefsHaveChanged(void)
-{
-    // Grab the new prefs off disk
-    newRepeatingEvents = IOPMCopyRepeatingPowerEvents();
-
-    // Check whether the repeating prefs have changed, or if it's just
-    // an otherwise scheduled automatic power-on event
-    if(newRepeatingEvents && currentRepeatingEvents &&
-        CFEqual(newRepeatingEvents, currentRepeatingEvents))
-    {
-        // Repeating prefs have not changed - bail immediately
-        CFRelease(newRepeatingEvents);
-        return;
-    } else {
-        // maybe the new ones are NULL, and were NULL before?
-        if(!newRepeatingEvents && !currentRepeatingEvents) return;
-    }
-
-    // At this point, newRepeatingEvents exists and is valid, 
-    // and currentRepeatingEvents exists and is valid,
-    // And they're separate things
-
-    // wipe the slate clean
-    if(currentRepeatingEvents) 
-    {
-        CFRelease(currentRepeatingEvents);
-        currentRepeatingEvents = 0;
-    }
-    currentRepeatingEvents = newRepeatingEvents;
-
-    cancelAllRepeatingEvents();
-    
-    repeatingPowerOff = NULL;
-    repeatingPowerOn = NULL;
-    
-    if(!currentRepeatingEvents) return;
-
-    repeatingPowerOff = isA_CFDictionary(CFDictionaryGetValue(
-                                currentRepeatingEvents, 
-                                CFSTR(kIOPMRepeatingPowerOffKey)));
-    repeatingPowerOn = isA_CFDictionary(CFDictionaryGetValue(
-                                currentRepeatingEvents, 
-                                CFSTR(kIOPMRepeatingPowerOnKey)));
-
-    if( !is_valid_repeating_dictionary(repeatingPowerOff) 
-     || !is_valid_repeating_dictionary(repeatingPowerOn) )
-    {
-        syslog(LOG_INFO, "PMCFGD: Invalid formatted repeating power event dictionary\n");
-        return;
-    }
-    
-    // Valid structured file... proceeding
-
-    scheduleNextRepeatingEvent(repeatingPowerOn);
-    scheduleNextRepeatingEvent(repeatingPowerOff);
-}
-
-__private_extern__ void
-RepeatingAutoWakeSleepWakeNotification(natural_t messageType, int runState)
-{
-    if ((kIOMessageSystemHasPoweredOn == messageType)
-        && (kRStateNormal == runState))
-    {
-        /* System sleep robs time from CFTimers!
-         * On wake from sleep, reschedule all of our pending repeating
-         * power requests.
-         */
-        scheduleNextRepeatingEvent(repeatingPowerOn);    
-        scheduleNextRepeatingEvent(repeatingPowerOff);
-    }
-}
 
 __private_extern__ void 
 RepeatingAutoWake_prime(void)
 {
-    // We can get away just doing the same 
-    // thing we do when the prefs file changes.
-    RepeatingAutoWakePrefsHaveChanged();    
+    copyScheduledRepeatPowerEvents( );
+
+}
+
+static IOReturn
+updateRepeatEventsOnDisk(SCPreferencesRef prefs)
+{
+    IOReturn ret = kIOReturnSuccess;
+
+    if (repeatingPowerOn) {
+        if(!SCPreferencesSetValue(prefs, CFSTR(kIOPMRepeatingPowerOnKey), repeatingPowerOn)) 
+        {
+            ret = kIOReturnError;
+            goto exit;
+        }
+    }
+    else SCPreferencesRemoveValue(prefs, CFSTR(kIOPMRepeatingPowerOnKey));
+
+
+    if (repeatingPowerOff) {
+        if(!SCPreferencesSetValue(prefs, CFSTR(kIOPMRepeatingPowerOffKey), repeatingPowerOff)) 
+        {
+            ret = kIOReturnError;
+            goto exit;
+        }
+    }
+    else SCPreferencesRemoveValue(prefs, CFSTR(kIOPMRepeatingPowerOffKey));
+
+    if(!SCPreferencesCommitChanges(prefs))
+    {
+        ret = kIOReturnError;
+        goto exit;
+    }
+
+exit:
+    return ret;
+}
+
+kern_return_t
+_io_pm_schedule_repeat_event
+(
+    mach_port_t             server __unused,
+    audit_token_t           token,
+    vm_offset_t             flatPackage,
+    mach_msg_type_number_t  packageLen,
+    int                     action,
+    int                     *return_code
+)
+{
+    CFDictionaryRef     events = NULL;
+    CFDictionaryRef     offEvents = NULL;
+    CFDictionaryRef     onEvents = NULL;
+    CFDataRef           dataRef = NULL;
+    uid_t               callerEUID;
+    SCPreferencesRef    prefs = 0;
+    CFStringRef         prevOffType = NULL;
+    CFStringRef         prevOnType = NULL;
+    CFStringRef         newOffType = NULL;
+    CFStringRef         newOnType = NULL;
+
+
+    *return_code = kIOReturnSuccess;
+
+    audit_token_to_au32(token, NULL, &callerEUID, NULL, NULL, NULL, NULL, NULL, NULL);
+
+    dataRef = CFDataCreate(0, (const UInt8 *)flatPackage, packageLen);
+    if (dataRef) {
+        events = (CFDictionaryRef)CFPropertyListCreateWithData(0, dataRef, 0, NULL, NULL); 
+    }
+
+    if (!events) {
+        *return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+    offEvents = isA_CFDictionary(CFDictionaryGetValue(
+                                events, 
+                                CFSTR(kIOPMRepeatingPowerOffKey)));
+    onEvents = isA_CFDictionary(CFDictionaryGetValue(
+                                events, 
+                                CFSTR(kIOPMRepeatingPowerOnKey)));
+
+    if( !is_valid_repeating_dictionary(offEvents) 
+     || !is_valid_repeating_dictionary(onEvents) )
+    {
+        syslog(LOG_INFO, "PMCFGD: Invalid formatted repeating power event dictionary\n");
+        *return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    if((*return_code = createSCSession(&prefs, callerEUID, 1)) != kIOReturnSuccess)
+        goto exit;
+
+
+    /* Need to take a retain on these strings as these dictionaries get released below */
+    prevOffType =  getRepeatingDictionaryType(repeatingPowerOff); CFRetain(prevOffType);
+    prevOnType = getRepeatingDictionaryType(repeatingPowerOn); CFRetain(prevOnType);
+
+    /*
+     * Remove both off & on events first. If off or on event is not set thru this request,
+     * then it is assumed that user is requesting to delete it.
+     */
+    if (repeatingPowerOff && isA_CFDictionary(repeatingPowerOff))
+        CFRelease(repeatingPowerOff); 
+    if (repeatingPowerOn && isA_CFDictionary(repeatingPowerOn))
+        CFRelease(repeatingPowerOn); 
+
+    repeatingPowerOff = repeatingPowerOn = NULL;
+
+
+    if (offEvents) {
+        repeatingPowerOff = CFDictionaryCreateMutableCopy(0,0,offEvents);
+    }
+    if (onEvents) {
+        repeatingPowerOn = CFDictionaryCreateMutableCopy(0,0,onEvents);
+    }
+
+
+    if ((*return_code = updateRepeatEventsOnDisk(prefs)) != kIOReturnSuccess)
+        goto exit;
+
+    newOffType = getRepeatingDictionaryType(repeatingPowerOff);
+    newOnType = getRepeatingDictionaryType(repeatingPowerOn);
+
+
+    /* 
+     * Re-schedule the modified event types in case these new events are earlier
+     * than previously scheduled ones
+     */
+    schedulePowerEventType(prevOffType);
+    schedulePowerEventType(prevOnType);
+
+    if (!CFEqual(prevOffType, newOffType))
+        schedulePowerEventType(newOffType);
+
+    if (!CFEqual(prevOnType, newOnType))
+        schedulePowerEventType(newOnType);
+
+
+exit:
+    if (prevOffType)
+        CFRelease(prevOffType);
+    if (prevOnType)
+        CFRelease(prevOnType);
+
+    if (dataRef)
+        CFRelease(dataRef);
+    if (events)
+        CFRelease(events);
+    destroySCSession(prefs, 1);
+
+    vm_deallocate(mach_task_self(), flatPackage, packageLen);
+
+    return KERN_SUCCESS;
+}
+
+
+kern_return_t
+_io_pm_cancel_repeat_events
+(
+    mach_port_t             server __unused,
+    audit_token_t           token,
+    int                     *return_code
+)
+{
+
+    SCPreferencesRef    prefs = 0;
+    uid_t               callerEUID;
+    CFStringRef         offType, onType;
+
+    *return_code = kIOReturnSuccess;
+
+    audit_token_to_au32(token, NULL, &callerEUID, NULL, NULL, NULL, NULL, NULL, NULL);
+
+    if((*return_code = createSCSession(&prefs, callerEUID, 1)) != kIOReturnSuccess)
+        goto exit;
+
+
+    /* Need to take a retain on these strings as these dictionaries get release below */
+    offType = getRepeatingDictionaryType(repeatingPowerOff); CFRetain(offType);
+    onType = getRepeatingDictionaryType(repeatingPowerOn); CFRetain(onType);
+
+    if (repeatingPowerOff && isA_CFDictionary(repeatingPowerOff))
+        CFRelease(repeatingPowerOff); 
+    if (repeatingPowerOn && isA_CFDictionary(repeatingPowerOn))
+        CFRelease(repeatingPowerOn); 
+
+    repeatingPowerOff = repeatingPowerOn = NULL;
+
+    if ((*return_code = updateRepeatEventsOnDisk(prefs)) != kIOReturnSuccess)
+        goto exit;
+
+    schedulePowerEventType(offType);
+    schedulePowerEventType(onType);
+
+exit:
+
+    if (offType)
+        CFRelease(offType);
+    if (onType)
+        CFRelease(onType);
+    destroySCSession(prefs, 1);
+
+    return KERN_SUCCESS;
+}
+
+__private_extern__ CFDictionaryRef copyRepeatPowerEvents( )
+{
+
+    CFMutableDictionaryRef  return_dict = NULL;
+
+    return_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 2, 
+            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks); 
+
+    if (repeatingPowerOn && isA_CFDictionary(repeatingPowerOn))
+        CFDictionaryAddValue(return_dict, CFSTR(kIOPMRepeatingPowerOnKey), repeatingPowerOn);     
+
+    if (repeatingPowerOff && isA_CFDictionary(repeatingPowerOff))
+        CFDictionaryAddValue(return_dict, CFSTR(kIOPMRepeatingPowerOffKey), repeatingPowerOff);     
+
+    return return_dict;
 }

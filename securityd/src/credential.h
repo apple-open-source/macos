@@ -39,9 +39,9 @@ class CredentialImpl : public RefCount
 {
 public:
 		CredentialImpl();
-        CredentialImpl(const uid_t uid, const string &username, const string &realname, const string &groupname, bool shared);
+        CredentialImpl(const uid_t uid, const string &username, const string &realname, bool shared);
         CredentialImpl(const string &username, const string &password, bool shared);
-		CredentialImpl(const string &right, const uid_t uid, bool shared);
+		CredentialImpl(const string &right, bool shared);
         ~CredentialImpl();
 
         bool operator < (const CredentialImpl &other) const;
@@ -63,28 +63,20 @@ public:
 
         // We could make Rule a friend but instead we just expose this for now
         inline const uid_t uid() const { return mUid; }
-        inline const string& username() const { return mUserName; }
+        inline const string& name() const { return mName; }
         inline const string& realname() const { return mRealName; }
-		inline const bool isRight() const { return mRight; }
-    inline const string &rightname() const { return mRightName; }
-    inline const string &groupname() const { return mGroupName; }
-    
-    // sometimes the Credential exists before we've validated it, so we need
-    // a setter for group name
-    inline void setGroupname(const string &group)  { mGroupName = group; }
+        inline const bool isRight() const { return mRight; }
     
 private:
         bool mShared;       // credential is shared
-    bool mRight;            // is least-privilege credential
-    string mRightName;      // least-privilege name
-    string mGroupName;      // if it's not least-priv, it boils down to 
-                            // user-in-group
+        bool mRight;            // is least-privilege credential
+
 
         // Fields below are not used by less-than operator
 
         // The user that provided his password.
         uid_t mUid;
-        string mUserName;
+        string mName;
         string mRealName;
 
         CFAbsoluteTime mCreationTime;
@@ -97,9 +89,9 @@ class Credential : public RefPointer<CredentialImpl>
 public:
         Credential();
         Credential(CredentialImpl *impl);
-        Credential(const uid_t uid, const string &username, const string &realname, const string &groupname, bool shared);
+        Credential(const uid_t uid, const string &username, const string &realname, bool shared);
         Credential(const string &username, const string &password, bool shared);
-		Credential(const string &right, const uid_t uid, bool shared);		
+		Credential(const string &right, bool shared);		
         ~Credential();
 
         bool operator < (const Credential &other) const;

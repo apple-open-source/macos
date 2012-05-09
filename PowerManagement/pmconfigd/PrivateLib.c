@@ -31,20 +31,30 @@
 #include <syslog.h>
 #include <unistd.h>
 #include <asl.h>
+#include <membership.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include "PrivateLib.h"
 #include "BatteryTimeRemaining.h"
 
+#if !TARGET_OS_EMBEDDED    
+#include <IOKit/smc/SMCUserClient.h>
+#endif /* TARGET_OS_EMBEDDED */
+
 #ifndef kIOHIDIdleTimeKy
-#define kIOHIDIdleTimeKey                   "HIDIdleTime"
+#define kIOHIDIdleTimeKey                               "HIDIdleTime"
 #endif
 
 #ifndef kIOPMMaintenanceScheduleImmediate
-#define kIOPMMaintenanceScheduleImmediate   "MaintenanceImmediate"
+#define kIOPMMaintenanceScheduleImmediate               "MaintenanceImmediate"
 #endif
 
-#define kIOPMRootDomainWakeReasonKey        "Wake Reason"
-#define kIOPMRootDomainWakeTypeKey          "Wake Type"
+#ifndef kIOPMSettingSleepServiceWakeCalendarKey
+#define kIOPMSettingSleepServiceWakeCalendarKey         "SleepServiceWakeCalendarDate"
+#endif
 
+#define kIOPMRootDomainWakeReasonKey                    "Wake Reason"
+#define kIOPMRootDomainWakeTypeKey                      "Wake Type"
 
 enum
 {
@@ -124,7 +134,7 @@ static IOPMBattery         **simulatedBatteriesArray = NULL;
 // dynamicStoreNotifyCallBack is defined in pmconfigd.c
 // is not defined in pmset! so we don't compile this code in pmset.
 
-extern SCDynamicStoreRef    gSCDynamicStore;
+extern SCDynamicStoreRef                gSCDynamicStore;
 
 __private_extern__ SCDynamicStoreRef _getSharedPMDynamicStore(void)
 {
@@ -221,15 +231,13 @@ _getSleepReason(
 							kCFAllocatorDefault, 0);
 
 	if (sleepReasonString) {
-		if (!CFStringGetCString(sleepReasonString, buf, buflen, 
-								kCFStringEncodingUTF8)) 
+		if (CFStringGetCString(sleepReasonString, buf, buflen, 
+								kCFStringEncodingUTF8) && buf[0]) 
 		{
-			goto exit;
+       ret = true;
 		}
 
-		ret = true;
 	}
-exit:
 	if (sleepReasonString) CFRelease(sleepReasonString);
 	return ret;
 }
@@ -742,10 +750,11 @@ static bool powerString(char *powerBuf, int bufSize)
                 capPercent += (batteries[i]->currentCap * 100) / batteries[i]->maxCap;        
             }
         }
-        snprintf(powerBuf, bufSize, "%s %d", 
-               batteries[0]->externalConnected ? "AC":"BATT", capPercent);
+        snprintf(powerBuf, bufSize, "%s \(Charge:%d%%)", 
+               batteries[0]->externalConnected ? "Using AC":"Using BATT", capPercent);
         return true;
     } else {
+        snprintf(powerBuf, bufSize, "Using AC"); 
         return false;
     }
 }
@@ -753,7 +762,6 @@ static bool powerString(char *powerBuf, int bufSize)
 __private_extern__ void logASLMessageSleep(
     const char *sig, 
     const char *uuidStr, 
-    CFAbsoluteTime date,
     const char *failureStr
 )
 {
@@ -765,7 +773,6 @@ __private_extern__ void logASLMessageSleep(
     char                    numbuf[15];
     bool                    success = true;
     char                    messageString[200];
-    bool                    showBatteries = false;
     const char *            detailString = NULL;
 
     startMsg = asl_new(ASL_TYPE_MSG);
@@ -789,7 +796,7 @@ __private_extern__ void logASLMessageSleep(
         // Value == Sleep Cycles Count
         // Note: unknown on the failure case, so we won't publish the sleep count
         // unless sig == success
-        snprintf(numbuf, 10, "%d", sleepCyclesCount++);
+        snprintf(numbuf, 10, "%d", ++sleepCyclesCount);
         asl_set(startMsg, kMsgTracerValueKey, numbuf);
     }
     
@@ -803,13 +810,14 @@ __private_extern__ void logASLMessageSleep(
         asl_set(startMsg, kMsgTracerUUIDKey, uuidString);
     }
 
-    showBatteries = powerString(powerLevelBuf, sizeof(powerLevelBuf));
+    powerString(powerLevelBuf, sizeof(powerLevelBuf));
 
-    snprintf(messageString, sizeof(messageString), "Sleep: %s - %s%s%s\n", sig, 
-                                showBatteries ? powerLevelBuf: "AC",
-                                detailString ? " - ":"",
-                                detailString ? detailString:"");
+    snprintf(messageString, sizeof(messageString), "%s: %s \n",
+          detailString ? detailString : "Sleep",
+          powerLevelBuf);
+
     asl_set(startMsg, ASL_KEY_MSG, messageString);
+
     
     asl_set(startMsg, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
     asl_set(startMsg, kPMASLMessageKey, kPMASLMessageLogValue);
@@ -866,25 +874,33 @@ __private_extern__ void logASLMessageFilteredFailure(
 __private_extern__ void logASLMessageWake(
     const char *sig, 
     const char *uuidStr, 
-    CFAbsoluteTime date, 
-    const char *failureStr
+    const char *failureStr,
+    int dark_wake
 )
 {
     aslmsg                  startMsg;
-    char                    uuidString[150];
+    char                    buf[200];
     bool                    success = true;
     char                    powerLevelBuf[50];
-    char                    messageString[200];
     char                    wakeReasonBuf[50];
     const char *            detailString = NULL;
-    bool                    showBatteries = false;
+    static int              darkWakeCnt = 0;
+    char                    numbuf[15];
+    static char             prev_uuid[50];
     uint32_t                hstate = 0;
 
     startMsg = asl_new(ASL_TYPE_MSG);
     
-    asl_set(startMsg, kMsgTracerDomainKey, kMsgTracerDomainPMWake);
 
     asl_set(startMsg, kMsgTracerSignatureKey, sig);    
+    if (_getUUIDString(buf, sizeof(buf))) {
+        asl_set(startMsg, kMsgTracerUUIDKey, buf);    
+        if (strncmp(buf, prev_uuid, sizeof(prev_uuid))) {
+              // New sleep/wake cycle.
+              snprintf(prev_uuid, sizeof(prev_uuid), "%s", buf);
+              darkWakeCnt = 0;
+        }
+    }
 
     if (!strncmp(sig, kMsgTracerSigSuccess, sizeof(kMsgTracerSigSuccess)))
     {
@@ -896,30 +912,38 @@ __private_extern__ void logASLMessageWake(
         detailString = failureStr;
     }
 
-    if (_getUUIDString(uuidString, sizeof(uuidString))) {
-        asl_set(startMsg, kMsgTracerUUIDKey, uuidString);    
-    }
-    
-    showBatteries = powerString(powerLevelBuf, sizeof(powerLevelBuf));
-    if (_getHibernateState(&hstate) && (hstate == kIOHibernateStateWakingFromHibernate) ) 
+    powerString(powerLevelBuf, sizeof(powerLevelBuf));
+    buf[0] = 0;
+
+    if (dark_wake == kIsDarkWake) 
     {
-       snprintf(messageString, sizeof(messageString), "Wake from Standby: %s - %s%s%s\n", sig,
-                            showBatteries ? powerLevelBuf: "AC",
-                            detailString ? " - ":"",
-                            detailString ? detailString:"");
+       asl_set(startMsg, kMsgTracerDomainKey, kMsgTracerDomainPMDarkWake);
+       snprintf(buf, sizeof(buf), "%s", "DarkWake");
+       darkWakeCnt++;
+       snprintf(numbuf, sizeof(numbuf), "%d", darkWakeCnt);
+       asl_set(startMsg, kMsgTracerValueKey, numbuf);
     }
     else
     {
-
-        snprintf(messageString, sizeof(messageString), "Wake: %s - %s%s%s\n", sig,
-                            showBatteries ? powerLevelBuf: "AC",
-                            detailString ? " - ":"",
-                            detailString ? detailString:"");
+       asl_set(startMsg, kMsgTracerDomainKey,kMsgTracerDomainPMWake);
+       snprintf(buf, sizeof(buf), "%s", "Wake");
     }
-    asl_set(startMsg, ASL_KEY_MSG, messageString);
+
+    if (_getHibernateState(&hstate) && (hstate == kIOHibernateStateWakingFromHibernate) ) 
+    {
+       snprintf(buf, sizeof(buf), "%s from Standby", buf);
+    }
+
+    snprintf(buf, sizeof(buf), "%s %s %s: %s\n", buf,
+          detailString ? "due to" : "",
+          detailString ? detailString : "",
+          powerLevelBuf);
+
+    asl_set(startMsg, ASL_KEY_MSG, buf);
 
     asl_set(startMsg, kMsgTracerResultKey, 
                     success ? kMsgTracerResultSuccess : kMsgTracerResultFailure);
+
 
     asl_set(startMsg, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
 
@@ -927,9 +951,7 @@ __private_extern__ void logASLMessageWake(
     asl_send(NULL, startMsg);
     asl_free(startMsg);
 
-    // Log hibernation stats if coming out of standby mode
-    if (hstate == kIOHibernateStateWakingFromHibernate)
-       logASLMessageHibernateStatistics( );
+    logASLMessageHibernateStatistics( );
 }
 
 /*****************************************************************************/
@@ -983,11 +1005,14 @@ __private_extern__ void logASLMessageHibernateStatistics(void)
     aslmsg                  statsMsg;
     CFDataRef               statsData = NULL;
     PMStatsStruct           *stats = NULL;
-    uint64_t                writeHIBImageMS = 0;
     uint64_t                readHIBImageMS = 0;
+    uint64_t                writeHIBImageMS = 0;
     CFNumberRef             hibernateModeNum = NULL;
+    CFNumberRef             hibernateDelayNum = NULL;
     int                     hibernateMode = 0;
     char                    valuestring[25];
+    int                     hibernateDelay = 0;
+    char                    buf[100];
     char                    uuidString[150];
 
     hibernateModeNum = (CFNumberRef)_copyRootDomainProperty(CFSTR(kIOHibernateModeKey));
@@ -995,6 +1020,12 @@ __private_extern__ void logASLMessageHibernateStatistics(void)
         goto exit;
     CFNumberGetValue(hibernateModeNum, kCFNumberIntType, &hibernateMode);
     CFRelease(hibernateModeNum);
+
+    hibernateDelayNum= (CFNumberRef)_copyRootDomainProperty(CFSTR(kIOPMDeepSleepDelayKey));
+    if (!hibernateDelayNum)
+        goto exit;
+    CFNumberGetValue(hibernateDelayNum, kCFNumberIntType, &hibernateDelay);
+    CFRelease(hibernateDelayNum);
 
     statsData = (CFDataRef)_copyRootDomainProperty(CFSTR(kIOPMSleepStatisticsKey));
     if (!statsData || !(stats = (PMStatsStruct *)CFDataGetBytePtr(statsData)))
@@ -1006,6 +1037,10 @@ __private_extern__ void logASLMessageHibernateStatistics(void)
         readHIBImageMS =(stats->hibRead.stop - stats->hibRead.start)/1000000UL;
     
         CFRelease(statsData);
+
+        /* Hibernate image is not generated on every sleep for some h/w */
+        if ( !writeHIBImageMS && !readHIBImageMS)
+            goto exit;
     }
     
     statsMsg = asl_new(ASL_TYPE_MSG);
@@ -1020,22 +1055,18 @@ __private_extern__ void logASLMessageHibernateStatistics(void)
 
     snprintf(valuestring, sizeof(valuestring), "hibernatemode=%d", hibernateMode);
     asl_set(statsMsg, kMsgTracerSignatureKey, valuestring);
-
-    if (0 != readHIBImageMS) {
-        // We woke from hib image and lost contents of memory. We do not
-        // have a valid timing reading for hib write image.
-        asl_set(statsMsg, kMsgTracerValueKey, kMsgTracerValueUndefined);
-    } else {
-        snprintf(valuestring, sizeof(valuestring), "%qd", writeHIBImageMS);
-        asl_set(statsMsg, kMsgTracerValueKey, valuestring);
-    }
-    
     // If readHibImageMS == zero, that means we woke from the contents of memory
     // and did not read the hibernate image.
-    snprintf(valuestring, sizeof(valuestring), "%qd", readHIBImageMS);
-    asl_set(statsMsg, kMsgTracerValue2Key, valuestring);
+    if (writeHIBImageMS)
+        snprintf(buf, sizeof(buf), "wr=%qd ms ", writeHIBImageMS);
 
-    asl_set(statsMsg, ASL_KEY_MSG, "Hibernate Statistics");
+    if (readHIBImageMS)
+        snprintf(buf, sizeof(buf), "rd=%qd ms", readHIBImageMS);
+    asl_set(statsMsg, kMsgTraceDelayKey, buf);
+
+    snprintf(buf, sizeof(buf), "hibmode=%d standbydelay=%d", hibernateMode, hibernateDelay);
+
+    asl_set(statsMsg, ASL_KEY_MSG, buf);
     asl_set(statsMsg, kPMASLMessageKey, kPMASLMessageLogValue);
     asl_send(NULL, statsMsg);
     asl_free(statsMsg);    
@@ -1049,21 +1080,18 @@ __private_extern__ void logASLMessageApplicationResponse(
     CFStringRef     logSourceString,
     CFStringRef     appNameString,
     CFStringRef     responseTypeString,
-    CFNumberRef     responseTime
+    CFNumberRef     responseTime,
+    int             notificationBits
 )
 {
     aslmsg                  appMessage;
     char                    appName[128];
     char                    *appNamePtr = NULL;
     int                     time = 0;
-    char                    valuestring[25];
-    char                    uuidString[128];
-    char                    messageString[128];
-    char                    logSource[128];
-    char                    *logSourcePtr = NULL;
-    char *                  useDomain = NULL;
+    char                    buf[128];
     int                     j = 0;
     bool                    fromKernel = false;
+    char                    qualifier[30];
 
     // String identifying the source of the log is required.
     if (!logSourceString)
@@ -1071,20 +1099,31 @@ __private_extern__ void logASLMessageApplicationResponse(
     if (CFEqual(logSourceString, kAppResponseLogSourceKernel))
         fromKernel = true;
 
-    if (responseTypeString && CFEqual(responseTypeString, CFSTR(kIOPMStatsResponseTimedOut))) {
-        useDomain = kMsgTracerDomainAppResponseTimedOut;
-    } else if (responseTypeString && CFEqual(responseTypeString, CFSTR(kIOPMStatsResponseCancel))) {
-        useDomain = kMsgTracerDomainAppResponseCancel;
-    } else if (responseTypeString && CFEqual(responseTypeString, CFSTR(kIOPMStatsResponseSlow))) {
-        useDomain = kMsgTracerDomainAppResponseSlow;
-    }
-
-    if (!useDomain) 
-        return;
-
     appMessage = asl_new(ASL_TYPE_MSG);
 
-    asl_set(appMessage, kMsgTracerDomainKey, useDomain);
+    if (responseTypeString && CFEqual(responseTypeString, CFSTR(kIOPMStatsResponseTimedOut))) 
+    {
+        asl_set(appMessage, kMsgTracerDomainKey, kMsgTracerDomainAppResponseTimedOut);
+        snprintf(qualifier, sizeof(qualifier), "timed out");
+    } else 
+        if (responseTypeString && CFEqual(responseTypeString, CFSTR(kIOPMStatsResponseCancel))) 
+    {
+        asl_set(appMessage, kMsgTracerDomainKey, kMsgTracerDomainAppResponseCancel);
+        snprintf(qualifier, sizeof(qualifier), "is to cancel state change");
+    } else 
+        if (responseTypeString && CFEqual(responseTypeString, CFSTR(kIOPMStatsResponseSlow))) 
+    {
+        asl_set(appMessage, kMsgTracerDomainKey, kMsgTracerDomainAppResponseSlow);
+        snprintf(qualifier, sizeof(qualifier), "is slow");
+    } else 
+        if (responseTypeString && CFEqual(responseTypeString, CFSTR(kMsgTracerDomainSleepServiceCapApp))) 
+    {
+        asl_set(appMessage, kMsgTracerDomainKey, kMsgTracerDomainSleepServiceCapApp);
+        snprintf(qualifier, sizeof(qualifier), "exceeded SleepService cap");
+    } else {
+        asl_free(appMessage);
+        return;
+    }
 
     // Message = Failing process name
     if (appNameString)
@@ -1120,34 +1159,38 @@ __private_extern__ void logASLMessageApplicationResponse(
     asl_set(appMessage, kMsgTracerSignatureKey, appNamePtr);
     
     // UUID
-    if (_getUUIDString(uuidString, sizeof(uuidString))) {
-        asl_set(appMessage, kMsgTracerUUIDKey, uuidString);    
+    if (_getUUIDString(buf, sizeof(buf))) {
+        asl_set(appMessage, kMsgTracerUUIDKey, buf);    
     }
 
     // Value == Time
     if (responseTime) {
         if (CFNumberGetValue(responseTime, kCFNumberIntType, &time)) {
-            snprintf(valuestring, sizeof(valuestring), "%d", time);
-            asl_set(appMessage, kMsgTracerValueKey, valuestring);
+            snprintf(buf, sizeof(buf), "%d", time);
+            asl_set(appMessage, kMsgTracerValueKey, buf);
         }
     }
 
-    if (CFStringGetCString(logSourceString, logSource, sizeof(logSource), kCFStringEncodingUTF8))
-        logSourcePtr = &logSource[0];
-    else
-        logSourcePtr = "SourceNameUnknown";
-
-    if (time == 0) {
-        snprintf(messageString, sizeof(messageString),
-            "%s %s %s", logSourcePtr, appNamePtr, useDomain);
+    if (CFStringGetCString(logSourceString, buf, sizeof(buf), kCFStringEncodingUTF8)) {
+        snprintf(buf, sizeof(buf), "%s: Response from %s %s", 
+              buf, appNamePtr, qualifier);
     } else {
-        snprintf(messageString, sizeof(messageString),
-            "%s %s %s %d ms\n", logSourcePtr, appNamePtr, useDomain, time);
+        snprintf(buf, sizeof(buf), "Response from %s %s", 
+              appNamePtr, qualifier);
+    }
+        
+    if (notificationBits != -1)
+       snprintf(buf, sizeof(buf), "%s (powercaps:0x%x)", buf, notificationBits);
+
+    asl_set(appMessage, ASL_KEY_MSG, buf);
+
+    if (time != 0) {
+       snprintf(buf, sizeof(buf), "%d ms", time);
+       asl_set(appMessage, kMsgTraceDelayKey, buf);
     }           
 
     asl_set(appMessage, kMsgTracerResultKey, kMsgTracerResultNoop); 
 
-    asl_set(appMessage, ASL_KEY_MSG, messageString);
     
     asl_set(appMessage, ASL_KEY_LEVEL, ASL_STRING_NOTICE);    
 
@@ -1201,7 +1244,7 @@ __private_extern__ void logASLMessageKernelApplicationResponses(void)
             kAppResponseLogSourceKernel,
             appNameString,
             responseTypeString,
-            timeNum);
+            timeNum, -1);
     }
 
 exit:
@@ -1210,6 +1253,69 @@ exit:
 
     if (appFailures)
         free(appFailures);
+}
+
+
+__private_extern__ void logASLMessagePMConnectionScheduledWakeEvents(CFStringRef requestedMaintenancesString)
+{
+    aslmsg                  responsesMessage;
+    char                    buf[100];
+    char                    requestors[500];
+    CFMutableStringRef      messageString = CFStringCreateMutable(0, 0);
+
+    if (!messageString)
+        return;
+    
+    responsesMessage = asl_new(ASL_TYPE_MSG);
+    
+    if (_getUUIDString(buf, sizeof(buf))) {
+        asl_set(responsesMessage, kMsgTracerUUIDKey, buf);    
+    }
+    
+    CFStringAppendCString(messageString, "Clients requested wake events: ", kCFStringEncodingUTF8);
+    CFStringAppend(messageString, requestedMaintenancesString);
+    
+    CFStringGetCString(messageString, requestors, sizeof(requestors), kCFStringEncodingUTF8);
+    
+    asl_set(responsesMessage, ASL_KEY_MSG, requestors);    
+    
+    asl_set(responsesMessage, ASL_KEY_LEVEL, ASL_STRING_NOTICE);    
+    
+    asl_set(responsesMessage, kPMASLMessageKey, kPMASLMessageLogValue);
+    asl_send(NULL, responsesMessage);
+    asl_free(responsesMessage);
+    CFRelease(messageString);
+}
+
+__private_extern__ void logASLMessageExecutedWakeupEvent(CFStringRef requestedMaintenancesString)
+{
+    aslmsg                  responsesMessage;
+    char                    buf[100];
+    char                    requestors[500];
+    CFMutableStringRef      messageString = CFStringCreateMutable(0, 0);
+    
+    if (!messageString)
+        return;
+    
+    responsesMessage = asl_new(ASL_TYPE_MSG);
+    
+    if (_getUUIDString(buf, sizeof(buf))) {
+        asl_set(responsesMessage, kMsgTracerUUIDKey, buf);    
+    }
+
+    CFStringAppendCString(messageString, "PM scheduled RTC wake event: ", kCFStringEncodingUTF8);
+    CFStringAppend(messageString, requestedMaintenancesString);
+
+    CFStringGetCString(messageString, requestors, sizeof(requestors), kCFStringEncodingUTF8);
+    
+    asl_set(responsesMessage, ASL_KEY_MSG, requestors);    
+    
+    asl_set(responsesMessage, ASL_KEY_LEVEL, ASL_STRING_NOTICE);    
+    
+    asl_set(responsesMessage, kPMASLMessageKey, kPMASLMessageLogValue);
+    asl_send(NULL, responsesMessage);
+    asl_free(responsesMessage);
+    CFRelease(messageString);    
 }
 
 /*****************************************************************************/
@@ -1228,8 +1334,7 @@ exit:
  ************************* Send AppleSMC a kCFPropertyTrue
  ************************* on time discontinuities.
  *************************/
-
-static CFMachPortRef        calChangeReceivePort = NULL;
+#if !TARGET_OS_EMBEDDED
 
 static void setSMCProperty(void)
 {
@@ -1271,13 +1376,13 @@ static void handleMachCalendarMessage(CFMachPortRef port, void *msg,
     setSMCProperty();
 }
 
-
 static void registerForCalendarChangedNotification(void)
 {
     mach_port_t tport;
     mach_port_t host_port;
     kern_return_t result;
     CFRunLoopSourceRef rls;
+    static CFMachPortRef        calChangeReceivePort = NULL;
 
     // allocate the mach port we'll be listening to
     result = mach_port_allocate(mach_task_self(),MACH_PORT_RIGHT_RECEIVE, &tport);
@@ -1310,13 +1415,9 @@ static void registerForCalendarChangedNotification(void)
         mach_port_deallocate(mach_task_self(), host_port);
     }
 }
+#endif
 
-
-__private_extern__ int
-callerIsRoot(
-    int uid,
-    int gid
-)
+__private_extern__ int callerIsRoot(int uid)
 {
     return (0 == uid);
 }
@@ -1351,6 +1452,7 @@ callerIsAdmin(
         }
     }
     return false;
+
 }
 
 __private_extern__ int
@@ -1431,6 +1533,7 @@ exit:
 /************************************************************************/
 /************************************************************************/
 // Forwards
+#if !TARGET_OS_EMBEDDED
 static IOReturn _smcWriteKey(
     uint32_t key,
     uint8_t *outBuf,
@@ -1440,18 +1543,8 @@ static IOReturn _smcReadKey(
     uint8_t *outBuf,
     uint8_t *outBufMax);
 
-/************************************************************************/
-__private_extern__ IOReturn _getSystemManagementKeyInt32(
-    uint32_t key, 
-    uint32_t *val)
-{
-#if !TARGET_OS_EMBEDDED    
-    uint8_t readKeyLen = 4;
-    return _smcReadKey(key, (void *)val, &readKeyLen);
-#else
-    return kIOReturnNotReadable;
 #endif
-}
+
 /************************************************************************/
 __private_extern__ IOReturn _getACAdapterInfo(
     uint64_t *val)
@@ -1480,24 +1573,21 @@ __private_extern__ PowerSources _getPowerSource(void)
 }
 
 
+#if !TARGET_OS_EMBEDDED    
 /************************************************************************/
 __private_extern__ IOReturn _smcWakeTimerPrimer(void)
 {
-#if !TARGET_OS_EMBEDDED    
     uint8_t  buf[2];
     
     buf[0] = 0; 
     buf[1] = 1;
     return _smcWriteKey('CLWK', buf, 2);
-#else
     return kIOReturnNotReadable;
-#endif
 }
 
 /************************************************************************/
 __private_extern__ IOReturn _smcWakeTimerGetResults(uint16_t *mSec)
 {
-#if !TARGET_OS_EMBEDDED    
     uint8_t     size = 2;
     uint8_t     buf[2];
     IOReturn    ret;
@@ -1508,76 +1598,11 @@ __private_extern__ IOReturn _smcWakeTimerGetResults(uint16_t *mSec)
     }
 
     return ret;
-#else
-    return kIOReturnNotReadable;
-#endif
 }
 
 
 /************************************************************************/
 /************************************************************************/
-#if !TARGET_OS_EMBEDDED
-
-// Todo: verify kSMCKeyNotFound
-enum {
-    kSMCKeyNotFound = 0x84
-};
-
-/* Do not modify - defined by AppleSMC.kext */
-enum {
-	kSMCSuccess	= 0,
-	kSMCError	= 1
-};
-enum {
-	kSMCUserClientOpen  = 0,
-	kSMCUserClientClose = 1,
-	kSMCHandleYPCEvent  = 2,	
-    kSMCReadKey         = 5,
-	kSMCWriteKey        = 6,
-	kSMCGetKeyCount     = 7,
-	kSMCGetKeyFromIndex = 8,
-	kSMCGetKeyInfo      = 9
-};
-/* Do not modify - defined by AppleSMC.kext */
-typedef struct SMCVersion 
-{
-    unsigned char    major;
-    unsigned char    minor;
-    unsigned char    build;
-    unsigned char    reserved;
-    unsigned short   release;
-    
-} SMCVersion;
-/* Do not modify - defined by AppleSMC.kext */
-typedef struct SMCPLimitData 
-{
-    uint16_t    version;
-    uint16_t    length;
-    uint32_t    cpuPLimit;
-    uint32_t    gpuPLimit;
-    uint32_t    memPLimit;
-
-} SMCPLimitData;
-/* Do not modify - defined by AppleSMC.kext */
-typedef struct SMCKeyInfoData 
-{
-    IOByteCount         dataSize;
-    uint32_t            dataType;
-    uint8_t             dataAttributes;
-
-} SMCKeyInfoData;
-/* Do not modify - defined by AppleSMC.kext */
-typedef struct {
-    uint32_t            key;
-    SMCVersion          vers;
-    SMCPLimitData       pLimitData;
-    SMCKeyInfoData      keyInfo;
-    uint8_t             result;
-    uint8_t             status;
-    uint8_t             data8;
-    uint32_t            data32;    
-    uint8_t             bytes[32];
-}  SMCParamStruct;
 
 static IOReturn callSMCFunction(
     int which, 
@@ -1761,92 +1786,98 @@ exit:
 /*****************************************************************************/
 /*****************************************************************************/
 
-__private_extern__ IOReturn 
-_pm_scheduledevent_choose_best_wake_event(
-    int                 selector,
-    CFAbsoluteTime      chosenTime)
+/* PMScheduleWakeEventChooseBest
+ * Handles the decision-making leading up to system sleep time, about which
+ * wake event we want to schedule with the RTC.
+ *
+ * The system might have several clients requesting a Maintenance wake...
+ * Or a SleepServices wake...
+ * And it might have a few IOPMSchedulePowerEvent() requests to power the system
+ * over an RTC wake.
+ *
+ * This code identifies the first upcoming event, among those options, and
+ * schedules it with the RTC.
+ */
+
+__private_extern__ int gLastChosenWakeType = 0;
+
+__private_extern__ void logASLMessageExecutedWakeupEvent(CFStringRef requestedMaintenancesString);
+
+#define IS_EARLIEST_EVENT(x, y, z) (VALID_DATE(x) && ((y==0.0)||(x<y)) && ((z==0.0)||(x<z)))
+
+__private_extern__ void PMScheduleWakeEventChooseBest(
+    CFAbsoluteTime  maintenance,
+    CFAbsoluteTime  sleepservice,
+    CFAbsoluteTime  autowake)
 {
-    static CFAbsoluteTime      chosenMaintTime = 0;
-    static CFAbsoluteTime      chosenWakeTime = 0;
-
-    static bool PMConnectionReported = false;
-    static bool AutoWakeReported = false;
-
-    CFDateRef       theChosenDate = NULL;
-    CFStringRef     scheduleWakeType = NULL;
-    CFAbsoluteTime  scheduleTime = 0;
+    CFDateRef       theChosenDate                       = NULL;
+    CFStringRef     scheduleWakeType                    = NULL;
+    CFAbsoluteTime  scheduleTime                        = 0.0;
     
-    IOReturn        ret = kIOReturnSuccess;
+     asl_log(NULL, NULL, ASL_LEVEL_ERR, "PMScheduleWakeEventChooseBest: m=%.2lf s=%.2lf a=%.2lf", 
+               maintenance == 0.0 ? 0.0 : (maintenance - CFAbsoluteTimeGetCurrent()),
+              sleepservice == 0.0 ? 0.0 : (sleepservice - CFAbsoluteTimeGetCurrent()),
+                  autowake == 0.0 ? 0.0 : (autowake - CFAbsoluteTimeGetCurrent()));
     
-    if (kChooseReset == selector)
+    if (!VALID_DATE(maintenance) 
+        && !VALID_DATE(autowake) 
+        && !VALID_DATE(sleepservice)) 
     {
-        chosenMaintTime = chosenWakeTime = 0;
-        PMConnectionReported = AutoWakeReported = false;
-//        asl_log(NULL, NULL, ASL_LEVEL_ERR, "PMConfigd choose event: RESET");
-    } else     
-    if (kChooseMaintenance == selector)
-    {
-        PMConnectionReported = true;
-        chosenMaintTime = chosenTime;
-//        asl_log(NULL, NULL, ASL_LEVEL_ERR, "PMConfigd choose event: Maintenance for delta %d secs", chosenTime == 0 ? 0 : (int)(chosenTime - CFAbsoluteTimeGetCurrent()));
-    } else
-    if (kChooseFullWake == selector)
-    {
-        AutoWakeReported = true;
-        chosenWakeTime = chosenTime;
-//        asl_log(NULL, NULL, ASL_LEVEL_ERR, "PMConfigd choose event: Full wake for delta %d secs", chosenTime == 0 ? 0 : (int)(chosenTime - CFAbsoluteTimeGetCurrent()));
+        // Nothing to schedule. bail.
+        gLastChosenWakeType = 0;
+        return;
     }
 
-    /*****/
+    // INVARIANT: At least one of the WakeTimes we're evaluating has a valid date
     
-    if (!(PMConnectionReported && AutoWakeReported))
+    if (IS_EARLIEST_EVENT(maintenance, autowake, sleepservice))
     {
-        // Wait for the other one to respond.
-        ret = kIOReturnSuccess;
-        goto exit;
-    } else
-    if (chosenMaintTime == 0
-      && chosenWakeTime == 0) 
-    {
-        // nothing to schedule. bail.
-        ret = kIOReturnSuccess;
-        goto exit;
-    } else
-    if (chosenMaintTime == 0
-        || (chosenWakeTime != 0 
-        && chosenWakeTime <= chosenMaintTime))
-    {
-        // Schedule the full wake.
-        scheduleWakeType = CFSTR(kIOPMAutoWakeScheduleImmediate);
-        scheduleTime = chosenWakeTime;
-    } else
-    if (chosenWakeTime == 0
-        || (chosenMaintTime != 0
-        && chosenWakeTime > chosenMaintTime))
-    {
-        // Schedule the maintenance wake.
+        // Maintenance Wake is the soonest wake reason.
         scheduleWakeType = CFSTR(kIOPMMaintenanceScheduleImmediate);
-        scheduleTime = chosenMaintTime;
+        scheduleTime = maintenance;
+        gLastChosenWakeType = kChooseMaintenance;
+    } else 
+        if (IS_EARLIEST_EVENT(autowake, maintenance, sleepservice))
+    {
+        // AutoWake is the soonest.
+        scheduleWakeType = CFSTR(kIOPMAutoWakeScheduleImmediate);
+        scheduleTime = autowake;
+        gLastChosenWakeType = kChooseFullWake;
+    } else 
+        if (IS_EARLIEST_EVENT(sleepservice, maintenance, autowake))
+    {
+        // SleepService Wake is the soonest wake reason.
+        scheduleWakeType = CFSTR(kIOPMSleepServiceScheduleImmediate);
+        scheduleTime = sleepservice;
+        gLastChosenWakeType = kChooseSleepServiceWake;
     }
 
-    if (scheduleWakeType
-        && scheduleTime != 0)
+    
+    if (VALID_DATE(scheduleTime) && scheduleWakeType)
     {
-        theChosenDate = CFDateCreate(0, scheduleTime);
-        if (theChosenDate) 
+        if ((theChosenDate = CFDateCreate(0, scheduleTime)))
         {
-            ret = IOPMSchedulePowerEvent(theChosenDate, NULL, scheduleWakeType);
-
-//        asl_log(NULL, NULL, ASL_LEVEL_ERR, "PMConfigd choose event: Scheduled event %s", 
-//            (scheduleWakeType == CFSTR(kIOPMAutoWakeScheduleImmediate) ?
-//                    kIOPMAutoWakeScheduleImmediate : kIOPMMaintenanceScheduleImmediate));
-        
+            /* Tell the RTC when PM wants to be woken up */
+            IOPMSchedulePowerEvent(theChosenDate, NULL, scheduleWakeType);            
             CFRelease(theChosenDate);
+
+        }
+        
+        if (PMDebugEnabled(kLogWakeEvents)) 
+        {
+            /* Record to pmset -g log the event that we chose */
+            CFMutableStringRef      finalPublish = CFStringCreateMutable(0, 0);
+            if (finalPublish)
+            {
+                CFStringAppend(finalPublish, scheduleWakeType);
+                CFStringAppendFormat(finalPublish, NULL, CFSTR(" inDelta=%.2lf"), (scheduleTime - CFAbsoluteTimeGetCurrent()));
+                logASLMessageExecutedWakeupEvent(finalPublish);
+                CFRelease(finalPublish);
+            }
         }
     }
 
-exit:
-    return ret;
+    return ;
 }
 
 
@@ -1892,7 +1923,7 @@ static kern_return_t openHIDService(io_connect_t *connection)
 void wakeDozingMachine(void)
 {
 #if HAVE_HID_SYSTEM
-    IOGPoint loc;
+    IOGPoint loc = {0,0};
     kern_return_t kr;
     NXEvent nullEvent = {NX_NULLEVENT, {0, 0}, 0, -1, 0};
     static io_connect_t io_connection = MACH_PORT_NULL;
@@ -1915,9 +1946,50 @@ void wakeDozingMachine(void)
     return;
 }
 
+static uint32_t gPMDebug = 0xFFFF;
+
+__private_extern__ bool PMDebugEnabled(uint32_t which) 
+{ 
+    return (gPMDebug & which); 
+}
+
+__private_extern__ IOReturn getNvramArgInt(char *key, int *value)
+{
+    io_registry_entry_t optionsRef;
+    IOReturn ret = kIOReturnError;
+    CFDataRef   dataRef = NULL;
+    int *dataPtr = NULL;
+    kern_return_t       kr;
+    CFMutableDictionaryRef dict = NULL;
+    CFStringRef keyRef = NULL;
 
 
+    optionsRef = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
+    if (optionsRef == 0) 
+        return kIOReturnError;
 
+    kr = IORegistryEntryCreateCFProperties(optionsRef, &dict, 0, 0);
+    if (kr != KERN_SUCCESS)
+        goto exit;
 
+    keyRef = CFStringCreateWithCStringNoCopy(0, key, kCFStringEncodingUTF8, kCFAllocatorNull);
+    if (!isA_CFString(keyRef))
+        goto exit;
+    dataRef = CFDictionaryGetValue(dict, keyRef);
+    
+    if (!dataRef) 
+        goto exit;
 
+    dataPtr = (int*)CFDataGetBytePtr(dataRef);
+    *value = *dataPtr;
+    asl_log(NULL, NULL, ASL_LEVEL_ERR, "key=%s value=%d\n", key, *value);
+
+    ret = kIOReturnSuccess;
+
+exit:
+    if (keyRef) CFRelease(keyRef);
+    if (dict) CFRelease(dict);
+    IOObjectRelease(optionsRef);
+    return ret;
+}
 

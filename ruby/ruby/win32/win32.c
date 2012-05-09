@@ -178,15 +178,60 @@ static struct {
     {	ERROR_INFLOOP_IN_RELOC_CHAIN,	ENOEXEC		},
     {	ERROR_FILENAME_EXCED_RANGE,	ENOENT		},
     {	ERROR_NESTING_NOT_ALLOWED,	EAGAIN		},
+#ifndef ERROR_PIPE_LOCAL
+#define ERROR_PIPE_LOCAL	229L
+#endif
+    {	ERROR_PIPE_LOCAL,		EPIPE		},
+    {	ERROR_BAD_PIPE,			EPIPE		},
+    {	ERROR_PIPE_BUSY,		EAGAIN		},
+    {	ERROR_NO_DATA,			EPIPE		},
+    {	ERROR_PIPE_NOT_CONNECTED,	EPIPE		},
+    {	ERROR_OPERATION_ABORTED,	EINTR		},
     {	ERROR_NOT_ENOUGH_QUOTA,		ENOMEM		},
-    {	WSAENAMETOOLONG,		ENAMETOOLONG	},
-    {	WSAENOTEMPTY,			ENOTEMPTY	},
+    {	ERROR_MOD_NOT_FOUND,		ENOENT		},
     {	WSAEINTR,			EINTR		},
     {	WSAEBADF,			EBADF		},
     {	WSAEACCES,			EACCES		},
     {	WSAEFAULT,			EFAULT		},
     {	WSAEINVAL,			EINVAL		},
     {	WSAEMFILE,			EMFILE		},
+    {	WSAEWOULDBLOCK,			EWOULDBLOCK	},
+    {	WSAEINPROGRESS,			EINPROGRESS	},
+    {	WSAEALREADY,			EALREADY	},
+    {	WSAENOTSOCK,			ENOTSOCK	},
+    {	WSAEDESTADDRREQ,		EDESTADDRREQ	},
+    {	WSAEMSGSIZE,			EMSGSIZE	},
+    {	WSAEPROTOTYPE,			EPROTOTYPE	},
+    {	WSAENOPROTOOPT,			ENOPROTOOPT	},
+    {	WSAEPROTONOSUPPORT,		EPROTONOSUPPORT	},
+    {	WSAESOCKTNOSUPPORT,		ESOCKTNOSUPPORT	},
+    {	WSAEOPNOTSUPP,			EOPNOTSUPP	},
+    {	WSAEPFNOSUPPORT,		EPFNOSUPPORT	},
+    {	WSAEAFNOSUPPORT,		EAFNOSUPPORT	},
+    {	WSAEADDRINUSE,			EADDRINUSE	},
+    {	WSAEADDRNOTAVAIL,		EADDRNOTAVAIL	},
+    {	WSAENETDOWN,			ENETDOWN	},
+    {	WSAENETUNREACH,			ENETUNREACH	},
+    {	WSAENETRESET,			ENETRESET	},
+    {	WSAECONNABORTED,		ECONNABORTED	},
+    {	WSAECONNRESET,			ECONNRESET	},
+    {	WSAENOBUFS,			ENOBUFS		},
+    {	WSAEISCONN,			EISCONN		},
+    {	WSAENOTCONN,			ENOTCONN	},
+    {	WSAESHUTDOWN,			ESHUTDOWN	},
+    {	WSAETOOMANYREFS,		ETOOMANYREFS	},
+    {	WSAETIMEDOUT,			ETIMEDOUT	},
+    {	WSAECONNREFUSED,		ECONNREFUSED	},
+    {	WSAELOOP,			ELOOP		},
+    {	WSAENAMETOOLONG,		ENAMETOOLONG	},
+    {	WSAEHOSTDOWN,			EHOSTDOWN	},
+    {	WSAEHOSTUNREACH,		EHOSTUNREACH	},
+    {	WSAEPROCLIM,			EPROCLIM	},
+    {	WSAENOTEMPTY,			ENOTEMPTY	},
+    {	WSAEUSERS,			EUSERS		},
+    {	WSAEDQUOT,			EDQUOT		},
+    {	WSAESTALE,			ESTALE		},
+    {	WSAEREMOTE,			EREMOTE		},
 };
 
 int
@@ -1838,15 +1883,24 @@ rb_w32_open_osfhandle(long osfhandle, int flags)
 static void
 init_stdhandle(void)
 {
+    int nullfd = -1;
+    int keep = 0;
+#define open_null(fd)						\
+    (((nullfd < 0) ?						\
+      (nullfd = open("NUL", O_RDWR|O_BINARY)) : 0),		\
+     ((nullfd == (fd)) ? (keep = 1) : dup2(nullfd, fd)),	\
+     (fd))
+
     if (fileno(stdin) < 0) {
-	stdin->_file = 0;
+	stdin->_file = open_null(0);
     }
     if (fileno(stdout) < 0) {
-	stdout->_file = 1;
+	stdout->_file = open_null(1);
     }
     if (fileno(stderr) < 0) {
-	stderr->_file = 2;
+	stderr->_file = open_null(2);
     }
+    if (nullfd >= 0 && !keep) close(nullfd);
     setvbuf(stderr, NULL, _IONBF, 0);
 }
 #else

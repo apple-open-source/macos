@@ -132,57 +132,6 @@ static bool weLikeTheDisk(DADiskRef disk)
 
 /*****************************************************************************/
 
-static CFMutableDictionaryRef	_IOPMAssertionDescriptionCreate(
-    CFStringRef AssertionType, 
-    CFStringRef Name, 
-    CFStringRef Details,
-    CFStringRef HumanReadableReason,
-    CFStringRef LocalizationBundlePath,
-    CFTimeInterval Timeout,
-    CFStringRef TimeoutBehavior)
-{
-    CFMutableDictionaryRef  descriptor = NULL;
-    
-    if (!AssertionType || !Name) {
-        return NULL;
-    }
-    
-    descriptor = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (!descriptor) {
-        return NULL;
-    }
-
-    CFDictionarySetValue(descriptor, kIOPMAssertionNameKey, Name);
-
-    int _on = kIOPMAssertionLevelOn;
-    CFNumberRef _on_num = CFNumberCreate(0, kCFNumberIntType, &_on);
-    CFDictionarySetValue(descriptor, kIOPMAssertionLevelKey, _on_num);
-    CFRelease(_on_num);
-
-    CFDictionarySetValue(descriptor, kIOPMAssertionTypeKey, AssertionType);
-
-    if (Details) {
-        CFDictionarySetValue(descriptor, kIOPMAssertionDetailsKey, Details);
-    }
-    if (HumanReadableReason) {
-        CFDictionarySetValue(descriptor, kIOPMAssertionHumanReadableReasonKey, HumanReadableReason);
-    }
-    if (LocalizationBundlePath) {
-        CFDictionarySetValue(descriptor, kIOPMAssertionLocalizationBundlePathKey, LocalizationBundlePath);
-    }
-    if (Timeout) {
-        CFNumberRef Timeout_num = CFNumberCreate(0, kCFNumberDoubleType, &Timeout);
-        CFDictionarySetValue(descriptor, kIOPMAssertionTimeoutKey, Timeout_num);
-        CFRelease(Timeout_num);
-    }
-    if (TimeoutBehavior)
-    {
-        CFDictionarySetValue(descriptor, kIOPMAssertionTimeoutActionKey, TimeoutBehavior);
-    }
-
-    return descriptor;
-}
-
 
 static void adjustExternalDiskAssertion()
 {

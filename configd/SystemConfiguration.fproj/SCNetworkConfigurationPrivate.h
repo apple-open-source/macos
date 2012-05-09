@@ -300,6 +300,16 @@ CFStringRef
 _SCNetworkInterfaceGetIOPath				(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 /*!
+	@function _SCNetworkInterfaceGetIORegistryEntryID
+	@discussion Returns the IORegistry entry ID for the interface.
+	@param interface The network interface.
+	@result The IORegistry entry ID associated with the interface;
+		Zero if no entry ID is available.
+ */
+uint64_t
+_SCNetworkInterfaceGetIORegistryEntryID			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_7/*FIXME*/,__IPHONE_5_0);
+
+/*!
 	@function _SCNetworkInterfaceIsBluetoothPAN
 	@discussion Identifies if a network interface is a Bluetooth PAN (GN) device.
 	@param interface The network interface.

@@ -3,7 +3,7 @@
   string.c -
 
   $Author: shyouhei $
-  $Date: 2009-12-14 00:59:51 +0900 (Mon, 14 Dec 2009) $
+  $Date: 2011-12-28 21:47:15 +0900 (Wed, 28 Dec 2011) $
   created at: Mon Aug  9 17:12:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -875,13 +875,15 @@ rb_str_concat(str1, str2)
     return str1;
 }
 
+static unsigned long hash_seed;
+
 int
 rb_str_hash(str)
     VALUE str;
 {
     register long len = RSTRING(str)->len;
     register char *p = RSTRING(str)->ptr;
-    register int key = 0;
+    register unsigned long key = hash_seed;
 
 #if defined(HASH_ELFHASH)
     register unsigned int g;
@@ -905,6 +907,7 @@ rb_str_hash(str)
     while (len--) {
 	key = key*65599 + *p;
 	p++;
+	key = (key << 13) | (key >> ((sizeof(unsigned long) * CHAR_BIT) - 13));
     }
     key = key + (key>>5);
 #endif
@@ -2642,7 +2645,7 @@ rb_str_inspect(str)
     while (p < pend) {
 	char c = *p++;
 	int len;
-	if (ismbchar(c) && p + (len = mbclen(c)) <= pend) {
+	if (ismbchar(c) && p - 1 + (len = mbclen(c)) <= pend) {
 	    rb_str_buf_cat(result, p - 1, len);
 	    p += len - 1;
 	}
@@ -5062,4 +5065,6 @@ Init_String()
     rb_fs = Qnil;
     rb_define_variable("$;", &rb_fs);
     rb_define_variable("$-F", &rb_fs);
+
+    hash_seed = rb_genrand_int32();
 }

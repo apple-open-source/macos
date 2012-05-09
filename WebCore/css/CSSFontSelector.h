@@ -65,6 +65,8 @@ public:
 
     virtual void registerForInvalidationCallbacks(FontSelectorClient*);
     virtual void unregisterForInvalidationCallbacks(FontSelectorClient*);
+    
+    Document* document() const { return m_document; }
 
 private:
     CSSFontSelector(Document*);

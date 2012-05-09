@@ -1335,8 +1335,16 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
 	if (timespeccmp(&np->maxAccessRightChTime, &np->n_chtime, ==))
 		goto done;
 	
-	/* We only do this for Leopard and Snow Leopard Servers */
-	if ((share->ss_attributes & FILE_PERSISTENT_ACLS) && 
+	/* 
+	 * XXX - 10809405 Another case were we should quit working around server bugs.
+	 *
+     *       This is a hack and a performance killer, but it works around a bug in Samba Servers.
+     *       They always report that you have complete access. We want to be backwards compatible 
+     *       to Leopard and Snow Leopard Servers, so if they support ACLs use the ACLs to 
+     *       find out the access. Very bad for performance, but its what we did in the past.
+     *       Some day soon we should just remove this code. 
+     */
+	if ((share->ss_attributes & FILE_PERSISTENT_ACLS) && (!(SSTOVC(share)->vc_flags & SMBV_DARWIN)) &&
 		((UNIX_CAPS(share) & UNIX_QFS_POSIX_WHOAMI_SID_CAP))) {
 		/* Get the maximum access from the acl and our list of whoami sids. */
 		UpdateMaximumAccessFromACLs(share, np, context);
@@ -1355,26 +1363,46 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
 		 * test with other servers and see if they behave the same as windows or 
 		 * do we need to open them with SMB2_READ_CONTROL?
 		 */
+        /*
+         * We could solve a lot of headaches by testing for the servers that do
+         * not support opening the item with no access. Something like the following
+         * should work (accessOpenModes defaults to zero):
+         *
+         * error = smbfs_tmpopen(share, np, share->accessOpenModes, &fid, context);
+         * if (error && share->firstAccessOpen) {
+         *      share->accessOpenModes = SMB2_READ_CONTROL;
+         *      error = smbfs_tmpopen(share, np, share->accessOpenModes, &fid, context);
+         *  }
+         *  share->firstAccessOpen = TRUE;
+         *
+         * At this point we should just trust what they say, may want to make an exception
+         * for the root node, and non darwin Unix systems.
+         */
 		error = smbfs_tmpopen(share, np, 0, context, &fid);
 		if (error) {
-			/*
-			 * Why do we need UNIX_QFS_POSIX_WHOAMI_CAP here? Should we just try
-			 * to open it with SMB2_READ_CONTROL and go on from there?
-			 */
-			if ((error == EACCES) && 
-				!((UNIX_CAPS(share) & UNIX_QFS_POSIX_WHOAMI_CAP))) {
-				/* Windows Server and they told us we have no access. */
-				np->maxAccessRights = 0;
-			} else {
-				/* We have no idea why it failed, give them full access. */
+            if (error != EACCES) {
+ 				/* We have no idea why it failed, give them full access. */
 				np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
-			}
-			SMB_LOG_ACCESS("Opening %s failed with error = %d, granting full access\n",
-						   np->n_name, error);
-			/* The open call failed so the cache timer wasn't set, so do that here */
-			np->maxAccessRightChTime = np->n_chtime;
-		} else
+            } else {
+                if (vnode_isvroot(np->n_vnode)) {
+                    np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;                  
+                } else if (((!UNIX_SERVER(SSTOVC(share))) || (SSTOVC(share)->vc_flags & SMBV_DARWIN))) {
+                    /* Windows or Darwin Server and they told us we have no access. */
+                    np->maxAccessRights = 0;
+                } else {
+                    np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;                                    
+                }
+            }			
+            SMB_LOG_ACCESS("Opening %s failed with error = %d, granting %s access\n",
+						   np->n_name, error, (np->maxAccessRights) ? "full" : "no");
+			/* 
+             * The open call failed so the cache timer wasn't set, so do that 
+             * here 
+             */
+            np->maxAccessRightChTime = np->n_chtime;
+		} else {
 			smbfs_tmpclose(share, np, fid, context);
+        }
 	}
 	SMB_LOG_ACCESS("%s maxAccessRights = 0x%x\n", np->n_name, np->maxAccessRights);
 done:

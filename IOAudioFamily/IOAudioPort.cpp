@@ -167,7 +167,7 @@ void IOAudioPort::registerService(IOOptionBits options)
 	if (iterator) {
             IOAudioControl *control;
     
-            while (control = (IOAudioControl *)iterator->getNextObject()) {
+            while ( (control = (IOAudioControl *)iterator->getNextObject()) ) {
                 if (control->getProvider() == this) {
                     control->registerService();
                 }
@@ -227,7 +227,7 @@ void IOAudioPort::deactivateAudioControls()
     if (iterator) {
         IOAudioControl *control;
 
-        while (control = (IOAudioControl *)iterator->getNextObject()) {
+        while ( (control = (IOAudioControl *)iterator->getNextObject()) ) {
             // Should we check to see if we're the provider?
             if (!isInactive()) {
                 control->terminate();
